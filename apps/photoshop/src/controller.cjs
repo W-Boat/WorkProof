@@ -1,0 +1,149 @@
+// SPDX-License-Identifier: MIT
+// Host-independent controller; descriptors, layer names, paths and pixels never enter events.
+const MAX_QUEUE=2048;
+const EVENTS=['make','delete','move','mergeLayersNew','mergeVisible','set','paint','undoEvent','select','save','open','close'];
+const MAP={make:'layer',delete:'layer',move:'layer',mergeLayersNew:'layer',mergeVisible:'layer',set:'edit',paint:'edit',undoEvent:'undo',save:'save'};
+const same=(a,b)=>a.id===b.id&&a.history===b.history&&JSON.stringify(a.metrics)===JSON.stringify(b.metrics);
+class Recorder {
+  constructor({host,request,hash,now=Date.now,sleep=ms=>new Promise(r=>setTimeout(r,ms)),changed=()=>{}}){
+    Object.assign(this,{host,request,hash,now,sleep,changed});
+    this.token='';this.session='';this.pending=[];this.next=0;this.committed=0;this.paused=true;this.busy=false;this.sampling=false;
+    this.signals=new Set();this.revision=0;this.elapsed=0;this.error='';this.message='连接后仅在主动开始时记录当前文档。';
+    this.notify=this.notify.bind(this);this.stopped=false;
+  }
+  view(){return {recording:!!this.session,paused:this.paused,busy:this.busy,committed:this.committed,queued:this.pending.length,message:this.error||this.message};}
+  paint(){this.changed(this.view());}
+  async api(path,body,authenticated=true){return this.request(path,body,authenticated?this.token:'');}
+  async connect(){
+    if(this.token)return;
+    const ticket=await this.api('/v1/native-pairing',{source:'photoshop'},false);
+    this.message='请在 WorkProof 桌面窗口允许 Photoshop 本机插件的连接请求。';this.paint();
+    for(let i=0;i<100;i++){
+      await this.sleep(1000);
+      if(this.stopped)throw new Error('插件已停止连接。');
+      const grant=await this.api('/v1/native-pairing/'+ticket.ticket,undefined,false);
+      if(grant.approved){this.token=grant.token;return;}
+    }
+    throw new Error('连接请求已过期，请重新开始。');
+  }
+  check(snapshot){
+    if(snapshot.id!==this.documentId){this.paused=true;throw new Error('活动文档已改变，请停止后为新文档重新开始记录。');}
+  }
+  event(kind,snapshot,checkpoint=''){
+    if(this.pending.length>=MAX_QUEUE){this.paused=true;throw new Error('离线队列已满，记录已暂停。恢复连接后继续。');}
+    this.elapsed=Math.max(this.elapsed,Math.max(0,Math.floor(this.now()-this.started)));
+    this.pending.push({seq:this.next++,elapsed_ms:this.elapsed,kind,inserted:0,deleted:0,chars:0,checkpoint,metrics:{...snapshot.metrics}});this.paint();
+  }
+  async flush(){
+    if(this.delivering)return this.delivering;
+    this.delivering=(async()=>{
+      while(this.pending.length){
+        const batch=this.pending.slice(0,128);
+        const result=await this.api('/v1/sessions/'+this.session+'/events',{events:batch});
+        if(!Number.isSafeInteger(result.next_seq)||result.next_seq<batch[batch.length-1].seq+1)throw new Error('本机引擎未确认事件落盘。');
+        this.pending.splice(0,batch.length);this.committed+=batch.length;this.paint();
+      }
+    })();
+    try{await this.delivering;}finally{this.delivering=null;}
+  }
+  async start(){
+    if(this.busy||this.session)throw new Error('请先停止当前记录。');
+    this.stopped=false;this.busy=true;this.error='';this.paint();
+    try{
+      const first=this.host.snapshot();
+      this.artifact=await this.host.chooseArtifact();
+      if(!this.artifact){this.message='已取消，尚未开始记录。';return;}
+      await this.connect();
+      const current=this.host.snapshot();
+      if(first.id!==current.id)throw new Error('连接期间活动文档已改变，请重新开始。');
+      this.documentId=current.id;
+      await this.host.listen(EVENTS,this.notify);this.listening=true;
+      const result=await this.api('/v1/sessions',{source:'photoshop',file_name:this.artifact.name,started_at:new Date().toISOString()});
+      this.session=result.session_id;this.started=this.now();this.lastSample=this.started;this.next=0;this.committed=0;this.pending=[];this.elapsed=0;
+      this.previous=current;this.signals.clear();this.paused=false;
+      this.event('start',current);await this.flush();this.message='记录中。每秒合并动作信号与图层统计，不保存图像或图层名称。';
+    }catch(error){
+      this.paused=true;
+      if(this.listening&&!this.session){await this.host.unlisten(EVENTS,this.notify).catch(()=>{});this.listening=false;}
+      throw error;
+    }finally{this.busy=false;this.paint();}
+  }
+  notify(name,descriptor){
+    if(!this.session||this.paused)return;
+    let id;try{id=this.host.activeId();}catch{this.paused=true;this.error='宿主暂时无法读取活动文档，请稍后继续。';this.paint();return;}
+    if(id!==this.documentId){this.paused=true;this.error='活动文档已改变，请停止后重新开始记录。';this.paint();return;}
+    // Read only a numerical routing hint, never retain or serialize the descriptor.
+    if(Number.isFinite(descriptor?.documentID)&&descriptor.documentID!==this.documentId)return;
+    this.revision++;
+    if(!this.busy&&MAP[name])this.signals.add(MAP[name]);
+  }
+  async sample(force=false){
+    if(!this.session||this.paused||this.sampling||(this.busy&&!force))return;
+    this.sampling=true;
+    try{
+      if(!force&&this.host.marker&&!this.signals.size&&this.now()-this.lastSample<=15000){
+        const marker=this.host.marker();this.check(marker);
+        if(marker.history===this.previous.history){this.lastSample=this.now();await this.flush();return;}
+      }
+      const current=this.host.snapshot();this.check(current);
+      if(this.now()-this.lastSample>15000)this.event('gap',current);
+      this.lastSample=this.now();
+      if(this.signals.size){for(const kind of this.signals)this.event(kind,current);this.signals.clear();}
+      else if(!same(this.previous,current))this.event(JSON.stringify(current.metrics)!==JSON.stringify(this.previous.metrics)?'layer':'edit',current);
+      this.previous=current;await this.flush();
+    }catch(error){this.paused=true;throw error;}finally{this.sampling=false;this.paint();}
+  }
+  async pause(){
+    if(!this.session||this.busy)return;
+    if(this.paused){
+      const current=this.host.snapshot();this.check(current);await this.flush();
+      this.event('gap',current);this.event('resume',current);this.previous=current;this.lastSample=this.now();this.signals.clear();this.paused=false;
+    }else{await this.sample();this.event('pause',this.previous);this.paused=true;}
+    await this.flush();this.message=this.paused?'已暂停；继续时会记录采集缺口。':'记录中。';this.error='';this.paint();
+  }
+  async export(){
+    if(!this.session||this.paused||this.busy)throw new Error('请先开始或继续记录。');
+    this.busy=true;this.error='';this.paint();
+    try{
+      while(this.sampling)await this.sleep(20);
+      await this.sample(true);
+      const proofFile=await this.host.chooseProof(this.artifact.name+'.wproof');
+      if(!proofFile){this.message='已取消证书导出，继续记录。';return;}
+      const before=this.host.snapshot();this.check(before);const revision=this.revision;
+      await this.host.saveCopy(this.artifact,this.documentId);
+      const {bytes,stamp}=await this.host.readArtifact(this.artifact);
+      const after=this.host.snapshot();this.check(after);
+      if(!same(before,after)||revision!==this.revision)throw new Error('导出期间文档发生变化，请停止编辑后重试。');
+      const digest=this.hash(bytes);
+      if(this.now()-this.lastSample>15000)this.event('gap',after);
+      this.lastSample=this.now();this.event('save',after,digest);await this.flush();
+      const proof=await this.api('/v1/sessions/'+this.session+'/export',{artifact_hash:digest,artifact_bytes:bytes.length});
+      const m=proof.manifest;
+      if(m?.protocol!=='workproof/3'||m.source!=='photoshop'||m.session_id!==this.session||m.file_name!==this.artifact.name||m.artifact_hash!==digest||m.artifact_bytes!==bytes.length||m.event_count!==this.next)throw new Error('引擎返回的交付绑定不一致，未写入证书。');
+      const latest=this.host.snapshot();this.check(latest);
+      if(!same(after,latest)||revision!==this.revision)throw new Error('签发期间文档发生变化，请重试。');
+      await this.host.assertArtifactUnchanged(this.artifact,stamp);
+      await this.host.writeProof(proofFile,proof);
+      await this.host.assertArtifactUnchanged(this.artifact,stamp);
+      this.message='PSD 副本和 .wproof 已写入你选择的位置。请交付这份副本。';
+    }finally{this.busy=false;this.paint();}
+  }
+  async stop(){
+    this.stopped=true;
+    if(this.busy)throw new Error('请等待当前操作完成，再停止记录。');
+    if(this.session){
+      try{if(!this.paused)await this.sample();await this.flush();}
+      catch(error){this.paused=true;throw new Error('仍有未提交事件，请恢复连接后重试停止：'+error.message);}
+    }
+    if(this.listening){await this.host.unlisten(EVENTS,this.notify);this.listening=false;}
+    this.session='';this.token='';this.paused=true;this.signals.clear();this.pending=[];this.message='已停止，本次证书需在停止前完成导出。';this.paint();
+  }
+  async hidden(){
+    if(this.session&&!this.paused&&!this.busy)await this.pause();
+  }
+  async dispose(){
+    this.stopped=true;this.paused=true;
+    if(this.listening){await this.host.unlisten(EVENTS,this.notify).catch(()=>{});this.listening=false;}
+  }
+}
+module.exports={Recorder,EVENTS,MAX_QUEUE};

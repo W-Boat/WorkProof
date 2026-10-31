@@ -15,8 +15,9 @@ async function refresh(){
       region.dataset.requests=signature;region.replaceChildren();
       for(const request of requests){
         const card=document.createElement('div'),title=document.createElement('strong'),origin=document.createElement('p');
-        title.textContent=`连接请求：${request.source}（网页声明）`;origin.textContent=request.origin;
-        const note=document.createElement('p');note.textContent='仅允许你正在使用的加载项网址。此授权可创建该来源自己的记录，不授予本机文件访问。';
+        const native=request.channel==='native';
+        title.textContent=`连接请求：${request.source}（${native?'本机插件自声明':'网页声明'}）`;origin.textContent=native?'本机原生连接 · 无网站来源':request.origin;
+        const note=document.createElement('p');note.textContent=native?'仅当你刚在 Photoshop 中点击连接时允许。插件身份未认证，此授权仅操作自己的会话，不授予本机路径读取。':'仅允许你正在使用的加载项网址。此授权可创建该来源自己的记录，不授予本机文件访问。';
         card.append(title,origin,note);
         for(const [text,approve] of [['允许连接',true],['拒绝',false]]){
           const button=document.createElement('button');button.textContent=text;

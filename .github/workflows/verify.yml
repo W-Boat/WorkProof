@@ -52,6 +52,13 @@ jobs:
           cp -r apps/office/dist/* apps/verifier/public/office/
       - name: WPS ribbon lifecycle and origin isolation
         run: node --test scripts/test_wps_ribbon.cjs
+      - name: Photoshop UXP controller and native grant integration
+        run: |
+          node --test scripts/test_photoshop.cjs
+          node apps/photoshop/build.mjs
+          cargo build --locked -p workproof-engine --example native_adapter_harness
+          node scripts/test_photoshop_engine.cjs target/debug/examples/native_adapter_harness target/debug/workproof-engine
+          python scripts/package_photoshop.py
       - name: Extension to collector integration
         run: node scripts/test_extension.cjs target/debug/workproof-engine
       - name: Install Blender for native adapter validation
@@ -74,6 +81,7 @@ jobs:
             playwright-report/
             test-engine-results.json
             test-blender-results.json
+            test-photoshop-results.json
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-web-and-extension
@@ -82,6 +90,7 @@ jobs:
             apps/extension/*.vsix
             apps/office/dist/
             dist/workproof-blender-*.zip
+            dist/workproof-photoshop-*-dev.zip
             docs/
             README.md
             Cargo.lock
@@ -123,6 +132,10 @@ jobs:
           python scripts/test_engine.py target/release/workproof-engine.exe
       - name: Windows selective proof interoperability
         run: node scripts/test_disclosure.cjs target/release/workproof-engine.exe
+      - name: Windows native Photoshop grant isolation
+        run: |
+          cargo build --locked -p workproof-engine --example native_adapter_harness
+          node scripts/test_photoshop_engine.cjs target/debug/examples/native_adapter_harness.exe target/release/workproof-engine.exe
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-windows-x64

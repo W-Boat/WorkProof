@@ -118,3 +118,7 @@ ImageGen 生成图标属于生成资产，不是开源项目依赖。本次不�
 5. 后续依赖升级、加入 Pro 组件、嵌入字体/动画或更换 JDK/容器镜像时，更新本报告和实际产物许可清单。
 
 因此，本次结论是“具备可商用路线，条件已识别并有证据”，不是“所有依赖无条件放行”。未改许可证、未购买商业授权、未对外发布产品。
+
+### Photoshop UXP 当前开发包
+
+`apps/photoshop` 为 WorkProof 自有 MIT 源码；构建仅打入已有锁文件内的 `@noble/hashes` 并保留其实际 LICENSE。`photoshop`/`uxp` 模块由用户合法宿主提供，不作为 MIT 库打入包。当前生成开发加载 ZIP，不伪装为 Adobe 签发 `.ccx` 或已通过 Marketplace 审核；正式插件 ID 与分发按 Adobe 开发流程及适用条款另行办理。未增加新的 npm/Cargo 依赖，不能据此把 Adobe 宿主或 SDK 权利统称为开源许可。

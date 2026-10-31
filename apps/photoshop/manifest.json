@@ -1,0 +1,18 @@
+{
+  "manifestVersion": 5,
+  "id": "org.workproof.photoshop",
+  "name": "WorkProof · 开源证人",
+  "version": "0.2.0",
+  "main": "index.html",
+  "host": [{"app":"PS","minVersion":"23.3.0","data":{"apiVersion":2}}],
+  "entrypoints": [{
+    "type":"panel","id":"workproof","label":{"default":"WorkProof"},
+    "minimumSize":{"width":280,"height":460},
+    "preferredDockedSize":{"width":320,"height":580},
+    "preferredFloatingSize":{"width":360,"height":620}
+  }],
+  "requiredPermissions": {
+    "localFileSystem": "request",
+    "network": {"domains":["http://127.0.0.1:43127"]}
+  }
+}

@@ -1,0 +1,41 @@
+name: Photoshop adapter and native grant validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-adapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - name: Protocol and native grant unit tests
+        run: cargo test --locked -p workproof-protocol -p workproof-engine
+      - name: Photoshop API controller simulations
+        run: node --test scripts/test_photoshop.cjs
+      - name: Bundle development plugin with host modules external
+        run: node apps/photoshop/build.mjs
+      - name: Build real collector and stdin-only CI approval harness
+        run: cargo build --locked -p workproof-engine --example native_adapter_harness --bin workproof-engine
+      - name: Native adapter to real collector and scope isolation
+        run: node scripts/test_photoshop_engine.cjs target/debug/examples/native_adapter_harness target/debug/workproof-engine
+      - name: Package UXP development source, never masquerade as CCX
+        run: python scripts/package_photoshop.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-photoshop-dev
+          if-no-files-found: error
+          path: |
+            apps/photoshop/dist/
+            dist/workproof-photoshop-*-dev.zip
+            test-photoshop-results.json
+            docs/PHOTOSHOP.md

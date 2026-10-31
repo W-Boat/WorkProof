@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>WorkProof</title><link rel="stylesheet" href="panel.css"></head><body>
+  <sp-heading size="M">WorkProof · 开源证人</sp-heading>
+  <sp-body>记录当前文档的图层统计与动作类别。作品留在本机。</sp-body>
+  <div class="status"><sp-body id="status">点击开始，选择交付副本位置并在桌面窗口允许连接。</sp-body><sp-detail id="count">0 条已提交事件</sp-detail></div>
+  <sp-button id="start" variant="cta">开始记录当前文档</sp-button>
+  <sp-button id="pause" disabled>暂停记录</sp-button>
+  <sp-button id="export" disabled>保存 PSD 副本与证书</sp-button>
+  <sp-button id="stop" variant="secondary" disabled>停止记录</sp-button>
+  <sp-divider></sp-divider>
+  <sp-detail>不采集像素、图层名或描述符。动作信号每秒合并，不能还原全部操作；暂停与隐藏会披露采集缺口。</sp-detail>
+  <sp-detail>交付须使用本次导出的 PSD 副本和 .wproof。当前副本上限 128 MB。不认证人类身份、AI 比例或可信时间。</sp-detail>
+  <script src="main.js"></script>
+</body></html>

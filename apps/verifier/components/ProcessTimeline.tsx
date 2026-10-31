@@ -3,8 +3,9 @@ import {useState} from 'react';
 import {type RecordEntry,time,labels,metricLabels,shorten} from '../lib/evidence';
 export function Timeline({records}:{records:RecordEntry[]}){
   const [selected,setSelected]=useState(0);
-  const [metric,setMetric]=useState(records.some(r=>r.event.metrics?.vertices!==undefined)?'vertices':'chars');
-  const available=['chars',...Object.keys(metricLabels).filter(k=>k!=='chars'&&records.some(r=>r.event.metrics?.[k]!==undefined))];
+  const structured=records.some(r=>r.event.metrics?.vertices!==undefined||r.event.metrics?.layers!==undefined);
+  const [metric,setMetric]=useState(records.some(r=>r.event.metrics?.vertices!==undefined)?'vertices':records.some(r=>r.event.metrics?.layers!==undefined)?'layers':'chars');
+  const available=[...(structured?[]:['chars']),...Object.keys(metricLabels).filter(k=>k!=='chars'&&records.some(r=>r.event.metrics?.[k]!==undefined))];
   const value=(r:RecordEntry)=>metric==='chars'?r.event.chars:r.event.metrics?.[metric];
   const max=records.reduce((n,r)=>Math.max(n,value(r)??0),1);const total=records.at(-1)?.event.elapsed_ms||1;
   // Bin large logs for display; original events remain in the signed evidence.
