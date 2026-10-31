@@ -8,3 +8,6 @@
 *.yml text eol=lf
 *.md text eol=lf
 *.ico binary
+
+# Preserve upstream license/notice evidence byte for byte, including line ends.
+docs/licenses/maven-notices/** -text -whitespace

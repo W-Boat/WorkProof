@@ -1,0 +1,47 @@
+name: Dependency license evidence
+on:
+  push:
+    paths:
+      - 'scripts/license-inventory.py'
+      - 'docs/licenses/**'
+      - 'docs/COMMERCIAL-LICENSE-AUDIT.md'
+      - '.github/workflows/license-audit.yml'
+  workflow_dispatch:
+    inputs:
+      institution_run:
+        description: 'Successful institution-baseline run whose JAR is being inventoried'
+        type: string
+        default: '41181460797'
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INSTITUTION_RUN: ${{ inputs.institution_run || '41181460797' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Download the existing Actions-built backend (no rebuild)
+        run: gh run download "$INSTITUTION_RUN" --name institution-baseline --dir .license-input
+      - name: Collect version-specific declarations and embedded notices
+        shell: bash
+        run: |
+          mapfile -t jars < <(find .license-input -name 'scaffold-admin-*.jar')
+          test "${#jars[@]}" -eq 1
+          python scripts/license-inventory.py --jar "${jars[0]}" --output .license-output/dependency-inventory.json
+          cp docs/COMMERCIAL-LICENSE-AUDIT.md .license-output/
+          cp docs/licenses/npm-special-evidence.json .license-output/
+          cp docs/licenses/proposed-components.json .license-output/
+          printf 'Backend evidence run: %s\nLicense metadata completeness is not legal clearance.\n' "$INSTITUTION_RUN" > .license-output/SCOPE.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-license-evidence
+          path: .license-output/
