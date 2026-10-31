@@ -79,7 +79,7 @@
 
 | 项目 | 核验结果 | 对 WorkProof 的处理 |
 |---|---|---|
-| wpsjs 2.2.3 | npm 元数据为 ISC，发布包 LICENSE 却为金山自定义条款：允许范围含不修改、不得单独销售等限制 | 按包内实际文本保守处理，不能按 ISC 放行。当前草稿只调用未修改 CLI，尚未运行发布工作流；生成页面、模板及依赖的再分发权限仍待确认。不把工具本身当 MIT 交付给用户 |
+| wpsjs 2.2.3 | npm 元数据为 ISC，发布包 LICENSE 却为金山自定义条款：允许范围含不修改、不得单独销售等限制 | 按包内实际文本保守处理，不能按 ISC 放行。当前 Office 验证包只包含 WorkProof 自有入口，不运行该 CLI、不分发其模板；生成页面、模板及依赖的再分发权限仍待确认。不把工具本身当 MIT 交付给用户 |
 | Office.js | [微软专有 API Library 条款](https://github.com/OfficeDev/office-js/blob/release/LICENSE.md)，非 MIT；`@types/office-js` 的 MIT 不覆盖运行库 | 商业 Office 互操作加载项可按其条件开发与分发；仅在 Word 路径从官方 CDN 加载，WPS 用自己的 API，不能把 Office.js 改作通用 WPS SDK |
 | VS Code | 开源源码与微软发行二进制许可不同 | 交付自有 VSIX，不把微软编辑器当 MIT 再分发 |
 | `@vscode/vsce-sign` 及平台包 | 包内 Microsoft VSCE-SIGN 软件条款；限制与指定微软产品/服务配合开发测试，禁止把工具提供给第三方 | 属开发打包依赖。当前 `vsce --no-dependencies` 不应把它装进 VSIX；正式产物仍需确认不含该工具。商业开发不等于获得工具再分发权 |

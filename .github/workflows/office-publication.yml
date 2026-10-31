@@ -1,0 +1,54 @@
+name: Word and WPS package validation
+on:
+  workflow_dispatch:
+    inputs:
+      public_origin:
+        description: 'HTTPS origin for Word manifest; packaging only, no server deployment'
+        required: true
+        default: 'https://localhost:18443'
+        type: string
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WORKPROOF_PUBLIC_ORIGIN: ${{ inputs.public_origin }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Typecheck and build shared Word/WPS add-in
+        run: |
+          npx tsc -p apps/office/tsconfig.json --noEmit
+          node apps/office/build.mjs
+          mkdir -p .ci-office/office
+          cp -r apps/office/dist/* .ci-office/office/
+      - name: Ribbon lifecycle and origin isolation
+        run: node --test scripts/test_wps_ribbon.cjs
+      - run: npx playwright install --with-deps chromium
+      - name: Simulated Office hosts, privacy and export failure boundaries
+        run: npx playwright test --config playwright.office.config.ts
+      - name: Validate generated Word and WPS resources
+        run: python scripts/check_office_package.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: office-validation-report
+          if-no-files-found: error
+          path: |
+            playwright-report/
+            test-results/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-office-package
+          if-no-files-found: error
+          path: |
+            apps/office/dist/
+            docs/OFFICE-SERVER.md
+            docs/COMMERCIAL-LICENSE-AUDIT.md
+            LICENSE

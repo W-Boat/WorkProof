@@ -53,7 +53,11 @@ async function start(){
 }
 async function pause(){
   if(!session)return;
-  if(paused){await flush();previous=await host.snapshot();event('gap',previous);event('resume',previous);paused=false;lastSample=performance.now();}
+  if(paused){
+    await flush();const current=await host.snapshot();
+    if(previous&&current.identity!==previous.identity)throw new Error('活动文档已改变。请重新加载任务窗，为新文档开始记录。');
+    previous=current;event('gap',previous);event('resume',previous);paused=false;lastSample=performance.now();
+  }
   else{await sample(true);event('pause',previous!);paused=true;}
   await flush();message(paused?'已暂停；继续时会披露采集缺口。':'记录中。');paint();
 }

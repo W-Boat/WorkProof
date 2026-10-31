@@ -16,6 +16,16 @@
 
 WPS 推荐使用官方 publish 分发方式；`jsplugins.xml` 在部分新版本受限制，不能通过静默修改 OEM 配置宣称通用兼容。后续发布包使用官方发布工具和相应授权条款，不将上游工具代码归入本项目 MIT 授权。
 
+### WPS 原生入口与独立验证包
+
+`apps/office/wps/` 提供 WorkProof 自有的 `main.js`、`ribbon.xml` 和项目元数据。Office 构建将其放到 `/office/wps/`，由功能区按钮打开同一来源的 `/office/index.html?host=wps`。任务窗会复用，原生句柄失效时重建；宿主拒绝调用时显示可重试错误。入口不会读取查询参数指定的外部网址。接口依据 [WPS 任务窗格说明](https://open.wps.cn/documents/app-integration-dev/wps365/client/wpsoffice/jsapi/addin-api/TaskPane/task-pane-overview)；发布目录保留在线模式检查需要的 `index.html`。
+
+共享采集器支持 `Application`、`wps` 根对象和 `WpsApplication()`，WPS 明确模式下接口缺失会直接报错，不加载微软运行库。保存未完成、文件路径变化、空文件或非字节字符串会取消导出；暂停后切换文档会拒绝续录，要求重新开启任务窗。文字只用于本机临时统计和摘要，不写入事件请求。
+
+在 Actions 手动运行 **Word and WPS package validation**，填写实际 HTTPS 来源。该流程仅在 CI 类型检查、打包并运行模拟宿主测试，产物 `workproof-office-package` 包含共享页面、Word 清单和 WPS 原生入口。示例来源 `https://localhost:18443` 只适用于本机 HTTPS 验收；部署前需按真实来源重新生成 Word 清单。本包不含 WPS 官方安装页、不执行宿主安装，也不代表真实 WPS 验收通过。
+
+`wpsjs@2.2.3` 包内许可与 npm 声明有冲突，生成模板的分发条件尚待确认，因此本工作流不安装该工具、不包含上游模板或其示例加载项。正式 publish 页面仍待许可确认和真实宿主验收。官方推荐发布流程及版本范围见 [WPS 加载项开发说明](https://open.wps.cn/documents/app-integration-dev/wps365/client/wpsoffice/wps-integration-mode/wps-addin-development/wps-addin-development-instructions)。不能以本入口包宣称所有 WPS 版本可点击安装。
+
 性能结果 `41180459986`：Windows CI 的关闭状态窗托盘模式工作集约 16.2 MB，3 秒采样内未测到明显空闲 CPU，128 事件批次端到端 p95 17.589 ms（包括 PowerShell、HTTP 和 SQLite 持久化开销）。该结果不是 Office/WPS 宿主性能数据，也不能替代用户机器测量。
 
 验证记录：HTTPS/HTTP 双监听、真实 Word XML 与资源、默认信任拒绝及 API 鉴权通过 [41186723953](https://github.com/W-Boat/WorkProof/actions/runs/41186723953)；Word 清单校验、只操作固定 ID 的安装/撤销、拒绝覆盖其他目录的安装和保留无关注册项通过 [41187531600](https://github.com/W-Boat/WorkProof/actions/runs/41187531600)。本机 HTTPS 已运行，公共清单已导出到私有运行目录 `office/manifest-word.xml`；证书 SHA-256 为 `A41F140979718BA6724112E0C617C6620E5165A0FB5E348E7112027D5DE59583`，有效至 2026-11-30。本机 Word 文件版本为 `16.0.20430.20182`，仍待明确证书信任确认与真实宿主操作；没有把注册表测试当作 Word 加载成功。

@@ -21,4 +21,5 @@ institution-https.log
 apps/office/wps/wps-addon-build/
 apps/office/wps/wps-addon-publish/
 .wps-publisher/
+.ci-office/
 

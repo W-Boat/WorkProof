@@ -1,0 +1,7 @@
+{
+  "name": "WorkProofWps",
+  "version": "0.2.0",
+  "private": true,
+  "addonType": "wps",
+  "description": "WorkProof WPS Word-processing add-in publication project"
+}

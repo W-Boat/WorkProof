@@ -12,20 +12,31 @@ function summarize(name:string,identity:string,text:string,paragraphs:number):Sn
 }
 export async function detectHost():Promise<Host>{
   const w=window as HostGlobals;
-  const application=w.Application||w.wps?.Application||(typeof w.wps?.WpsApplication==='function'?w.wps.WpsApplication():undefined);
+  const application=[w.Application,w.wps?.Application,w.wps].find(api=>api?.ActiveDocument)||
+    (typeof w.wps?.WpsApplication==='function'?w.wps.WpsApplication():undefined);
   if(application?.ActiveDocument){
     return {source:'wps',label:'WPS 文字',async snapshot(){const doc=application.ActiveDocument;return summarize(String(doc.Name),String(doc.FullName||doc.Name),String(doc.Content.Text),Number(doc.Paragraphs.Count));},async artifact(){
       const doc=application.ActiveDocument;
       if(!doc.Path)throw new Error('请先保存 WPS 文档，再导出交付件。');
-      doc.Save();
+      const fullName=String(doc.FullName);
+      await doc.Save();
+      if(doc.Saved===false)throw new Error('WPS 文档保存未完成，请保存后重试。');
       const fileSystem=application.FileSystem||w.wps?.FileSystem;
       if(typeof fileSystem?.readAsBinaryString!=='function')throw new Error('当前 WPS 版本未提供二进制读取接口，无法绑定交付文件。');
-      const binary=String(fileSystem.readAsBinaryString(String(doc.FullName)));
+      if(String(doc.FullName)!==fullName)throw new Error('保存期间文档路径发生变化，请重新开始记录。');
+      const binary=fileSystem.readAsBinaryString(fullName);
+      if(typeof binary!=='string'||!binary.length)throw new Error('WPS 未返回有效交付文件，请保存后重试。');
       if(binary.length>128*1024*1024)throw new Error('当前原型支持不超过 128 MB 的交付文件。');
-      const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0)&255);
+      const bytes=new Uint8Array(binary.length);
+      for(let i=0;i<binary.length;i++){
+        const value=binary.charCodeAt(i);
+        if(value>255)throw new Error('WPS 返回的数据不是二进制字节，已取消交付件导出。');
+        bytes[i]=value;
+      }
       return {name:String(doc.Name),bytes};
     }};
   }
+  if(new URLSearchParams(window.location.search).get('host')==='wps')throw new Error('当前 WPS 未提供可用的文档接口，请打开文字文档并确认加载项权限。');
   if(typeof Office==='undefined'){
     await new Promise<void>((resolve,reject)=>{const script=document.createElement('script');script.src='https://appsforoffice.microsoft.com/lib/1/hosted/office.js';script.onload=()=>resolve();script.onerror=()=>reject(new Error('无法加载 Word 官方宿主接口，请检查网络。'));document.head.append(script);});
   }
