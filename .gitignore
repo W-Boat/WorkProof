@@ -12,4 +12,11 @@ apps/desktop/src-tauri/resources/
 .ci-artifacts/
 apps/verifier/public/office/
 services/institution/scaffold-system/scaffold-admin/src/main/resources/static/office/
+services/institution/scaffold-system/scaffold-admin/src/main/resources/static/index.html
+services/institution/scaffold-system/scaffold-admin/src/main/resources/static/assets/
+institution-runtime.log
+.local-launchers/
+apps/office/wps/wps-addon-build/
+apps/office/wps/wps-addon-publish/
+.wps-publisher/
 

@@ -56,6 +56,9 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler)
                 )
                 .authorizeHttpRequests(registry -> registry
+                        .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico", "/login",
+                            "/dashboard", "/no-access", "/system", "/system/**", "/monitor", "/monitor/**",
+                            "/tool", "/tool/**", "/workproof", "/workproof/**").permitAll()
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/auth/captcha").permitAll()
                         .requestMatchers("/api/auth/login").permitAll()

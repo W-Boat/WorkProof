@@ -2,6 +2,10 @@
 
 ## WorkProof 接入
 
+- `InstitutionUiController.java`：已知 Vue 深链接转发到内嵌 `index.html`；UI 与 `/api` 同源，API 认证继续独立生效。
+- `scaffold-admin/.../util/LocalPasswordHasher.java`：通过既有 JAR 的 PropertiesLauncher 在 stdin 接收本地随机密码，输出 BCrypt；不启动 Spring、数据库或写日志。
+- `.github/workflows/institution.yml`：先构建 Vue 与 Office 静态资源再封装 JAR；在隔离 MySQL/Valkey 验证页面和 API 边界。Windows 本地控制脚本及运维说明在根仓库 `scripts/local`、`docs/LOCAL-RUNTIME.md`。
+
 - `scaffold-system/scaffold-system/.../controller/OfficeBootstrapController.java`：按服务器 `WORKPROOF_PUBLIC_ORIGIN`（机构 HTTPS 来源地址）生成 Word 安装清单，不包含令牌或作品。
 - `scaffold-framework/.../config/SecurityConfig.java`：Office 静态资源使用独立安全链，允许宿主嵌入；后台 API 继续使用原认证链。
 - `scaffold-admin/src/main/resources/static/office`：由 GitHub Actions 从仓库根 `apps/office` 构建，随机构 JAR 提供；源码与底座公共组件分开。
