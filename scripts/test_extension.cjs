@@ -36,7 +36,8 @@ async function main(){
     const module={exports:{}};
     vm.runInNewContext(await fs.readFile(filename,'utf8'),{module,exports:module.exports,require:id=>id==='vscode'?host:nativeRequire(id),process,Buffer,Uint8Array,Uint32Array,ArrayBuffer,DataView,console,performance,fetch,AbortSignal,TextEncoder,TextDecoder,setInterval,clearInterval,setTimeout,clearTimeout},{filename});
     extension=module.exports;await extension.activate(context);
-    await commands.get('workproof.pair')();await commands.get('workproof.start')();
+    // First use must discover the local engine without a manual pairing command.
+    await commands.get('workproof.start')();
     function edit(text,removed=0,reason){content=content.slice(0,content.length-removed)+text;version++;doc.isDirty=true;change({document:doc,reason,contentChanges:[{text,rangeLength:removed}]});}
     edit('A new paragraph.');edit('',3,1);
     await commands.get('workproof.pause')();edit('Unobserved while paused.');await commands.get('workproof.pause')();edit(' Final edit.');

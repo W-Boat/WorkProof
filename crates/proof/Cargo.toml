@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-blake3 = { version = "1.8", default-features = false, features = ["std", "pure"] }
+blake3 = { version = "1.8", default-features = false, features = ["std"] }
 ed25519-dalek = "2.2"
 hex = "0.4"
 serde = { version = "1", features = ["derive"] }
