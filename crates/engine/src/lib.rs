@@ -113,7 +113,7 @@ async fn export(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<Stri
     for row in rows {let (json,hash)=row?;records.push(Record{event:serde_json::from_str(&json).map_err(|_|bad("CORRUPT_RECORD"))?,hash});}
     let last=records.last().ok_or_else(||bad("EMPTY_RECORD"))?;
     if last.event.kind!="save"||last.event.checkpoint!=input.artifact_hash{return Err(bad("SAVE_CHECKPOINT_REQUIRED"));}
-    let manifest=Manifest{protocol:VERSION.into(),session_id:id,file_name:name,started_at:started,source,event_count:records.len() as u64,chain_head:last.hash.clone(),artifact_hash:input.artifact_hash.clone(),artifact_bytes:input.artifact_bytes,public_key:hex::encode(store.key.verifying_key().to_bytes()),identity:"self-signed".into(),time_evidence:"none".into(),demo};
+    let manifest=Manifest{protocol:VERSION.into(),session_id:id,file_name:name,started_at:started,source,event_count:records.len() as u64,chain_head:last.hash.clone(),artifact_hash:input.artifact_hash.clone(),artifact_bytes:input.artifact_bytes,public_key:hex::encode(store.key.verifying_key().to_bytes()),identity:"self-signed".into(),time_evidence:"none".into(),merkle_root:String::new(),demo};
     let proof=sign(manifest,records,&store.key);
     if !verify(&proof,&input.artifact_hash,input.artifact_bytes).valid{return Err(bad("STORED_RECORD_INVALID"));}
     Ok(Json(proof))

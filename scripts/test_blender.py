@@ -50,7 +50,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-blender-') as tmp:
         proof_path=pathlib.Path(filename+'.wproof')
         proof=json.loads(proof_path.read_text(encoding='utf-8'))
         assert proof['manifest']['source']=='blender'
-        assert proof['manifest']['protocol']=='workproof/2'
+        assert proof['manifest']['protocol']=='workproof/3'
         events=[r['event'] for r in proof['records']]
         assert events[0]['kind']=='start'
         assert any(e['kind']=='mesh' for e in events)

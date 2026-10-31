@@ -1,0 +1,1052 @@
+{
+  "manifest": {
+    "protocol": "workproof/2",
+    "session_id": "demo-open-process-001",
+    "file_name": "essay.md",
+    "started_at": "2026-10-31T09:00:00+08:00",
+    "source": "synthetic-demo",
+    "event_count": 86,
+    "chain_head": "49f6ad4296f7bcc6ac814a8ec73034d7db0bbb52aa3e95b5ae2581e47180e354",
+    "artifact_hash": "a826a8659a2cfe809e4dec233a87755f5c93b073f4ef32399712f17ab9ce9bb5",
+    "artifact_bytes": 193,
+    "public_key": "197f6b23e16c8532c6abc838facd5ea789be0c76b2920334039bfa8b3d368d61",
+    "identity": "self-signed",
+    "time_evidence": "none",
+    "demo": true
+  },
+  "records": [
+    {
+      "event": {
+        "seq": 0,
+        "elapsed_ms": 0,
+        "kind": "start",
+        "inserted": 0,
+        "deleted": 0,
+        "chars": 0,
+        "checkpoint": ""
+      },
+      "hash": "83cb8c6788bdf27947714f79e5b60a8279ab40b37524e0c958e594c0e7885b5a"
+    },
+    {
+      "event": {
+        "seq": 1,
+        "elapsed_ms": 13700,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 1,
+        "checkpoint": ""
+      },
+      "hash": "6730bc78b6993855da4f6fe6b83274aa41c0c23103c66572759909527f21d45f"
+    },
+    {
+      "event": {
+        "seq": 2,
+        "elapsed_ms": 27400,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 2,
+        "checkpoint": ""
+      },
+      "hash": "440785ceb4e7e0d95eef03a7250f4c76e0816b9cb4d2988416736acfb5ec5781"
+    },
+    {
+      "event": {
+        "seq": 3,
+        "elapsed_ms": 41100,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 3,
+        "checkpoint": ""
+      },
+      "hash": "f5ece1b46bae80f3d905d90e7d8c09d0f57553f8149661d13d9118c8291abf4d"
+    },
+    {
+      "event": {
+        "seq": 4,
+        "elapsed_ms": 54800,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 4,
+        "checkpoint": ""
+      },
+      "hash": "18f9e8e7b4a71255013a8f6bafc00a8fa9d517133c76f301b76d37c0e8ee1cc2"
+    },
+    {
+      "event": {
+        "seq": 5,
+        "elapsed_ms": 68500,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 5,
+        "checkpoint": ""
+      },
+      "hash": "f1da6882bc99e2945ed214460de9d052777af1c6f0c01a9623fe927dee735d0e"
+    },
+    {
+      "event": {
+        "seq": 6,
+        "elapsed_ms": 82200,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 6,
+        "checkpoint": ""
+      },
+      "hash": "dc6b109a2b7a6135bc0057c41dadffd88a53b7dfd029555ca3df514046e3d819"
+    },
+    {
+      "event": {
+        "seq": 7,
+        "elapsed_ms": 95900,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 7,
+        "checkpoint": ""
+      },
+      "hash": "eb66eb85c8181741d808b48cf50e77197487fe141efe3409abe3725c66ba636c"
+    },
+    {
+      "event": {
+        "seq": 8,
+        "elapsed_ms": 109600,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 8,
+        "checkpoint": ""
+      },
+      "hash": "8d0f6a4afcee3169caa1f58da5e7322780ce3b396e46d65f039b28d5223fe879"
+    },
+    {
+      "event": {
+        "seq": 9,
+        "elapsed_ms": 123300,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 9,
+        "checkpoint": ""
+      },
+      "hash": "3db5549766f7495e71d0fe302161edd47db7e92fc212076ed7d1a274b9731b5d"
+    },
+    {
+      "event": {
+        "seq": 10,
+        "elapsed_ms": 137000,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 10,
+        "checkpoint": ""
+      },
+      "hash": "2d00206aa41b014914ab8dac58cce42c88bb7ba1d70a489b67fbd756ececae25"
+    },
+    {
+      "event": {
+        "seq": 11,
+        "elapsed_ms": 150700,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 11,
+        "checkpoint": ""
+      },
+      "hash": "a35207af903a459baa7191be98a6c88781756402762b1fdd5dcf612c02f62234"
+    },
+    {
+      "event": {
+        "seq": 12,
+        "elapsed_ms": 164400,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 12,
+        "checkpoint": ""
+      },
+      "hash": "07e3354a03d36808582e41b39a714b1dd0da88ad897134e81cb6b27bde9cb4d8"
+    },
+    {
+      "event": {
+        "seq": 13,
+        "elapsed_ms": 178100,
+        "kind": "undo",
+        "inserted": 0,
+        "deleted": 1,
+        "chars": 11,
+        "checkpoint": ""
+      },
+      "hash": "f3ea143ce8a2c5c0b5e5f23c8169b6fdbac27be6b0364288a8d59fbb4fa0d297"
+    },
+    {
+      "event": {
+        "seq": 14,
+        "elapsed_ms": 232800,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 12,
+        "checkpoint": ""
+      },
+      "hash": "65f17b78eb6010aa29ac9f6a5f70b46b8b6e106351a7a54781ecf06665b4b208"
+    },
+    {
+      "event": {
+        "seq": 15,
+        "elapsed_ms": 246500,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 13,
+        "checkpoint": ""
+      },
+      "hash": "881078bbbc77221ead5b4b1f67ef734a6302750c66c78aa79b5c043ec79a6ac1"
+    },
+    {
+      "event": {
+        "seq": 16,
+        "elapsed_ms": 260200,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 14,
+        "checkpoint": ""
+      },
+      "hash": "d2e5b4e9132e5731a97791d8ad0ed07970d2aae5b48e69880a1d11fdab2469b9"
+    },
+    {
+      "event": {
+        "seq": 17,
+        "elapsed_ms": 273900,
+        "kind": "save",
+        "inserted": 0,
+        "deleted": 0,
+        "chars": 14,
+        "checkpoint": ""
+      },
+      "hash": "1a172adfa7d7c0da238e75e8d3a7917137006a4a7948289b4b1eb2b307acf971"
+    },
+    {
+      "event": {
+        "seq": 18,
+        "elapsed_ms": 287600,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 15,
+        "checkpoint": ""
+      },
+      "hash": "1fcdce6b69f4d6e849dd7249e49a1f93b915f5df5c1a18a88983f8d78036f1cf"
+    },
+    {
+      "event": {
+        "seq": 19,
+        "elapsed_ms": 301300,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 16,
+        "checkpoint": ""
+      },
+      "hash": "474dbf2753506cf69b04d108861fefca3734e7a6c49f6ffb1b7c028ecc68d4d4"
+    },
+    {
+      "event": {
+        "seq": 20,
+        "elapsed_ms": 315000,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 17,
+        "checkpoint": ""
+      },
+      "hash": "70b553a2dcb28b1263d80deea6da8fb73510aae48f9c1a4567fb086dfa3ab98c"
+    },
+    {
+      "event": {
+        "seq": 21,
+        "elapsed_ms": 328700,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 18,
+        "checkpoint": ""
+      },
+      "hash": "93c6495ada1cac5c8a433e5a5ca796813ca8e09f51b91838ec2f31ebadb42dde"
+    },
+    {
+      "event": {
+        "seq": 22,
+        "elapsed_ms": 342400,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 19,
+        "checkpoint": ""
+      },
+      "hash": "ca88a9ee8a206b69cf6f2308a9e0829345a82145fb8f0f3b0582f647a3cde756"
+    },
+    {
+      "event": {
+        "seq": 23,
+        "elapsed_ms": 356100,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 20,
+        "checkpoint": ""
+      },
+      "hash": "c0d7e0b4fb6b5343fbc15767b4497ce18105c491418bcc19b9149d170a1804b5"
+    },
+    {
+      "event": {
+        "seq": 24,
+        "elapsed_ms": 369800,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 21,
+        "checkpoint": ""
+      },
+      "hash": "8e40a4b2481311f1db0ecd173ee90383c35732ae916a2ee3efb914d1ae7c0180"
+    },
+    {
+      "event": {
+        "seq": 25,
+        "elapsed_ms": 383500,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 22,
+        "checkpoint": ""
+      },
+      "hash": "cdb90fdae860c3208c3f660b4953729a3369b4f11a22ab8a654127f39a671147"
+    },
+    {
+      "event": {
+        "seq": 26,
+        "elapsed_ms": 397200,
+        "kind": "undo",
+        "inserted": 0,
+        "deleted": 1,
+        "chars": 21,
+        "checkpoint": ""
+      },
+      "hash": "1f4b91dd24e7f3c455e5f3a77824996de60f3982696de1aa85225a6786cc2dd8"
+    },
+    {
+      "event": {
+        "seq": 27,
+        "elapsed_ms": 410900,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 22,
+        "checkpoint": ""
+      },
+      "hash": "fb649b3d6524d0035e0ec2501e5849313722798e10e34d670e931d8f76f149bb"
+    },
+    {
+      "event": {
+        "seq": 28,
+        "elapsed_ms": 465600,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 23,
+        "checkpoint": ""
+      },
+      "hash": "5cf33503b70ab34d90e52543332b8e91e818e291308612524105e684f3369131"
+    },
+    {
+      "event": {
+        "seq": 29,
+        "elapsed_ms": 479300,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 24,
+        "checkpoint": ""
+      },
+      "hash": "129aa336227bdcda932be1d7f8f28413e0f51304014e989a65eff1dd9605c077"
+    },
+    {
+      "event": {
+        "seq": 30,
+        "elapsed_ms": 493000,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 25,
+        "checkpoint": ""
+      },
+      "hash": "c26d2a622e23d8e012c186f9cda6d0239892983ef4c10b544e012dd1efd3d02f"
+    },
+    {
+      "event": {
+        "seq": 31,
+        "elapsed_ms": 506700,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 26,
+        "checkpoint": ""
+      },
+      "hash": "c4cabc6d8973f4d4c768bfde970a7984e3cb38961511f1414e0389244ca8e069"
+    },
+    {
+      "event": {
+        "seq": 32,
+        "elapsed_ms": 520400,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 27,
+        "checkpoint": ""
+      },
+      "hash": "e1566acd554daae95244110dcef0e5e434b9ff47e511afa9d52a9da20ef87e8a"
+    },
+    {
+      "event": {
+        "seq": 33,
+        "elapsed_ms": 534100,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 28,
+        "checkpoint": ""
+      },
+      "hash": "c4864567b91442767dd984f2eb58807811b32c71926103053e7d067cc8d5971f"
+    },
+    {
+      "event": {
+        "seq": 34,
+        "elapsed_ms": 547800,
+        "kind": "save",
+        "inserted": 0,
+        "deleted": 0,
+        "chars": 28,
+        "checkpoint": ""
+      },
+      "hash": "6fd40ef87f43c67bde577bea22cfdb723b26eea7c2b32f0723a9786e783a5602"
+    },
+    {
+      "event": {
+        "seq": 35,
+        "elapsed_ms": 561500,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 29,
+        "checkpoint": ""
+      },
+      "hash": "056bc246ecab214d8d6d71b6c9199369e4c4acadc3a288b9811d07ac22bb62b1"
+    },
+    {
+      "event": {
+        "seq": 36,
+        "elapsed_ms": 575200,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 30,
+        "checkpoint": ""
+      },
+      "hash": "3a25ee934a8c466f90ddae26f92107c4b432edcbd6d2a3ce78ddceb8687f2e03"
+    },
+    {
+      "event": {
+        "seq": 37,
+        "elapsed_ms": 588900,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 31,
+        "checkpoint": ""
+      },
+      "hash": "7c44fa5d7d0e8888b35f0e3e63f75bff2bbf1380cffa6d0fc1d4506690ef2cf5"
+    },
+    {
+      "event": {
+        "seq": 38,
+        "elapsed_ms": 602600,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 32,
+        "checkpoint": ""
+      },
+      "hash": "5e584e9e91c45d2ec54790dc6019cdd03b87b08b2e01b6a43a3114f37aa5d3ad"
+    },
+    {
+      "event": {
+        "seq": 39,
+        "elapsed_ms": 616300,
+        "kind": "undo",
+        "inserted": 0,
+        "deleted": 1,
+        "chars": 31,
+        "checkpoint": ""
+      },
+      "hash": "f6ec2806a362647e132add5283e1ac008eeda464df4f57fc66a4e458f407189b"
+    },
+    {
+      "event": {
+        "seq": 40,
+        "elapsed_ms": 630000,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 32,
+        "checkpoint": ""
+      },
+      "hash": "0eefda54a0ec95c41a929950a1c489d89edccc1e7273307babfd147012e037a7"
+    },
+    {
+      "event": {
+        "seq": 41,
+        "elapsed_ms": 643700,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 33,
+        "checkpoint": ""
+      },
+      "hash": "7fd687848cb80fc96837ce6fd32f44fede59fa5031a436d10d94a054d594f073"
+    },
+    {
+      "event": {
+        "seq": 42,
+        "elapsed_ms": 698400,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 34,
+        "checkpoint": ""
+      },
+      "hash": "42bb42084e4afbe744b7806ac4b219ad61a391a991a3e30ec9181c5f821c9588"
+    },
+    {
+      "event": {
+        "seq": 43,
+        "elapsed_ms": 712100,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 35,
+        "checkpoint": ""
+      },
+      "hash": "c636709bffc19bfd81a66c0dd46b5b9f9e9daa783c3fb2d40e2438f71106f59b"
+    },
+    {
+      "event": {
+        "seq": 44,
+        "elapsed_ms": 725800,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 36,
+        "checkpoint": ""
+      },
+      "hash": "9387aff335699fcdeffc3b1469bfbebc9a80fea735050177c126ec103b6d0949"
+    },
+    {
+      "event": {
+        "seq": 45,
+        "elapsed_ms": 739500,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 37,
+        "checkpoint": ""
+      },
+      "hash": "259f2cf6d32b416350cef0871ee7ebf2506bab2b4419ce6bc5c197df941f3022"
+    },
+    {
+      "event": {
+        "seq": 46,
+        "elapsed_ms": 753200,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 38,
+        "checkpoint": ""
+      },
+      "hash": "da4994b7fc5ab6d961dd63056a83c98edc9ccb8007ffb4978bd98461d7cb74fd"
+    },
+    {
+      "event": {
+        "seq": 47,
+        "elapsed_ms": 766900,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 39,
+        "checkpoint": ""
+      },
+      "hash": "2d5fb95711d677b1463643a50adcb8a361334502b9e25c58a90fe3c822367078"
+    },
+    {
+      "event": {
+        "seq": 48,
+        "elapsed_ms": 780600,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 40,
+        "checkpoint": ""
+      },
+      "hash": "77c5e4c7932dfbe70a4983a1d4cbaabf44cb224029b1f17094538a0a26bb1a03"
+    },
+    {
+      "event": {
+        "seq": 49,
+        "elapsed_ms": 794300,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 41,
+        "checkpoint": ""
+      },
+      "hash": "e9245fee64191bf86e4e334d207787f1e5f802137e85af9f25fe2154dc48978b"
+    },
+    {
+      "event": {
+        "seq": 50,
+        "elapsed_ms": 808000,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 42,
+        "checkpoint": ""
+      },
+      "hash": "bf1601975522949be8da96679fa235cb4717dbba8a8041b07483196e5782c3e8"
+    },
+    {
+      "event": {
+        "seq": 51,
+        "elapsed_ms": 821700,
+        "kind": "save",
+        "inserted": 0,
+        "deleted": 0,
+        "chars": 42,
+        "checkpoint": ""
+      },
+      "hash": "aada2ab63803d2a09bfb0a76ecc7678cbeb4e139be980b347a5390eea2b3f193"
+    },
+    {
+      "event": {
+        "seq": 52,
+        "elapsed_ms": 835400,
+        "kind": "undo",
+        "inserted": 0,
+        "deleted": 1,
+        "chars": 41,
+        "checkpoint": ""
+      },
+      "hash": "f3f3cf643262b030bc88e0f58728c658c7f87e69c2e6852792eae7123da1804e"
+    },
+    {
+      "event": {
+        "seq": 53,
+        "elapsed_ms": 849100,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 42,
+        "checkpoint": ""
+      },
+      "hash": "4b01704836bebbb40d053dc4c855e7c18d79b1fcc38e968e01fdd62f7d49cd1a"
+    },
+    {
+      "event": {
+        "seq": 54,
+        "elapsed_ms": 862800,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 43,
+        "checkpoint": ""
+      },
+      "hash": "9bdc93be5cb28255a38c9faf8bb27bccab26d7f720709f79a8070a729c6d45db"
+    },
+    {
+      "event": {
+        "seq": 55,
+        "elapsed_ms": 876500,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 44,
+        "checkpoint": ""
+      },
+      "hash": "40f8d7b459adc1dd06dfa5a049c1bb35086542c0e080366511a9bacfc97711ef"
+    },
+    {
+      "event": {
+        "seq": 56,
+        "elapsed_ms": 931200,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 45,
+        "checkpoint": ""
+      },
+      "hash": "5e4e094076f66932f1a9b7cac4d549e0b6cf9402c99487ddc5efe627cd3fdaa2"
+    },
+    {
+      "event": {
+        "seq": 57,
+        "elapsed_ms": 944900,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 46,
+        "checkpoint": ""
+      },
+      "hash": "3602b72918c55164cd19db2a87dbbf903484039a6855fcdb469ee6791d69f0b4"
+    },
+    {
+      "event": {
+        "seq": 58,
+        "elapsed_ms": 958600,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 47,
+        "checkpoint": ""
+      },
+      "hash": "1fd0d44b327a99cbc1b48c096154696dc70b1d2b6ccf376270f4d725c606a1c8"
+    },
+    {
+      "event": {
+        "seq": 59,
+        "elapsed_ms": 972300,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 48,
+        "checkpoint": ""
+      },
+      "hash": "ded9cf0c6d838412028aa2d9bc757f6ed14cb20a96c2ebde6dd1467c82b23671"
+    },
+    {
+      "event": {
+        "seq": 60,
+        "elapsed_ms": 986000,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 49,
+        "checkpoint": ""
+      },
+      "hash": "200867703f627797dd0f3567be5bc1170876e4c6009d81105a3c4f7498ff8333"
+    },
+    {
+      "event": {
+        "seq": 61,
+        "elapsed_ms": 999700,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 50,
+        "checkpoint": ""
+      },
+      "hash": "c5fdb0dbf30fb6a139f973f9daf044be64d6ff07aec58693ae76de648f2a449f"
+    },
+    {
+      "event": {
+        "seq": 62,
+        "elapsed_ms": 1013400,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 51,
+        "checkpoint": ""
+      },
+      "hash": "a23924cec593e49c8992306d668b155e066adcce6d43a4923aef6f487926370a"
+    },
+    {
+      "event": {
+        "seq": 63,
+        "elapsed_ms": 1027100,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 52,
+        "checkpoint": ""
+      },
+      "hash": "b8c2e06c51c32ed80ebcb4b411dae986d935457898e40d15808f730b36adee40"
+    },
+    {
+      "event": {
+        "seq": 64,
+        "elapsed_ms": 1040800,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 53,
+        "checkpoint": ""
+      },
+      "hash": "a8c70df08da1cd077b198ae0f4636424a8983ea763620f58f0c1f27247eb8bb9"
+    },
+    {
+      "event": {
+        "seq": 65,
+        "elapsed_ms": 1054500,
+        "kind": "undo",
+        "inserted": 0,
+        "deleted": 1,
+        "chars": 52,
+        "checkpoint": ""
+      },
+      "hash": "3195f28a39d2fb690632052280366409c2ca0712dba4a40640d90c8bc9dca3d0"
+    },
+    {
+      "event": {
+        "seq": 66,
+        "elapsed_ms": 1068200,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 53,
+        "checkpoint": ""
+      },
+      "hash": "fef45bf89b1965488b3da9972d5ed3cbbe4224b29728d916c1ec1c5bd1a4fdc2"
+    },
+    {
+      "event": {
+        "seq": 67,
+        "elapsed_ms": 1081900,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 54,
+        "checkpoint": ""
+      },
+      "hash": "53db01014b9ac8b1d16e4ade4b65a1101edf02924519acb51681645c148834cd"
+    },
+    {
+      "event": {
+        "seq": 68,
+        "elapsed_ms": 1095600,
+        "kind": "save",
+        "inserted": 0,
+        "deleted": 0,
+        "chars": 54,
+        "checkpoint": ""
+      },
+      "hash": "027c6e24852cc44fda9fff397937e5e12ebcbbbca8f3a789a33f5b366d99331d"
+    },
+    {
+      "event": {
+        "seq": 69,
+        "elapsed_ms": 1109300,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 55,
+        "checkpoint": ""
+      },
+      "hash": "e440222030cc517a7c43adad3ca65e36e818d1a4e24ec50df7c7b108621d7749"
+    },
+    {
+      "event": {
+        "seq": 70,
+        "elapsed_ms": 1164000,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 56,
+        "checkpoint": ""
+      },
+      "hash": "1a4bc6bdfc28b1cc000ce4833e4657a8afb8ee9fd5a54666e98114ae53e234a5"
+    },
+    {
+      "event": {
+        "seq": 71,
+        "elapsed_ms": 1177700,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 57,
+        "checkpoint": ""
+      },
+      "hash": "3c6fa3291f21eb46f7e27d1387bd484bb225c27e7d031d37fce88c82389a657a"
+    },
+    {
+      "event": {
+        "seq": 72,
+        "elapsed_ms": 1191400,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 58,
+        "checkpoint": ""
+      },
+      "hash": "dad280f2c1f08d3e43d91c4c0a1953361ff0808294466270bcbc8745bcf09c5f"
+    },
+    {
+      "event": {
+        "seq": 73,
+        "elapsed_ms": 1205100,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 59,
+        "checkpoint": ""
+      },
+      "hash": "23ae05c569aff69c70dea0b0a13891ebed5ce7d2b7768156fa1eeff8779e16a4"
+    },
+    {
+      "event": {
+        "seq": 74,
+        "elapsed_ms": 1218800,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 60,
+        "checkpoint": ""
+      },
+      "hash": "e85230402cb0c0f2afd4fb24031d43399e31b7b460a16d8ba4962bcfcb2c1093"
+    },
+    {
+      "event": {
+        "seq": 75,
+        "elapsed_ms": 1232500,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 61,
+        "checkpoint": ""
+      },
+      "hash": "737dd241f6a5c197fe46e24406ed4ef66e335fb678c2e278d7fa1f142d41ee5c"
+    },
+    {
+      "event": {
+        "seq": 76,
+        "elapsed_ms": 1246200,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 62,
+        "checkpoint": ""
+      },
+      "hash": "3e3b4c60efd8b0ec3a9b95c425cc25ec9daef4e09bf40575a4127be54261a6bb"
+    },
+    {
+      "event": {
+        "seq": 77,
+        "elapsed_ms": 1259900,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 63,
+        "checkpoint": ""
+      },
+      "hash": "90cf6c86e57a72fd475dd2034221109644afc50c87f4095e8dd9098209479e2f"
+    },
+    {
+      "event": {
+        "seq": 78,
+        "elapsed_ms": 1273600,
+        "kind": "undo",
+        "inserted": 0,
+        "deleted": 1,
+        "chars": 62,
+        "checkpoint": ""
+      },
+      "hash": "a74008f16c2a40bf6201e1057455e0c504a6402beaeb39a47cdebf3cb3eb4a35"
+    },
+    {
+      "event": {
+        "seq": 79,
+        "elapsed_ms": 1287300,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 63,
+        "checkpoint": ""
+      },
+      "hash": "8698a7efac43b25efff39863a7f45f591f9ee9fd4eb606fa4a4e7d682e481bd3"
+    },
+    {
+      "event": {
+        "seq": 80,
+        "elapsed_ms": 1301000,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 64,
+        "checkpoint": ""
+      },
+      "hash": "4956a539d4605bde319c3075e4e11254c13bd9823e9571fed4985d7e9af62030"
+    },
+    {
+      "event": {
+        "seq": 81,
+        "elapsed_ms": 1314700,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 65,
+        "checkpoint": ""
+      },
+      "hash": "dea0c85cd133b555bbe8fba132253268fa0e46c8458e91342e4cc44837eb64d1"
+    },
+    {
+      "event": {
+        "seq": 82,
+        "elapsed_ms": 1328400,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 66,
+        "checkpoint": ""
+      },
+      "hash": "799aecad1276d0cacb1d19cc8b1798dd5d524683bf93a7032347378cdea3d478"
+    },
+    {
+      "event": {
+        "seq": 83,
+        "elapsed_ms": 1342100,
+        "kind": "edit",
+        "inserted": 1,
+        "deleted": 0,
+        "chars": 67,
+        "checkpoint": ""
+      },
+      "hash": "30f3c884546fe15921eb609f1078d76dfd48114fde17885e6e2f9a9bac10ced5"
+    },
+    {
+      "event": {
+        "seq": 84,
+        "elapsed_ms": 1396800,
+        "kind": "edit",
+        "inserted": 10,
+        "deleted": 0,
+        "chars": 77,
+        "checkpoint": ""
+      },
+      "hash": "613a38d87f173b420a38ccd6c872e6e0e750bca3a26ace31cac7dfd3de9b788a"
+    },
+    {
+      "event": {
+        "seq": 85,
+        "elapsed_ms": 1410500,
+        "kind": "save",
+        "inserted": 0,
+        "deleted": 0,
+        "chars": 77,
+        "checkpoint": "a826a8659a2cfe809e4dec233a87755f5c93b073f4ef32399712f17ab9ce9bb5"
+      },
+      "hash": "49f6ad4296f7bcc6ac814a8ec73034d7db0bbb52aa3e95b5ae2581e47180e354"
+    }
+  ],
+  "signature": "81d83732ac98acc7a0a1b908e5780bd558e678fc17675f6208ea7d7b16de254a640ba912bd74b6e034f3c6b3057039905cc5cb70da2f9ff50b132e7e5a45c00f"
+}

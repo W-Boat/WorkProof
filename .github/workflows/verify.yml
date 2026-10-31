@@ -40,6 +40,8 @@ jobs:
         run: |
           cargo build -p workproof-engine
           python scripts/test_engine.py target/debug/workproof-engine
+      - name: Independent Merkle and selective proof interoperability
+        run: node scripts/test_disclosure.cjs target/debug/workproof-engine
       - run: npm run typecheck
       - run: npm run build:extension
       - name: Typecheck and bundle Word/WPS add-in
@@ -119,6 +121,8 @@ jobs:
         run: |
           cargo run -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
           python scripts/test_engine.py target/release/workproof-engine.exe
+      - name: Windows selective proof interoperability
+        run: node scripts/test_disclosure.cjs target/release/workproof-engine.exe
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-windows-x64

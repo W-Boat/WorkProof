@@ -58,12 +58,22 @@ with tempfile.TemporaryDirectory(prefix='workproof-test-') as tmp:
         request(endpoint+'/events',{'events':events[40:]})
         result = request(endpoint+'/export',{'artifact_hash':proof['manifest']['artifact_hash'],'artifact_bytes':proof['manifest']['artifact_bytes']})
         assert result['manifest']['event_count']==len(events)
+        assert result['manifest']['protocol']=='workproof/3'
+        assert len(result['manifest']['merkle_root'])==64
         assert not result['manifest']['demo']
         checks.append('restart restores committed events and signing identity')
         certificate=state/'real-session.wproof'
         certificate.write_text(json.dumps(result),encoding='utf-8')
         verified=subprocess.run([exe,'verify',str(fixture/'essay.md'),str(certificate)],capture_output=True,text=True)
         assert verified.returncode==0,verified.stdout+verified.stderr
+        selected=state/'real-session.selected.wproof'
+        disclosed=subprocess.run([exe,'disclose',str(certificate),str(selected),'5,20'],capture_output=True,text=True)
+        assert disclosed.returncode==0,disclosed.stdout+disclosed.stderr
+        partial=subprocess.run([exe,'verify',str(fixture/'essay.md'),str(selected)],capture_output=True,text=True)
+        assert partial.returncode==0,partial.stdout+partial.stderr
+        partial_report=json.loads(partial.stdout)
+        assert partial_report['scope']=='selective' and not partial_report['chain_valid'] and partial_report['merkle_valid']
+        checks.append('real HTTP export commits a signed Merkle root and yields independently verifiable selective evidence')
         changed=state/'changed.md';changed.write_text('altered',encoding='utf-8')
         mismatch=subprocess.run([exe,'verify',str(changed),str(certificate)],capture_output=True,text=True)
         assert mismatch.returncode==2

@@ -1,10 +1,12 @@
-//! WorkProof v1: a locally signed process record, not a proof of human authorship.
+//! Locally signed process records and selective inclusion, not proof of human authorship.
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-pub const VERSION: &str = "workproof/2";
+pub const VERSION: &str = "workproof/3";
 pub const MAX_EVENTS: usize = 100_000;
+pub mod merkle;
+pub use merkle::{create_disclosure, verify_disclosure, Disclosure};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Event {
@@ -37,16 +39,25 @@ pub struct Manifest {
     pub identity: String,
     pub time_evidence: String,
     pub demo: bool,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub merkle_root: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Proof { pub manifest: Manifest, pub records: Vec<Record>, pub signature: String }
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum Evidence { Full(Proof), Selective(Disclosure) }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Report {
     pub valid: bool,
     pub file_match: bool,
     pub chain_valid: bool,
     pub signature_valid: bool,
+    pub merkle_valid: Option<bool>,
+    pub scope: String,
+    pub disclosed_events: u64,
+    pub total_events: u64,
     pub errors: Vec<String>,
 }
 
@@ -70,13 +81,16 @@ pub fn event_hash(previous: &str, e: &Event) -> String {
     digest(&b)
 }
 pub fn signing_bytes(m: &Manifest) -> Vec<u8> {
-    let mut b = b"WorkProof:manifest:v1\0".to_vec();
+    let mut b = if m.protocol==VERSION {b"WorkProof:manifest:v3\0".to_vec()} else {b"WorkProof:manifest:v1\0".to_vec()};
     for s in [&m.protocol, &m.session_id, &m.file_name, &m.started_at, &m.source, &m.chain_head,
         &m.artifact_hash, &m.public_key, &m.identity, &m.time_evidence] { field(&mut b, s); }
     b.extend_from_slice(&m.event_count.to_le_bytes());
-    b.extend_from_slice(&m.artifact_bytes.to_le_bytes()); b.push(u8::from(m.demo)); b
+    b.extend_from_slice(&m.artifact_bytes.to_le_bytes()); b.push(u8::from(m.demo));
+    if m.protocol==VERSION {field(&mut b,&m.merkle_root);}
+    b
 }
-pub fn sign(manifest: Manifest, records: Vec<Record>, key: &SigningKey) -> Proof {
+pub fn sign(mut manifest: Manifest, records: Vec<Record>, key: &SigningKey) -> Proof {
+    if manifest.protocol==VERSION {manifest.merkle_root=merkle::root(&manifest.session_id,&records).unwrap_or_default();}
     let signature = hex::encode(key.sign(&signing_bytes(&manifest)).to_bytes());
     Proof { manifest, records, signature }
 }
@@ -91,9 +105,7 @@ pub fn validate_event(e: &Event) -> bool {
 pub fn verify(p: &Proof, artifact_hash: &str, artifact_bytes: u64) -> Report {
     let m = &p.manifest;
     let mut errors = vec![];
-    let schema = (m.protocol == VERSION || m.protocol == "workproof/1") && m.identity == "self-signed" && m.time_evidence == "none"
-        && !m.session_id.is_empty() && m.session_id.len() <= 128 && m.file_name.len() <= 1024
-        && m.started_at.len() <= 64 && m.source.len() <= 128 && valid_hash(&m.artifact_hash);
+    let schema = supported_manifest(m);
     if !schema { errors.push("UNSUPPORTED_MANIFEST".into()); }
     let file_match = artifact_hash == m.artifact_hash && artifact_bytes == m.artifact_bytes;
     if !file_match { errors.push("FILE_MISMATCH".into()); }
@@ -111,14 +123,39 @@ pub fn verify(p: &Proof, artifact_hash: &str, artifact_bytes: u64) -> Report {
     // The exported artifact must be the final recorded save checkpoint.
     if !p.records.last().is_some_and(|r| r.event.kind == "save" && r.event.checkpoint == m.artifact_hash) { chain_valid = false; }
     if !chain_valid { errors.push("CHAIN_INVALID".into()); }
-    let signature_valid = (|| {
+    let signature_valid = signature_valid(m,&p.signature);
+    let merkle_valid = if m.protocol==VERSION {Some(merkle::root(&m.session_id,&p.records).is_some_and(|root|root==m.merkle_root))} else {None};
+    if merkle_valid==Some(false){errors.push("MERKLE_ROOT_INVALID".into());}
+    if !signature_valid { errors.push("SIGNATURE_INVALID".into()); }
+    Report { valid: schema && file_match && chain_valid && signature_valid && merkle_valid!=Some(false), file_match, chain_valid, signature_valid,
+        merkle_valid,scope:"full".into(),disclosed_events:p.records.len() as u64,total_events:m.event_count,errors }
+}
+fn supported_manifest(m:&Manifest)->bool{
+    ((m.protocol==VERSION && valid_hash(&m.merkle_root)) ||
+        (matches!(m.protocol.as_str(),"workproof/1"|"workproof/2") && m.merkle_root.is_empty()))
+        && m.identity=="self-signed" && m.time_evidence=="none"
+        && !m.session_id.is_empty() && m.session_id.len()<=128 && m.file_name.len()<=1024
+        && m.started_at.len()<=64 && m.source.len()<=128 && valid_hash(&m.artifact_hash)
+        && m.event_count>=2 && m.event_count<=MAX_EVENTS as u64
+}
+fn signature_valid(m:&Manifest,signature:&str)->bool{
+    (|| {
         let pk: [u8;32] = hex::decode(&m.public_key).ok()?.try_into().ok()?;
-        let sig = Signature::from_slice(&hex::decode(&p.signature).ok()?).ok()?;
+        let sig = Signature::from_slice(&hex::decode(signature).ok()?).ok()?;
         VerifyingKey::from_bytes(&pk).ok()?.verify_strict(&signing_bytes(m), &sig).ok()?;
         Some(())
-    })().is_some();
-    if !signature_valid { errors.push("SIGNATURE_INVALID".into()); }
-    Report { valid: schema && file_match && chain_valid && signature_valid, file_match, chain_valid, signature_valid, errors }
+    })().is_some()
+}
+pub fn verify_evidence(p:&Evidence,artifact_hash:&str,artifact_bytes:u64)->Report{
+    match p{Evidence::Full(p)=>verify(p,artifact_hash,artifact_bytes),Evidence::Selective(p)=>verify_disclosure(p,artifact_hash,artifact_bytes)}
+}
+#[wasm_bindgen]
+pub fn create_disclosure_json(json:&str,indices:&str)->Result<String,JsValue>{
+    if json.len()>32*1024*1024||indices.len()>16*1024{return Err(JsValue::from_str("PROOF_TOO_LARGE"));}
+    let p:Proof=serde_json::from_str(json).map_err(|_|JsValue::from_str("FULL_PROOF_REQUIRED"))?;
+    let selected:Vec<u64>=serde_json::from_str(indices).map_err(|_|JsValue::from_str("INVALID_SELECTION"))?;
+    let proof=create_disclosure(&p,&selected).map_err(|e|JsValue::from_str(&e))?;
+    serde_json::to_string_pretty(&proof).map_err(|_|JsValue::from_str("INVALID_PROOF"))
 }
 
 #[wasm_bindgen]
@@ -131,22 +168,22 @@ impl FileHasher {
     pub fn finish(&self) -> String { self.hasher.finalize().to_hex().to_string() }
     pub fn verify(&self, json: &str) -> Result<String, JsValue> {
         if json.len() > 32 * 1024 * 1024 { return Err(JsValue::from_str("PROOF_TOO_LARGE")); }
-        let proof: Proof = serde_json::from_str(json).map_err(|_| JsValue::from_str("INVALID_PROOF"))?;
-        serde_json::to_string(&verify(&proof, &self.finish(), self.bytes)).map_err(|_| JsValue::from_str("INVALID_PROOF"))
+        let proof: Evidence = serde_json::from_str(json).map_err(|_| JsValue::from_str("INVALID_PROOF"))?;
+        serde_json::to_string(&verify_evidence(&proof, &self.finish(), self.bytes)).map_err(|_| JsValue::from_str("INVALID_PROOF"))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn sample() -> Proof {
+    pub(crate) fn sample() -> Proof {
         let key = SigningKey::from_bytes(&[7;32]);
         let mut records = vec![]; let mut head = genesis("fixture");
         for (seq, kind) in ["start", "edit", "save"].iter().enumerate() {
             let event = Event { seq: seq as u64, elapsed_ms: seq as u64*1000, kind: kind.to_string(), inserted: 5, deleted: 0, chars: 5, checkpoint: if *kind == "save" {digest(b"hello")} else {String::new()}, metrics:Default::default() };
             head = event_hash(&head, &event); records.push(Record{event,hash:head.clone()});
         }
-        sign(Manifest { protocol: VERSION.into(),session_id:"fixture".into(),file_name:"hello.txt".into(),started_at:"2026-10-31T00:00:00Z".into(),source:"test".into(),event_count:3,chain_head:head,artifact_hash:digest(b"hello"),artifact_bytes:5,public_key:hex::encode(key.verifying_key().to_bytes()),identity:"self-signed".into(),time_evidence:"none".into(),demo:true },records,&key)
+        sign(Manifest { protocol: VERSION.into(),session_id:"fixture".into(),file_name:"hello.txt".into(),started_at:"2026-10-31T00:00:00Z".into(),source:"test".into(),event_count:3,chain_head:head,artifact_hash:digest(b"hello"),artifact_bytes:5,public_key:hex::encode(key.verifying_key().to_bytes()),identity:"self-signed".into(),time_evidence:"none".into(),demo:true,merkle_root:String::new() },records,&key)
     }
     #[test] fn valid_record_and_unicode_serialization() { let p=sample(); assert!(verify(&p,&digest(b"hello"),5).valid); let s=serde_json::to_string_pretty(&p).unwrap(); let p:Proof=serde_json::from_str(&s).unwrap(); assert!(verify(&p,&digest(b"hello"),5).valid); }
     #[test] fn replaced_file() { assert!(!verify(&sample(),&digest(b"world"),5).file_match); }
@@ -167,8 +204,24 @@ mod tests {
         assert!(!verify(&p,&digest(b"hello"),5).chain_valid);
     }
     #[test] fn legacy_v1_still_verifies(){
-        let mut p=sample();p.manifest.protocol="workproof/1".into();
+        let mut p=sample();p.manifest.protocol="workproof/1".into();p.manifest.merkle_root.clear();
         p=sign(p.manifest,p.records,&SigningKey::from_bytes(&[7;32]));assert!(verify(&p,&digest(b"hello"),5).valid);
     }
     #[test] fn unknown_metrics_are_rejected(){let mut p=sample();p.records[1].event.metrics.insert("raw_content".into(),1);assert!(!verify(&p,&digest(b"hello"),5).valid);}
+    #[test] fn legacy_v2_still_verifies_without_merkle_claims(){
+        let mut p=sample();p.manifest.protocol="workproof/2".into();p.manifest.merkle_root.clear();
+        p=sign(p.manifest,p.records,&SigningKey::from_bytes(&[7;32]));
+        assert!(verify(&p,&digest(b"hello"),5).valid);assert_eq!(verify(&p,&digest(b"hello"),5).merkle_valid,None);
+        let json=serde_json::to_string(&p).unwrap();assert!(!json.contains("merkle_root"));
+        p.manifest.merkle_root="00".repeat(32);assert!(!verify(&p,&digest(b"hello"),5).valid);
+    }
+    #[test] fn v3_root_is_part_of_signature(){
+        let mut p=sample();p.manifest.merkle_root="00".repeat(32);
+        let report=verify(&p,&digest(b"hello"),5);assert!(!report.valid);assert!(!report.signature_valid);assert_eq!(report.merkle_valid,Some(false));
+    }
+    #[test]fn historical_v2_signature_from_prior_release_still_verifies(){
+        let p:Proof=serde_json::from_str(include_str!("../tests/fixtures/v2-demo.wproof")).unwrap();
+        assert_eq!(p.manifest.protocol,"workproof/2");assert!(p.manifest.merkle_root.is_empty());
+        assert!(verify(&p,&p.manifest.artifact_hash,p.manifest.artifact_bytes).valid);
+    }
 }

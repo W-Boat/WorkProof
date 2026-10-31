@@ -1,6 +1,6 @@
 # WorkProof · 开源证人
 
-> 全阶段扩展进行中，优先 Word/WPS，机构端目标为服务器。当前源码新增了带内置核验资源的 Windows 安装器、原生 Blender 适配及 v2 统计指标、Word/WPS 采集适配和桌面审批连接。真实 Blender 测试已通过；Word/WPS 目前通过适配层模拟测试，尚未完成真实宿主部署验收。完整进度见 [全阶段验收](docs/ALL-STAGES.md)，服务器入口见 [Office 服务器接入](docs/OFFICE-SERVER.md)。下方保留 v0.1 便携版的已验证操作流程。
+> 全阶段扩展进行中，优先 Word/WPS，机构端目标为服务器。当前源码新增了带内置核验资源的 Windows 安装器、原生 Blender 适配及 v2 统计指标、Word/WPS 采集适配和桌面审批连接。真实 Blender 测试已通过；Word/WPS 目前通过适配层模拟测试，尚未完成真实宿主部署验收。完整进度见 [全阶段验收](docs/ALL-STAGES.md)，服务器入口见 [Office 服务器接入](docs/OFFICE-SERVER.md)。协议 v3/Merkle 选择性披露正在验证，见 [协议说明](docs/PROTOCOL-V3.md)。下方保留 v0.1 便携版的已验证操作流程。
 
 一个本地优先的创作过程记录与核验 MVP：主动开启采集、保存统计事件、导出签名证据，并在浏览器中核验作品与记录的一致性。
 

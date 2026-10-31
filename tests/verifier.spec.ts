@@ -38,3 +38,58 @@ test('mobile is usable and has no horizontal overflow',async({page})=>{
   await page.setViewportSize({width:390,height:844});await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);await page.screenshot({path:'test-results/verified-mobile.png',fullPage:true});
 });
+
+test('browser exports selected evidence with original signature and verifies it with an honest scope',async({page})=>{
+  const external:string[]=[];
+  page.on('request',req=>{if(!req.url().startsWith('http://127.0.0.1:4173')&&!req.url().startsWith('blob:'))external.push(req.url());});
+  await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();
+  await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByLabel('公开的事件编号').fill('6,21,41');
+  const pending=page.waitForEvent('download');await page.getByRole('button',{name:'导出部分证据'}).click();
+  const download=await pending;expect(download.suggestedFilename()).toBe('essay.md.selected.wproof');
+  const selectedPath=await download.path();expect(selectedPath).toBeTruthy();
+  const selected=JSON.parse(fs.readFileSync(selectedPath!,'utf8'));
+  const original=JSON.parse(fs.readFileSync(fixture+'essay.md.wproof','utf8'));
+  expect(selected.signature).toBe(original.signature);expect(selected.manifest).toEqual(original.manifest);
+  expect(selected.disclosed.map((e:any)=>e.record.event.seq)).toEqual([0,5,20,40,85]);
+  expect(selected.records).toBeUndefined();
+  await page.getByLabel('选择 .wproof 证书').setInputFiles(selectedPath!);
+  await page.getByRole('button',{name:'开始本地核验'}).click();
+  await expect(page.getByText('部分证据核验通过',{exact:true})).toBeVisible();
+  await expect(page.locator('.certificate-disclaimer')).toContainText('未核验完整记录链');
+  await expect(page.getByText('记录链完整',{exact:true})).toHaveCount(0);
+  await expect(page.getByRole('slider')).toHaveCount(0);
+  await expect(page.getByRole('region',{name:'已披露的事件'}).locator('.event-detail')).toHaveCount(5);
+  await expect(page.getByRole('button',{name:'导出部分证据'})).toHaveCount(0);
+  const image=page.waitForEvent('download');await page.getByRole('button',{name:'保存证书图片'}).click();
+  expect((await image).suggestedFilename()).toBe('WorkProof-certificate.png');
+  await page.screenshot({path:'test-results/disclosure-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/disclosure-mobile.png',fullPage:true});
+  expect(external).toEqual([]);
+});
+
+test('invalid disclosure paths fail in real Wasm and cannot export a success image',async({page})=>{
+  const selected=JSON.parse(fs.readFileSync(fixture+'essay.md.selected.wproof','utf8'));
+  selected.disclosed[1].siblings[0]='00'.repeat(32);
+  await page.goto('/');await page.getByLabel('选择最终作品').setInputFiles(fixture+'essay.md');
+  await page.getByLabel('选择 .wproof 证书').setInputFiles({name:'altered.selected.wproof',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(selected))});
+  await page.getByRole('button',{name:'开始本地核验'}).click();
+  await expect(page.getByText('证据核验未通过',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'保存证书图片'})).toBeDisabled();
+});
+
+test('selection errors do not generate files and legacy signatures remain supported without re-commitment',async({page})=>{
+  const downloads:string[]=[];page.on('download',download=>downloads.push(download.suggestedFilename()));
+  await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();
+  await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByLabel('公开的事件编号').fill('1-999999999');
+  await page.getByRole('button',{name:'导出部分证据'}).click();
+  await expect(page.getByRole('region',{name:'选择性披露导出'}).getByRole('alert')).toContainText('超出范围');
+  expect(downloads).toEqual([]);
+  await page.getByLabel('选择 .wproof 证书').setInputFiles('crates/proof/tests/fixtures/v2-demo.wproof');
+  await page.getByRole('button',{name:'开始本地核验'}).click();
+  await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'导出部分证据'})).toHaveCount(0);
+});
