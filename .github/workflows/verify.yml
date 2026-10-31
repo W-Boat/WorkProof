@@ -79,7 +79,7 @@ jobs:
             apps/verifier/out/
             apps/extension/*.vsix
             apps/office/dist/
-            dist/workproof-blender-0.2.0.zip
+            dist/workproof-blender-*.zip
             docs/
             README.md
             Cargo.lock

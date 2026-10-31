@@ -64,9 +64,9 @@
 
 [Blender 官方许可页](https://www.blender.org/about/license/)允许商业使用，也说明已发布的 Python 插件须按 GPL 合规许可分享。[Extensions 平台条款](https://extensions.blender.org/terms-of-service/)要求上传的 add-on 完全符合 GPLv3 或更高版本；附带图片等资产还有额外要求。
 
-当前 WorkProof 插件 `blender_manifest.toml` 只写 `SPDX:MIT`。MIT 是 GPL 兼容的宽松许可，但不能据此承诺“Blender 插件可任意闭源发布”或已满足平台全部发布要求。正式分发前应明确插件的 GPL 合规授权、源码与打包声明；不应把 Office.js、WPS SDK 等专有组件放入该插件。通过本地网络连接的独立 Rust 引擎应单独评估边界，不能仅因协议通信就把整个产品一概改成 GPL。
+WorkProof Blender 0.2.1 分发包的 manifest 已选择 `SPDX:GPL-3.0-or-later`，归档同时附带完整 Python 源码、GPLv3 正文、原 MIT 声明及授权说明。原自有源码保留 MIT 选项，Blender 扩展分发选择 GPL，不据 MIT 选项声称可任意闭源发布。包内不包含 Office.js、WPS SDK 或其他专有组件；打包脚本校验许可与原始通知。通过本地网络连接的独立 Rust 引擎应单独评估边界，不能仅因协议通信就把整个产品一概改成 GPL。
 
-本次没有擅自改变项目或插件许可证。可收费提供插件、支持或服务；收费并不取消接收者依据 GPL 享有的权利。
+项目根 MIT 授权未撤销，Blender 扩展明确选择 GPL 分发；这不等于已提交或通过 Extensions 平台审核。可收费提供插件、支持或服务；收费并不取消接收者依据 GPL 享有的权利。
 
 ### npm / Rust 的弱 copyleft 传递依赖
 
@@ -112,7 +112,7 @@ ImageGen 生成图标属于生成资产，不是开源项目依赖。本次不�
 ## 发布前需要完成的具体事项
 
 1. 将实际随 Windows 安装器、VSIX、网页、后台 JAR 和本地运行包交付的组件分别列清，附带各自版权、LICENSE/NOTICE 和必要的对应源码获取安排。当前归档证据不是所有产品包已附带通知的证明。
-2. 明确 Blender 插件的 GPL 合规分发方案，并核对 manifest、源码包与 Extensions 平台规则；保留引擎和其他宿主适配器的独立许可边界。
+2. 验证 Blender 0.2.1 归档包含 GPL 条款、完整源码与原 MIT 声明；发布平台审核和其他组件的许可边界仍需分别核对。
 3. WPS 发布模板及工具依赖按包内条款继续核验；需要额外权利时取得金山授权，或者改用许可明确的独立实现。未解决前不声明 WPS 发布包可无条件开源再分发。
 4. 保持当前公开源码与交付后台版本一致；若改为闭源交付，先解决 Connector/J 和相关分发权利。生产缓存明确选用产品、版本与许可，不沿用未固定的 Redis 名称。
 5. 后续依赖升级、加入 Pro 组件、嵌入字体/动画或更换 JDK/容器镜像时，更新本报告和实际产物许可清单。

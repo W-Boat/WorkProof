@@ -1,5 +1,8 @@
+# SPDX-FileCopyrightText: 2026 WorkProof contributors
+# SPDX-License-Identifier: MIT OR GPL-3.0-or-later
+# The Blender extension distribution selects GPL-3.0-or-later; see README.md and COPYING.
 """Local Blender adapter. bpy stays on the main thread; transport uses a bounded queue."""
-bl_info = {"name":"WorkProof · 开源证人","author":"WorkProof contributors","version":(0,2,0),"blender":(4,2,0),"location":"View3D > Sidebar > WorkProof","category":"System"}
+bl_info = {"name":"WorkProof · 开源证人","author":"WorkProof contributors","version":(0,2,1),"blender":(4,2,0),"location":"View3D > Sidebar > WorkProof","category":"System"}
 import datetime,json,os,pathlib,queue,threading,time,urllib.request
 import bpy
 from bpy.app.handlers import persistent

@@ -6,7 +6,7 @@
 
 **它不证明“100% 人类创作”，不提供 AI 使用比例，也不认证签名者的现实身份。**
 
-商业使用与再分发条件见 [许可证核验报告](docs/COMMERCIAL-LICENSE-AUDIT.md)。本项目根目录 MIT 不覆盖所有第三方依赖；WPS 工具条款、Blender 插件及数据库驱动等需按报告处理。
+商业使用与再分发条件见 [许可证核验报告](docs/COMMERCIAL-LICENSE-AUDIT.md)。本项目根目录 MIT 不覆盖所有第三方依赖；Blender 扩展分发选择 GPL-3.0-or-later 并附完整源码和条款，原 MIT 授权保留。WPS 工具条款及数据库驱动等需按报告处理。
 
 ## 下载与运行
 
