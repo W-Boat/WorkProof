@@ -26,8 +26,13 @@ test('altered event is detected by browser protocol core',async({page})=>{
   await page.goto('/');await page.getByLabel('选择最终作品').setInputFiles(fixture+'essay.md');await page.getByLabel('选择 .wproof 证书').setInputFiles({name:'tampered.wproof',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(proof))});
   await page.getByRole('button',{name:'开始本地核验'}).click();await expect(page.getByText('证据核验未通过',{exact:true})).toBeVisible();
 });
-test('invalid JSON and unknown versions are clear errors',async({page})=>{
-  await page.goto('/');await page.getByLabel('选择最终作品').setInputFiles(fixture+'essay.md');await page.getByLabel('选择 .wproof 证书').setInputFiles({name:'broken.wproof',mimeType:'application/json',buffer:Buffer.from('{')});await page.getByRole('button',{name:'开始本地核验'}).click();await expect(page.getByRole('alert')).toBeVisible();
+test('invalid JSON is a clear error',async({page})=>{
+  await page.goto('/');await page.getByLabel('选择最终作品').setInputFiles(fixture+'essay.md');await page.getByLabel('选择 .wproof 证书').setInputFiles({name:'broken.wproof',mimeType:'application/json',buffer:Buffer.from('{')});await page.getByRole('button',{name:'开始本地核验'}).click();await expect(page.getByRole('region',{name:'核验作品与证书'}).getByRole('alert')).toBeVisible();
+});
+test('unknown protocol versions never fall back to a trusted result',async({page})=>{
+  const proof=JSON.parse(fs.readFileSync(fixture+'essay.md.wproof','utf8'));proof.manifest.protocol='workproof/999';
+  await page.goto('/');await page.getByLabel('选择最终作品').setInputFiles(fixture+'essay.md');await page.getByLabel('选择 .wproof 证书').setInputFiles({name:'future.wproof',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(proof))});await page.getByRole('button',{name:'开始本地核验'}).click();
+  await expect(page.getByText('不支持的证据协议版本',{exact:true})).toBeVisible();await expect(page.getByText('证据核验通过',{exact:true})).toHaveCount(0);
 });
 test('mobile is usable and has no horizontal overflow',async({page})=>{
   await page.setViewportSize({width:390,height:844});await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
