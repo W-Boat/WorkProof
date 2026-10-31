@@ -10,7 +10,7 @@
 
 ## 下载与运行
 
-所有编译和测试在本仓库 **Actions → Build and verify WorkProof** 完成。本地开发机器仅编辑源码。
+编译与完整自动化测试在本仓库 Actions 完成；本机运行 Actions 的预构建产物进行验收，不在本地构建。机构后台运行入口及启停脚本见 [本地运行](docs/LOCAL-RUNTIME.md)。
 
 成功运行后下载两个产物：
 

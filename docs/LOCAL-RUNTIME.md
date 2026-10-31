@@ -56,6 +56,8 @@ MySQL 为 `127.0.0.1:33307`，Garnet 为 `127.0.0.1:36379`，新 JAR 为 `127.0.
 
 本地 HTTP 入口用于开发与验收。Word 安装仍需要受信任 HTTPS；这里没有自动导入证书或修改浏览器/Office 的信任配置。WPS、Word 真实宿主验收和生产机构权限业务仍见 [全阶段验收](ALL-STAGES.md)。
 
+本阶段证据：[Actions 41185301362](https://github.com/W-Boat/WorkProof/actions/runs/41185301362) 两个任务通过；本机从该次校验 SHA-256 的产物升级到单 JAR，已确认账号文件未变化、原管理员登录成功、未登录 API 返回 401、登出令牌失效，以及 MySQL 正常关闭后的完整重启。
+
 ## 许可与验证
 
 运行时和 SDK 各自适用许可，见 [商业许可报告](COMMERCIAL-LICENSE-AUDIT.md)。启动器包带 WorkProof 与上游脚手架 MIT；这不替代 MySQL/JDBC、运行时和其他组件的分发义务。

@@ -41,6 +41,7 @@
 | bcryptjs 3.0.3 | 包内 BSD-3-Clause | 可商用；这是 BSD，不是根据名称推测的 MIT |
 | Microsoft Garnet 2.2.5 | [该版本 MIT](https://github.com/microsoft/garnet/blob/v2.2.5/LICENSE) | 本地缓存可商用；保留 MIT 及其所附第三方声明 |
 | .NET Runtime | MIT 为主及发行包第三方声明 | 可商用；分发时保留运行时自带许可、通知 |
+| PowerShell 便携运行时 | [PowerShell MIT](https://github.com/PowerShell/PowerShell/blob/master/LICENSE.txt) 及发行包第三方声明 | 可商用，保留发行包许可/通知；仅供本地控制脚本使用，不属于守护进程常驻依赖 |
 
 ## 必须区分使用场景的组件
 

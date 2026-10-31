@@ -6,6 +6,7 @@
 - 新增无需 Spring 上下文的 stdin 密码哈希入口，使新包初始化无需 Node；密码不会作为进程参数或日志输出。
 - 增加隔离 MySQL/Valkey 的真实 JAR 运行验证，以及 Windows 进程归属/子进程/PID 复用和停止测试；验证结果以对应 Actions 为准。
 - 根仓库提供本地启动、状态、停止、私有账号弹窗和运行说明。没有修改数据库表结构、迁移已有业务数据或部署生产服务器；首次空库初始化复用上游两份 SQL。
+- 验证：[Actions 41185301362](https://github.com/W-Boat/WorkProof/actions/runs/41185301362) 的真实 JAR/MySQL/Valkey 和 Windows 启停测试通过。本机运行该产物已确认原账号保留、登录与 API 边界、令牌登出，以及正常关闭数据库后重新启动。
 
 ## 2026-10-11（MIT 开源发布）
 
