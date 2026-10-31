@@ -31,9 +31,10 @@ export async function detectHost():Promise<Host>{
   }
   await Office.onReady();
   if(Office.context.host!=='Word'||typeof Word==='undefined')throw new Error('请在 Word 或 WPS 文字加载项中打开 WorkProof。');
-  return {source:'word',label:'Microsoft Word',async snapshot(){
+  const wordSnapshot=async():Promise<Snapshot>=>{
     return Word.run(async(context:any)=>{const body=context.document.body;body.load('text');body.paragraphs.load('items');await context.sync();const url=String(Office.context.document.url||'');const name=decodeURIComponent(url.split(/[\\/]/).at(-1)||'document.docx').replace(/\?.*$/,'');return summarize(name,url||name,String(body.text),body.paragraphs.items.length);});
-  },async artifact(){
+  };
+  return {source:'word',label:'Microsoft Word',snapshot:wordSnapshot,async artifact(){
     if(!Office.context.requirements.isSetSupported('CompressedFile','1.1'))throw new Error('当前 Word 版本不支持压缩交付文件导出。');
     const file:any=await callback(done=>Office.context.document.getFileAsync('compressed',{sliceSize:65536},done));
     try{
@@ -43,7 +44,7 @@ export async function detectHost():Promise<Host>{
         const slice:any=await callback(done=>file.getSliceAsync(index,done));const chunk=Uint8Array.from(slice.data as number[]);bytes.set(chunk,offset);offset+=chunk.length;
       }
       if(offset!==file.size)throw new Error('Word 导出文件切片不完整，请重试。');
-      const current=await this.snapshot();return {name:current.name.replace(/\.[^.]*$/,'')+'.docx',bytes};
+      const current=await wordSnapshot();return {name:current.name.replace(/\.[^.]*$/,'')+'.docx',bytes};
     }finally{await callback(done=>file.closeAsync(done));}
   }};
 }
