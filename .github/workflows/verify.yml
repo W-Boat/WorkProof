@@ -95,6 +95,9 @@ jobs:
       - run: npm run build -w @workproof/desktop
       - name: Start real tray binary
         run: python scripts/test_tray.py target/release/workproof-desktop.exe
+      - name: Measure idle resources and durable ingestion
+        shell: pwsh
+        run: ./scripts/measure_windows.ps1 -Executable target/release/workproof-desktop.exe
       - name: Generate fixture and verify Windows collector
         run: |
           cargo run -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
@@ -107,6 +110,7 @@ jobs:
             target/release/workproof-engine.exe
             target/release/bundle/nsis/*.exe
             test-tray-results.json
+            performance-windows.json
             test-engine-results.json
             README.md
             docs/
