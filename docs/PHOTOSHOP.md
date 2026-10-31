@@ -23,3 +23,5 @@
 集成测试使用真实 Rust/Axum/SQLite/签名/CLI。`native_adapter_harness` 是仅在 Actions 隔离临时目录启动的示例，通过 stdin 调用与桌面按钮相同的审批函数；不是随产品提供的审批 HTTP 端点。API 权限、浏览器/原生通道隔离、来源/会话隔离及禁止 `/seal` 均有检查。集成文件字节由模拟宿主生成，仅用于文件绑定，不称为真实 Photoshop PSD 验收。
 
 正式 `.ccx`、Adobe Marketplace 身份、真实 Windows Photoshop 加载、原生请求 Origin 行为、macOS HTTPS/其他安全传输及宿主回调性能需后续实测。不能把开发 ZIP、模拟测试或绿色 CI 标为“所有 Photoshop 版本点击安装”。
+
+代码 `d07f971` 已通过 [完整 Actions 41222699360](https://github.com/W-Boat/WorkProof/actions/runs/41222699360) 的 Linux 和 Windows 任务，包含面板隐藏期间的动作互斥与恢复行为。上述真实宿主与分发边界仍然适用。
