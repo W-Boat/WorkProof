@@ -22,6 +22,7 @@ function fixture(){
     if(path.startsWith('/v1/native-pairing/'))return {approved:true,token:'scoped-token'};
     if(path==='/v1/sessions')return {session_id:'fixture-session'};
     if(path.endsWith('/events')){
+      if(state.holdEvents)await state.holdEvents;
       for(const event of body.events){if(events.has(event.seq))assert.deepEqual(events.get(event.seq),event);else events.set(event.seq,event);}
       if(state.lostAck){state.lostAck=false;throw Error('acknowledgement lost');}
       return {next_seq:events.size};
@@ -80,6 +81,19 @@ test('idle samples use only cheap identity/history markers, without full travers
   host.marker=()=>({id:state.id,history:state.history});host.snapshot=()=>{throw Error('Idle traversal is forbidden');};
   for(let i=0;i<100;i++){state.clock+=1000;await r.sample();}
   assert.equal(state.requests.length,sent);assert.equal(r.paused,false);
+});
+test('pause/export clicks are serialized while an acknowledgement is pending',async()=>{
+  const {recorder:r,state,events}=fixture();await r.start();
+  let release;state.holdEvents=new Promise(resolve=>{release=resolve;});
+  const pausing=r.pause();await new Promise(resolve=>setImmediate(resolve));assert.equal(r.busy,true);
+  await r.pause();await assert.rejects(()=>r.export(),/请先开始或继续记录/);
+  release();await pausing;assert.equal(r.paused,true);assert.deepEqual([...events.values()].map(e=>e.kind),['start','pause']);
+});
+test('hiding a panel during start pauses after the outstanding operation settles',async()=>{
+  const {recorder:r,state,events}=fixture();let release;state.holdEvents=new Promise(resolve=>{release=resolve;});
+  const starting=r.start();await new Promise(resolve=>setImmediate(resolve));assert.equal(r.busy,true);
+  await r.hidden();release();await starting;
+  assert.equal(r.paused,true);assert.deepEqual([...events.values()].map(e=>e.kind),['start','pause']);
 });
 function nativeFixture(){
   const neverRead=()=>{throw Error('Private host content must not be read');};

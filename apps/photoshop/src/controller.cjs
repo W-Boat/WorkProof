@@ -9,10 +9,14 @@ class Recorder {
     Object.assign(this,{host,request,hash,now,sleep,changed});
     this.token='';this.session='';this.pending=[];this.next=0;this.committed=0;this.paused=true;this.busy=false;this.sampling=false;
     this.signals=new Set();this.revision=0;this.elapsed=0;this.error='';this.message='连接后仅在主动开始时记录当前文档。';
-    this.notify=this.notify.bind(this);this.stopped=false;
+    this.notify=this.notify.bind(this);this.stopped=false;this.pauseAfterBusy=false;
   }
   view(){return {recording:!!this.session,paused:this.paused,busy:this.busy,committed:this.committed,queued:this.pending.length,message:this.error||this.message};}
   paint(){this.changed(this.view());}
+  async finishBusy(){
+    this.busy=false;this.paint();
+    if(this.pauseAfterBusy&&this.session&&!this.paused&&!this.stopped){this.pauseAfterBusy=false;await this.pause();}
+  }
   async api(path,body,authenticated=true){return this.request(path,body,authenticated?this.token:'');}
   async connect(){
     if(this.token)return;
@@ -48,7 +52,7 @@ class Recorder {
   }
   async start(){
     if(this.busy||this.session)throw new Error('请先停止当前记录。');
-    this.stopped=false;this.busy=true;this.error='';this.paint();
+    this.stopped=false;this.pauseAfterBusy=false;this.busy=true;this.error='';this.paint();
     try{
       const first=this.host.snapshot();
       this.artifact=await this.host.chooseArtifact();
@@ -59,6 +63,7 @@ class Recorder {
       this.documentId=current.id;
       await this.host.listen(EVENTS,this.notify);this.listening=true;
       const result=await this.api('/v1/sessions',{source:'photoshop',file_name:this.artifact.name,started_at:new Date().toISOString()});
+      if(this.stopped)throw new Error('插件已关闭，本次记录未启动。');
       this.session=result.session_id;this.started=this.now();this.lastSample=this.started;this.next=0;this.committed=0;this.pending=[];this.elapsed=0;
       this.previous=current;this.signals.clear();this.paused=false;
       this.event('start',current);await this.flush();this.message='记录中。每秒合并动作信号与图层统计，不保存图像或图层名称。';
@@ -66,7 +71,7 @@ class Recorder {
       this.paused=true;
       if(this.listening&&!this.session){await this.host.unlisten(EVENTS,this.notify).catch(()=>{});this.listening=false;}
       throw error;
-    }finally{this.busy=false;this.paint();}
+    }finally{await this.finishBusy();}
   }
   notify(name,descriptor){
     if(!this.session||this.paused)return;
@@ -95,11 +100,15 @@ class Recorder {
   }
   async pause(){
     if(!this.session||this.busy)return;
-    if(this.paused){
-      const current=this.host.snapshot();this.check(current);await this.flush();
-      this.event('gap',current);this.event('resume',current);this.previous=current;this.lastSample=this.now();this.signals.clear();this.paused=false;
-    }else{await this.sample();this.event('pause',this.previous);this.paused=true;}
-    await this.flush();this.message=this.paused?'已暂停；继续时会记录采集缺口。':'记录中。';this.error='';this.paint();
+    this.busy=true;this.paint();
+    try{
+      while(this.sampling)await this.sleep(20);
+      if(this.paused){
+        const current=this.host.snapshot();this.check(current);await this.flush();
+        this.event('gap',current);this.event('resume',current);this.previous=current;this.lastSample=this.now();this.signals.clear();this.paused=false;
+      }else{await this.sample(true);this.event('pause',this.previous);this.paused=true;}
+      await this.flush();this.message=this.paused?'已暂停；继续时会记录采集缺口。':'记录中。';this.error='';
+    }catch(error){this.paused=true;throw error;}finally{await this.finishBusy();}
   }
   async export(){
     if(!this.session||this.paused||this.busy)throw new Error('请先开始或继续记录。');
@@ -109,8 +118,10 @@ class Recorder {
       await this.sample(true);
       const proofFile=await this.host.chooseProof(this.artifact.name+'.wproof');
       if(!proofFile){this.message='已取消证书导出，继续记录。';return;}
+      if(this.stopped||this.paused)throw new Error('记录已停止或插件已关闭，请重新开始。');
       const before=this.host.snapshot();this.check(before);const revision=this.revision;
       await this.host.saveCopy(this.artifact,this.documentId);
+      if(this.stopped)throw new Error('插件已关闭，未写入证书。');
       const {bytes,stamp}=await this.host.readArtifact(this.artifact);
       const after=this.host.snapshot();this.check(after);
       if(!same(before,after)||revision!==this.revision)throw new Error('导出期间文档发生变化，请停止编辑后重试。');
@@ -122,27 +133,33 @@ class Recorder {
       if(m?.protocol!=='workproof/3'||m.source!=='photoshop'||m.session_id!==this.session||m.file_name!==this.artifact.name||m.artifact_hash!==digest||m.artifact_bytes!==bytes.length||m.event_count!==this.next)throw new Error('引擎返回的交付绑定不一致，未写入证书。');
       const latest=this.host.snapshot();this.check(latest);
       if(!same(after,latest)||revision!==this.revision)throw new Error('签发期间文档发生变化，请重试。');
+      if(this.stopped)throw new Error('插件已关闭，未写入证书。');
       await this.host.assertArtifactUnchanged(this.artifact,stamp);
       await this.host.writeProof(proofFile,proof);
       await this.host.assertArtifactUnchanged(this.artifact,stamp);
       this.message='PSD 副本和 .wproof 已写入你选择的位置。请交付这份副本。';
-    }finally{this.busy=false;this.paint();}
+    }finally{await this.finishBusy();}
   }
   async stop(){
     this.stopped=true;
     if(this.busy)throw new Error('请等待当前操作完成，再停止记录。');
-    if(this.session){
-      try{if(!this.paused)await this.sample();await this.flush();}
-      catch(error){this.paused=true;throw new Error('仍有未提交事件，请恢复连接后重试停止：'+error.message);}
-    }
-    if(this.listening){await this.host.unlisten(EVENTS,this.notify);this.listening=false;}
-    this.session='';this.token='';this.paused=true;this.signals.clear();this.pending=[];this.message='已停止，本次证书需在停止前完成导出。';this.paint();
+    this.busy=true;this.paint();
+    try{
+      while(this.sampling)await this.sleep(20);
+      if(this.session){
+        try{if(!this.paused)await this.sample(true);await this.flush();}
+        catch(error){this.paused=true;throw new Error('仍有未提交事件，请恢复连接后重试停止：'+error.message);}
+      }
+      if(this.listening){await this.host.unlisten(EVENTS,this.notify);this.listening=false;}
+      this.session='';this.token='';this.paused=true;this.signals.clear();this.pending=[];this.message='已停止，本次证书需在停止前完成导出。';
+    }finally{await this.finishBusy();}
   }
   async hidden(){
+    if(this.busy){this.pauseAfterBusy=true;return;}
     if(this.session&&!this.paused&&!this.busy)await this.pause();
   }
   async dispose(){
-    this.stopped=true;this.paused=true;
+    this.stopped=true;this.paused=true;this.pauseAfterBusy=false;
     if(this.listening){await this.host.unlisten(EVENTS,this.notify).catch(()=>{});this.listening=false;}
   }
 }
