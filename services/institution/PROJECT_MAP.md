@@ -1,5 +1,12 @@
 # 通用后台管理脚手架项目地图
 
+## WorkProof 接入
+
+- `scaffold-system/scaffold-system/.../controller/OfficeBootstrapController.java`：按服务器 `WORKPROOF_PUBLIC_ORIGIN`（机构 HTTPS 来源地址）生成 Word 安装清单，不包含令牌或作品。
+- `scaffold-framework/.../config/SecurityConfig.java`：Office 静态资源使用独立安全链，允许宿主嵌入；后台 API 继续使用原认证链。
+- `scaffold-admin/src/main/resources/static/office`：由 GitHub Actions 从仓库根 `apps/office` 构建，随机构 JAR 提供；源码与底座公共组件分开。
+- WorkProof 证书索引、批量核验和机构数据权限业务仍待开发，本次接入没有创建或修改数据库表。
+
 > 2026-10-11 更新。用于后续业务开发和排障；“已确认”表示代码链路已核对，运行验证记录见 `changelog.md`。数据库映射已与本地 MySQL 5.7 的真实结构及两份初始化脚本核对。
 
 ## 一、项目总览

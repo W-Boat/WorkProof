@@ -1,7 +1,7 @@
 name: Institution backend baseline
 on:
   push:
-    paths: ['services/institution/**', '.github/workflows/institution.yml']
+    paths: ['services/institution/**', 'apps/office/**', '.github/workflows/institution.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,7 +23,13 @@ jobs:
           cache-dependency-path: services/institution/scaffold-vue/package-lock.json
       - name: Shared backend tests
         working-directory: services/institution/scaffold-system
-        run: mvn -B -pl scaffold-framework -am test
+        run: mvn -B -pl scaffold-system -am test
+      - name: Embed Word and WPS add-in resources
+        run: |
+          npm ci
+          node apps/office/build.mjs
+          mkdir -p services/institution/scaffold-system/scaffold-admin/src/main/resources/static/office
+          cp -r apps/office/dist/* services/institution/scaffold-system/scaffold-admin/src/main/resources/static/office/
       - name: Package institution service
         working-directory: services/institution/scaffold-system
         run: mvn -B -pl scaffold-admin -am package -DskipTests

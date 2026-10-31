@@ -11,4 +11,5 @@ apps/verifier/public/wasm/
 apps/desktop/src-tauri/resources/
 .ci-artifacts/
 apps/verifier/public/office/
+services/institution/scaffold-system/scaffold-admin/src/main/resources/static/office/
 

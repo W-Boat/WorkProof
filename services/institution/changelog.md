@@ -231,3 +231,10 @@
 - 新增 `scaffold-vue/src/api/portal.ts` 和 API 映射测试，将工作台、工作流、代码生成器页面从前端 Mock 切换为真实接口。
 - 新增 `docs/backend-architecture.md`，说明后端 Maven 模块、包类类型、业务边界和主要字段中文含义。
 - 完成验证：`npm run test:api` 通过 8 个前端 API 测试，`npm run build` 通过，`mvn -pl scaffold-admin -am test` 通过 21 个后端测试，并完成真实后端与 Vite `/api` 代理接口联调。
+# WorkProof 接入记录（2026-10-31）
+
+- 在保留上游源码与许可证的前提下导入 WorkProof。
+- 增加 Word 安装清单端点，由机构 HTTPS 地址配置驱动，未配置时返回不可用状态。
+- Office 静态资源使用独立安全链和宿主嵌入 CSP，不放宽后台 API 权限。
+- CI 增加 Word/WPS 静态包嵌入和清单配置校验单元测试；本次不操作实际数据库。
+

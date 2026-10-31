@@ -5,6 +5,7 @@ import com.scaffold.framework.security.RestAccessDeniedHandler;
 import com.scaffold.framework.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -22,6 +23,23 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    @Bean
+    @Order(0)
+    public SecurityFilterChain officePublicResources(HttpSecurity http) throws Exception {
+        http.securityMatcher("/office/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(registry -> registry.anyRequest().permitAll())
+                .headers(headers -> headers.frameOptions(frame -> frame.disable())
+                    .contentSecurityPolicy(policy -> policy.policyDirectives(
+                        "default-src 'self'; script-src 'self' https://appsforoffice.microsoft.com; "
+                        + "style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:43127; "
+                        + "img-src 'self' data:; object-src 'none'; base-uri 'self'; "
+                        + "frame-ancestors 'self' https://*.office.com https://*.officeapps.live.com "
+                        + "https://*.microsoft365.com https://*.wps.cn")));
+        return http.build();
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(
