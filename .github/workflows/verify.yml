@@ -7,7 +7,7 @@ permissions:
   contents: read
 concurrency:
   group: workproof-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 env:
   CARGO_TERM_COLOR: always
   NEXT_TELEMETRY_DISABLED: '1'
@@ -81,6 +81,8 @@ jobs:
       - run: cargo test --locked -p workproof-protocol -p workproof-engine
       - run: cargo build --locked -p workproof-engine --release
       - run: npm run build -w @workproof/desktop
+      - name: Start real tray binary
+        run: python scripts/test_tray.py target/release/workproof-desktop.exe
       - name: Generate fixture and verify Windows collector
         run: |
           cargo run -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
@@ -91,6 +93,7 @@ jobs:
           path: |
             target/release/workproof-desktop.exe
             target/release/workproof-engine.exe
+            test-tray-results.json
             test-engine-results.json
             README.md
             docs/

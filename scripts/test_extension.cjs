@@ -34,7 +34,7 @@ async function main(){
     const context={subscriptions:[],workspaceState:{get:key=>state.get(key),update:async(key,value)=>state.set(key,value)},secrets:{get:async key=>secrets.get(key),store:async(key,value)=>secrets.set(key,value)}};
     const filename=path.resolve('apps/extension/dist/extension.js');const nativeRequire=createRequire(filename);
     const module={exports:{}};
-    vm.runInNewContext(await fs.readFile(filename,'utf8'),{module,exports:module.exports,require:id=>id==='vscode'?host:nativeRequire(id),process,Buffer,console,performance,fetch,AbortSignal,TextEncoder,TextDecoder,setInterval,clearInterval,setTimeout,clearTimeout},{filename});
+    vm.runInNewContext(await fs.readFile(filename,'utf8'),{module,exports:module.exports,require:id=>id==='vscode'?host:nativeRequire(id),process,Buffer,Uint8Array,Uint32Array,ArrayBuffer,DataView,console,performance,fetch,AbortSignal,TextEncoder,TextDecoder,setInterval,clearInterval,setTimeout,clearTimeout},{filename});
     extension=module.exports;await extension.activate(context);
     await commands.get('workproof.pair')();await commands.get('workproof.start')();
     function edit(text,removed=0,reason){content=content.slice(0,content.length-removed)+text;version++;doc.isDirty=true;change({document:doc,reason,contentChanges:[{text,rangeLength:removed}]});}

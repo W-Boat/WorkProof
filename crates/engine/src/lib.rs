@@ -3,10 +3,22 @@ use ed25519_dalek::SigningKey;
 use rand::RngCore;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize,Serialize};
-use std::{path::PathBuf,sync::{Arc,Mutex},time::{SystemTime,UNIX_EPOCH}};
+use std::{path::PathBuf,sync::{Arc,Mutex,atomic::{AtomicBool,Ordering}},time::{SystemTime,UNIX_EPOCH}};
 use workproof_protocol::*;
 
 type Shared = Arc<Mutex<Store>>;
+static READY:AtomicBool=AtomicBool::new(false);
+#[derive(Serialize)]
+pub struct EngineSnapshot {pub ready:bool,pub sessions:u64,pub events:u64,pub last_kind:String}
+pub fn snapshot()->Result<EngineSnapshot,String>{
+    if !READY.load(Ordering::Acquire){return Ok(EngineSnapshot{ready:false,sessions:0,events:0,last_kind:String::new()});}
+    let db=Connection::open_with_flags(data_dir().join("records.sqlite"),rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e|e.to_string())?;
+    let sessions=db.query_row("SELECT COUNT(*) FROM sessions",[],|r|r.get(0)).map_err(|e|e.to_string())?;
+    let events=db.query_row("SELECT COUNT(*) FROM events",[],|r|r.get(0)).map_err(|e|e.to_string())?;
+    let last:Option<String>=db.query_row("SELECT json FROM events ORDER BY rowid DESC LIMIT 1",[],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
+    let last_kind=last.and_then(|s|serde_json::from_str::<Event>(&s).ok()).map(|e|e.kind).unwrap_or_default();
+    Ok(EngineSnapshot{ready:true,sessions,events,last_kind})
+}
 type ApiResult<T> = Result<Json<T>,ApiError>;
 pub struct ApiError(StatusCode,String);
 impl IntoResponse for ApiError { fn into_response(self)->axum::response::Response { (self.0,Json(serde_json::json!({"error":self.1}))).into_response() } }
@@ -116,6 +128,7 @@ pub async fn run(port:u16)->Result<(),Box<dyn std::error::Error>> {
         .route("/v1/sessions/{id}/events",post(append)).route("/v1/sessions/{id}/export",post(export))
         .layer(DefaultBodyLimit::max(256*1024)).with_state(shared);
     println!("WorkProof collector listening on 127.0.0.1:{port}; pairing file: {}",dir.join("connection.json").display());
+    READY.store(true,Ordering::Release);
     axum::serve(listener,api).await?;Ok(())
 }
 pub fn now_ms()->u64 {SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64}
