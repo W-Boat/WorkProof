@@ -69,3 +69,5 @@ MySQL 为 `127.0.0.1:33307`，Garnet 为 `127.0.0.1:36379`，新 JAR 为 `127.0.
 运行时和 SDK 各自适用许可，见 [商业许可报告](COMMERCIAL-LICENSE-AUDIT.md)。启动器包带 WorkProof 与上游脚手架 MIT；这不替代 MySQL/JDBC、运行时和其他组件的分发义务。
 
 所有编译和自动化测试在 Actions：真实构建 JAR+MySQL+Valkey 测试覆盖页面/资源/深链接、API 未登录拒绝、随机密码初始化与登录、缓存令牌登出失效；Windows 测试覆盖空格路径、父子进程归属、陈旧 PID 拒绝和进程树停止。Valkey CI 不替代 Windows Garnet 实机兼容验收。启动按钮本身也不等于所有宿主软件已经验收。
+
+2026-10-31 恢复开发后，已从 [Actions 41205435537](https://github.com/W-Boat/WorkProof/actions/runs/41205435537) 升级至 `134112f` 的单 JAR（归档 SHA-256 `9e03f60dc78fb4ce6530afe882cba18452f4cafd99124c35d26eac5474180fd8`）。升级前确认进程停止并持有运行目录锁，保留上一 JAR；账号文件逐字节保持不变。本机重新启动后核对 HTTP/HTTPS、WPS 入口与 ribbon、原账号登录与令牌登出。HTTPS 请求仅为验收显式指定本机证书 CA 文件，不修改 Windows 信任。

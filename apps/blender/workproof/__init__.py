@@ -19,7 +19,26 @@ def request(route,body):
     with urllib.request.urlopen(req,timeout=10) as response:return json.load(response)
 
 def metrics():
-    return {'vertices':sum(len(m.vertices) for m in bpy.data.meshes),'edges':sum(len(m.edges) for m in bpy.data.meshes),'faces':sum(len(m.polygons) for m in bpy.data.meshes),'objects':len(bpy.data.objects),'modifiers':sum(len(o.modifiers) for o in bpy.data.objects)}
+    return {'vertices':sum(len(m.vertices) for m in bpy.data.meshes),'edges':sum(len(m.edges) for m in bpy.data.meshes),'faces':sum(len(m.polygons) for m in bpy.data.meshes),'objects':len(bpy.data.objects),'modifiers':sum(len(o.modifiers) for o in bpy.data.objects),'viewport_changes':_runtime.viewport_changes if _runtime else 0}
+
+def visible_viewports():
+    """Main-thread, transient state only. Never send coordinates, rotations or pointers."""
+    values={}
+    manager=bpy.context.window_manager
+    if manager is None:return values
+    for window in manager.windows:
+        screen=window.screen
+        if screen is None:continue
+        for area in screen.areas:
+            if area.type!='VIEW_3D':continue
+            space=area.spaces.active
+            regions=tuple(space.region_quadviews) or (space.region_3d,)
+            for index,region in enumerate(regions):
+                if region is None:continue
+                key=(window.as_pointer(),area.as_pointer(),index)
+                numbers=tuple(region.view_rotation)+tuple(region.view_location)+(region.view_distance,region.view_camera_zoom)+tuple(region.view_camera_offset)
+                values[key]=(region.view_perspective,tuple(round(float(n),6) for n in numbers))
+    return values
 
 class Runtime:
     def __init__(self,filename):
@@ -27,6 +46,7 @@ class Runtime:
         self.closed=threading.Event();self.retry=threading.Event()
         self.session=None;self.seq=0;self.started=time.monotonic()
         self.paused=False;self.failed=False;self.last_error='';self.exported='';self.committed=0
+        self.viewport_changes=0;self.last_viewports=visible_viewports()
         self.thread=threading.Thread(target=self._work,daemon=True,name='WorkProof-local-transport');self.thread.start()
         self.put('begin',{'file_name':pathlib.Path(filename).name,'started_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'source':'blender'})
     def put(self,operation,payload):
@@ -83,6 +103,14 @@ def on_load(*_):
 def sample():
     global _dirty,_last_metrics
     if _runtime and bpy.data.filepath!=_runtime.filename:_runtime.paused=True;_runtime.last_error='文件路径已改变，请停止后重新开始记录。'
+    if _runtime and not _runtime.paused:
+        current=visible_viewports()
+        # Newly opened or closed viewports establish a baseline; only compare existing regions.
+        changed=any(key in _runtime.last_viewports and value!=_runtime.last_viewports[key] for key,value in current.items())
+        _runtime.last_viewports=current
+        if changed:
+            _runtime.viewport_changes+=1
+            _runtime.event('viewport',{'viewport_changes':_runtime.viewport_changes})
     if _runtime and not _runtime.paused and _dirty:
         _dirty=False;values=metrics()
         _runtime.event('mesh',values);_last_metrics=values
@@ -101,7 +129,9 @@ class WORKPROOF_OT_pause(bpy.types.Operator):
     def execute(self,context):
         if not _runtime:return {'CANCELLED'}
         if _runtime.paused:
+            if bpy.data.filepath!=_runtime.filename:self.report({'ERROR'},'工程路径已改变，请停止后重新开始记录。');return {'CANCELLED'}
             if not _runtime.event('gap',metrics()) or not _runtime.event('resume',metrics()):return {'CANCELLED'}
+            _runtime.last_viewports=visible_viewports()
             _runtime.paused=False;_runtime.retry.set()
         else:_runtime.event('pause',metrics());_runtime.paused=True
         return {'FINISHED'}
@@ -124,7 +154,8 @@ class WORKPROOF_PT_panel(bpy.types.Panel):
             layout.operator('workproof.pause',icon='PAUSE');layout.operator('workproof.export',icon='EXPORT');layout.operator('workproof.stop',icon='CANCEL')
             if _runtime.exported:layout.label(text='证书已保存在工程旁边',icon='CHECKMARK')
             if _runtime.last_error:layout.label(text=_runtime.last_error[:90],icon='ERROR')
-        layout.label(text='仅采集网格统计、撤销与保存。');layout.label(text='不代表真人认证；视口旋转暂未采集。')
+        layout.label(text='网格统计、撤销、保存与视口变化采样。');layout.label(text='1 秒采样；不保存视口坐标或画面。')
+        layout.label(text='不代表真人认证或全部操作的完整记录。')
 
 CLASSES=(WORKPROOF_OT_start,WORKPROOF_OT_pause,WORKPROOF_OT_export,WORKPROOF_OT_stop,WORKPROOF_PT_panel)
 HANDLERS=((bpy.app.handlers.depsgraph_update_post,on_change),(bpy.app.handlers.undo_post,on_undo),(bpy.app.handlers.redo_post,on_redo),(bpy.app.handlers.save_post,on_save),(bpy.app.handlers.load_pre,on_load))

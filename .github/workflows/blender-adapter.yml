@@ -1,0 +1,28 @@
+name: Native Blender adapter validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-blender:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the real local collector
+        run: cargo build --locked -p workproof-engine
+      - name: Install Blender
+        run: sudo apt-get update && sudo apt-get install -y blender
+      - name: Native viewport, mesh, pause and file-binding acceptance
+        run: blender --background --factory-startup --python-exit-code 1 --python scripts/test_blender.py -- target/debug/workproof-engine
+      - name: Package complete extension source and license terms
+        run: python scripts/package_blender.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-blender-extension
+          if-no-files-found: error
+          path: |
+            dist/workproof-blender-*.zip
+            test-blender-results.json

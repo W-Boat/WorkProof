@@ -22,7 +22,13 @@ other product components must be evaluated separately.
 Install using Blender's extension installation from disk (Blender 4.2 or later).
 Open View3D > Sidebar > WorkProof and explicitly start recording a saved project.
 The extension collects aggregate mesh statistics, undo/redo, saves and sampling
-gaps. It does not record viewport rotation or full modifier parameters. Export
+gaps. Visible viewport rotation, pan, zoom and perspective are sampled once per
+second on the main thread. Only a cumulative count of changed sampling intervals
+is exported, never rotations, positions, camera settings or pixels. Changes during
+pause, new viewports and closed viewports do not increment this count. Multiple
+movements within an interval may be missed or combined; the count is not an exact
+number of gestures or evidence of human authorship. Full modifier parameters are
+not collected. Export
 saves the current `.blend` and creates a `.blend.wproof` alongside it.
 
 A valid signature establishes integrity and file binding, not human identity,
