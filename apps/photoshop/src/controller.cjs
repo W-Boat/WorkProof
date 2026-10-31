@@ -100,6 +100,7 @@ class Recorder {
   }
   async pause(){
     if(!this.session||this.busy)return;
+    if(this.paused)this.pauseAfterBusy=false;
     this.busy=true;this.paint();
     try{
       while(this.sampling)await this.sleep(20);
