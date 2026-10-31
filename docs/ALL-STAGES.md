@@ -50,4 +50,4 @@ Windows CI 测得关闭状态窗时工作集约 16.2 MB，3 秒空闲 CPU 采样
 
 Photoshop UXP 自有开发适配已加入：图层/组/可见统计、生产动作列表、主线程合并、PSD 副本与 v3 绑定、桌面审批的原生会话授权。`d07f971` 已通过 [Linux/Windows Actions](https://github.com/W-Boat/WorkProof/actions/runs/41222699360)；不将模拟 Adobe API 或开发 ZIP 视为真实宿主与正式 `.ccx` 验收。Windows 实机、macOS 安全传输、超大文件及正式分发仍在长期范围内，见 [Photoshop 接入](PHOTOSHOP.md)。
 
-核验页已实现三步引导、大字号证书、保留原始字节的签名文件分享、SHA-256 签名指纹与接收方指纹核对。完整与部分证据的分享明确区分公开范围；没有宣称自签名认证作者身份，没有将 localhost 冒充公网分享链接。`1dc6289` 正在 [Actions 41223532239](https://github.com/W-Boat/WorkProof/actions/runs/41223532239) 验证，功能边界见 [证书分享](CERTIFICATE-SHARING.md)。
+核验页已实现三步引导、大字号证书、保留原始字节的签名文件分享、SHA-256 签名指纹与接收方指纹核对。完整与部分证据的分享明确区分公开范围；没有宣称自签名认证作者身份，没有将 localhost 冒充公网分享链接。`0a53020` 已通过 [Linux/Windows Actions 41224054908](https://github.com/W-Boat/WorkProof/actions/runs/41224054908)，25 项浏览器测试通过，本机4173已更新，功能边界见 [证书分享](CERTIFICATE-SHARING.md)。

@@ -49,3 +49,24 @@ Rust 测试覆盖非二次幂树、每个叶子位置、100,000 条树深度、�
 | 从 Windows 包提取的 NSIS 安装器 | `d2f09b027bbadd0eb69fe5b0fe4dc04ee4b419751a92ff6cc47b2b12d1330ea1` |
 
 长目标仍未完成：真实 Word/WPS 验收、正式 WPS publish、Photoshop UXP、完整演进结构、TSA/C2PA、机构证书业务、首次运行向导及跨平台交付继续保留原范围，见 [全阶段清单](ALL-STAGES.md)。
+
+## 大字号证书与签名分享
+
+最新代码 `0a53020` 的 [Actions 41224054908](https://github.com/W-Boat/WorkProof/actions/runs/41224054908) Linux 与 Windows 任务均成功；协议、插件、真实 Blender、网页、原生授权隔离、桌面托盘和 NSIS 构建均通过，25 项浏览器测试全部通过。
+
+新增用例以 Node SHA-256 独立对照浏览器指纹，检查有效签名遇到错误指纹时失败、正确指纹通过、文件分享回退保留原始字节、部分披露沿用原签名指纹、手机作品名/说明字号及无横向溢出。首轮 `41223532239` 的一项断言因同时选中 Next 路由播报 alert 而失败，已收紧选择器；被新排版替代的 `41223897996` 取消，不计为通过。
+
+已检查 Actions 的浅色桌面、手机及 1440×960 部分证书导出图。页面明确图片仅展示，分享的 `.wproof` 需和作品原文件一起独立核验，指纹须经可信渠道取得；未认证作者身份，未生成公网托管链接。
+
+| 本轮下载校验产物 | SHA-256 |
+|---|---|
+| `workproof-web-and-extension` | `948711106551743108eb0c6732345c9b1970fd55ad5b870d4c7a92cb97c176fc` |
+| `verification-report` | `09661c012b2970134a821255ce3d3df5f77fcaba06748b5763fdae9dd6eb94c2` |
+| `workproof-windows-x64` | `5824952b85bae2bc47a334cb8b88162705693d7d7126d35b6ef84c73b6005e75` |
+| 从本轮 Windows 包提取的 NSIS 安装器 | `c7583a4ebaf67b87de7bdb5f193f63cf69f44c4e4cacb703d7faa9cff7041577` |
+
+Windows 产物已提取至 `E:/work/workproof-delivery-0a53020`，未运行安装器。本轮无状态窗采样工作集 16.24 MB、空闲 CPU 为单核 0%、128 条持久化 HTTP 批次 p95 20.769 ms；只统计根及直接子进程，含客户端和 SQLite 落盘，不代表宿主编辑回调或所有机器。
+
+本机 4173 已指向 `E:/work/workproof-browser-0a53020/verifier`，HTTP 首页与新版核验 Worker 均正常。只读静态服务继续复用已验证 `6c59057` 二进制，进程记录与日志仍位于 `E:/work/workproof-browser-6c59057`。切换时仅停止该记录验证归属的进程；机构 Java/MySQL/Garnet 未重启、账号未更改。未运行本地构建或自动化测试，未启动采集器、安装器或修改信任。
+
+Photoshop 最终控制器代码 `d07f971` 的 [完整 Actions 41222699360](https://github.com/W-Boat/WorkProof/actions/runs/41222699360) 两平台均通过；其中 Adobe API 为模拟，真实宿主、正式 CCX 与 macOS 传输仍待验证。
