@@ -1,0 +1,41 @@
+name: Institution backend baseline
+on:
+  push:
+    paths: ['services/institution/**', '.github/workflows/institution.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/institution/scaffold-vue/package-lock.json
+      - name: Shared backend tests
+        working-directory: services/institution/scaffold-system
+        run: mvn -B -pl scaffold-framework -am test
+      - name: Package institution service
+        working-directory: services/institution/scaffold-system
+        run: mvn -B -pl scaffold-admin -am package -DskipTests
+      - name: Vue component tests and production build
+        working-directory: services/institution/scaffold-vue
+        run: |
+          npm ci
+          npm run test:unit
+          npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: institution-baseline
+          path: |
+            services/institution/scaffold-system/scaffold-admin/target/*.jar
+            services/institution/scaffold-vue/dist/
