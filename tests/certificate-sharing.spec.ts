@@ -19,7 +19,7 @@ test('a valid certificate cannot pass a different sender fingerprint',async({pag
   await input.fill('0'.repeat(64));
   await page.getByRole('button',{name:'开始本地核验'}).click();
   await expect(page.getByText('证据核验未通过',{exact:true})).toBeVisible();
-  await expect(page.getByRole('alert')).toContainText('证书指纹不一致');
+  await expect(page.getByRole('alert').filter({hasText:'证书指纹不一致'})).toBeVisible();
   await expect(page.getByRole('button',{name:'分享签名证书'})).toHaveCount(0);
   await input.fill(identifier().toUpperCase());
   await page.getByRole('button',{name:'开始本地核验'}).click();
