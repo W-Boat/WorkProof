@@ -142,8 +142,8 @@ class Recorder {
     }finally{await this.finishBusy();}
   }
   async stop(){
-    this.stopped=true;
     if(this.busy)throw new Error('请等待当前操作完成，再停止记录。');
+    this.stopped=true;
     this.busy=true;this.paint();
     try{
       while(this.sampling)await this.sleep(20);

@@ -87,6 +87,7 @@ test('pause/export clicks are serialized while an acknowledgement is pending',as
   let release;state.holdEvents=new Promise(resolve=>{release=resolve;});
   const pausing=r.pause();await new Promise(resolve=>setImmediate(resolve));assert.equal(r.busy,true);
   await r.pause();await assert.rejects(()=>r.export(),/请先开始或继续记录/);
+  await assert.rejects(()=>r.stop(),/等待当前操作完成/);assert.equal(r.stopped,false);
   release();await pausing;assert.equal(r.paused,true);assert.deepEqual([...events.values()].map(e=>e.kind),['start','pause']);
 });
 test('hiding a panel during start pauses after the outstanding operation settles',async()=>{
