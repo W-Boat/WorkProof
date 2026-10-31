@@ -72,3 +72,18 @@ with tempfile.TemporaryDirectory(prefix='workproof-test-') as tmp:
         if proc.poll() is None:proc.terminate();proc.wait(timeout=10)
 (root/'test-engine-results.json').write_text(json.dumps({'passed':checks},indent=2),encoding='utf-8')
 print(json.dumps({'passed':checks},indent=2))
+
+# The shipped binary can serve the verifier without Node/Python on the user's machine.
+with tempfile.TemporaryDirectory(prefix='workproof-static-') as tmp:
+    (pathlib.Path(tmp)/'index.html').write_text('WorkProof static test',encoding='utf-8')
+    server=subprocess.Popen([exe,'serve-web',tmp],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    try:
+        for _ in range(50):
+            try:
+                with urllib.request.urlopen('http://127.0.0.1:4173',timeout=2) as response:
+                    assert response.read()==b'WorkProof static test'
+                break
+            except urllib.error.URLError:time.sleep(.1)
+        else:raise AssertionError('Static server did not become ready')
+    finally:server.terminate();server.wait(timeout=10)
+print('Native static verifier server passed')

@@ -19,7 +19,7 @@
 4. 打开本地文件，运行 **WorkProof: 记录当前文件**，明确同意后才开始采集。
 5. 正常编辑。可用状态栏暂停 / 继续；恢复后会标注采集缺口。
 6. 运行 **WorkProof: 导出过程证书**，将最终作品和 `.wproof` 一起交付。
-7. 将静态站点目录通过任意本地 HTTP 服务器打开（例如在含 `index.html` 的目录运行 `python -m http.server 4173 --bind 127.0.0.1`），访问 `http://127.0.0.1:4173`。运行服务器不涉及编译。不能直接双击 HTML，因为 Wasm/Worker 需要 HTTP 源。
+7. 运行 `workproof-engine.exe serve-web "静态站点目录"`（该目录中应有 `index.html`），访问 `http://127.0.0.1:4173`。不需要安装 Node、Rust 或 Python，也不涉及编译。该服务器只在本机提供静态资源，没有上传接口。不能直接双击 HTML，因为 Wasm/Worker 需要 HTTP 源。
 8. 载入两份文件，查看核验结果和过程图谱，保存证书 PNG 或打印为 PDF。
 
 也可使用独立命令行：

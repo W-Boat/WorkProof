@@ -45,3 +45,7 @@ Genesis = BLAKE3(`WorkProof:genesis:v1\0` || field(session_id))。
 `POST /v1/sessions` 创建会话；`POST /v1/sessions/{id}/events` 事务追加；同序号相同数据可重试，不同数据拒绝。只有 SQLite 提交成功后确认。`POST /v1/sessions/{id}/export` 检查最后保存 checkpoint 并签发证据。`GET /v1/status` 提供配对检查。
 
 攻击者控制当前用户、本地程序、插件或密钥时，可伪造事件和新的签名记录。此协议未提供可信执行环境或第三方见证，不防御这一能力。
+
+## 本地核验站点
+
+命令行 `serve-web DIRECTORY` 是独立的只读静态资源服务，监听 127.0.0.1:4173，不创建采集数据库，不接受上传。网页用 Worker/Wasm 处理用户选择的文件，不向这个服务发送作品内容。请只将已导出的核验站点目录作为资源根目录。
