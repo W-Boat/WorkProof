@@ -84,6 +84,6 @@ export async function activate(context:vscode.ExtensionContext){
     enqueue(kind,e.contentChanges.reduce((n,c)=>n+c.text.length,0),e.contentChanges.reduce((n,c)=>n+c.rangeLength,0));
   }));
   ctx.subscriptions.push(vscode.workspace.onDidSaveTextDocument(doc=>{if(session&&!session.paused&&session.uri===doc.uri.toString())enqueue('save');}));
-  timer=setInterval(()=>{void persist().then(()=>flush()).catch(()=>{});},1000);ctx.subscriptions.push({dispose:()=>clearInterval(timer)});paint();
+  timer=setInterval(()=>{if(session?.pending.length)void persist().then(()=>flush()).catch(()=>{});},1000);ctx.subscriptions.push({dispose:()=>clearInterval(timer)});paint();
 }
 export async function deactivate(){clearInterval(timer);if(session){enqueue('gap');await persist();}try{await flush();}catch{}}

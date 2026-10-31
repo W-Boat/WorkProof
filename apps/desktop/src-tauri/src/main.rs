@@ -21,5 +21,10 @@ fn main(){
                 let dir=workproof_engine::data_dir();let _=std::fs::create_dir_all(&dir);let _=std::fs::write(dir.join("startup-error.txt"),error.to_string());handle.exit(1);
             }
         });Ok(())
-    }).run(tauri::generate_context!()).expect("WorkProof desktop failed");
+    }).build(tauri::generate_context!()).expect("WorkProof desktop failed")
+        .run(|_app,event|{
+            // Destroy the last webview on close while retaining the tray collector.
+            // Explicit menu exit and startup errors carry an exit code and remain effective.
+            if let tauri::RunEvent::ExitRequested{api,code:None,..}=event {api.prevent_exit();}
+        });
 }
