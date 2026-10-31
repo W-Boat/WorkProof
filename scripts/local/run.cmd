@@ -10,12 +10,17 @@ if /I "%~1"=="stop" set "SCRIPT=stop-windows.ps1"
 if /I "%~1"=="status" set "SCRIPT=status-windows.ps1"
 if /I "%~1"=="account" set "SCRIPT=show-account.ps1"
 if /I "%~1"=="trust" set "SCRIPT=local-certificate-trust.ps1"
+if /I "%~1"=="word" set "SCRIPT=install-word.ps1"
+if /I "%~1"=="remove-word" (
+  set "SCRIPT=install-word.ps1"
+  set "EXTRA=-Remove"
+)
 if /I "%~1"=="untrust" (
   set "SCRIPT=local-certificate-trust.ps1"
   set "EXTRA=-Remove"
 )
 if not defined SCRIPT (
-  echo Usage: run.cmd start^|stop^|status^|account^|trust^|untrust [runtime-directory]
+  echo Usage: run.cmd start^|stop^|status^|account^|trust^|untrust^|word^|remove-word [runtime-directory]
   exit /b 2
 )
 set "PS=%ROOT%\powershell\pwsh.exe"

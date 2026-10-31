@@ -3,10 +3,16 @@ on:
   push:
     paths: ['services/institution/**', 'apps/office/**', 'scripts/local/**', 'scripts/test_institution_runtime.py', 'scripts/test_local_runtime.ps1', '.github/workflows/institution.yml']
   workflow_dispatch:
+    inputs:
+      windows_only:
+        description: 'Only validate/package Windows controls; use when JAR source is unchanged'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   scaffold:
+    if: ${{ inputs.windows_only != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
@@ -102,7 +108,7 @@ jobs:
           Copy-Item docs/licenses .local-launchers/licenses -Recurse
           Copy-Item LICENSE .local-launchers/WORKPROOF-LICENSE.txt
           Copy-Item services/institution/LICENSE .local-launchers/SCAFFOLD-LICENSE.txt
-          foreach ($entry in @{Start='start';Stop='stop';Status='status';'Show account'='account';'Trust localhost'='trust';'Remove localhost trust'='untrust'}.GetEnumerator()) {
+          foreach ($entry in @{Start='start';Stop='stop';Status='status';'Show account'='account';'Trust localhost'='trust';'Remove localhost trust'='untrust';'Install Word add-in'='word';'Remove Word add-in'='remove-word'}.GetEnumerator()) {
             ('@echo off' + "`r`n" + 'call "%~dp0scripts\local\run.cmd" ' + $entry.Value + ' "%~dp0."' + "`r`n") | Set-Content -LiteralPath ('.local-launchers/' + $entry.Key + '.cmd') -Encoding ascii
           }
       - uses: actions/upload-artifact@v4

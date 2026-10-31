@@ -1,7 +1,9 @@
 #Requires -Version 7.4
 param()
 $ErrorActionPreference = 'Stop'
+if ($env:GITHUB_ACTIONS -ne 'true') { throw 'This test writes isolated fixture state; run it in GitHub Actions.' }
 . (Join-Path $PSScriptRoot 'local/runtime-common.ps1')
+. (Join-Path $PSScriptRoot 'local/word-registration.ps1')
 $fixture = Join-Path $env:RUNNER_TEMP ('WorkProof runtime fixture ' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force (Join-Path $fixture 'state'),(Join-Path $fixture 'logs') | Out-Null
 & (Join-Path $PSScriptRoot 'local/prepare-local-https.ps1') -RuntimeRoot $fixture
@@ -16,6 +18,45 @@ try {
         if (@($store.Certificates | Where-Object {$_.Thumbprint -eq $leaf.Thumbprint}).Count) { throw 'Preparation must not modify OS certificate trust' }
     } finally { $store.Dispose() }
 } finally { $leaf.Dispose() }
+$wordXml = @'
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="TaskPaneApp"><Id>9ebd5d58-80c3-4868-8dd5-c3f3c53d7942</Id><Hosts><Host Name="Document"/></Hosts><DefaultSettings><SourceLocation DefaultValue="https://localhost:18443/office/index.html"/></DefaultSettings><Permissions>ReadWriteDocument</Permissions></OfficeApp>
+'@
+Assert-WordManifest $wordXml
+foreach ($invalid in @($wordXml.Replace('localhost:18443','foreign.invalid'),$wordXml.Replace('9ebd5d58','0ebd5d58'),$wordXml.Replace('Name="Document"','Name="Workbook"'),('<!DOCTYPE OfficeApp [<!ENTITY x SYSTEM "file:///unknown">]>'+$wordXml))) {
+    $rejected=$false
+    try { Assert-WordManifest $invalid } catch { $rejected=$true }
+    if (-not $rejected) { throw 'Unsafe Word manifest was accepted' }
+}
+$testKey='Software\WorkProof\CI\'+[Guid]::NewGuid().ToString('N')
+$manifestPath=Join-Path $fixture 'office/manifest-word.xml'
+$registry=[Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser,[Microsoft.Win32.RegistryView]::Default)
+try {
+    $key=$registry.CreateSubKey($testKey,$true)
+    try { $key.SetValue('unrelated-addin','retain-me') } finally { $key.Dispose() }
+    Set-WordRegistration -ManifestPath $manifestPath -RegistrySubKey $testKey
+    $key=$registry.OpenSubKey($testKey,$true)
+    try {
+        if ($key.GetValue($script:WorkProofWordId) -ne $manifestPath) { throw 'Local Word registration did not round-trip' }
+        $key.SetValue($script:WorkProofWordId,'C:\foreign-installation\manifest.xml')
+    } finally { $key.Dispose() }
+    foreach ($remove in @($false,$true)) {
+        $rejected=$false
+        try { Set-WordRegistration -ManifestPath $manifestPath -RegistrySubKey $testKey -Remove:$remove } catch { $rejected=$true }
+        if (-not $rejected) { throw 'A foreign registration was overwritten/removed' }
+    }
+    $key=$registry.OpenSubKey($testKey,$true)
+    try { $key.SetValue($script:WorkProofWordId,$manifestPath) } finally { $key.Dispose() }
+    Set-WordRegistration -ManifestPath $manifestPath -RegistrySubKey $testKey -Remove
+    $key=$registry.OpenSubKey($testKey,$false)
+    try {
+        if ($null -ne $key.GetValue($script:WorkProofWordId,$null) -or $key.GetValue('unrelated-addin') -ne 'retain-me') { throw 'Word removal changed unrelated registration state' }
+    } finally { $key.Dispose() }
+    Write-Output 'PASS: strict Word manifest validation, isolated registry installation/removal, foreign install refusal and preservation of unrelated add-ins.'
+} finally {
+    if ($testKey -notmatch '^Software\\WorkProof\\CI\\[0-9a-f]{32}$') {throw 'Unsafe fixture cleanup path'}
+    $registry.DeleteSubKeyTree($testKey,$false)
+    $registry.Dispose()
+}
 foreach ($file in Get-ChildItem (Join-Path $PSScriptRoot 'local') -Filter '*.ps1') {
     $tokens=$null; $parseErrors=$null
     [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$parseErrors)

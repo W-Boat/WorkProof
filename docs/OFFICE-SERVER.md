@@ -10,6 +10,8 @@
 
 `Trust localhost.cmd` 会先显示证书指纹、有效期和当前用户 Root 信任库的变更范围，用户确认后才导入公钥证书；`Remove localhost trust.cmd` 可移除同一证书。自动化代理不得以任务授权代替该证书信任确认。此流程仅用于本机验收，服务器仍需要真实域名和受信任证书。证书准备和 HTTPS 资源检查不等于 Word 已实际加载插件。
 
+本机证书获准信任后，`Install Word add-in.cmd` 从受信任的本地 HTTPS 获取并核对 WorkProof Word 清单，再向当前用户 `Software\Microsoft\Office\16.0\Wef\Developer` 注册固定 WorkProof ID；`Remove Word add-in.cmd` 只撤销该 ID 且拒绝移除另一个目录的安装。不会清理全局缓存、启用调试器、更改全局策略或关闭现有 Word 文档。机制参照 [Microsoft Office 开发工具的 Windows 注册实现](https://github.com/OfficeDev/Office-Addin-Scripts/blob/master/packages/office-addin-dev-settings/src/dev-settings-windows.ts)，不是机构生产集中部署。进入 Word 的“开始 → 加载项 → 高级 → 开发人员加载项”选择 WorkProof；若 Word 已打开，保存文档后自行重新打开。宿主政策或具体版本仍可能限制侧载，不能据注册成功推断真实采集已成功。
+
 普通用户从宿主中打开 WorkProof，首次连接在本机桌面窗口点击允许。来源网址必须显示完整，并与用户正在使用的机构加载项一致。此连接不会上传作品。Office 官方运行库依照 Microsoft 要求从官方 CDN 加载；断网时能否启动已安装的加载项依赖宿主缓存，不能承诺 Word 加载项完全离线启动。
 
 WPS 推荐使用官方 publish 分发方式；`jsplugins.xml` 在部分新版本受限制，不能通过静默修改 OEM 配置宣称通用兼容。后续发布包使用官方发布工具和相应授权条款，不将上游工具代码归入本项目 MIT 授权。

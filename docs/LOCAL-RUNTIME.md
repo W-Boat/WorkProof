@@ -19,6 +19,8 @@
 | `Show account.cmd` | 在本机弹窗查看生成的 admin 密码，不写入终端或日志 |
 | `Trust localhost.cmd` | 对已准备的 localhost 证书显示明确确认，再修改当前用户 Root 信任库；不导入私钥 |
 | `Remove localhost trust.cmd` | 经确认移除同一 localhost 证书，保留其他信任项 |
+| `Install Word add-in.cmd` | 经确认注册本地 Word 开发加载项，要求 HTTPS 已受信任；不关闭现有文档 |
+| `Remove Word add-in.cmd` | 只撤销属于本运行目录的 Word 开发加载项注册 |
 
 脚本使用 PowerShell 7.4+；优先使用运行目录 `powershell/pwsh.exe`，否则使用已安装的 `pwsh.exe`。不改系统执行策略，不注册全局服务。脚本命令示例：
 
