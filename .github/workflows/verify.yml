@@ -42,6 +42,12 @@ jobs:
           python scripts/test_engine.py target/debug/workproof-engine
       - run: npm run typecheck
       - run: npm run build:extension
+      - name: Typecheck and bundle Word/WPS add-in
+        run: |
+          npx tsc -p apps/office/tsconfig.json --noEmit
+          node apps/office/build.mjs
+          mkdir -p apps/verifier/public/office
+          cp -r apps/office/dist/* apps/verifier/public/office/
       - name: Extension to collector integration
         run: node scripts/test_extension.cjs target/debug/workproof-engine
       - name: Install Blender for native adapter validation
@@ -70,6 +76,7 @@ jobs:
           path: |
             apps/verifier/out/
             apps/extension/*.vsix
+            apps/office/dist/
             dist/workproof-blender-0.2.0.zip
             docs/
             README.md

@@ -3,6 +3,10 @@ use tauri::{menu::{Menu,MenuItem},tray::TrayIconBuilder,Manager};
 #[tauri::command]
 fn engine_status()->Result<workproof_engine::EngineSnapshot,String>{workproof_engine::snapshot()}
 #[tauri::command]
+fn pending_adapters()->Vec<workproof_engine::pairing::Pending>{workproof_engine::pairing::pending()}
+#[tauri::command]
+fn decide_adapter(ticket:String,approve:bool)->Result<(),String>{workproof_engine::pairing::decide(&ticket,approve)}
+#[tauri::command]
 async fn open_verifier(app:tauri::AppHandle)->Result<(),String>{
     let dir=app.path().resource_dir().map_err(|e|e.to_string())?.join("verifier");
     if !dir.join("index.html").is_file(){return Err("核验资源不完整，请使用完整安装包重新安装。".into());}
@@ -27,7 +31,7 @@ async fn install_vscode(app:tauri::AppHandle)->Result<String,String>{
     Ok("插件安装完成。在 VS Code 状态栏点击 WorkProof 即可开始记录。".into())
 }
 fn main(){
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![engine_status,open_verifier,install_vscode]).setup(|app|{
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![engine_status,pending_adapters,decide_adapter,open_verifier,install_vscode]).setup(|app|{
         let open=MenuItem::with_id(app,"open","WorkProof · 状态与帮助",true,None::<&str>)?;
         let quit=MenuItem::with_id(app,"quit","退出记录引擎",true,None::<&str>)?;
         let menu=Menu::with_items(app,&[&open,&quit])?;

@@ -5,6 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize,Serialize};
 use std::{path::PathBuf,sync::{Arc,Mutex,atomic::{AtomicBool,Ordering}},time::{SystemTime,UNIX_EPOCH}};
 use workproof_protocol::*;
+pub mod pairing;
 
 type Shared = Arc<Mutex<Store>>;
 static READY:AtomicBool=AtomicBool::new(false);
@@ -55,7 +56,9 @@ impl Store {
 }
 fn authorize(headers:&HeaderMap,store:&Store)->Result<(),ApiError> {
     // No browser origins are accepted. The local website never calls the collector API.
-    if headers.contains_key("origin") {return Err(ApiError(StatusCode::FORBIDDEN,"BROWSER_ORIGIN_DENIED".into()));}
+    if headers.contains_key("origin") {
+        return if pairing::allows(headers,None,None){Ok(())}else{Err(ApiError(StatusCode::FORBIDDEN,"BROWSER_ORIGIN_DENIED".into()))};
+    }
     let supplied=headers.get("authorization").and_then(|h|h.to_str().ok()).unwrap_or("");
     let expected=format!("Bearer {}",store.info.token);
     let diff=supplied.bytes().zip(expected.bytes()).fold(0u8,|a,(b,c)|a|(b^c));
@@ -66,14 +69,17 @@ fn lock(s:&Shared)->Result<std::sync::MutexGuard<'_,Store>,ApiError>{s.lock().ma
 struct Start {file_name:String,started_at:String,source:String,#[serde(default)]demo:bool}
 async fn start(State(shared):State<Shared>,headers:HeaderMap,Json(input):Json<Start>)->ApiResult<serde_json::Value>{
     let store=lock(&shared)?;authorize(&headers,&store)?;
+    if headers.contains_key("origin")&&!pairing::allows(&headers,None,Some(&input.source)){return Err(ApiError(StatusCode::FORBIDDEN,"ADAPTER_SOURCE_MISMATCH".into()));}
     if input.file_name.is_empty()||input.file_name.len()>255||input.file_name.contains(['/', '\\'])||input.started_at.len()>64||input.source.len()>128{return Err(bad("INVALID_SESSION"));}
     let id=random_hex(16);
     store.db.execute("INSERT INTO sessions(id,name,started,source,demo) VALUES(?1,?2,?3,?4,?5)",params![id,input.file_name,input.started_at,input.source,input.demo])?;
+    if headers.contains_key("origin"){pairing::bind(&headers,&id);}
     Ok(Json(serde_json::json!({"session_id":id,"next_seq":0})))
 }
 #[derive(Deserialize)] #[serde(deny_unknown_fields)] struct Batch {events:Vec<Event>}
 async fn append(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<String>,Json(batch):Json<Batch>)->ApiResult<serde_json::Value>{
     let mut store=lock(&shared)?;authorize(&headers,&store)?;
+    if headers.contains_key("origin")&&!pairing::allows(&headers,Some(&id),None){return Err(ApiError(StatusCode::FORBIDDEN,"ADAPTER_SESSION_DENIED".into()));}
     if batch.events.is_empty()||batch.events.len()>256{return Err(bad("INVALID_BATCH"));}
     let exists:bool=store.db.query_row("SELECT EXISTS(SELECT 1 FROM sessions WHERE id=?1)",[&id],|r|r.get(0))?;
     if !exists{return Err(bad("UNKNOWN_SESSION"));}
@@ -98,6 +104,7 @@ async fn append(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<Stri
 #[derive(Deserialize)] #[serde(deny_unknown_fields)] struct Export {artifact_hash:String,artifact_bytes:u64}
 async fn export(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<String>,Json(input):Json<Export>)->ApiResult<Proof>{
     let store=lock(&shared)?;authorize(&headers,&store)?;
+    if headers.contains_key("origin")&&!pairing::allows(&headers,Some(&id),None){return Err(ApiError(StatusCode::FORBIDDEN,"ADAPTER_SESSION_DENIED".into()));}
     if !valid_hash(&input.artifact_hash){return Err(bad("INVALID_ARTIFACT_HASH"));}
     let (name,started,source,demo):(String,String,String,bool)=store.db.query_row("SELECT name,started,source,demo FROM sessions WHERE id=?1",[&id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?;
     let mut stmt=store.db.prepare("SELECT json,hash FROM events WHERE session=?1 ORDER BY seq")?;
@@ -114,6 +121,7 @@ async fn export(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<Stri
 #[derive(Deserialize)] #[serde(deny_unknown_fields)]
 struct Seal {path:String,event:Event}
 async fn seal(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<String>,Json(mut input):Json<Seal>)->ApiResult<Proof>{
+    if headers.contains_key("origin"){return Err(ApiError(StatusCode::FORBIDDEN,"NATIVE_ADAPTER_REQUIRED".into()));}
     let name:String={
         let store=lock(&shared)?;authorize(&headers,&store)?;
         store.db.query_row("SELECT name FROM sessions WHERE id=?1",[&id],|r|r.get(0))?
@@ -151,9 +159,10 @@ pub async fn run(port:u16)->Result<(),Box<dyn std::error::Error>> {
     std::fs::write(dir.join("connection.json"),serde_json::to_vec(&store.info)?)?;
     let shared=Arc::new(Mutex::new(store));
     let api=Router::new().route("/v1/status",get(status)).route("/v1/sessions",post(start))
+        .route("/v1/pairing",post(pairing::request_pair)).route("/v1/pairing/{ticket}",get(pairing::poll_pair))
         .route("/v1/sessions/{id}/events",post(append)).route("/v1/sessions/{id}/export",post(export))
         .route("/v1/sessions/{id}/seal",post(seal))
-        .layer(DefaultBodyLimit::max(256*1024)).with_state(shared);
+        .layer(DefaultBodyLimit::max(256*1024)).layer(axum::middleware::from_fn(pairing::cors)).with_state(shared);
     println!("WorkProof collector listening on 127.0.0.1:{port}; pairing file: {}",dir.join("connection.json").display());
     READY.store(true,Ordering::Release);
     axum::serve(listener,api).await?;Ok(())
