@@ -5,6 +5,7 @@ for(const variant of ['word','wps','wps-alias','wps-factory'] as const){
   const host=variant==='word'?'word':'wps';
   test(`${variant} adapter discovers host, keeps text private and exports its bound file`,async({page})=>{
     const requests:{route:string;body:any}[]=[];
+    let revoked=false;
     await page.addInitScript(({host,variant})=>{
       const state={text:'private draft text',bytes:[80,75,3,4,1,2,3,4]};
       (window as any).hostFixture=state;
@@ -25,6 +26,7 @@ for(const variant of ['word','wps','wps-alias','wps-factory'] as const){
       const req=route.request();
       if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
       const path=new URL(req.url()).pathname,body=req.postDataJSON();requests.push({route:path,body});
+      if(revoked&&req.headers()['authorization']){await route.fulfill({status:403,headers,contentType:'application/json',body:JSON.stringify({error:'PAIRING_REQUIRED'})});return;}
       const result=path==='/v1/pairing'?{ticket:'host-api-fixture'}:path.includes('/pairing/')?{approved:true,token:'simulated-origin-grant'}:path==='/v1/sessions'?{session_id:'simulated-session'}:path.endsWith('/events')?{next_seq:100}:path.endsWith('/export')?{test_fixture:true}:{error:'unexpected route'};
       await route.fulfill({status:200,headers,contentType:'application/json',body:JSON.stringify(result)});
     });
@@ -41,6 +43,11 @@ for(const variant of ['word','wps','wps-alias','wps-factory'] as const){
     const all=JSON.stringify(requests);expect(all).not.toContain('private draft text');expect(all).not.toContain('additional private content');
     expect(requests.find(r=>r.route==='/v1/sessions')?.body.source).toBe(host);
     expect(requests.find(r=>r.route.endsWith('/export'))?.body.artifact_hash).toMatch(/^[0-9a-f]{64}$/);
+    revoked=true;
+    await page.evaluate(()=>{(window as any).hostFixture.text+=' after revocation';});
+    await expect(page.locator('#status')).toContainText('连接已撤销或过期');
+    await expect(page.getByRole('button',{name:'继续记录'})).toBeDisabled();
+    await expect(page.getByRole('button',{name:'导出交付件与证书'})).toBeDisabled();
   });
 }
 

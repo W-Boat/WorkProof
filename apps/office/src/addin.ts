@@ -5,10 +5,18 @@ let host:Host,token='',session='',deliveryName='',next=0,started=0,previous:Snap
 let pending:Event[]=[],delivering:Promise<void>|null=null;
 const element=(id:string)=>document.getElementById(id)!;
 function message(text:string){element('status').textContent=text;}
-function paint(){element('count').textContent=String(next-pending.length);element('pause').textContent=paused?'继续记录':'暂停记录';element('start').toggleAttribute('disabled',!!session||!host);element('pause').toggleAttribute('disabled',!session||busy);element('export').toggleAttribute('disabled',!session||paused||busy);}
+function paint(){element('count').textContent=String(next-pending.length);element('pause').textContent=paused?'继续记录':'暂停记录';element('start').toggleAttribute('disabled',!!session||!host);element('pause').toggleAttribute('disabled',!session||!token||busy);element('export').toggleAttribute('disabled',!session||!token||paused||busy);}
 async function api(route:string,body?:unknown,authenticated=true):Promise<any>{
   const result=await fetch(collector+route,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(authenticated?{Authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(10000)});
-  const data=await result.json();if(!result.ok)throw new Error(data.error||'本地引擎请求失败');return data;
+  const data=await result.json();
+  if(!result.ok){
+    if(authenticated&&(result.status===401||result.status===403)&&data.error==='PAIRING_REQUIRED'){
+      token='';paused=true;paint();
+      throw new Error('连接已撤销或过期，已暂停记录。请关闭并重新打开加载项，在桌面重新批准后开始新记录。已有记录保留；未提交事件无法补传到新记录。');
+    }
+    throw new Error(data.error||'本地引擎请求失败');
+  }
+  return data;
 }
 function event(kind:string,snapshot:Snapshot,inserted=0,deleted=0,checkpoint=''){
   if(pending.length>=2048){paused=true;paint();throw new Error('离线事件队列已满，已暂停。连接恢复后点击继续。');}
