@@ -1,0 +1,58 @@
+{
+  "name": "workproof-vscode",
+  "displayName": "WorkProof · 开源证人",
+  "description": "Local, opt-in creation process records. No content history, screenshots or AI scores.",
+  "version": "0.1.0",
+  "publisher": "workproof-local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "extensionKind": [
+    "ui"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --platform=node --external:vscode --outfile=dist/extension.js",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package --no-dependencies --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "4.1.0",
+    "esbuild": "^0.25.0"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "workproof.pair",
+        "title": "WorkProof: 配对本地引擎"
+      },
+      {
+        "command": "workproof.start",
+        "title": "WorkProof: 记录当前文件"
+      },
+      {
+        "command": "workproof.pause",
+        "title": "WorkProof: 暂停 / 继续记录"
+      },
+      {
+        "command": "workproof.export",
+        "title": "WorkProof: 导出过程证书"
+      },
+      {
+        "command": "workproof.stop",
+        "title": "WorkProof: 停止记录"
+      }
+    ]
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.0.1"
+  }
+}

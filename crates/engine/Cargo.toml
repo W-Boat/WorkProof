@@ -1,0 +1,18 @@
+[package]
+name = "workproof-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+workproof-protocol = { path = "../proof" }
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rand = "0.8"
+hex = "0.4"
+ed25519-dalek = "2.2"
+blake3 = "1.8"
+tower-http = { version = "0.6", features = ["fs", "set-header"] }
+

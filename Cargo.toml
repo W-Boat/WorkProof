@@ -1,0 +1,11 @@
+[workspace]
+members = ["crates/proof", "crates/engine", "apps/desktop/src-tauri"]
+default-members = ["crates/proof", "crates/engine"]
+resolver = "2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+

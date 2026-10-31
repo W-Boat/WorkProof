@@ -1,0 +1,94 @@
+name: Build and verify WorkProof
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: workproof-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
+  NEXT_TELEMETRY_DISABLED: '1'
+jobs:
+  protocol-and-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - name: Protocol tests
+        run: cargo test -p workproof-protocol -p workproof-engine
+      - name: Install matching Wasm bindings CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.105 --locked
+      - name: Build browser verifier engine
+        run: |
+          cargo build -p workproof-protocol --release --target wasm32-unknown-unknown
+          wasm-bindgen target/wasm32-unknown-unknown/release/workproof_protocol.wasm --target web --out-dir apps/verifier/public/wasm
+      - name: Generate explicitly labelled demo
+        run: cargo run -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
+      - name: Build and exercise local collector
+        run: |
+          cargo build -p workproof-engine
+          python scripts/test_engine.py target/debug/workproof-engine
+      - run: npm run typecheck
+      - run: npm run build:extension
+      - run: npm run package -w workproof-vscode
+      - run: npm run build:web
+      - run: npx playwright install --with-deps chromium
+      - name: Browser verification and screenshots
+        run: npm run test:web
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-report
+          path: |
+            test-results/
+            playwright-report/
+            test-engine-results.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-web-and-extension
+          path: |
+            apps/verifier/out/
+            apps/extension/*.vsix
+            docs/
+            README.md
+            Cargo.lock
+  windows-desktop:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: cargo test -p workproof-protocol -p workproof-engine
+      - run: cargo build -p workproof-engine --release
+      - run: npm run build -w @workproof/desktop
+      - name: Generate fixture and verify Windows collector
+        run: |
+          cargo run -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
+          python scripts/test_engine.py target/release/workproof-engine.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-windows-x64
+          path: |
+            target/release/workproof-desktop.exe
+            target/release/workproof-engine.exe
+            test-engine-results.json
+            README.md
+            docs/
