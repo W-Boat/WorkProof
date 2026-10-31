@@ -53,7 +53,7 @@ test('browser exports selected evidence with original signature and verifies it 
   expect(selected.signature).toBe(original.signature);expect(selected.manifest).toEqual(original.manifest);
   expect(selected.disclosed.map((e:any)=>e.record.event.seq)).toEqual([0,5,20,40,85]);
   expect(selected.records).toBeUndefined();
-  await page.getByLabel('选择 .wproof 证书').setInputFiles(selectedPath!);
+  await page.getByLabel('选择 .wproof 证书').setInputFiles({name:'essay.md.selected.wproof',mimeType:'application/json',buffer:fs.readFileSync(selectedPath!)});
   await page.getByRole('button',{name:'开始本地核验'}).click();
   await expect(page.getByText('部分证据核验通过',{exact:true})).toBeVisible();
   await expect(page.locator('.certificate-disclaimer')).toContainText('未核验完整记录链');
@@ -62,7 +62,9 @@ test('browser exports selected evidence with original signature and verifies it 
   await expect(page.getByRole('region',{name:'已披露的事件'}).locator('.event-detail')).toHaveCount(5);
   await expect(page.getByRole('button',{name:'导出部分证据'})).toHaveCount(0);
   const image=page.waitForEvent('download');await page.getByRole('button',{name:'保存证书图片'}).click();
-  expect((await image).suggestedFilename()).toBe('WorkProof-certificate.png');
+  const certificateImage=await image;expect(certificateImage.suggestedFilename()).toBe('WorkProof-certificate.png');
+  await certificateImage.saveAs('test-results/disclosure-certificate.png');
+  await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:'test-results/disclosure-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);

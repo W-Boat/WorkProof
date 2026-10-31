@@ -224,4 +224,8 @@ mod tests {
         assert_eq!(p.manifest.protocol,"workproof/2");assert!(p.manifest.merkle_root.is_empty());
         assert!(verify(&p,&p.manifest.artifact_hash,p.manifest.artifact_bytes).valid);
     }
+    #[test]fn stripping_a_v3_root_cannot_downgrade_the_original_signature(){
+        let mut p=sample();p.manifest.protocol="workproof/2".into();p.manifest.merkle_root.clear();
+        let report=verify(&p,&digest(b"hello"),5);assert!(!report.valid);assert!(!report.signature_valid);
+    }
 }
