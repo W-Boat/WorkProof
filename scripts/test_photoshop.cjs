@@ -109,3 +109,9 @@ test('native API adapter rejects empty/oversized or changing file data',async()=
   entry.getMetadata=async()=>({size:8,dateModified:'fixed'});entry.read=async()=>new Uint8Array([1]).buffer;
   await assert.rejects(()=>host.readArtifact(entry),/发生变化/);
 });
+test('missing host capabilities are unknown, never zero-valued measurements',()=>{
+  const {host,doc}=nativeFixture();doc.layers=undefined;assert.throws(()=>host.snapshot(),/完整读取图层结构/);
+  doc.layers=[{kind:1}];assert.throws(()=>host.snapshot(),/未知值当成零/);
+  doc.layers=[{kind:7,visible:true,layers:undefined}];assert.throws(()=>host.snapshot(),/完整读取图层结构/);
+  doc.layers=[];doc.activeHistoryState={};assert.throws(()=>host.snapshot(),/历史状态标识/);
+});

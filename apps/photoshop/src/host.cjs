@@ -4,28 +4,35 @@ function createHost(ps,storage){
   const fs=storage.localFileSystem;
   const id=()=>ps.app.activeDocument?.id;
   const stamp=m=>JSON.stringify({size:m.size,modified:String(m.dateModified||'')});
+  function list(collection){
+    if(!collection||!Number.isSafeInteger(collection.length)||collection.length<0||collection.length>50_000)throw new Error('当前宿主无法完整读取图层结构，已停止统计。');
+    return Array.from(collection);
+  }
   function marker(){
     const doc=ps.app.activeDocument;if(!doc)throw new Error('请先打开 Photoshop 文档。');
     const history=doc.activeHistoryState?.id;
-    if(!Number.isSafeInteger(history))throw new Error('当前宿主未提供历史状态标识，无法安全检测并发编辑。');
+    if(!Number.isSafeInteger(doc.id)||!Number.isSafeInteger(history))throw new Error('当前宿主未提供文档/历史状态标识，无法安全检测并发编辑。');
     return {id:doc.id,history};
   }
   function snapshot(){
     const doc=ps.app.activeDocument;if(!doc)throw new Error('请先打开 Photoshop 文档。');
     let layers=0,groups=0,visible_layers=0;
-    const stack=Array.from(doc.layers||[]).map(layer=>({layer,visible:true}));
+    const stack=list(doc.layers).map(layer=>({layer,visible:true}));
     while(stack.length){
       const {layer,visible}=stack.pop();
       if(++layers>50_000)throw new Error('当前适配器最多统计 50000 个图层节点。');
-      const shown=visible&&layer.visible===true;
+      if(typeof layer.visible!=='boolean'||layer.kind===undefined)throw new Error('当前宿主无法读取图层种类或可见性，不能将未知值当成零。');
+      const shown=visible&&layer.visible;
       if(shown)visible_layers++;
       if(layer.kind===ps.constants.LayerKind.GROUP){
-        groups++;for(const child of Array.from(layer.layers||[]))stack.push({layer:child,visible:shown});
+        groups++;const children=list(layer.layers);
+        if(stack.length+layers+children.length>50_000)throw new Error('当前适配器最多统计 50000 个图层节点。');
+        for(const child of children)stack.push({layer:child,visible:shown});
       }
     }
-    const history=doc.activeHistoryState?.id;
-    if(!Number.isSafeInteger(history))throw new Error('当前宿主未提供历史状态标识，无法安全检测并发编辑。');
-    return {id:doc.id,history,metrics:{layers,groups,visible_layers}};
+    const position=marker();
+    if(position.id!==doc.id)throw new Error('统计期间活动文档已改变。');
+    return {...position,metrics:{layers,groups,visible_layers}};
   }
   return {
     snapshot,marker,activeId:id,
