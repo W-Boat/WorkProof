@@ -4,6 +4,18 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'local/runtime-common.ps1')
 $fixture = Join-Path $env:RUNNER_TEMP ('WorkProof runtime fixture ' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force (Join-Path $fixture 'state'),(Join-Path $fixture 'logs') | Out-Null
+& (Join-Path $PSScriptRoot 'local/prepare-local-https.ps1') -RuntimeRoot $fixture
+$tls = Get-Content (Join-Path $fixture 'state/tls/https.json') -Raw | ConvertFrom-Json
+$leaf = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPemFile((Join-Path $fixture 'state/tls/localhost.crt'),(Join-Path $fixture 'state/tls/localhost.key'))
+try {
+    if ($leaf.GetCertHashString([System.Security.Cryptography.HashAlgorithmName]::SHA256) -ne $tls.certificateSha256) { throw 'Generated certificate fingerprint mismatch' }
+    if (-not $leaf.HasPrivateKey -or -not $leaf.MatchesHostname('localhost',$false,$false)) { throw 'Invalid localhost certificate/key or SAN' }
+    $store = [System.Security.Cryptography.X509Certificates.X509Store]::new('Root','CurrentUser')
+    try {
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
+        if (@($store.Certificates | Where-Object {$_.Thumbprint -eq $leaf.Thumbprint}).Count) { throw 'Preparation must not modify OS certificate trust' }
+    } finally { $store.Dispose() }
+} finally { $leaf.Dispose() }
 foreach ($file in Get-ChildItem (Join-Path $PSScriptRoot 'local') -Filter '*.ps1') {
     $tokens=$null; $parseErrors=$null
     [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$parseErrors)

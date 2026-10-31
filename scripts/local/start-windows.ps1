@@ -36,6 +36,17 @@ try {
 } finally {$archive.Dispose()}
 if (-not $embeddedUi -and -not (Test-Path (Join-Path $ui 'index.html'))) {throw 'Prebuilt UI is missing'}
 $backendPort=if ($embeddedUi) {18081} else {18080}
+$tlsFile=Join-Path $state 'tls/https.json'
+$tlsEnabled=Test-Path -LiteralPath $tlsFile
+if ($tlsEnabled -and -not $embeddedUi) {throw 'Local HTTPS requires a current Actions-built institution JAR'}
+if ($tlsEnabled) {
+    $tls=Get-Content -LiteralPath $tlsFile -Raw | ConvertFrom-Json
+    if ($tls.port -ne 18443 -or $tls.origin -ne 'https://localhost:18443') {throw 'Unsupported local TLS configuration'}
+    $certificate=[System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPemFile((Join-Path $state 'tls/localhost.crt'),(Join-Path $state 'tls/localhost.key'))
+    try {
+        if ($certificate.GetCertHashString([System.Security.Cryptography.HashAlgorithmName]::SHA256) -ne $tls.certificateSha256 -or $certificate.NotAfter.ToUniversalTime() -le [DateTime]::UtcNow) {throw 'Local TLS certificate changed or expired; rerun HTTPS preparation explicitly'}
+    } finally {$certificate.Dispose()}
+}
 $java=if (Test-Path (Join-Path $root 'java/bin/java.exe')) {Join-Path $root 'java/bin/java.exe'} else {Resolve-RuntimeProgram 'java'}
 $sourceRoot=[System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $schemaRoot=if (Test-Path (Join-Path $root 'sql/V1__init_schema.sql')) {Join-Path $root 'sql'} else {Join-Path $sourceRoot 'services/institution/scaffold-system/sql'}
@@ -46,6 +57,7 @@ function Port-Role([int]$Port) {
     if ($Port -eq 33307) {return 'mysql'}
     if ($Port -eq 36379) {return 'cache'}
     if ($Port -eq $backendPort) {return 'institution'}
+    if ($tlsEnabled -and $Port -eq 18443) {return 'institution'}
     return 'ui'
 }
 function Wait-Port([int]$Port) {Wait-RuntimePort $root (Port-Role $Port) $Port}
@@ -57,6 +69,10 @@ function Start-Owned([string]$Name,[string]$Program,[string[]]$Arguments,[hashta
 }
 # Refuse foreign listeners before touching local database/configuration files.
 foreach ($port in @(33307,36379,$backendPort,18081) | Select-Object -Unique) {[void](Port-IsListening $port)}
+if ($tlsEnabled) {
+    $httpsReady=Port-IsListening 18443
+    if ((Port-IsListening $backendPort) -and -not $httpsReady) {throw 'HTTPS settings changed. Stop and restart this local institution runtime to apply them.'}
+}
 $data=Join-Path $root 'mysql-data'
 if (-not (Test-Path (Join-Path $data 'mysql'))) {
     if ((Test-Path $data) -and (Get-ChildItem $data -Force | Select-Object -First 1)) {throw 'Existing unrecognized MySQL data directory; refusing to overwrite'}
@@ -103,7 +119,13 @@ if (-not (Port-IsListening 36379)) {
 }
 if (-not (Port-IsListening $backendPort)) {
     $environment=@{DB_HOST='127.0.0.1';DB_PORT='33307';DB_NAME='workproof_local';DB_USERNAME='workproof_local';DB_PASSWORD=$localConfig.dbPassword;REDIS_HOST='127.0.0.1';REDIS_PORT='36379';REDIS_PASSWORD=$localConfig.redisPassword;JWT_SECRET=$localConfig.jwtSecret}
-    Start-Owned 'institution' $java @(('-Djava.io.tmpdir='+(Join-Path $root 'temp')),'-Xms96m','-Xmx384m','-jar',$jar,'--server.address=127.0.0.1',"--server.port=$backendPort") $environment
+    $serverArgs=@(('-Djava.io.tmpdir='+(Join-Path $root 'temp')),'-Xms96m','-Xmx384m','-jar',$jar,'--server.address=127.0.0.1',"--server.port=$backendPort")
+    if ($tlsEnabled) {
+        $certUri=[System.Uri]::new((Join-Path $state 'tls/localhost.crt')).AbsoluteUri
+        $keyUri=[System.Uri]::new((Join-Path $state 'tls/localhost.key')).AbsoluteUri
+        $serverArgs=@(('-Djava.io.tmpdir='+(Join-Path $root 'temp')),'-Xms96m','-Xmx384m','-jar',$jar,'--server.address=127.0.0.1','--server.port=18443','--server.ssl.enabled=true','--server.ssl.bundle=local',"--spring.ssl.bundle.pem.local.keystore.certificate=$certUri","--spring.ssl.bundle.pem.local.keystore.private-key=$keyUri",'--workproof.local-http.enabled=true','--workproof.local-http.port=18081','--workproof.public-origin=https://localhost:18443')
+    }
+    Start-Owned 'institution' $java $serverArgs $environment
     Wait-Port $backendPort
 }
 if (-not $embeddedUi -and -not (Port-IsListening 18081)) {
@@ -111,6 +133,7 @@ if (-not $embeddedUi -and -not (Port-IsListening 18081)) {
     Wait-Port 18081
 }
 $response=Invoke-RestMethod 'http://127.0.0.1:18081/api/health'
+if ($tlsEnabled) {Wait-Port 18443}
 if ($response.code -ne 200) {throw 'Institution health check failed'}
 Write-Output 'Local institution workspace is available at http://127.0.0.1:18081'
 Write-Output "Generated local admin credentials are stored privately in $configFile"

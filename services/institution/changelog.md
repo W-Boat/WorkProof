@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-31（Word 本地 HTTPS 接入准备）
+
+- 新增可选 HTTPS 主端口与额外回环 HTTP 后台端口，使用 Spring PEM SSL bundle，不改变 API 鉴权链。
+- 本地证书准备仅生成/复用短期 localhost 叶子证书及配置，不修改操作系统信任；独立信任/撤销入口要求明确确认并核对固定 SAN、EKU、期限和 SHA-256，不导入私钥。
+- 扩展真实 JAR 集成验证：Word HTTPS 清单与资源、HTTP/HTTPS API 拒绝、指定证书的主机名校验，以及未信任证书的真实拒绝。验证结果以对应 Actions 为准，未以 HTTP 测试代替真实 Word 宿主验收。
+
 ## 2026-10-31（WorkProof 单 JAR 本地运行交付）
 
 - Actions 将 Vue 生产资源和 Office 任务窗资源封装到后台 JAR；增加已知 Vue 深链接转发，公开 UI 资源并保留所有 `/api` 认证边界。

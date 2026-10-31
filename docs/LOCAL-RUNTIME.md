@@ -17,6 +17,8 @@
 | `Status.cmd` | 显示进程和 HTTP 健康状态，不显示密码 |
 | `Stop.cmd` | 停止本运行目录拥有的进程树；MySQL 通过 mysqladmin 正常关闭；保留数据和账号 |
 | `Show account.cmd` | 在本机弹窗查看生成的 admin 密码，不写入终端或日志 |
+| `Trust localhost.cmd` | 对已准备的 localhost 证书显示明确确认，再修改当前用户 Root 信任库；不导入私钥 |
+| `Remove localhost trust.cmd` | 经确认移除同一 localhost 证书，保留其他信任项 |
 
 脚本使用 PowerShell 7.4+；优先使用运行目录 `powershell/pwsh.exe`，否则使用已安装的 `pwsh.exe`。不改系统执行策略，不注册全局服务。脚本命令示例：
 
@@ -55,6 +57,8 @@ MySQL 为 `127.0.0.1:33307`，Garnet 为 `127.0.0.1:36379`，新 JAR 为 `127.0.
 首次仅导入本运行目录内识别为空的 `workproof_local`；不清空已有表，不重置已有账号、不连接外部数据库。若数据目录非空但结构不明，停止并保留现场。失败时查看 `logs/`，不要把账号文件或未经脱敏的完整日志上传到公开仓库。MySQL 正常关闭失败时，不强行杀库。
 
 本地 HTTP 入口用于开发与验收。Word 安装仍需要受信任 HTTPS；这里没有自动导入证书或修改浏览器/Office 的信任配置。WPS、Word 真实宿主验收和生产机构权限业务仍见 [全阶段验收](ALL-STAGES.md)。
+
+可选本地 HTTPS 准备脚本为 `prepare-local-https.ps1`；生成/复用 localhost 短期叶子证书后重启，JAR 同时提供 18081 HTTP 和 18443 HTTPS。证书信任另行明确确认，详见 [Word/WPS 接入](OFFICE-SERVER.md)。未信任前不绕过验证来宣称 Word 可用。证书到期时停止使用并显式更新，不静默替换已获信任的指纹。
 
 本阶段证据：[Actions 41185301362](https://github.com/W-Boat/WorkProof/actions/runs/41185301362) 两个任务通过；本机从该次校验 SHA-256 的产物升级到单 JAR，已确认账号文件未变化、原管理员登录成功、未登录 API 返回 401、登出令牌失效，以及 MySQL 正常关闭后的完整重启。
 

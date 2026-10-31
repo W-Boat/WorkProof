@@ -15,6 +15,8 @@ services/institution/scaffold-system/scaffold-admin/src/main/resources/static/of
 services/institution/scaffold-system/scaffold-admin/src/main/resources/static/index.html
 services/institution/scaffold-system/scaffold-admin/src/main/resources/static/assets/
 institution-runtime.log
+institution-https.log
+.ci-local-tls/
 .local-launchers/
 apps/office/wps/wps-addon-build/
 apps/office/wps/wps-addon-publish/

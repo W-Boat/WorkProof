@@ -2,6 +2,8 @@
 
 ## WorkProof 接入
 
+- `scaffold-admin/.../config/LocalHttpConnectorConfiguration.java`：可选 TLS 主监听旁的额外回环 HTTP 连接器；需明确开启 TLS 且使用不同端口，不更改 API 安全链。
+
 - `InstitutionUiController.java`：已知 Vue 深链接转发到内嵌 `index.html`；UI 与 `/api` 同源，API 认证继续独立生效。
 - `scaffold-admin/.../util/LocalPasswordHasher.java`：通过既有 JAR 的 PropertiesLauncher 在 stdin 接收本地随机密码，输出 BCrypt；不启动 Spring、数据库或写日志。
 - `.github/workflows/institution.yml`：先构建 Vue 与 Office 静态资源再封装 JAR；在隔离 MySQL/Valkey 验证页面和 API 边界。Windows 本地控制脚本及运维说明在根仓库 `scripts/local`、`docs/LOCAL-RUNTIME.md`。

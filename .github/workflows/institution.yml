@@ -80,7 +80,9 @@ jobs:
         if: failure()
         with:
           name: institution-runtime-diagnostics
-          path: institution-runtime.log
+          path: |
+            institution-runtime.log
+            institution-https.log
   windows-launchers:
     runs-on: windows-latest
     timeout-minutes: 10
@@ -96,11 +98,11 @@ jobs:
           Copy-Item scripts/local/* .local-launchers/scripts/local/
           Copy-Item services/institution/scaffold-system/sql/V[12]*.sql .local-launchers/sql/
           Copy-Item docs/LOCAL-RUNTIME.md .local-launchers/README.md
-          Copy-Item docs/LOCAL-RUNTIME.md,docs/ALL-STAGES.md,docs/COMMERCIAL-LICENSE-AUDIT.md .local-launchers/
+          Copy-Item docs/LOCAL-RUNTIME.md,docs/ALL-STAGES.md,docs/OFFICE-SERVER.md,docs/COMMERCIAL-LICENSE-AUDIT.md .local-launchers/
           Copy-Item docs/licenses .local-launchers/licenses -Recurse
           Copy-Item LICENSE .local-launchers/WORKPROOF-LICENSE.txt
           Copy-Item services/institution/LICENSE .local-launchers/SCAFFOLD-LICENSE.txt
-          foreach ($entry in @{Start='start';Stop='stop';Status='status';'Show account'='account'}.GetEnumerator()) {
+          foreach ($entry in @{Start='start';Stop='stop';Status='status';'Show account'='account';'Trust localhost'='trust';'Remove localhost trust'='untrust'}.GetEnumerator()) {
             ('@echo off' + "`r`n" + 'call "%~dp0scripts\local\run.cmd" ' + $entry.Value + ' "%~dp0."' + "`r`n") | Set-Content -LiteralPath ('.local-launchers/' + $entry.Key + '.cmd') -Encoding ascii
           }
       - uses: actions/upload-artifact@v4
