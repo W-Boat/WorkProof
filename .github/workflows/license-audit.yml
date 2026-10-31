@@ -45,3 +45,5 @@ jobs:
         with:
           name: dependency-license-evidence
           path: .license-output/
+          include-hidden-files: true
+          if-no-files-found: error
