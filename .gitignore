@@ -8,4 +8,6 @@ dist/
 test-results/
 playwright-report/
 apps/verifier/public/wasm/
+apps/desktop/src-tauri/resources/
+.ci-artifacts/
 

@@ -1,7 +1,7 @@
 """Windows CI smoke test: real tray binary starts a collector without a webview."""
 import json,os,pathlib,subprocess,sys,tempfile,time,urllib.request
 with tempfile.TemporaryDirectory(prefix='workproof-tray-') as tmp:
-    proc=subprocess.Popen([str(pathlib.Path(sys.argv[1]).resolve())],env=dict(os.environ,WORKPROOF_DATA_DIR=tmp))
+    proc=subprocess.Popen([str(pathlib.Path(sys.argv[1]).resolve())],env=dict(os.environ,WORKPROOF_DATA_DIR=tmp,WORKPROOF_HEADLESS='1'))
     try:
         for _ in range(150):
             if proc.poll() is not None:

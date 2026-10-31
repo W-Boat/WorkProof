@@ -67,6 +67,7 @@ jobs:
             README.md
             Cargo.lock
   windows-desktop:
+    needs: protocol-and-web
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
@@ -78,6 +79,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: workproof-web-and-extension
+          path: .ci-artifacts
+      - name: Prepare bundled verifier and extension
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force apps/desktop/src-tauri/resources | Out-Null
+          Copy-Item -Recurse .ci-artifacts/apps/verifier/out apps/desktop/src-tauri/resources/verifier
+          Copy-Item .ci-artifacts/apps/extension/*.vsix apps/desktop/src-tauri/resources/workproof.vsix
+          npm run icons -w @workproof/desktop
       - run: cargo test --locked -p workproof-protocol -p workproof-engine
       - run: cargo build --locked -p workproof-engine --release
       - run: npm run build -w @workproof/desktop
@@ -93,6 +105,7 @@ jobs:
           path: |
             target/release/workproof-desktop.exe
             target/release/workproof-engine.exe
+            target/release/bundle/nsis/*.exe
             test-tray-results.json
             test-engine-results.json
             README.md

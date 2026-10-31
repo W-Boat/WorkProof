@@ -13,9 +13,18 @@ const hex=(b:Uint8Array)=>Buffer.from(b).toString('hex');
 const elapsed=()=>Math.floor(elapsedBase+performance.now()-baseline);
 function paint(){if(!status)return;status.text=session?`$(shield) WorkProof · ${fault?'连接中断':session.paused?'已暂停':'记录中'}`:'$(shield) WorkProof';status.tooltip=fault||'点击选择记录操作；不保存文本内容';status.show();}
 async function persist(){await ctx.workspaceState.update('workproof.session',session);}
+async function autoPair(){
+  const dir=process.env.WORKPROOF_DATA_DIR||(process.env.LOCALAPPDATA?path.join(process.env.LOCALAPPDATA,'WorkProof'):'');
+  if(!dir)throw new Error('请先打开 WorkProof 桌面应用。');
+  const value=JSON.parse(await fs.readFile(path.join(dir,'connection.json'),'utf8')) as Pair;
+  if(value.port!==43127||!/^[0-9a-f]{64}$/.test(value.token))throw new Error('本地引擎连接信息无效，请重新打开 WorkProof。');
+  pair=value;await ctx.secrets.store('workproof.pair',JSON.stringify(value));
+}
 async function api<T>(route:string,body?:unknown):Promise<T>{
-  if(!pair)throw new Error('请先运行「WorkProof: 配对本地引擎」。');
-  const response=await fetch(`http://127.0.0.1:${pair.port}${route}`,{method:body===undefined?'GET':'POST',headers:{Authorization:`Bearer ${pair.token}`,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(5000)});
+  if(!pair)await autoPair();
+  const request=()=>fetch(`http://127.0.0.1:${pair!.port}${route}`,{method:body===undefined?'GET':'POST',headers:{Authorization:`Bearer ${pair!.token}`,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(5000)});
+  let response=await request();
+  if(response.status===401){await autoPair();response=await request();}
   const result=await response.json() as {error?:string};if(!response.ok)throw new Error(result.error||`HTTP ${response.status}`);return result as T;
 }
 function enqueue(kind:string,inserted=0,deleted=0,checkpoint=''){
@@ -47,7 +56,7 @@ async function start(){
   if(!doc||doc.uri.scheme!=='file')throw new Error('请打开已保存的本地文本文件。');
   if(!vscode.workspace.isTrusted)throw new Error('请先信任当前工作区。');
   const yes=await vscode.window.showInformationMessage(`仅为「${path.basename(doc.fileName)}」记录增删量、撤销和保存。不保存文字；不判断是否使用 AI。`,'开始记录');if(!yes)return;
-  if(!pair)await pairEngine();
+  if(!pair)await autoPair();
   const result=await api<{session_id:string}>('/v1/sessions',{file_name:path.basename(doc.fileName),started_at:new Date().toISOString(),source:'vscode'});
   baseline=performance.now();elapsedBase=0;session={id:result.session_id,uri:doc.uri.toString(),next:0,elapsed:0,pending:[],paused:false,chars:doc.getText().length};enqueue('start');await persist();await flush();
 }
