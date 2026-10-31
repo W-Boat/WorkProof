@@ -27,12 +27,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
       - name: Protocol tests
-        run: cargo test -p workproof-protocol -p workproof-engine
+        run: cargo test --locked -p workproof-protocol -p workproof-engine
       - name: Install matching Wasm bindings CLI
         run: cargo install wasm-bindgen-cli --version 0.2.105 --locked
       - name: Build browser verifier engine
         run: |
-          cargo build -p workproof-protocol --release --target wasm32-unknown-unknown
+          cargo build --locked -p workproof-protocol --release --target wasm32-unknown-unknown
           wasm-bindgen target/wasm32-unknown-unknown/release/workproof_protocol.wasm --target web --out-dir apps/verifier/public/wasm
       - name: Generate explicitly labelled demo
         run: cargo run -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
@@ -42,6 +42,8 @@ jobs:
           python scripts/test_engine.py target/debug/workproof-engine
       - run: npm run typecheck
       - run: npm run build:extension
+      - name: Extension to collector integration
+        run: node scripts/test_extension.cjs target/debug/workproof-engine
       - run: npm run package -w workproof-vscode
       - run: npm run build:web
       - run: npx playwright install --with-deps chromium
@@ -76,8 +78,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
-      - run: cargo test -p workproof-protocol -p workproof-engine
-      - run: cargo build -p workproof-engine --release
+      - run: cargo test --locked -p workproof-protocol -p workproof-engine
+      - run: cargo build --locked -p workproof-engine --release
       - run: npm run build -w @workproof/desktop
       - name: Generate fixture and verify Windows collector
         run: |

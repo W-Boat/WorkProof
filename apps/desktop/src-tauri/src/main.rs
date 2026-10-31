@@ -14,7 +14,7 @@ fn main(){
             }).build(app)?;
         let handle=app.handle().clone();
         std::thread::spawn(move||{
-            let rt=tokio::runtime::Runtime::new().expect("runtime");
+            let rt=tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().expect("runtime");
             if let Err(error)=rt.block_on(workproof_engine::run(43127)) {
                 let dir=workproof_engine::data_dir();let _=std::fs::create_dir_all(&dir);let _=std::fs::write(dir.join("startup-error.txt"),error.to_string());handle.exit(1);
             }

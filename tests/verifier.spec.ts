@@ -13,7 +13,7 @@ test('real Wasm verifies fixture, declares trust boundaries, and exports PNG',as
   await page.getByRole('slider').fill('30');
   const download=page.waitForEvent('download');await page.getByRole('button',{name:'保存证书图片'}).click();
   expect((await download).suggestedFilename()).toBe('WorkProof-certificate.png');
-  await page.screenshot({path:'test-results/verified-desktop.png',fullPage:true});
+  await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:'test-results/verified-desktop.png',fullPage:true});
   expect(external).toEqual([]);expect(errors).toEqual([]);
 });
 test('replaced artifact fails without a trusted badge',async({page})=>{
