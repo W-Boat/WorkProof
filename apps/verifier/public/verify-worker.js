@@ -22,8 +22,19 @@ self.onmessage = async ({data}) => {
       }
       self.postMessage({type:'progress',phase:'核验记录链与签名',progress:95});
       const report=JSON.parse(hasher.verify(json));
+      // A stable identifier for the signed certificate, also across selective exports.
+      // Compare only after Rust has verified the signature; this is not an identity claim.
+      let certificateId='';
+      if(report.signature_valid){
+        const signature=Uint8Array.from(parsed.signature.match(/.{2}/g)||[],byte=>parseInt(byte,16));
+        const digest=await crypto.subtle.digest('SHA-256',signature);
+        certificateId=Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+      }
+      const expected=(data.expectedCertificateId||'').trim().toLowerCase();
+      const certificateMatch=expected?(/^[a-f0-9]{64}$/.test(expected)&&certificateId===expected):null;
+      if(certificateMatch===false){report.valid=false;report.errors.push('证书指纹不一致：这不是发送者指定的证书。');}
       const display=parsed.format?{...parsed,records:(parsed.disclosed||[]).map(entry=>entry.record)}:parsed;
-      self.postMessage({type:'result',report,proof:display,fingerprint:hasher.finish()});
+      self.postMessage({type:'result',report,proof:display,fingerprint:hasher.finish(),certificateId,certificateMatch});
     } finally {hasher.free();}
   }catch(error){self.postMessage({type:'error',message:String(error?.message||error)});}
 };

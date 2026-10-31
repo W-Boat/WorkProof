@@ -5,7 +5,7 @@ import {Button} from './button';
 import {Panel,Tag,TextInput} from './institution-ui';
 import {type Proof,type Report,type RecordEntry,time,shorten,labels} from '../lib/evidence';
 
-export function CertificateCard({proof,report}:{proof:Proof;report:Report}){
+export function CertificateCard({proof,report,certificateId}:{proof:Proof;report:Report;certificateId?:string}){
   const m=proof.manifest,partial=report.scope==='selective';
   const duration=proof.records.at(-1)?.event.elapsed_ms||0,gaps=proof.records.filter(r=>r.event.kind==='gap').length;
   return <article className={`certificate ${report.valid?'':'invalid'}`} aria-label="过程记录证书">
@@ -15,17 +15,18 @@ export function CertificateCard({proof,report}:{proof:Proof;report:Report}){
       <div className="certificate-stats"><div><strong>{partial?`${proof.records.length} / ${m.event_count.toLocaleString()}`:m.event_count.toLocaleString()}</strong><span>{partial?'已披露 / 总事件':'已记录事件'}</span></div><div><strong>{time(duration)}</strong><span>记录时间跨度</span></div><div><strong>{partial?'未核验':gaps}</strong><span>{partial?'完整连续性':'采集缺口'}</span></div></div>
     </div>
     <footer className="certificate-footer"><div><span>BLAKE3 文件指纹</span><code>{m.artifact_hash}</code></div><span className="certificate-note">{report.valid?'核验一致':'核验失败'}<br/>{m.demo?'演示样本':'本地签名'}</span></footer>
+    {report.valid&&certificateId&&<div className="certificate-id"><span>证书指纹 · SHA-256（签名字节）</span><code>{certificateId}</code></div>}
     <p className="certificate-disclaimer">{partial?'仅证明所选事件的归属，未核验完整记录链。':''}签名者身份未经认证。本记录不证明人类创作、原创性或持续劳动。</p>
   </article>;
 }
 export function VerificationChecks({proof,report:r}:{proof:Proof;report:Report}){
   const partial=r.scope==='selective';
   const checks:[boolean|string|null,string,string][]=[
-    [r.file_match,'文件匹配','作品字节与证书摘要一致'],
-    [partial?r.merkle_valid:r.chain_valid,partial?'所选记录归属':'记录链完整',partial?'Merkle 路径与已签名根一致':'事件顺序与已签名链尾一致'],
-    [r.signature_valid,'签名有效','清单通过 Ed25519 签名核验'],
+    [r.file_match,'文件匹配','这份作品与证书中记录的最终文件一致'],
+    [partial?r.merkle_valid:r.chain_valid,partial?'所选记录归属':'记录链完整',partial?'公开的事件属于这份已签名记录':'记录顺序一致，未发现链中事件被改动'],
+    [r.signature_valid,'签名有效','签名覆盖的证书内容未被改动'],
   ];
-  if(!partial&&r.merkle_valid!==null)checks.push([r.merkle_valid,'Merkle 承诺一致','所有事件与已签名 Merkle 根一致']);
+  if(!partial&&r.merkle_valid!==null)checks.push([r.merkle_valid,'记录集合一致','全部事件与签名中确认的记录集合一致']);
   return <Panel title="核验明细" className="checks-panel">
     {checks.map(([ok,title,desc])=><div className="check-row" key={title}><span className={ok?'check-icon':'fail-icon'}>{ok?<Check size={15}/>:<X size={15}/>}</span><div><strong>{title}<Tag tone={ok?'ok':'danger'}>{ok?'通过':'失败'}</Tag></strong><p>{desc}</p></div></div>)}
     <div className="check-boundary"><Info size={17}/><div><strong>可信程度需要分别判断</strong><p>签名身份未经认证<br/>未提供外部时间凭据<br/>无法据此判断 AI 使用比例{partial&&<><br/>完整记录链未核验<br/>未披露区间的采集缺口未知</>}</p></div></div>

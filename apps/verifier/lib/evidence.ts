@@ -1,7 +1,7 @@
 export type RecordEntry={event:{seq:number;elapsed_ms:number;kind:string;inserted:number;deleted:number;chars:number;checkpoint:string;metrics?:Record<string,number>};hash:string};
 export type Proof={manifest:{protocol:string;session_id:string;file_name:string;started_at:string;source:string;event_count:number;chain_head:string;artifact_hash:string;artifact_bytes:number;public_key:string;identity:string;time_evidence:string;demo:boolean;merkle_root?:string};records:RecordEntry[];signature:string};
 export type Report={valid:boolean;file_match:boolean;chain_valid:boolean;signature_valid:boolean;merkle_valid:boolean|null;scope:"full"|"selective";disclosed_events:number;total_events:number;errors:string[]};
-export type Result={proof:Proof;report:Report;fingerprint:string};
+export type Result={proof:Proof;report:Report;fingerprint:string;certificateId:string;certificateMatch:boolean|null};
 export type Stage='idle'|'working'|'done'|'error';
 export const size=(n:number)=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
 export const time=(ms:number)=>ms<60000?`${Math.floor(ms/1000)} 秒`:`${Math.floor(ms/60000)} 分 ${Math.floor(ms/1000)%60} 秒`;
