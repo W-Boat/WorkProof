@@ -2,6 +2,11 @@
 
 ## WorkProof 接入
 
+- `scaffold-vue/src/data/index.ts`：WorkProof 机构品牌与共享图标；登录/侧栏仍使用管理端原组件。
+- 根仓库 `apps/verifier/components/institution-ui.tsx`：React 对管理端公共 UI 契约的薄适配；`apps/verifier/app/globals.css` 直接导入本项目 CSS 单一来源。Vue SFC 未跨框架导入，界面不会据此伪称使用同一渲染组件。
+- `apps/verifier/components/ProofPanels.tsx`、`FileDrop.tsx`、`ProcessTimeline.tsx`：核验业务组件；原 `verify-worker.js` 保持本地 Worker/Wasm 处理边界。
+
+
 - `scaffold-admin/.../config/LocalHttpConnectorConfiguration.java`：可选 TLS 主监听旁的额外回环 HTTP 连接器；需明确开启 TLS 且使用不同端口，不更改 API 安全链。
 
 - `InstitutionUiController.java`：已知 Vue 深链接转发到内嵌 `index.html`；UI 与 `/api` 同源，API 认证继续独立生效。

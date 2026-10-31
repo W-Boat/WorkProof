@@ -2,11 +2,12 @@
    品牌与全局配置：换品牌只改这里。
    ============================================================ */
 export const APP = Object.freeze({
-  name: '通用后台管理系统',
-  shortName: '管理后台',
-  subtitle: 'Admin Console',
-  version: 'v1.0.0',
-  copyright: `© ${new Date().getFullYear()} 通用后台管理系统`,
+  name: 'WorkProof · 开源证人',
+  shortName: 'WorkProof',
+  subtitle: '机构管理',
+  logo: new URL('../../../../../assets/brand/workproof-icon.png', import.meta.url).href,
+  version: '本地机构工作区',
+  copyright: `© ${new Date().getFullYear()} WorkProof contributors`,
 })
 
 /* ── 导航 ─────────────────────────────────────────────────── */

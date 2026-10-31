@@ -204,7 +204,7 @@ onBeforeUnmount(() => {
       <div class="canvas-glow" aria-hidden="true" />
       <NeuralNet :burst-key="netBurst" />
       <div class="login-brand">
-        <span class="brand-mark"><span class="brand-dot" /></span>
+        <span class="brand-mark"><img :src="APP.logo" alt="" width="34" height="34" /></span>
         <div>
           <div class="brand-name">{{ APP.name }}</div>
           <div class="brand-sub">{{ APP.subtitle }}</div>
@@ -213,12 +213,12 @@ onBeforeUnmount(() => {
 
       <div class="canvas-main">
         <div class="canvas-copy">
-          <span class="eyebrow hero-line">通用后台底座 · {{ APP.version }}</span>
+          <span class="eyebrow hero-line">WorkProof · 机构工作区</span>
           <h1 class="login-title">
-            <span class="hero-line">统一的后台底座，</span>
-            <span class="hero-line">专注业务本身。</span>
+            <span class="hero-line">让创作过程，</span>
+            <span class="hero-line">有据可查。</span>
           </h1>
-          <p class="login-lead hero-line">用户、角色、菜单、部门、字典与审计开箱即用，新业务模块只需关注字段与流程。</p>
+          <p class="login-lead hero-line">管理机构账号、授权范围与操作审计。作品和过程记录由本机核验，签名与身份分别判断。</p>
         </div>
 
         <!-- 实时时钟：秒针对应的刻度点亮，逐秒推进（导 Conduct） -->

@@ -1,0 +1,48 @@
+'use client';
+import * as Dialog from '@radix-ui/react-dialog';
+import {Fingerprint,ShieldCheck,AlertTriangle,Check,X,Info,Code2,ArrowDownToLine,LoaderCircle} from 'lucide-react';
+import {Button} from './button';
+import {Panel,Tag,TextInput} from './institution-ui';
+import {type Proof,type Report,type RecordEntry,time,shorten,labels} from '../lib/evidence';
+
+export function CertificateCard({proof,report}:{proof:Proof;report:Report}){
+  const m=proof.manifest,partial=report.scope==='selective';
+  const duration=proof.records.at(-1)?.event.elapsed_ms||0,gaps=proof.records.filter(r=>r.event.kind==='gap').length;
+  return <article className={`certificate ${report.valid?'':'invalid'}`} aria-label="过程记录证书">
+    <header className="certificate-header"><span><Fingerprint size={20}/>WORKPROOF</span><span>{partial?'选择性披露':'创作过程记录'}</span></header>
+    <div className="certificate-main"><div className="certificate-kicker">可复核 · 可携带 · 隐私优先</div><h2>{partial?'创作过程记录 · 部分披露':'创作过程记录证书'}</h2><p className="certificate-name">{m.file_name}</p>
+      <div className="certificate-emblem">{report.valid?<ShieldCheck size={35} strokeWidth={1.2}/>:<AlertTriangle size={35}/>}</div>
+      <div className="certificate-stats"><div><strong>{partial?`${proof.records.length} / ${m.event_count.toLocaleString()}`:m.event_count.toLocaleString()}</strong><span>{partial?'已披露 / 总事件':'已记录事件'}</span></div><div><strong>{time(duration)}</strong><span>记录时间跨度</span></div><div><strong>{partial?'未核验':gaps}</strong><span>{partial?'完整连续性':'采集缺口'}</span></div></div>
+    </div>
+    <footer className="certificate-footer"><div><span>BLAKE3 文件指纹</span><code>{m.artifact_hash}</code></div><span className="certificate-note">{report.valid?'核验一致':'核验失败'}<br/>{m.demo?'演示样本':'本地签名'}</span></footer>
+    <p className="certificate-disclaimer">{partial?'仅证明所选事件的归属，未核验完整记录链。':''}签名者身份未经认证。本记录不证明人类创作、原创性或持续劳动。</p>
+  </article>;
+}
+export function VerificationChecks({proof,report:r}:{proof:Proof;report:Report}){
+  const partial=r.scope==='selective';
+  const checks:[boolean|string|null,string,string][]=[
+    [r.file_match,'文件匹配','作品字节与证书摘要一致'],
+    [partial?r.merkle_valid:r.chain_valid,partial?'所选记录归属':'记录链完整',partial?'Merkle 路径与已签名根一致':'事件顺序与已签名链尾一致'],
+    [r.signature_valid,'签名有效','清单通过 Ed25519 签名核验'],
+  ];
+  if(!partial&&r.merkle_valid!==null)checks.push([r.merkle_valid,'Merkle 承诺一致','所有事件与已签名 Merkle 根一致']);
+  return <Panel title="核验明细" className="checks-panel">
+    {checks.map(([ok,title,desc])=><div className="check-row" key={title}><span className={ok?'check-icon':'fail-icon'}>{ok?<Check size={15}/>:<X size={15}/>}</span><div><strong>{title}<Tag tone={ok?'ok':'danger'}>{ok?'通过':'失败'}</Tag></strong><p>{desc}</p></div></div>)}
+    <div className="check-boundary"><Info size={17}/><div><strong>可信程度需要分别判断</strong><p>签名身份未经认证<br/>未提供外部时间凭据<br/>无法据此判断 AI 使用比例{partial&&<><br/>完整记录链未核验<br/>未披露区间的采集缺口未知</>}</p></div></div>
+    <Dialog.Root><Dialog.Trigger asChild><Button variant="ghost"><Code2 size={15}/>查看原始核验详情</Button></Dialog.Trigger><Dialog.Portal>
+      <Dialog.Overlay className="overlay wp-dialog-overlay"/>
+      <Dialog.Content className="modal wp-dialog"><header className="modal-head"><div><Dialog.Title className="modal-title">原始核验详情</Dialog.Title><Dialog.Description className="modal-sub">核验算法结果与签名清单；身份与时间需独立判断。</Dialog.Description></div><Dialog.Close asChild><Button variant="ghost" aria-label="关闭详情"><X size={17}/></Button></Dialog.Close></header><div className="modal-body"><pre>{JSON.stringify({report:r,manifest:proof.manifest},null,2)}</pre></div></Dialog.Content>
+    </Dialog.Portal></Dialog.Root>
+  </Panel>;
+}
+export function DisclosurePanel({selection,busy,error,onChange,onExport}:{selection:string;busy:boolean;error:string;onChange:(s:string)=>void;onExport:()=>void}){
+  return <Panel title="选择性披露" aria-label="选择性披露导出" className="disclosure-panel">
+    <p>只分享你选择的事件，保留原签名。起始与最终保存始终包含；清单信息仍会公开。</p>
+    <div className="disclosure-controls"><label className="field"><span className="field-label">公开的事件编号</span><TextInput aria-label="公开的事件编号" value={selection} onChange={e=>onChange(e.target.value)} placeholder="例如 6,21,41-43；留空只保留边界" maxLength={8192} disabled={busy}/></label><Button onClick={onExport} disabled={busy}>{busy?<LoaderCircle size={15} className="spin"/>:<ArrowDownToLine size={15}/>}导出部分证据</Button></div>
+    {error&&<p className="disclosure-error" role="alert">{error}</p>}
+    <p className="caption">最多 1024 条。部分证据不能评估全部采集缺口；不等同于零知识保护，不上传文件或读取私钥。</p>
+  </Panel>;
+}
+export function DisclosedEvents({records}:{records:RecordEntry[]}){
+  return <Panel title="已披露的事件"><p className="caption">仅展示所选事件，未披露部分不连成曲线，不用于推断持续劳动。</p><div className="disclosed-list">{records.map(entry=><div className="event-detail" key={entry.event.seq}><span>#{entry.event.seq+1}</span><strong>{labels[entry.event.kind]||entry.event.kind}</strong><span>{time(entry.event.elapsed_ms)}</span><code>{shorten(entry.hash)}</code></div>)}</div></Panel>;
+}

@@ -5,7 +5,7 @@ test('real Wasm verifies fixture, declares trust boundaries, and exports PNG',as
   const external:string[]=[];const errors:string[]=[];
   page.on('request',req=>{if(!req.url().startsWith('http://127.0.0.1:4173')&&!req.url().startsWith('blob:'))external.push(req.url());});
   page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('/');await expect(page.getByRole('heading',{name:'让创作过程，有据可查。'})).toBeVisible();
+  await page.goto('/');await expect(page.getByRole('heading',{name:'证据核验',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'先体验一份演示证据'}).click();
   await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
   await expect(page.getByText('演示数据',{exact:true})).toBeVisible();

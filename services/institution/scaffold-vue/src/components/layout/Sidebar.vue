@@ -41,7 +41,7 @@ watch(() => [navGroups.value, appearance.railCollapsed], () => nextTick(() => sy
 <template>
   <aside class="rail m-rail" aria-label="主导航">
     <div class="rail-brand">
-      <span class="brand-mark" aria-hidden="true"><span class="brand-dot" /></span>
+      <span class="brand-mark" aria-hidden="true"><img :src="APP.logo" alt="" width="34" height="34" /></span>
       <div class="brand-text">
         <div class="brand-name">{{ APP.shortName }}</div>
         <div class="brand-sub">{{ APP.subtitle }}</div>
