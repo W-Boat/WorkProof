@@ -5,6 +5,7 @@
 - 新增可选 HTTPS 主端口与额外回环 HTTP 后台端口，使用 Spring PEM SSL bundle，不改变 API 鉴权链。
 - 本地证书准备仅生成/复用短期 localhost 叶子证书及配置，不修改操作系统信任；独立信任/撤销入口要求明确确认并核对固定 SAN、EKU、期限和 SHA-256，不导入私钥。
 - 扩展真实 JAR 集成验证：Word HTTPS 清单与资源、HTTP/HTTPS API 拒绝、指定证书的主机名校验，以及未信任证书的真实拒绝。验证结果以对应 Actions 为准，未以 HTTP 测试代替真实 Word 宿主验收。
+- 验证：[Actions 41186723953](https://github.com/W-Boat/WorkProof/actions/runs/41186723953) 两任务通过，本机已运行对应校验过摘要的 JAR，并验证双端口及清单。Word 安装/撤销的隔离 Windows 注册表测试通过 [41187531600](https://github.com/W-Boat/WorkProof/actions/runs/41187531600)。本机证书信任仍等待明确用户确认，未自动导入。
 
 ## 2026-10-31（WorkProof 单 JAR 本地运行交付）
 

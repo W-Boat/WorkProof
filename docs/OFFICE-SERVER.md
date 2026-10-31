@@ -17,3 +17,5 @@
 WPS 推荐使用官方 publish 分发方式；`jsplugins.xml` 在部分新版本受限制，不能通过静默修改 OEM 配置宣称通用兼容。后续发布包使用官方发布工具和相应授权条款，不将上游工具代码归入本项目 MIT 授权。
 
 性能结果 `41180459986`：Windows CI 的关闭状态窗托盘模式工作集约 16.2 MB，3 秒采样内未测到明显空闲 CPU，128 事件批次端到端 p95 17.589 ms（包括 PowerShell、HTTP 和 SQLite 持久化开销）。该结果不是 Office/WPS 宿主性能数据，也不能替代用户机器测量。
+
+验证记录：HTTPS/HTTP 双监听、真实 Word XML 与资源、默认信任拒绝及 API 鉴权通过 [41186723953](https://github.com/W-Boat/WorkProof/actions/runs/41186723953)；Word 清单校验、只操作固定 ID 的安装/撤销、拒绝覆盖其他目录的安装和保留无关注册项通过 [41187531600](https://github.com/W-Boat/WorkProof/actions/runs/41187531600)。本机 HTTPS 已运行，公共清单已导出到私有运行目录 `office/manifest-word.xml`；证书 SHA-256 为 `A41F140979718BA6724112E0C617C6620E5165A0FB5E348E7112027D5DE59583`，有效至 2026-11-30。本机 Word 文件版本为 `16.0.20430.20182`，仍待明确证书信任确认与真实宿主操作；没有把注册表测试当作 Word 加载成功。
