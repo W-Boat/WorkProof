@@ -5,7 +5,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import {ArrowDownToLine,ArrowUpRight,Check,ChevronRight,FileText,Fingerprint,FolderOpen,Info,Layers,LoaderCircle,LockKeyhole,Plus,Shield,ShieldCheck,X,AlertTriangle,RotateCcw,Pause,Activity,ExternalLink,Code2} from 'lucide-react';
 import {Button} from '../components/button';
 
-type RecordEntry={event:{seq:number;elapsed_ms:number;kind:string;inserted:number;deleted:number;chars:number;checkpoint:string};hash:string};
+type RecordEntry={event:{seq:number;elapsed_ms:number;kind:string;inserted:number;deleted:number;chars:number;checkpoint:string;metrics?:Record<string,number>};hash:string};
 type Proof={manifest:{protocol:string;session_id:string;file_name:string;started_at:string;source:string;event_count:number;chain_head:string;artifact_hash:string;artifact_bytes:number;public_key:string;identity:string;time_evidence:string;demo:boolean};records:RecordEntry[];signature:string};
 type Report={valid:boolean;file_match:boolean;chain_valid:boolean;signature_valid:boolean;errors:string[]};
 type Result={proof:Proof;report:Report;fingerprint:string};
@@ -13,7 +13,8 @@ type Stage='idle'|'working'|'done'|'error';
 const size=(n:number)=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
 const time=(ms:number)=>ms<60000?`${Math.floor(ms/1000)} 秒`:`${Math.floor(ms/60000)} 分 ${Math.floor(ms/1000)%60} 秒`;
 const shorten=(s:string)=>s.slice(0,12)+'…'+s.slice(-8);
-const labels:Record<string,string>={start:'开始记录',edit:'编辑',undo:'撤销',redo:'重做',save:'保存',pause:'暂停',resume:'继续',gap:'采集缺口',stop:'停止'};
+const labels:Record<string,string>={start:'开始记录',edit:'编辑',undo:'撤销',redo:'重做',save:'保存',pause:'暂停',resume:'继续',gap:'采集缺口',stop:'停止',mesh:'网格变化',modifier:'修改器变化',layer:'图层变化',viewport:'视口变化'};
+const metricLabels:Record<string,string>={chars:'字符规模 · UTF-16',vertices:'网格顶点数',edges:'网格边数',faces:'网格面数',objects:'对象数',modifiers:'修改器数',layers:'图层数',groups:'图层组数',visible_layers:'可见图层数',paragraphs:'段落数',characters:'字符数',viewport_changes:'视口变化次数'};
 function download(blob:Blob,name:string){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function escape(s:string){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]!));}
 
@@ -25,17 +26,21 @@ function Upload({label,caption,file,onFile,accept,disabled}:{label:string;captio
   </button>;
 }
 function Timeline({records}:{records:RecordEntry[]}){
-  const [selected,setSelected]=useState(0);const max=records.reduce((n,r)=>Math.max(n,r.event.chars),1);const total=records.at(-1)?.event.elapsed_ms||1;
+  const [selected,setSelected]=useState(0);
+  const [metric,setMetric]=useState(records.some(r=>r.event.metrics?.vertices!==undefined)?'vertices':'chars');
+  const available=['chars',...Object.keys(metricLabels).filter(k=>k!=='chars'&&records.some(r=>r.event.metrics?.[k]!==undefined))];
+  const value=(r:RecordEntry)=>metric==='chars'?r.event.chars:r.event.metrics?.[metric]??0;
+  const max=records.reduce((n,r)=>Math.max(n,value(r)),1);const total=records.at(-1)?.event.elapsed_ms||1;
   // Bin large logs for display; original events remain in the signed evidence.
   const step=Math.max(1,Math.ceil(records.length/240));const points=records.filter((_,i)=>i%step===0||i===records.length-1);
-  const path=points.map((r,i)=>`${i?'L':'M'} ${(r.event.elapsed_ms/total*900+10).toFixed(1)} ${(140-r.event.chars/max*110).toFixed(1)}`).join(' ');
+  const path=points.map((r,i)=>`${i?'L':'M'} ${(r.event.elapsed_ms/total*900+10).toFixed(1)} ${(140-value(r)/max*110).toFixed(1)}`).join(' ');
   const index=Math.min(selected,records.length-1);const active=records[index];
-  return <section className="timeline-panel"><div className="section-top"><div><span className="eyebrow">PROCESS TRACE</span><h2>每一次修改，都留下轨迹。</h2></div><span className="quiet-label"><span className="dot"/>字符规模 · UTF-16</span></div>
-    <div className="chart"><div className="chart-grid"/><svg viewBox="0 0 920 160" role="img" aria-label="记录期间的字符数量变化"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7cceaa" stopOpacity=".18"/><stop offset="100%" stopColor="#7cceaa" stopOpacity="0"/></linearGradient></defs><path d={`${path} L910 150 L10 150 Z`} fill="url(#area)"/><path d={path} fill="none" stroke="#85cead" strokeWidth="2"/>{active&&<line x1={active.event.elapsed_ms/total*900+10} x2={active.event.elapsed_ms/total*900+10} y1="16" y2="150" stroke="#e6e9db" strokeDasharray="3 5"/>}</svg></div>
+  return <section className="timeline-panel"><div className="section-top"><div><span className="eyebrow">PROCESS TRACE</span><h2>每一次修改，都留下轨迹。</h2></div><label className="quiet-label"><span className="dot"/><select aria-label="过程指标" value={metric} onChange={e=>setMetric(e.target.value)}>{available.map(k=><option key={k} value={k}>{metricLabels[k]}</option>)}</select></label></div>
+    <div className="chart"><div className="chart-grid"/><svg viewBox="0 0 920 160" role="img" aria-label={`记录期间的${metricLabels[metric]}变化`}><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7cceaa" stopOpacity=".18"/><stop offset="100%" stopColor="#7cceaa" stopOpacity="0"/></linearGradient></defs><path d={`${path} L910 150 L10 150 Z`} fill="url(#area)"/><path d={path} fill="none" stroke="#85cead" strokeWidth="2"/>{active&&<line x1={active.event.elapsed_ms/total*900+10} x2={active.event.elapsed_ms/total*900+10} y1="16" y2="150" stroke="#e6e9db" strokeDasharray="3 5"/>}</svg></div>
     <div className="chart-axis"><span>开始记录</span><span>{time(total)} · 记录跨度</span></div>
     <label className="scrub"><span>浏览事件</span><input aria-label="浏览事件" type="range" min="0" max={Math.max(0,records.length-1)} value={index} onChange={e=>setSelected(Number(e.target.value))}/></label>
-    {active&&<div className="event-detail"><span>#{String(active.event.seq+1).padStart(4,'0')}</span><strong>{labels[active.event.kind]||active.event.kind}</strong><span>+{active.event.inserted} / −{active.event.deleted}</span><span>{time(active.event.elapsed_ms)}</span><code>{shorten(active.hash)}</code></div>}
-    <p className="caption">曲线表示已采集事件中的字符规模，不展示文字内容。空白时段不等同于思考或劳动。</p>
+    {active&&<div className="event-detail"><span>#{String(active.event.seq+1).padStart(4,'0')}</span><strong>{labels[active.event.kind]||active.event.kind}</strong><span>{metric==='chars'?`+${active.event.inserted} / −${active.event.deleted}`:`${metricLabels[metric]}：${value(active)}`}</span><span>{time(active.event.elapsed_ms)}</span><code>{shorten(active.hash)}</code></div>}
+    <p className="caption">曲线表示已采集事件中的{metricLabels[metric]}，不展示作品内容。空白时段不等同于思考或劳动；不同指标不能互相换算。</p>
   </section>;
 }
 export default function Page(){

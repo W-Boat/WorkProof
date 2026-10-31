@@ -111,6 +111,32 @@ async fn export(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<Stri
     if !verify(&proof,&input.artifact_hash,input.artifact_bytes).valid{return Err(bad("STORED_RECORD_INVALID"));}
     Ok(Json(proof))
 }
+#[derive(Deserialize)] #[serde(deny_unknown_fields)]
+struct Seal {path:String,event:Event}
+async fn seal(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<String>,Json(mut input):Json<Seal>)->ApiResult<Proof>{
+    let name:String={
+        let store=lock(&shared)?;authorize(&headers,&store)?;
+        store.db.query_row("SELECT name FROM sessions WHERE id=?1",[&id],|r|r.get(0))?
+    };
+    if input.event.kind!="save"||!input.event.checkpoint.is_empty()||input.path.len()>4096{return Err(bad("INVALID_SEAL"));}
+    let path=PathBuf::from(&input.path);
+    if !path.is_absolute()||path.file_name().and_then(|s|s.to_str())!=Some(name.as_str()){return Err(bad("ARTIFACT_NAME_MISMATCH"));}
+    // Native host adapters only. Never persist the path or content. Hash off the async runtime.
+    let (hash,length)=tokio::task::spawn_blocking(move||->Result<(String,u64),String>{
+        use std::io::Read;
+        let mut file=std::fs::File::open(&path).map_err(|_|"ARTIFACT_NOT_READABLE")?;
+        let before=file.metadata().map_err(|_|"ARTIFACT_NOT_READABLE")?;
+        if !before.is_file(){return Err("ARTIFACT_NOT_FILE".into());}
+        let mut hasher=blake3::Hasher::new();let mut buffer=[0u8;65536];let mut length=0u64;
+        loop{let n=file.read(&mut buffer).map_err(|_|"ARTIFACT_READ_FAILED")?;if n==0{break;}hasher.update(&buffer[..n]);length+=n as u64;}
+        let after=std::fs::metadata(&path).map_err(|_|"ARTIFACT_CHANGED")?;
+        if before.len()!=length||after.len()!=length||before.modified().ok()!=after.modified().ok(){return Err("ARTIFACT_CHANGED".into());}
+        Ok((hasher.finalize().to_hex().to_string(),length))
+    }).await.map_err(|_|bad("ARTIFACT_HASH_FAILED"))?.map_err(|e|bad(&e))?;
+    input.event.checkpoint=hash.clone();
+    append(State(shared.clone()),headers.clone(),Path(id.clone()),Json(Batch{events:vec![input.event]})).await?;
+    export(State(shared),headers,Path(id),Json(Export{artifact_hash:hash,artifact_bytes:length})).await
+}
 async fn status(State(shared):State<Shared>,headers:HeaderMap)->ApiResult<serde_json::Value>{
     let store=lock(&shared)?;authorize(&headers,&store)?;
     let sessions:u64=store.db.query_row("SELECT COUNT(*) FROM sessions",[],|r|r.get(0))?;
@@ -126,6 +152,7 @@ pub async fn run(port:u16)->Result<(),Box<dyn std::error::Error>> {
     let shared=Arc::new(Mutex::new(store));
     let api=Router::new().route("/v1/status",get(status)).route("/v1/sessions",post(start))
         .route("/v1/sessions/{id}/events",post(append)).route("/v1/sessions/{id}/export",post(export))
+        .route("/v1/sessions/{id}/seal",post(seal))
         .layer(DefaultBodyLimit::max(256*1024)).with_state(shared);
     println!("WorkProof collector listening on 127.0.0.1:{port}; pairing file: {}",dir.join("connection.json").display());
     READY.store(true,Ordering::Release);

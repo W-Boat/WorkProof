@@ -8,7 +8,7 @@ self.onmessage = async ({data}) => {
     if(proof.size>32*1024*1024)throw new Error('证据文件超过 32 MB 限制');
     const json=await proof.text();
     const parsed=JSON.parse(json);
-    if(parsed.manifest?.protocol!=='workproof/1')throw new Error('不支持的证据协议版本');
+    if(!['workproof/1','workproof/2'].includes(parsed.manifest?.protocol))throw new Error('不支持的证据协议版本');
     const hasher=new FileHasher();
     try {
       for(let pos=0;pos<artifact.size;pos+=1024*1024){

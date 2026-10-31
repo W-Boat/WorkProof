@@ -11,7 +11,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-tray-') as tmp:
                 info=json.loads((pathlib.Path(tmp)/'connection.json').read_text())
                 req=urllib.request.Request('http://127.0.0.1:'+str(info['port'])+'/v1/status',headers={'Authorization':'Bearer '+info['token']})
                 with urllib.request.urlopen(req,timeout=2) as res:status=json.load(res)
-                assert status['protocol']=='workproof/1'
+                assert status['protocol']=='workproof/2'
                 break
             except (OSError,ValueError):time.sleep(.2)
         else:raise RuntimeError('Tray collector did not become ready')

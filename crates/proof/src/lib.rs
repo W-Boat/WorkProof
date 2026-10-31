@@ -3,7 +3,7 @@ use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-pub const VERSION: &str = "workproof/1";
+pub const VERSION: &str = "workproof/2";
 pub const MAX_EVENTS: usize = 100_000;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -15,6 +15,8 @@ pub struct Event {
     pub deleted: u64,
     pub chars: u64,
     pub checkpoint: String,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub metrics: std::collections::BTreeMap<String,u64>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -59,7 +61,13 @@ pub fn digest(bytes: &[u8]) -> String { blake3::hash(bytes).to_hex().to_string()
 pub fn event_hash(previous: &str, e: &Event) -> String {
     let mut b = b"WorkProof:event:v1\0".to_vec(); field(&mut b, previous);
     for n in [e.seq, e.elapsed_ms, e.inserted, e.deleted, e.chars] { b.extend_from_slice(&n.to_le_bytes()); }
-    field(&mut b, &e.kind); field(&mut b, &e.checkpoint); digest(&b)
+    field(&mut b, &e.kind); field(&mut b, &e.checkpoint);
+    if !e.metrics.is_empty(){
+        b.extend_from_slice(b"WorkProof:metrics:v2\0");
+        b.extend_from_slice(&(e.metrics.len() as u32).to_le_bytes());
+        for (key,value) in &e.metrics {field(&mut b,key);b.extend_from_slice(&value.to_le_bytes());}
+    }
+    digest(&b)
 }
 pub fn signing_bytes(m: &Manifest) -> Vec<u8> {
     let mut b = b"WorkProof:manifest:v1\0".to_vec();
@@ -74,15 +82,16 @@ pub fn sign(manifest: Manifest, records: Vec<Record>, key: &SigningKey) -> Proof
 }
 pub fn valid_hash(s: &str) -> bool { s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) }
 pub fn validate_event(e: &Event) -> bool {
-    matches!(e.kind.as_str(), "start"|"edit"|"undo"|"redo"|"save"|"pause"|"resume"|"gap"|"stop")
+    matches!(e.kind.as_str(), "start"|"edit"|"undo"|"redo"|"save"|"pause"|"resume"|"gap"|"stop"|"mesh"|"layer"|"modifier"|"viewport")
     && e.seq < MAX_EVENTS as u64 && e.elapsed_ms <= 31_536_000_000
     && e.inserted <= 100_000_000 && e.deleted <= 100_000_000 && e.chars <= 100_000_000
     && (e.checkpoint.is_empty() || valid_hash(&e.checkpoint))
+    && e.metrics.len()<=16 && e.metrics.iter().all(|(k,v)|matches!(k.as_str(),"vertices"|"edges"|"faces"|"objects"|"modifiers"|"layers"|"groups"|"visible_layers"|"paragraphs"|"characters"|"viewport_changes")&&*v<=1_000_000_000)
 }
 pub fn verify(p: &Proof, artifact_hash: &str, artifact_bytes: u64) -> Report {
     let m = &p.manifest;
     let mut errors = vec![];
-    let schema = m.protocol == VERSION && m.identity == "self-signed" && m.time_evidence == "none"
+    let schema = (m.protocol == VERSION || m.protocol == "workproof/1") && m.identity == "self-signed" && m.time_evidence == "none"
         && !m.session_id.is_empty() && m.session_id.len() <= 128 && m.file_name.len() <= 1024
         && m.started_at.len() <= 64 && m.source.len() <= 128 && valid_hash(&m.artifact_hash);
     if !schema { errors.push("UNSUPPORTED_MANIFEST".into()); }
@@ -92,7 +101,7 @@ pub fn verify(p: &Proof, artifact_hash: &str, artifact_bytes: u64) -> Report {
     let mut elapsed = 0;
     let mut chain_valid = !p.records.is_empty() && p.records.len() <= MAX_EVENTS && p.records.len() as u64 == m.event_count;
     for (i, r) in p.records.iter().enumerate().take(MAX_EVENTS + 1) {
-        if !validate_event(&r.event) || r.event.seq != i as u64 || r.event.elapsed_ms < elapsed
+        if !validate_event(&r.event) || (m.protocol=="workproof/1" && !r.event.metrics.is_empty()) || r.event.seq != i as u64 || r.event.elapsed_ms < elapsed
             || (i == 0 && r.event.kind != "start") { chain_valid = false; }
         let computed = event_hash(&prev, &r.event);
         if computed != r.hash { chain_valid = false; }
@@ -134,7 +143,7 @@ mod tests {
         let key = SigningKey::from_bytes(&[7;32]);
         let mut records = vec![]; let mut head = genesis("fixture");
         for (seq, kind) in ["start", "edit", "save"].iter().enumerate() {
-            let event = Event { seq: seq as u64, elapsed_ms: seq as u64*1000, kind: kind.to_string(), inserted: 5, deleted: 0, chars: 5, checkpoint: if *kind == "save" {digest(b"hello")} else {String::new()} };
+            let event = Event { seq: seq as u64, elapsed_ms: seq as u64*1000, kind: kind.to_string(), inserted: 5, deleted: 0, chars: 5, checkpoint: if *kind == "save" {digest(b"hello")} else {String::new()}, metrics:Default::default() };
             head = event_hash(&head, &event); records.push(Record{event,hash:head.clone()});
         }
         sign(Manifest { protocol: VERSION.into(),session_id:"fixture".into(),file_name:"hello.txt".into(),started_at:"2026-10-31T00:00:00Z".into(),source:"test".into(),event_count:3,chain_head:head,artifact_hash:digest(b"hello"),artifact_bytes:5,public_key:hex::encode(key.verifying_key().to_bytes()),identity:"self-signed".into(),time_evidence:"none".into(),demo:true },records,&key)
@@ -148,4 +157,18 @@ mod tests {
     #[test] fn malformed_signature_never_panics() { let mut p=sample();p.signature="00".into();assert!(!verify(&p,&digest(b"hello"),5).signature_valid); }
     #[test] fn regressing_clock() { let mut p=sample();p.records[2].event.elapsed_ms=0;assert!(!verify(&p,&digest(b"hello"),5).chain_valid); }
     #[test] fn unsupported_time_assertion() { let mut p=sample();p.manifest.time_evidence="trusted".into();assert!(!verify(&p,&digest(b"hello"),5).valid); }
+    #[test] fn signed_metrics_detect_tampering(){
+        let mut p=sample();p.records[1].event.metrics.insert("vertices".into(),8);
+        let mut head=genesis(&p.manifest.session_id);for r in &mut p.records{head=event_hash(&head,&r.event);r.hash=head.clone();}
+        p.manifest.chain_head=head;
+        p=sign(p.manifest,p.records,&SigningKey::from_bytes(&[7;32]));
+        assert!(verify(&p,&digest(b"hello"),5).valid);
+        p.records[1].event.metrics.insert("vertices".into(),9);
+        assert!(!verify(&p,&digest(b"hello"),5).chain_valid);
+    }
+    #[test] fn legacy_v1_still_verifies(){
+        let mut p=sample();p.manifest.protocol="workproof/1".into();
+        p=sign(p.manifest,p.records,&SigningKey::from_bytes(&[7;32]));assert!(verify(&p,&digest(b"hello"),5).valid);
+    }
+    #[test] fn unknown_metrics_are_rejected(){let mut p=sample();p.records[1].event.metrics.insert("raw_content".into(),1);assert!(!verify(&p,&digest(b"hello"),5).valid);}
 }

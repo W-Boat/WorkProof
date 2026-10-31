@@ -1,0 +1,12 @@
+schema_version = "1.0.0"
+id = "workproof"
+version = "0.2.0"
+name = "WorkProof · 开源证人"
+tagline = "Record mesh evolution locally and export verifiable evidence"
+maintainer = "WorkProof contributors"
+type = "add-on"
+blender_version_min = "4.2.0"
+license = ["SPDX:MIT"]
+[permissions]
+network = "Communicate only with the local WorkProof collector"
+files = "Read local pairing metadata and write the exported process certificate"

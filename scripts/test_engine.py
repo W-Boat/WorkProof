@@ -68,6 +68,19 @@ with tempfile.TemporaryDirectory(prefix='workproof-test-') as tmp:
         mismatch=subprocess.run([exe,'verify',str(changed),str(certificate)],capture_output=True,text=True)
         assert mismatch.returncode==2
         checks.append('independent CLI accepts real session and rejects replaced file')
+        native=state/'native.blend';native.write_bytes(b'local-native-artifact')
+        native_id=request('/v1/sessions',{'file_name':native.name,'started_at':'2026-10-31T00:00:00Z','source':'blender'})['session_id']
+        native_endpoint='/v1/sessions/'+native_id
+        initial=dict(seq=0,elapsed_ms=0,kind='start',inserted=0,deleted=0,chars=0,checkpoint='',metrics={'vertices':8})
+        request(native_endpoint+'/events',{'events':[initial]})
+        seal_event=dict(initial,seq=1,elapsed_ms=1000,kind='save')
+        rejected(native_endpoint+'/seal',{'path':str(state/'different.blend'),'event':seal_event},{},400)
+        native_proof=request(native_endpoint+'/seal',{'path':str(native),'event':seal_event})
+        retried=request(native_endpoint+'/seal',{'path':str(native),'event':seal_event})
+        assert native_proof==retried
+        native_certificate=state/'native.wproof';native_certificate.write_text(json.dumps(native_proof),encoding='utf-8')
+        assert subprocess.run([exe,'verify',str(native),str(native_certificate)],capture_output=True).returncode==0
+        checks.append('native file sealing binds bytes, preserves signed metrics and retries idempotently')
     finally:
         if proc.poll() is None:proc.terminate();proc.wait(timeout=10)
 (root/'test-engine-results.json').write_text(json.dumps({'passed':checks},indent=2),encoding='utf-8')
