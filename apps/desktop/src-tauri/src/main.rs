@@ -7,6 +7,10 @@ fn pending_adapters()->Vec<workproof_engine::pairing::Pending>{workproof_engine:
 #[tauri::command]
 fn decide_adapter(ticket:String,approve:bool)->Result<(),String>{workproof_engine::pairing::decide(&ticket,approve)}
 #[tauri::command]
+fn adapter_connections()->Vec<workproof_engine::pairing::Connection>{workproof_engine::pairing::connections()}
+#[tauri::command]
+fn revoke_adapter(ticket:String)->Result<(),String>{workproof_engine::pairing::revoke(&ticket)}
+#[tauri::command]
 async fn open_verifier(app:tauri::AppHandle)->Result<(),String>{
     let dir=app.path().resource_dir().map_err(|e|e.to_string())?.join("verifier");
     if !dir.join("index.html").is_file(){return Err("核验资源不完整，请使用完整安装包重新安装。".into());}
@@ -31,14 +35,14 @@ async fn install_vscode(app:tauri::AppHandle)->Result<String,String>{
     Ok("插件安装完成。在 VS Code 状态栏点击 WorkProof 即可开始记录。".into())
 }
 fn main(){
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![engine_status,pending_adapters,decide_adapter,open_verifier,install_vscode]).setup(|app|{
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,install_vscode]).setup(|app|{
         let open=MenuItem::with_id(app,"open","WorkProof · 状态与帮助",true,None::<&str>)?;
         let quit=MenuItem::with_id(app,"quit","退出记录引擎",true,None::<&str>)?;
         let menu=Menu::with_items(app,&[&open,&quit])?;
         TrayIconBuilder::new().icon(app.default_window_icon().expect("bundled icon").clone()).tooltip("WorkProof · 本地记录引擎")
             .menu(&menu).on_menu_event(|app,event|match event.id.as_ref(){
                 "quit"=>app.exit(0),
-                "open"=>{if let Some(w)=app.get_webview_window("status"){let _=w.set_focus();}else{let _=tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof").inner_size(380.,460.).resizable(false).build();}},_=>{}
+                "open"=>{if let Some(w)=app.get_webview_window("status"){let _=w.set_focus();}else{let _=tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").inner_size(420.,600.).resizable(false).build();}},_=>{}
             }).build(app)?;
         if std::env::var_os("WORKPROOF_HEADLESS").is_none(){tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").inner_size(420.,600.).resizable(false).build()?;}
         let handle=app.handle().clone();

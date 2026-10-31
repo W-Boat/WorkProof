@@ -1,4 +1,34 @@
 let last=-1;
+const connectionCards=new Map();
+const adapterName=source=>({word:'Word',wps:'WPS',photoshop:'Photoshop'}[source]||source);
+function showConnections(connections){
+  const region=document.getElementById('adapter-connections');
+  if(!region)return;
+  document.getElementById('no-connections').hidden=connections.length>0;
+  const live=new Set(connections.map(connection=>connection.ticket));
+  for(const [ticket,card] of connectionCards){if(!live.has(ticket)){card.remove();connectionCards.delete(ticket);}}
+  for(const connection of connections){
+    let card=connectionCards.get(connection.ticket);
+    if(!card){
+      card=document.createElement('div');card.className='connection-card';
+      const title=document.createElement('strong'),origin=document.createElement('p'),expiry=document.createElement('p'),button=document.createElement('button');
+      title.textContent=adapterName(connection.source)+' · 已允许连接';
+      origin.textContent=connection.channel==='native'?'本机插件自声明 · 身份未认证':connection.origin;
+      expiry.className='connection-expiry';button.textContent='断开 '+adapterName(connection.source)+' 连接';
+      button.addEventListener('click',async()=>{
+        button.disabled=true;
+        try{
+          await window.__TAURI__.core.invoke('revoke_adapter',{ticket:connection.ticket});
+          document.getElementById('message').textContent='已撤销连接。后续请求将被拒绝；正在处理的请求可能完成，已有记录不会删除。重新使用时需再次批准。';
+          await refresh();
+        }catch(error){document.getElementById('message').textContent=String(error);button.disabled=false;}
+      });
+      card.append(title,origin,expiry,button);connectionCards.set(connection.ticket,card);region.append(card);
+    }
+    const minutes=Math.ceil(connection.expires_in_seconds/60);
+    card.querySelector('.connection-expiry').textContent=`${connection.sessions} 个记录会话 · ${minutes>0?'约 '+minutes+' 分钟后到期':'即将到期'}`;
+  }
+}
 async function refresh(){
   if(document.hidden)return;
   try{
@@ -7,7 +37,8 @@ async function refresh(){
     document.getElementById('sessions').textContent=s.sessions.toLocaleString();
     document.getElementById('events').textContent=s.events.toLocaleString();
     document.querySelector('.trace').classList.toggle('active',last>=0&&s.events>last);last=s.events;
-    const requests=await window.__TAURI__.core.invoke('pending_adapters');
+    const [requests,connections]=await Promise.all([window.__TAURI__.core.invoke('pending_adapters'),window.__TAURI__.core.invoke('adapter_connections')]);
+    showConnections(connections);
     let region=document.getElementById('adapter-requests');
     if(!region){region=document.createElement('section');region.id='adapter-requests';document.getElementById('message').after(region);}
     const signature=JSON.stringify(requests);

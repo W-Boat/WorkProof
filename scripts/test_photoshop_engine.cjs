@@ -73,8 +73,27 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
     const rejected=(await http('/v1/native-pairing',{source:'photoshop'})).data;approve(rejected.ticket,false);
     for(let i=0;i<100;i++){const p=await http('/v1/native-pairing/'+rejected.ticket);if(p.status===400)break;await wait(25);}
     assert.equal((await http('/v1/native-pairing/'+rejected.ticket)).status,400);
-    await r.stop();
-    const result={adobe_host:'simulated UXP APIs, not real Photoshop',collector:'real Rust/Axum/SQLite',signature_and_file_binding:'passed via native CLI',native_desktop_approval:'real Rust approval function via CI-only stdin harness',origin_and_channel_isolation:'passed',source_and_session_scope:'passed',native_seal_and_global_status_denied:'passed',private_descriptors_excluded:'passed',events:certificate.records.length};
+    const nativeSession=r.session;await r.stop();
+    const wordSession=await http('/v1/sessions',{source:'word',file_name:'word.docx',started_at:new Date().toISOString()},browserToken,'https://word.example');assert.equal(wordSession.status,200);
+    const wps=await http('/v1/pairing',{source:'wps'},'','https://wps.example');assert.equal(wps.status,200);approve(wps.data.ticket);
+    let wpsToken;
+    for(let i=0;i<100;i++){const p=await http('/v1/pairing/'+wps.data.ticket,undefined,'','https://wps.example');if(p.data.approved){wpsToken=p.data.token;break;}await wait(25);}
+    assert(wpsToken);
+    const beforeRevocation=(await http('/v1/status',undefined,info.token)).data;
+    harness.stdin.write(JSON.stringify({revoke:browser.data.ticket})+'\n');
+    for(let i=0;i<100;i++){const p=await http('/v1/pairing/'+browser.data.ticket,undefined,'','https://word.example');if(p.status===400)break;await wait(25);}
+    assert.equal((await http('/v1/pairing/'+browser.data.ticket,undefined,'','https://word.example')).status,400);
+    assert.equal((await http('/v1/sessions',{source:'word',file_name:'revoked.docx',started_at:new Date().toISOString()},browserToken,'https://word.example')).status,403);
+    assert.equal((await http('/v1/sessions/'+wordSession.data.session_id+'/events',{events:[]},browserToken,'https://word.example')).status,403);
+    assert.equal((await http('/v1/sessions/'+wordSession.data.session_id+'/export',{artifact_hash:certificate.manifest.artifact_hash,artifact_bytes:certificate.manifest.artifact_bytes},browserToken,'https://word.example')).status,403);
+    assert.equal((await http('/v1/sessions',{source:'wps',file_name:'still-connected.docx',started_at:new Date().toISOString()},wpsToken,'https://wps.example')).status,200);
+    harness.stdin.write(JSON.stringify({revoke:nativeTicket})+'\n');
+    for(let i=0;i<100;i++){const p=await http('/v1/native-pairing/'+nativeTicket);if(p.status===400)break;await wait(25);}
+    assert.equal((await http('/v1/sessions/'+nativeSession+'/export',{artifact_hash:certificate.manifest.artifact_hash,artifact_bytes:certificate.manifest.artifact_bytes},nativeToken)).status,401);
+    const afterRevocation=(await http('/v1/status',undefined,info.token)).data;
+    assert.equal(afterRevocation.events,beforeRevocation.events);assert.equal(afterRevocation.sessions,beforeRevocation.sessions+1);
+    const preserved=spawnSync(engine,['verify',artifactPath,certificatePath],{encoding:'utf8'});assert.equal(preserved.status,0,preserved.stderr);
+    const result={adobe_host:'simulated UXP APIs, not real Photoshop',collector:'real Rust/Axum/SQLite',signature_and_file_binding:'passed via native CLI',native_desktop_approval:'real Rust approval function via CI-only stdin harness',origin_and_channel_isolation:'passed',source_and_session_scope:'passed',native_seal_and_global_status_denied:'passed',private_descriptors_excluded:'passed',desktop_revocation:'Word create/append/export denied; WPS unaffected; native grant revoked; exported proof preserved',events:certificate.records.length};
     fs.writeFileSync('test-photoshop-results.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
   }finally{
     harness.stdin.end();harness.kill();

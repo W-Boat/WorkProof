@@ -11,6 +11,10 @@ async fn main()->Result<(),Box<dyn std::error::Error>>{
         for line in std::io::stdin().lock().lines(){
             let Ok(line)=line else{break;};
             let Ok(value)=serde_json::from_str::<serde_json::Value>(&line) else{continue;};
+            if let Some(ticket)=value["revoke"].as_str(){
+                if workproof_engine::pairing::revoke(ticket).is_err(){eprintln!("Fixture revocation rejected");}
+                continue;
+            }
             if let (Some(ticket),Some(approve))=(value["ticket"].as_str(),value["approve"].as_bool()){
                 if workproof_engine::pairing::decide(ticket,approve).is_err(){eprintln!("Fixture approval rejected");}
             }

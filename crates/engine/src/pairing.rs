@@ -5,6 +5,8 @@ use std::{collections::{HashMap,HashSet},sync::OnceLock,time::{Duration,Instant}
 use axum::{extract::Request,middleware::Next,response::Response,http::{header,Method,HeaderValue}};
 #[derive(Serialize,Clone)]
 pub struct Pending {pub ticket:String,pub origin:String,pub source:String,pub channel:String}
+#[derive(Serialize,Clone)]
+pub struct Connection {pub ticket:String,pub origin:String,pub source:String,pub channel:String,pub expires_in_seconds:u64,pub sessions:usize}
 struct Grant {request:Pending,created:Instant,approved:bool,token:String,sessions:HashSet<String>}
 static GRANTS:OnceLock<Mutex<HashMap<String,Grant>>>=OnceLock::new();
 fn grants()->&'static Mutex<HashMap<String,Grant>>{GRANTS.get_or_init(||Mutex::new(HashMap::new()))}
@@ -36,6 +38,23 @@ pub fn pending()->Vec<Pending>{
         map.retain(|_,g|g.created.elapsed()<Duration::from_secs(if g.approved{8*3600}else{120}));
         map.values().filter(|g|!g.approved).map(|g|g.request.clone()).collect()
     }else{vec![]}
+}
+/// Desktop-only metadata. Never serialize grant tokens or recorded document names.
+pub fn connections()->Vec<Connection>{
+    let Ok(mut map)=grants().lock() else{return vec![];};
+    map.retain(|_,g|g.created.elapsed()<Duration::from_secs(if g.approved{8*3600}else{120}));
+    let mut result:Vec<_>=map.values().filter(|g|g.approved).map(|g|Connection{
+        ticket:g.request.ticket.clone(),origin:g.request.origin.clone(),source:g.request.source.clone(),channel:g.request.channel.clone(),
+        expires_in_seconds:Duration::from_secs(8*3600).saturating_sub(g.created.elapsed()).as_secs(),sessions:g.sessions.len(),
+    }).collect();
+    result.sort_by(|a,b|a.ticket.cmp(&b.ticket));result
+}
+/// Removing a grant denies subsequent requests. A request already authorized may finish.
+/// Existing SQLite records and previously exported signatures remain intact.
+pub fn revoke(ticket:&str)->Result<(),String>{
+    let mut map=grants().lock().map_err(|_|"连接状态不可用")?;
+    if map.get(ticket).is_some_and(|g|!g.approved){return Err("此连接尚未批准，请使用拒绝操作".into());}
+    map.remove(ticket);Ok(())
 }
 pub fn decide(ticket:&str,approve:bool)->Result<(),String>{
     let mut map=grants().lock().map_err(|_|"配对状态不可用")?;
@@ -128,5 +147,27 @@ mod tests{
         assert!(poll_pair(authenticated,Path(p.ticket.clone())).await.is_err());
         decide(&p.ticket,false).unwrap();
         assert!(!allows(&headers,None,None));
+    }
+    #[tokio::test]async fn desktop_revocation_preserves_other_connections_and_hides_secrets(){
+        let mut word=HeaderMap::new();word.insert("origin",HeaderValue::from_static("https://revoke-word.example"));
+        let Json(w)=request_pair(word.clone(),Json(PairRequest{source:"word".into()})).await.ok().unwrap();
+        assert!(!connections().iter().any(|c|c.ticket==w.ticket));
+        assert!(revoke(&w.ticket).is_err());
+        decide(&w.ticket,true).unwrap();
+        let Json(auth)=poll_pair(word.clone(),Path(w.ticket.clone())).await.ok().unwrap();
+        let secret=auth["token"].as_str().unwrap();
+        word.insert("authorization",HeaderValue::from_str(&format!("Bearer {secret}")).unwrap());bind(&word,"word-owned");
+        let Json(native)=request_native(HeaderMap::new(),Json(PairRequest{source:"photoshop".into()})).await.ok().unwrap();
+        decide(&native.ticket,true).unwrap();
+        let metadata=connections();let own=metadata.iter().find(|c|c.ticket==w.ticket).unwrap();
+        assert_eq!(own.sessions,1);assert!(own.expires_in_seconds>0&&own.expires_in_seconds<=8*3600);
+        assert_eq!(own.origin,"https://revoke-word.example");
+        let serialized=serde_json::to_string(&metadata).unwrap();assert!(!serialized.contains(secret));assert!(!serialized.contains("word-owned"));
+        assert!(allows(&word,Some("word-owned"),None));revoke(&w.ticket).unwrap();revoke(&w.ticket).unwrap();
+        assert!(!allows(&word,None,None));assert!(!allows(&word,Some("word-owned"),None));
+        assert!(poll_pair(word,Path(w.ticket.clone())).await.is_err());
+        assert!(!connections().iter().any(|c|c.ticket==w.ticket));assert!(connections().iter().any(|c|c.ticket==native.ticket));
+        {let mut map=grants().lock().unwrap();map.get_mut(&native.ticket).unwrap().created=Instant::now()-Duration::from_secs(8*3600+1);}
+        assert!(!connections().iter().any(|c|c.ticket==native.ticket));
     }
 }
