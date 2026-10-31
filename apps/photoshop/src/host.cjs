@@ -3,7 +3,11 @@
 function createHost(ps,storage){
   const fs=storage.localFileSystem;
   const id=()=>ps.app.activeDocument?.id;
-  const stamp=m=>JSON.stringify({size:m.size,modified:String(m.dateModified||'')});
+  const stamp=m=>{
+    const modified=typeof m.dateModified?.getTime==='function'?m.dateModified.getTime():NaN;
+    if(!Number.isFinite(modified))throw new Error('宿主未提供文件修改时间，不能确认交付文件未变化。');
+    return JSON.stringify({size:m.size,modified});
+  };
   function list(collection){
     if(!collection||!Number.isSafeInteger(collection.length)||collection.length<0||collection.length>50_000)throw new Error('当前宿主无法完整读取图层结构，已停止统计。');
     return Array.from(collection);

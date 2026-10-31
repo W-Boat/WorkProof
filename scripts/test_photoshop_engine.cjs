@@ -26,7 +26,7 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
     const calls=[];let callback;let nativeTicket;
     const artifactPath=path.join(directory,'delivery.psd'),certificatePath=artifactPath+'.wproof';
     const entry=(filename)=>({name:path.basename(filename),nativePath:filename,
-      async getMetadata(){const stat=fs.statSync(filename);return {size:stat.size,dateModified:String(stat.mtimeMs)};},
+      async getMetadata(){const stat=fs.statSync(filename);return {size:stat.size,dateModified:new Date(stat.mtimeMs)};},
       async read(){const data=fs.readFileSync(filename);return data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);},
       async write(data){fs.writeFileSync(filename,data);}});
     const doc={id:31,title:'private source.psd',path:path.join(directory,'private-source.psd'),cloudDocument:false,activeHistoryState:{id:1},layers:[{kind:1,visible:true,name:'private layer name'}]};

@@ -86,7 +86,7 @@ function nativeFixture(){
   const child={kind:1,visible:true,get name(){return neverRead();}};
   const doc={id:17,title:'design.psd',path:'C:/private/source.psd',cloudDocument:false,activeHistoryState:{id:99,get name(){return neverRead();}},
     layers:[{kind:7,visible:false,layers:[child]},{kind:1,visible:true,get name(){return neverRead();}}]};
-  const entry={name:'delivery.psd',nativePath:'C:/delivery/delivery.psd',async getMetadata(){return {size:8,dateModified:'fixed'};},async read(){return new Uint8Array([1,2,3,4,5,6,7,8]).buffer;}};
+  const entry={name:'delivery.psd',nativePath:'C:/delivery/delivery.psd',async getMetadata(){return {size:8,dateModified:new Date(1000)};},async read(){return new Uint8Array([1,2,3,4,5,6,7,8]).buffer;}};
   const calls=[];
   doc.saveAs={psd:async(...args)=>calls.push(args)};
   const ps={app:{activeDocument:doc},constants:{LayerKind:{GROUP:7}},core:{executeAsModal:async(fn,options)=>{calls.push(options);await fn({isCancelled:false});}},action:{addNotificationListener:async()=>{},removeNotificationListener:async()=>{}}};
@@ -106,7 +106,13 @@ test('native API adapter rejects empty/oversized or changing file data',async()=
   const {host,entry}=nativeFixture();assert.equal((await host.readArtifact(entry)).bytes.length,8);
   entry.getMetadata=async()=>({size:0});await assert.rejects(()=>host.readArtifact(entry),/128 MB/);
   entry.getMetadata=async()=>({size:129*1024*1024});await assert.rejects(()=>host.readArtifact(entry),/128 MB/);
-  entry.getMetadata=async()=>({size:8,dateModified:'fixed'});entry.read=async()=>new Uint8Array([1]).buffer;
+  entry.getMetadata=async()=>({size:8,dateModified:new Date(1000)});entry.read=async()=>new Uint8Array([1]).buffer;
+  await assert.rejects(()=>host.readArtifact(entry),/发生变化/);
+});
+test('same-size writes within one second are detected at metadata millisecond precision',async()=>{
+  const {host,entry}=nativeFixture();let read=false;
+  entry.getMetadata=async()=>({size:8,dateModified:new Date(read?1001:1000)});
+  entry.read=async()=>{read=true;return new ArrayBuffer(8);};
   await assert.rejects(()=>host.readArtifact(entry),/发生变化/);
 });
 test('missing host capabilities are unknown, never zero-valued measurements',()=>{
