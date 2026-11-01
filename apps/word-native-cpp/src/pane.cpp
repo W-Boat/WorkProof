@@ -341,16 +341,18 @@ void TogglePause() {
 }
 
 std::wstring ChooseFolder(HWND owner) {
-    BROWSEINFOW browse = {0};
-    browse.hwndOwner = owner;
-    browse.lpszTitle = L"选择交付目录：会在其中新建子目录，不覆盖原作品。";
-    browse.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
-    PIDLIST_ABSOLUTE list = SHBrowseForFolderW(&browse);
-    if (!list) return std::wstring();
-    wchar_t path[MAX_PATH] = {0};
-    bool ok = SHGetPathFromIDListW(list, path) != FALSE;
-    CoTaskMemFree(list);
-    return ok ? std::wstring(path) : std::wstring();
+    IFileOpenDialog* dialog=nullptr;
+    if(FAILED(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)))) return {};
+    FILEOPENDIALOGOPTIONS options=0;HRESULT hr=dialog->GetOptions(&options);
+    if(SUCCEEDED(hr))hr=dialog->SetOptions(options|FOS_PICKFOLDERS|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST|FOS_NOCHANGEDIR);
+    if(SUCCEEDED(hr))hr=dialog->SetTitle(L"选择交付目录（不会覆盖原作品）");
+    if(SUCCEEDED(hr))hr=dialog->Show(owner);
+    IShellItem* item=nullptr;PWSTR path=nullptr;std::wstring selected;
+    if(SUCCEEDED(hr))hr=dialog->GetResult(&item);
+    if(SUCCEEDED(hr))hr=item->GetDisplayName(SIGDN_FILESYSPATH,&path);
+    if(SUCCEEDED(hr)&&path)selected=path;
+    if(path)CoTaskMemFree(path);if(item)item->Release();dialog->Release();
+    return selected;
 }
 
 bool WriteAll(const std::wstring& path, const std::string& body) {
@@ -378,7 +380,7 @@ void Export() {
     wchar_t suffix[64];
     swprintf_s(suffix, L"WorkProof-%04d%02d%02d-%02d%02d%02d", now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond);
     std::wstring folder = parent + L"\\" + suffix;
-    CreateDirectoryW(folder.c_str(), nullptr);
+    if(!CreateDirectoryW(folder.c_str(), nullptr)){SetStatus(L"交付目录未能新建，请稍后重试或选择其他目录；没有覆盖文件。");g.writing=false;PaintState();return;}
 
     if (!SaveDocument(g.word, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
     DocSnapshot saved;
@@ -391,7 +393,7 @@ void Export() {
     }
 
     std::wstring artifact = folder + L"\\" + g.documentName;
-    if (!CopyFileW(saved.identity.c_str(), artifact.c_str(), FALSE)) {
+    if (!CopyFileW(saved.identity.c_str(), artifact.c_str(), TRUE)) {
         SetStatus(L"无法复制作品，请换一个交付目录后重试。");
         g.writing = false;
         PaintState();
