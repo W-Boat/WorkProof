@@ -254,6 +254,8 @@ STDMETHODIMP CRibbon::QueryInterface(REFIID iid, void** object) {
         AddRef();
         return S_OK;
     }
+    // Ribbon callbacks are looked up by name, so Word needs IDispatch as well.
+    if (iid == IID_IDispatch && m_owner) return m_owner->QueryInterface(iid, object);
     return E_NOINTERFACE;
 }
 
