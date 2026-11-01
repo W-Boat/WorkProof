@@ -5,16 +5,17 @@ let host:Host,token='',session='',deliveryName='',next=0,started=0,previous:Snap
 let pending:Event[]=[],delivering:Promise<void>|null=null;
 const element=(id:string)=>document.getElementById(id)!;
 function message(text:string){element('status').textContent=text;}
-function paint(){element('count').textContent=String(next-pending.length);element('pause').textContent=paused?'继续记录':'暂停记录';element('start').toggleAttribute('disabled',!!session||!host);element('pause').toggleAttribute('disabled',!session||!token||busy);element('export').toggleAttribute('disabled',!session||!token||paused||busy);}
+function paint(){element('count').textContent=String(next-pending.length);element('pause').textContent=paused?'继续记录':'暂停记录';element('start').toggleAttribute('disabled',!!session||!host||busy);element('pause').toggleAttribute('disabled',!session||!token||busy);element('export').toggleAttribute('disabled',!session||!token||paused||busy);}
 async function api(route:string,body?:unknown,authenticated=true):Promise<any>{
-  const result=await fetch(collector+route,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(authenticated?{Authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(10000)});
+  const result=await fetch(collector+route,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(authenticated?{Authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(10000)}).catch(()=>{throw new Error('无法连接本机 WorkProof。请确认桌面应用已打开，并允许加载项连接本机服务后重试。');});
   const data=await result.json();
   if(!result.ok){
     if(authenticated&&(result.status===401||result.status===403)&&data.error==='PAIRING_REQUIRED'){
       token='';paused=true;paint();
       throw new Error('连接已撤销或过期，已暂停记录。请关闭并重新打开加载项，在桌面重新批准后开始新记录。已有记录保留；未提交事件无法补传到新记录。');
     }
-    throw new Error(data.error||'本地引擎请求失败');
+    const messages:Record<string,string>={PAIRING_EXPIRED:'连接请求已失效。请重新点击开始，并在 WorkProof 窗口允许连接。',PAIRING_LIMIT:'待确认的连接太多。请先在 WorkProof 窗口处理已有请求，再重试。',PAIRING_CHANNEL_MISMATCH:'连接来源不一致。请关闭并重新打开加载项。',SAVE_CHECKPOINT_REQUIRED:'本次保存尚未记录完成，请再次导出。',SEQUENCE_CONFLICT:'记录未能按原顺序保存。请暂停操作并重新打开加载项，开始一份新记录。',ADAPTER_SESSION_DENIED:'这份记录不属于当前连接。请重新打开加载项，开始一份新记录。'};
+    throw new Error(messages[data.error]||'记录服务没有完成本次操作。请确认 WorkProof 仍在运行后重试；若仍然失败，请重新打开加载项。');
   }
   return data;
 }
@@ -88,8 +89,19 @@ async function exportProof(){
   }finally{busy=false;paint();}
 }
 async function safe(fn:()=>Promise<void>){try{await fn();}catch(error){message(String(error instanceof Error?error.message:error));}}
-for(const [id,fn] of [['start',start],['pause',pause],['export',exportProof]] as const)element(id).addEventListener('click',()=>void safe(fn));
+async function runAction(fn:()=>Promise<void>){
+  if(busy)return;
+  busy=true;paint();
+  try{
+    // A timer snapshot or durable write already in progress must settle first.
+    while(sampling)await new Promise(resolve=>setTimeout(resolve,20));
+    if(delivering)await delivering;
+    await fn();
+  }catch(error){message(String(error instanceof Error?error.message:error));}
+  finally{busy=false;paint();}
+}
+for(const [id,fn] of [['start',start],['pause',pause],['export',exportProof]] as const)element(id).addEventListener('click',()=>void runAction(fn));
 setInterval(()=>{if(session&&!paused&&!busy&&performance.now()-lastSample>(previous&&previous.characters>1_000_000?5000:900))void safe(async()=>{await sample();await flush();});},1000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session&&!paused)void safe(()=>sample(true));});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session&&!paused&&!busy)void safe(()=>sample(true));});
 window.addEventListener('beforeunload',event=>{if(session){event.preventDefault();event.returnValue='';}});
 void safe(async()=>{host=await detectHost();element('host').textContent=host.label;message('作品留在本机。首次连接需在桌面窗口确认当前网址。');paint();});
