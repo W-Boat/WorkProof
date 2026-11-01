@@ -6,7 +6,7 @@ assert os.environ.get('GITHUB_ACTIONS')=='true'
 assert os.environ.get('DB_NAME')=='workproof_ci'
 assert os.environ.get('DB_HOST')=='127.0.0.1'
 root=pathlib.Path(__file__).resolve().parents[1]
-mysql=['docker','exec','-i','-e','MYSQL_PWD='+os.environ['DB_PASSWORD'],os.environ['MYSQL_CONTAINER_ID'],'mysql','--user=workproof_ci','--batch','--skip-column-names','workproof_ci']
+mysql=['docker','exec','-i','-e','MYSQL_PWD='+os.environ['DB_PASSWORD'],os.environ['MYSQL_CONTAINER_ID'],'mysql','--user=workproof_ci','--default-character-set=utf8mb4','--batch','--skip-column-names','workproof_ci']
 def sql(query):return subprocess.run(mysql,input=query,text=True,capture_output=True,check=True).stdout
 # Read-only identity and existing V3 inspection before the first V4 write.
 assert sql('SELECT DATABASE(),CURRENT_USER();').startswith('workproof_ci\tworkproof_ci@')
@@ -100,7 +100,8 @@ with tempfile.TemporaryDirectory(prefix='workproof-jobs-ci-') as directory:
    if not list(spool.glob('*.proof')):break
    time.sleep(.2)
   assert not list(spool.glob('*.proof'))
-  assert '后台任务' in sql("SELECT action FROM sys_oper_log WHERE module='证书后台任务';")
+  assert int(sql("SELECT COUNT(*) FROM sys_oper_log WHERE module='证书后台任务' AND request_method='BACKGROUND' AND action='后台任务结束';").strip())>=1,'No completed background audit event'
+  assert int(sql("SELECT COUNT(*) FROM sys_oper_log WHERE module='证书后台任务' AND request_method='BACKGROUND' AND (request_params IS NULL OR request_params<>'[]');").strip())==0,'Background audit copied unexpected input'
   print('PASS: V4 isolated identity checks, durable real-native recovery, owner isolation, immutable upload, expected count, deduplication, cancellation, permission revocation and cleanup')
  finally:
   if process and process.poll() is None:process.terminate();process.wait(timeout=35)
