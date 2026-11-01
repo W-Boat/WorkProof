@@ -32,7 +32,7 @@ export function TimestampPanel({signature}:{signature:string}){
     <label className="quiet-label"><input type="checkbox" checked={trusted} disabled={busy||!files[2]} onChange={event=>{if(busy)return;generation.current++;setTrusted(event.target.checked);setResult(null);}}/>我已核对 CA 来源，并同意以这份 CA 作为本次信任依据</label>
     <Button disabled={busy||!trusted||files.some(file=>!file)} onClick={verify}>{busy?'正在检查时间凭据…':'检查时间凭据'}</Button>
     {error&&<p role="alert">{error}</p>}
-    {result&&<div role="status"><Tag tone="ok">时间凭据与签名一致</Tag><p>服务声明的时间：<strong>{result.time}</strong></p><p>在本次选择的 CA 信任范围内核验通过。它说明这份签名在该时间前已存在，不是实际创作起止时间。</p>{result.trustFingerprints.map(value=><p key={value}>信任证书 SHA-256：<code style={{overflowWrap:'anywhere'}}>{value}</code></p>)}</div>}
+    {result&&<div role="status"><Tag tone="ok">时间凭据与签名一致</Tag><p>服务声明的时间：<strong><time dateTime={result.time}>{new Date(result.time).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})}（北京时间）</time></strong></p><p>在本次选择的 CA 信任范围内核验通过。它说明这份签名在该时间前已存在，不是实际创作起止时间。</p>{result.trustFingerprints.map(value=><p key={value}>信任证书 SHA-256：<code style={{overflowWrap:'anywhere'}}>{value}</code></p>)}</div>}
     <p className="caption">未查询撤销状态，不认证作者身份或人类创作比例。自建 CA 也可签发时间戳；通过检查不等于公共权威认可。当前仅支持 SHA-256、SigningCertificateV2 的 DER 时间凭据。</p>
     <p className="caption">时间结果不会写入原证书或证书图片。分享时请附上原始 .tsq 和 .tsr 文件；接收方仍需独立选择信任的 CA。</p>
     <p className="caption"><a href="/timestamp-licenses.txt" target="_blank" rel="noreferrer">查看相关开源组件许可</a></p>
