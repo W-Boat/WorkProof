@@ -245,7 +245,7 @@ try {
     Set-Values $registry ($progKey + '\CLSID') @{ '' = $Clsid }
     Set-Values $registry $addinKey @{ 'FriendlyName' = 'WorkProof 开源证人'; 'Description' = '在 PowerPoint 内记录创作过程，导出作品与 .wproof 证书'; 'CommandLineSafe' = '0' }
     $entry = $registry.CreateSubKey($addinKey)
-    try { $entry.SetValue('LoadBehavior', 3, [Microsoft.Win32.RegistryValueKind]::DPowerPoint) } finally { $entry.Dispose() }
+    try { $entry.SetValue('LoadBehavior', 3, [Microsoft.Win32.RegistryValueKind]::DWord) } finally { $entry.Dispose() }
 
     # ---------------------------------------------------------------- verify
     $checkAddin = $registry.OpenSubKey($addinKey)
