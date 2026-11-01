@@ -66,7 +66,7 @@ public class AiAnalysisService {
         final AtomicBoolean cancelled=new AtomicBoolean(),timedOut=new AtomicBoolean();volatile boolean finished;volatile String state="queued";volatile Process child;volatile ObjectNode report;
         Job(long owner,String engine,Path file,String hash,int bytes){this.owner=owner;this.engine=engine;this.file=file;this.hash=hash;this.bytes=bytes;}
         synchronized void cancel(){if(!finished){cancelled.set(true);state="cancelling";kill(child);}}
-        synchronized Map<String,Object> snapshot(){Map<String,Object> value=new LinkedHashMap<>();value.put("id",id);value.put("state",state);if(report!=null)value.put("report",report.deepCopy());return value;}
+        synchronized Map<String,Object> snapshot(){Map<String,Object> value=new LinkedHashMap<>();value.put("id",id);value.put("state",state);if(report!=null&&finished&&!state.equals("cleanup_failed"))value.put("report",report.deepCopy());return value;}
         public void run(){
             ScheduledFuture<?> deadline=null;
             try{
@@ -99,12 +99,12 @@ public class AiAnalysisService {
                     for(String label:labels){JsonNode v=value.path("raw_scores").path(label);double number=v.asDouble(Double.NaN);if(!v.isNumber()||!Double.isFinite(number)||number<0||number>1)throw new IOException("INVALID_SCORE");scores.put(label,number);sum+=number;}
                     if(Math.abs(sum-1)>0.0001)throw new IOException("INVALID_SCORE_SUM");
                 }
-                synchronized(this){if(!cancelled.get()&&!timedOut.get()){report=safe;state="done";}}
+                synchronized(this){if(!cancelled.get()&&!timedOut.get()){report=safe;state="finalizing";}}
             }catch(Exception ignored){state="failed";}
             finally{
                 if(deadline!=null)deadline.cancel(false);kill(child);
                 try{if(child!=null)child.waitFor(2,TimeUnit.SECONDS);Files.deleteIfExists(file);}catch(Exception ignored){state="cleanup_failed";}
-                synchronized(this){if(!state.equals("cleanup_failed")){if(cancelled.get())state="cancelled";else if(timedOut.get())state="timeout";}finished=true;}
+                synchronized(this){if(!state.equals("cleanup_failed")){if(cancelled.get())state="cancelled";else if(timedOut.get())state="timeout";else if(state.equals("finalizing"))state="done";}finished=true;}
                 slot.release();
             }
         }

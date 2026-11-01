@@ -19,7 +19,7 @@ class AiAnalysisServiceTest{
         return new AiAnalysisService(true,python.toString(),script.toString(),root.toString(),new ObjectMapper());
     }
     private Map<String,Object> done(AiAnalysisService service,String id)throws Exception{
-        for(int i=0;i<100;i++){var value=service.status(1,id);if(!Set.of("queued","running","cancelling").contains(value.get("state")))return value;Thread.sleep(50);}
+        for(int i=0;i<2400;i++){var value=service.status(1,id);if(!Set.of("queued","running","cancelling","finalizing").contains(value.get("state")))return value;Thread.sleep(50);}
         fail("Job did not finish");return null;
     }
     @Test void unconfiguredAndInvalidFormatFailClosed()throws Exception{
@@ -35,5 +35,18 @@ class AiAnalysisServiceTest{
     @Test void cancellationStopsJobAndReleasesCapacity()throws Exception{
         var service=service("exec sleep 30\n");
         try{String id=(String)service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0])).get("id");assertEquals(429,assertThrows(ServiceException.class,()->service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0]))).code());service.cancel(1,id);assertEquals("cancelled",done(service,id).get("state"));String second=(String)service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0])).get("id");service.cancel(1,second);assertEquals("cancelled",done(service,second).get("state"));}finally{service.close();}
+    }
+    @Test @EnabledIfEnvironmentVariable(named="WORKPROOF_REAL_AI_ENGINE",matches=".+")
+    void realConfiguredPythonModelRoundTrip()throws Exception{
+        String engine=System.getenv("WORKPROOF_REAL_AI_ENGINE");
+        Files.createSymbolicLink(root.resolve(engine),Path.of("/tmp/workproof-ai-model"));
+        String script=Path.of(System.getenv("WORKPROOF_REAL_AI_SCRIPT")).toAbsolutePath().toString();
+        var service=new AiAnalysisService(true,System.getenv("WORKPROOF_REAL_AI_PYTHON"),script,root.toString(),new ObjectMapper());
+        try{
+            String text=engine.equals("mpu-zh-v3")?"这是一段用于持续集成的合成中文，只检查机构服务能否调用真实模型并返回参考数值，不是检测准确率验收，也不证明作者身份或原创性。".repeat(3):"This synthetic paragraph exercises an optional classifier through the actual institution process service. It is not an accuracy benchmark and does not establish authorship or originality. ".repeat(4);
+            String id=(String)service.submit(1,engine,"txt",new ByteArrayInputStream(text.getBytes(java.nio.charset.StandardCharsets.UTF_8))).get("id");
+            assertEquals("done",done(service,id).get("state"));
+            var report=new ObjectMapper().valueToTree(service.status(1,id).get("report"));assertEquals("completed",report.path("status").asText());assertTrue(report.path("raw_scores").isObject());assertFalse(report.has("text"));
+        }finally{service.close();}
     }
 }

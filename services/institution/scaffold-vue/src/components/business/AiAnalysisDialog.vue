@@ -31,10 +31,10 @@ async function submit(){
     const value=await analysisApi.submit(file.value,engine.value,file.value.name.split('.').pop()!.toLowerCase(),request.signal)
     if(current!==generation){void analysisApi.cancel(value.id).catch(()=>{});return}
       task.value=value;if(cancelling.value)task.value=await analysisApi.cancel(value.id)
-    while(current===generation&&['queued','running','cancelling'].includes(task.value.state)){
+    while(current===generation&&['queued','running','cancelling','finalizing'].includes(task.value.state)){
       await new Promise(resolve=>setTimeout(resolve,1000));if(current!==generation)return;task.value=await analysisApi.status(value.id)
     }
-    if(current===generation&&!['done','cancelled'].includes(task.value.state))error.value=task.value.state==='timeout'?'分析用时过长，已停止。':'分析未能完成，请核对文档格式、长度，或联系管理员检查模型。'
+    if(current===generation&&!['done','cancelled'].includes(task.value.state))error.value=task.value.state==='timeout'?'分析用时过长，已停止。':task.value.state==='cleanup_failed'?'临时文档未能清理，请联系管理员处理。':'分析未能完成，请核对文档格式、长度，或联系管理员检查模型。'
   }catch(failure){if(current===generation)error.value=failure instanceof ApiError?failure.message:'连接中断，无法确认是否停止；服务器可能继续分析至超时。'}
   finally{clearTimeout(deadline);if(current===generation){busy.value=false;request=null}}
 }

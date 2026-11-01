@@ -1,7 +1,7 @@
 name: Optional AI reference model
 on:
   push:
-    paths: ['tools/ai-assessment/**', '.github/workflows/ai-assessment.yml']
+    paths: ['tools/ai-assessment/**', 'services/institution/**/AiAnalysisService*.java', '.github/workflows/ai-assessment.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -36,6 +36,19 @@ jobs:
         run: python tools/ai-assessment/test_documents.py
       - name: Record installed runtime licenses
         run: pip inspect > ai-runtime-inventory.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Institution service with actual Python and pinned model
+        env:
+          WORKPROOF_REAL_AI_ENGINE: ${{ matrix.engine }}
+        run: |
+          export WORKPROOF_REAL_AI_PYTHON="$(python -c 'import sys; print(sys.executable)')"
+          export WORKPROOF_REAL_AI_SCRIPT="$GITHUB_WORKSPACE/tools/ai-assessment/detector.py"
+          cd services/institution/scaffold-system
+          mvn -B -pl scaffold-system -am -Dtest=AiAnalysisServiceTest -Dsurefire.failIfNoSpecifiedTests=false test
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -44,4 +57,5 @@ jobs:
             ai-reference-results.json
             ai-document-results.json
             ai-runtime-inventory.json
+            services/institution/scaffold-system/scaffold-system/target/surefire-reports/*AiAnalysisServiceTest*.xml
             /tmp/workproof-ai-model/workproof-model.json
