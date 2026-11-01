@@ -1,5 +1,6 @@
 """CI-only real weights smoke test; no accuracy or generalization claim."""
-import json,os,pathlib,subprocess,sys
+import json,os,pathlib,subprocess,sys,tempfile,zipfile,hashlib
+from xml.sax.saxutils import escape
 assert os.environ.get('GITHUB_ACTIONS')=='true'
 engine=os.environ.get('WORKPROOF_TEST_ENGINE','roberta-gpt2-reference')
 zh=engine=='mpu-zh-v3';language='zh' if zh else 'en'
@@ -15,4 +16,15 @@ if zh:text='这是一段用于持续集成的合成文字，只检查中文检�
 result=run({'text':text,'language':language});assert result['status']=='completed',result
 assert result['score_kind']=='uncalibrated_class_softmax' and not result['network_used'] and result['calibration'] is None
 assert set(result['raw_scores'])==({'Human','AI'} if zh else {'Fake','Real'}) and abs(sum(result['raw_scores'].values())-1)<0.00001
+with tempfile.TemporaryDirectory(prefix='workproof-docx-model-') as directory:
+    path=pathlib.Path(directory)/'synthetic.docx'
+    with zipfile.ZipFile(path,'w') as archive:
+        archive.writestr('[Content_Types].xml','<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>')
+        archive.writestr('word/document.xml',f'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>{escape(text)}</w:t></w:r></w:p></w:body></w:document>')
+    before=path.read_bytes()
+    completed=subprocess.run([sys.executable,'tools/ai-assessment/detector.py','infer-file','--input-file',str(path),'--language',language,'--model-dir','/tmp/workproof-ai-model','--engine',engine],capture_output=True,text=True,timeout=120)
+    assert completed.returncode==0,completed.stderr[:500]
+    document=json.loads(completed.stdout);assert document['status']=='completed' and document['artifact_hash']==hashlib.sha256(before).hexdigest() and path.read_bytes()==before
+    assert 'text' not in document and document['input_hash']==hashlib.sha256((text+'\n').encode('utf-8')).hexdigest()
+    pathlib.Path('ai-document-results.json').write_text(json.dumps(document,indent=2))
 pathlib.Path('ai-reference-results.json').write_text(json.dumps({'real_inference':result,'short_status':short['status'],'unsupported_language_status':unsupported['status'],'accuracy_validated':False},indent=2))

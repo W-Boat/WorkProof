@@ -29,7 +29,11 @@ jobs:
       - name: Explicitly prepare pinned public reference weights
         run: python tools/ai-assessment/detector.py prepare --model-dir /tmp/workproof-ai-model --engine "$WORKPROOF_TEST_ENGINE"
       - name: Real offline inference and unsupported-input handling
+        # Extraction never starts Office or follows relationships.
+        # Synthetic OOXML fixtures do not substitute for real-host acceptance.
         run: python tools/ai-assessment/test_real.py
+      - name: Document extraction and hostile OOXML boundaries
+        run: python tools/ai-assessment/test_documents.py
       - name: Record installed runtime licenses
         run: pip inspect > ai-runtime-inventory.json
       - uses: actions/upload-artifact@v4
@@ -38,5 +42,6 @@ jobs:
           name: ai-reference-validation-${{ matrix.engine }}
           path: |
             ai-reference-results.json
+            ai-document-results.json
             ai-runtime-inventory.json
             /tmp/workproof-ai-model/workproof-model.json

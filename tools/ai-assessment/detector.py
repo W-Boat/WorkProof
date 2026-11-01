@@ -1,5 +1,5 @@
 """Optional local reference classifier; never part of the recording daemon."""
-import argparse,hashlib,json,os,pathlib,sys
+import argparse,hashlib,json,os,pathlib,sys,re
 
 LIMITATIONS=[
              'Class softmax is not the proportion of AI-generated content or a calibrated authorship probability.',
@@ -50,18 +50,25 @@ def infer(folder,request,engine):
     if not all(0<=v<=1 for v in scores):raise ValueError('INVALID_MODEL_OUTPUT')
     return respond('completed',score_kind='uncalibrated_class_softmax',raw_scores=dict(zip(cfg['labels'],scores)),calibration=None,**identity)
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=['prepare','infer']);parser.add_argument('--model-dir',required=True,type=pathlib.Path);parser.add_argument('--engine',choices=ENGINES,default='roberta-gpt2-reference');args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=['prepare','infer','infer-file']);parser.add_argument('--model-dir',required=True,type=pathlib.Path);parser.add_argument('--engine',choices=ENGINES,default='roberta-gpt2-reference');parser.add_argument('--input-file',type=pathlib.Path);parser.add_argument('--language',choices=['en','zh']);args=parser.parse_args()
     try:
         if args.action=='prepare':value=prepare(args.model_dir,args.engine)
+        elif args.action=='infer-file':
+            from documents import extract
+            if not args.input_file or not args.language:raise ValueError('FILE_AND_LANGUAGE_REQUIRED')
+            text,extraction=extract(args.input_file)
+            value=infer(args.model_dir,{'text':text,'language':args.language},args.engine)
+            value.update(extraction)
         else:
             raw=sys.stdin.buffer.read(32769)
             if len(raw)>32768:raise ValueError('REQUEST_TOO_LARGE')
             request=json.loads(raw)
             if not isinstance(request,dict):raise ValueError('OBJECT_REQUIRED')
             value=infer(args.model_dir,request,args.engine)
-    except Exception:
+    except Exception as error:
         # Never write document contents or private paths into logs.
-        value=report(args.engine,'error',reason='LOCAL_MODEL_OR_REQUEST_FAILED')
+        reason=str(error) if isinstance(error,ValueError) and re.fullmatch('[A-Z0-9_]{1,96}',str(error)) else 'LOCAL_MODEL_OR_REQUEST_FAILED'
+        value=report(args.engine,'error',reason=reason)
     print(json.dumps(value,ensure_ascii=False))
     return 1 if value['status']=='error' else 0
 if __name__=='__main__':sys.exit(main())
