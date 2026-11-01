@@ -50,7 +50,10 @@ for(const variant of ['word','wps','wps-alias','wps-factory'] as const){
     await expect(page.getByRole('button',{name:'暂停记录'})).toBeDisabled();
     await page.evaluate(()=>document.getElementById('export')!.dispatchEvent(new MouseEvent('click',{bubbles:true})));
     expect(requests.filter(request=>request.route.endsWith('/export'))).toHaveLength(1);releaseExport();
-    await expect(page.locator('#status')).toContainText('作品和证书已下载');
+    await expect(page.locator('#status')).toContainText('交付文件已准备');
+    expect(downloads).toEqual([]);
+    await page.getByRole('link',{name:'保存作品',exact:true}).click();
+    await page.getByRole('link',{name:'保存证书',exact:true}).click();
     await expect.poll(()=>downloads.length).toBe(2);expect(downloads).toEqual(['draft.docx','draft.docx.wproof']);
     const all=JSON.stringify(requests);expect(all).not.toContain('private draft text');expect(all).not.toContain('additional private content');
     expect(requests.find(r=>r.route==='/v1/sessions')?.body.source).toBe(host);
@@ -113,4 +116,75 @@ test('unsupported WPS host fails locally without loading the Microsoft runtime',
   await expect(page.locator('#status')).toContainText('当前 WPS 未提供可用的文档接口');
   await expect(page.getByRole('button',{name:'开始记录当前文档'})).toBeDisabled();
   expect(external).toEqual([]);
+});
+
+test('local pause stops sampling while collector writes fail and resumes after recovery',async({page})=>{
+  await page.addInitScript(()=>{
+    const state={text:'initial private text',reads:0};(window as any).pauseFixture=state;
+    (window as any).wps={ActiveDocument:{Name:'draft.docx',FullName:'C:/draft.docx',Content:{get Text(){state.reads++;return state.text;}},Paragraphs:{Count:1}}};
+  });
+  let offline=false;const events:any[]=[];
+  const headers={'access-control-allow-origin':'http://127.0.0.1:4173','access-control-allow-headers':'Authorization, Content-Type','access-control-allow-methods':'GET, POST, OPTIONS'};
+  await page.route('http://127.0.0.1:43127/**',async route=>{
+    const request=route.request();if(request.method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
+    const path=new URL(request.url()).pathname;
+    if(path.endsWith('/events')&&offline){await route.fulfill({status:503,headers,json:{error:'OFFLINE_FIXTURE'}});return;}
+    if(path.endsWith('/events'))events.push(...request.postDataJSON().events);
+    await route.fulfill({status:200,headers,json:path==='/v1/pairing'?{ticket:'fixture'}:path.includes('/pairing/')?{approved:true,token:'grant'}:path==='/v1/sessions'?{session_id:'session'}:{next_seq:events.length}});
+  });
+  await page.goto('/office/index.html?host=wps');await page.getByRole('button',{name:'开始记录当前文档'}).click();await expect(page.locator('#status')).toContainText('记录中');
+  offline=true;await page.evaluate(()=>{(window as any).pauseFixture.text+=' unsent changes';});
+  await expect(page.locator('#status')).toContainText('记录服务没有完成');
+  await page.getByRole('button',{name:'暂停记录',exact:true}).click();await expect(page.locator('#status')).toContainText('已暂停本机采样');
+  await expect(page.getByRole('button',{name:'继续记录',exact:true})).toBeEnabled();
+  const reads=await page.evaluate(()=>(window as any).pauseFixture.reads);
+  await page.waitForTimeout(2200);expect(await page.evaluate(()=>(window as any).pauseFixture.reads)).toBe(reads);
+  offline=false;await page.getByRole('button',{name:'继续记录',exact:true}).click();await expect(page.locator('#status')).toContainText('记录中');
+  const kinds=events.map(event=>event.kind);expect(kinds).toContain('pause');expect(kinds).toContain('gap');expect(kinds.indexOf('pause')).toBeLessThan(kinds.indexOf('resume'));
+});
+
+test('cancel pairing ignores a late approval and creates no session',async({page})=>{
+  await page.addInitScript(()=>{
+    Object.defineProperty(AbortSignal,'any',{value:undefined,configurable:true});Object.defineProperty(AbortSignal,'timeout',{value:undefined,configurable:true});
+    (window as any).wps={ActiveDocument:{Name:'draft.docx',FullName:'C:/draft.docx',Content:{Text:'private text'},Paragraphs:{Count:1}}};
+  });
+  let polls=0,sessions=0,release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+  const headers={'access-control-allow-origin':'http://127.0.0.1:4173','access-control-allow-headers':'Authorization, Content-Type','access-control-allow-methods':'GET, POST, OPTIONS'};
+  await page.route('http://127.0.0.1:43127/**',async route=>{
+    if(route.request().method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
+    const path=new URL(route.request().url()).pathname;if(path.includes('/pairing/')){polls++;await gate;}if(path==='/v1/sessions')sessions++;
+    await route.fulfill({status:200,headers,json:path==='/v1/pairing'?{ticket:'fixture'}:{approved:true,token:'late-grant'}}).catch(()=>{});
+  });
+  await page.goto('/office/index.html?host=wps');await page.getByRole('button',{name:'开始记录当前文档'}).click();await expect.poll(()=>polls).toBe(1);
+  await page.getByRole('button',{name:'取消连接',exact:true}).click();await expect(page.locator('#status')).toContainText('已取消连接');
+  await expect(page.getByRole('button',{name:'开始记录当前文档'})).toBeEnabled();release();await page.waitForTimeout(200);expect(sessions).toBe(0);
+});
+
+test('pause does not wait for a hung host snapshot and ignores its late response',async({page})=>{
+  await page.addInitScript(()=>{
+    const state={hold:false,waiting:false,text:'initial text',release:()=>{}};(window as any).hungHost=state;
+    (window as any).Office={onReady:async()=>{},context:{host:'Word',document:{url:'https://example.org/draft.docx'}}};
+    (window as any).Word={run:async(fn:any)=>{
+      const text=state.text;
+      if(state.hold){state.waiting=true;await new Promise<void>(resolve=>{state.release=resolve;});}
+      return fn({document:{body:{text,load(){},paragraphs:{items:[{}],load(){}}}},sync:async()=>{}});
+    }};
+  });
+  const events:any[]=[];const headers={'access-control-allow-origin':'http://127.0.0.1:4173','access-control-allow-headers':'Authorization, Content-Type','access-control-allow-methods':'GET, POST, OPTIONS'};
+  await page.route('http://127.0.0.1:43127/**',async route=>{
+    if(route.request().method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
+    const path=new URL(route.request().url()).pathname;
+    if(path.endsWith('/events'))events.push(...route.request().postDataJSON().events);
+    await route.fulfill({status:200,headers,json:path==='/v1/pairing'?{ticket:'fixture'}:path.includes('/pairing/')?{approved:true,token:'grant'}:path==='/v1/sessions'?{session_id:'session'}:{next_seq:events.length}});
+  });
+  await page.goto('/office/index.html');await page.getByRole('button',{name:'开始记录当前文档'}).click();await expect(page.locator('#status')).toContainText('记录中');
+  await page.evaluate(()=>{(window as any).hungHost.text='old pending sample';(window as any).hungHost.hold=true;});
+  await expect.poll(()=>page.evaluate(()=>(window as any).hungHost.waiting)).toBe(true);
+  await page.getByRole('button',{name:'暂停记录',exact:true}).click();
+  await expect(page.getByRole('button',{name:'继续记录',exact:true})).toBeEnabled({timeout:3000});
+  expect(events.some(event=>event.kind==='pause')).toBe(true);
+  await page.evaluate(()=>{(window as any).hungHost.hold=false;(window as any).hungHost.text='fresh resume snapshot';});
+  await page.getByRole('button',{name:'继续记录',exact:true}).click();await expect(page.locator('#status')).toContainText('记录中');
+  await page.evaluate(()=>(window as any).hungHost.release());await page.waitForTimeout(100);
+  expect(events.some(event=>event.kind==='edit')).toBe(false);
 });

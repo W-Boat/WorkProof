@@ -3,12 +3,22 @@ const collector='http://127.0.0.1:43127';
 type Event={seq:number;elapsed_ms:number;kind:string;inserted:number;deleted:number;chars:number;checkpoint:string;metrics:Record<string,number>};
 let host:Host,token='',session='',deliveryName='',next=0,started=0,previous:Snapshot|null=null,paused=true,busy=false,sampling=false,lastSample=0;
 let pending:Event[]=[],delivering:Promise<void>|null=null;
+let pairing:AbortController|null=null,deliveryUrls:string[]=[];
+let samplingGeneration=0;
 const element=(id:string)=>document.getElementById(id)!;
 function message(text:string){element('status').textContent=text;}
 function paint(){element('count').textContent=String(next-pending.length);element('pause').textContent=paused?'继续记录':'暂停记录';element('start').toggleAttribute('disabled',!!session||!host||busy);element('pause').toggleAttribute('disabled',!session||!token||busy);element('export').toggleAttribute('disabled',!session||!token||paused||busy);}
-async function api(route:string,body?:unknown,authenticated=true):Promise<any>{
-  const result=await fetch(collector+route,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(authenticated?{Authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(10000)}).catch(()=>{throw new Error('无法连接本机 WorkProof。请确认桌面应用已打开，并允许加载项连接本机服务后重试。');});
-  const data=await result.json();
+async function api(route:string,body?:unknown,authenticated=true,signal?:AbortSignal):Promise<any>{
+  // Older Office/WPS webviews may have AbortController but no AbortSignal.any/timeout.
+  const controller=new AbortController(),abort=()=>controller.abort();
+  const timeout=setTimeout(abort,10000);signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
+  let result:Response,data:any;
+  try{
+    result=await fetch(collector+route,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(authenticated?{Authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body),signal:controller.signal});
+    data=await result.json();
+    if(signal?.aborted)throw new Error('CANCELLED');
+  }catch{if(signal?.aborted)throw new Error('已取消连接，没有开始新的记录。');throw new Error('无法连接本机 WorkProof。请确认桌面应用已打开，并允许加载项连接本机服务后重试。');}
+  finally{clearTimeout(timeout);signal?.removeEventListener('abort',abort);}
   if(!result.ok){
     if(authenticated&&(result.status===401||result.status===403)&&data.error==='PAIRING_REQUIRED'){
       token='';paused=true;paint();
@@ -30,26 +40,34 @@ async function flush(){
 }
 async function sample(force=false){
   if(!session||paused||sampling)return;
-  sampling=true;
+  sampling=true;const generation=samplingGeneration;
   try{
     const current=await host.snapshot();
+    if(paused||generation!==samplingGeneration)return; // Ignore snapshots from before a local pause, including after resuming.
     if(previous&&current.identity!==previous.identity){paused=true;throw new Error('你已切换到另一份文档。请重新打开 WorkProof 面板，为新文档开始记录。');}
     if(lastSample&&performance.now()-lastSample>15000)event('gap',current);
     lastSample=performance.now();
     if(previous&&(current.contentHash!==previous.contentHash||current.paragraphs!==previous.paragraphs))event('edit',current,Math.max(0,current.characters-previous.characters),Math.max(0,previous.characters-current.characters));
     previous=current;
     if(force)await flush();
-  }finally{sampling=false;paint();}
+  }catch(error){if(generation===samplingGeneration)throw error;}
+  finally{if(generation===samplingGeneration)sampling=false;paint();}
 }
-function save(blob:Blob,name:string){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function clearDelivery(){for(const url of deliveryUrls)URL.revokeObjectURL(url);deliveryUrls=[];element('delivery').hidden=true;for(const id of ['save-artifact','save-proof'])(element(id) as HTMLAnchorElement).removeAttribute('href');}
+function prepareDownload(id:string,blob:Blob,name:string){const link=element(id) as HTMLAnchorElement,url=URL.createObjectURL(blob);deliveryUrls.push(url);link.href=url;link.download=name;}
 async function connect(){
-  const request=await api('/v1/pairing',{source:host.source},false);
+  const controller=new AbortController();pairing=controller;element('cancel-pairing').hidden=false;
+  try{
+  const request=await api('/v1/pairing',{source:host.source},false,controller.signal);
   message('请打开 WorkProof 桌面窗口，核对当前网址并点击“允许连接”。');
   for(let tries=0;tries<100;tries++){
-    await new Promise(r=>setTimeout(r,1000));const grant=await api(`/v1/pairing/${request.ticket}`,undefined,false);
+    await new Promise<void>((resolve,reject)=>{const abort=()=>{clearTimeout(timer);reject(new Error('已取消连接，没有开始新的记录。'));};const timer=setTimeout(()=>{controller.signal.removeEventListener('abort',abort);resolve();},1000);controller.signal.addEventListener('abort',abort,{once:true});if(controller.signal.aborted)abort();});
+    const grant=await api(`/v1/pairing/${request.ticket}`,undefined,false,controller.signal);
+    if(controller.signal.aborted)throw new Error('已取消连接，没有开始新的记录。');
     if(grant.approved){token=grant.token;message('已连接本机。点击开始记录。');return;}
   }
   throw new Error('连接请求已过期，请重试。');
+  }finally{if(pairing===controller){pairing=null;element('cancel-pairing').hidden=true;}}
 }
 async function start(){
   if(session)throw new Error('这份文档已经在记录中。');
@@ -62,17 +80,19 @@ async function start(){
 }
 async function pause(){
   if(!session)return;
+  const resuming=paused;
   if(paused){
     await flush();const current=await host.snapshot();
     if(previous&&current.identity!==previous.identity)throw new Error('你已切换到另一份文档。请重新打开 WorkProof 面板，为新文档开始记录。');
-    previous=current;event('gap',previous);event('resume',previous);paused=false;lastSample=performance.now();
+    previous=current;event('gap',previous);event('resume',previous);
   }
-  else{await sample(true);event('pause',previous!);paused=true;}
-  await flush();message(paused?'已暂停。继续后会标明这段未记录的时间。':'记录中。');paint();
+  else{paused=true;samplingGeneration++;sampling=false;paint();message('已暂停本机采样，正在保存已有操作。');event('pause',previous!);}
+  try{await flush();if(resuming){paused=false;lastSample=performance.now();}message(paused?'已暂停。继续后会标明这段未记录的时间。':'记录中。');}catch(error){if(!token)throw error;message('已暂停本机采样，部分操作尚未保存。请保持面板打开，恢复连接后点击继续记录；未保存的操作仍在本面板内存中。');}paint();
 }
 async function exportProof(){
   if(!session||paused)throw new Error('请先开始或继续记录。');
   busy=true;paint();
+  clearDelivery();
   try{
     while(sampling)await new Promise(r=>setTimeout(r,20));
     await sample(true);
@@ -83,16 +103,17 @@ async function exportProof(){
     const digest=fingerprint(artifact.bytes);event('save',after,0,0,digest);await flush();
     const proof=await api(`/v1/sessions/${session}/export`,{artifact_hash:digest,artifact_bytes:artifact.bytes.length});
     const latest=await host.snapshot();if(latest.contentHash!==after.contentHash||latest.identity!==after.identity)throw new Error('生成证书时文档又被修改了。请停止编辑后重试。');
-    save(new Blob([artifact.bytes.slice().buffer],{type:'application/octet-stream'}),artifact.name);
-    save(new Blob([JSON.stringify(proof,null,2)],{type:'application/json'}),artifact.name+'.wproof');
-    message('作品和证书已下载。请把这两个文件一起发送；另存的其他版本可能无法通过检查。');
+    prepareDownload('save-artifact',new Blob([artifact.bytes.slice().buffer],{type:'application/octet-stream'}),artifact.name);
+    prepareDownload('save-proof',new Blob([JSON.stringify(proof,null,2)],{type:'application/json'}),artifact.name+'.wproof');
+    element('delivery').hidden=false;message('交付文件已准备。请分别点击保存作品和保存证书，并检查下载位置。这一对文件对应本次准备的版本；之后另存或继续修改的版本需要重新导出。');
   }finally{busy=false;paint();}
 }
-async function safe(fn:()=>Promise<void>){try{await fn();}catch(error){message(String(error instanceof Error?error.message:error));}}
+async function safe(fn:()=>Promise<void>){try{await fn();}catch(error){message(paused&&session&&token&&pending.length?'已暂停本机采样，部分操作尚未保存。请保持面板打开，恢复连接后点击继续记录。':String(error instanceof Error?error.message:error));}}
 async function runAction(fn:()=>Promise<void>){
   if(busy)return;
   busy=true;paint();
   try{
+    if(fn===pause&&!paused){await fn();return;}
     // A timer snapshot or durable write already in progress must settle first.
     while(sampling)await new Promise(resolve=>setTimeout(resolve,20));
     if(delivering)await delivering;
@@ -101,6 +122,8 @@ async function runAction(fn:()=>Promise<void>){
   finally{busy=false;paint();}
 }
 for(const [id,fn] of [['start',start],['pause',pause],['export',exportProof]] as const)element(id).addEventListener('click',()=>void runAction(fn));
+element('cancel-pairing').addEventListener('click',()=>{pairing?.abort();});
+window.addEventListener('pagehide',()=>{pairing?.abort();clearDelivery();});
 setInterval(()=>{if(session&&!paused&&!busy&&performance.now()-lastSample>(previous&&previous.characters>1_000_000?5000:900))void safe(async()=>{await sample();await flush();});},1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session&&!paused&&!busy)void safe(()=>sample(true));});
 window.addEventListener('beforeunload',event=>{if(session){event.preventDefault();event.returnValue='';}});
