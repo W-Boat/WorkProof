@@ -44,6 +44,11 @@ if (-not $SkipProbe) {
     if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_addin.cpp' }
     & $probe $dll
     if ($LASTEXITCODE -ne 0) { throw 'the COM probe rejected the built add-in' }
+    $processProbe = Join-Path $OutDir 'test_process.exe'
+    & cl @common (Join-Path $source 'test_process.cpp') "/Fo$probeDir\" "/Fe$processProbe"
+    if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_process.cpp' }
+    & $processProbe
+    if ($LASTEXITCODE -ne 0) { throw 'controlled process limits failed' }
 }
 
 Get-ChildItem -LiteralPath $OutDir -File | ForEach-Object {

@@ -23,4 +23,5 @@ jobs:
           path: |
             apps/word-native-cpp/out/WorkProofWord.dll
             apps/word-native-cpp/out/test_addin.exe
+            apps/word-native-cpp/out/test_process.exe
           if-no-files-found: error

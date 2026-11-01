@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "addin.h"
+#include "controlled_process.h"
 #include <winhttp.h>
 #include <cstdlib>
 #include <vector>
@@ -123,43 +124,12 @@ bool HttpJson(const std::wstring& method, const std::wstring& path, const std::s
 }
 
 bool RunEngine(const std::wstring& arguments, std::string& output, std::wstring& error) {
-    output.clear();
-    std::wstring command = L"\"" + EnginePath() + L"\" " + arguments;
-    SECURITY_ATTRIBUTES attributes = { sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE };
-    HANDLE readEnd = nullptr, writeEnd = nullptr;
-    if (!CreatePipe(&readEnd, &writeEnd, &attributes, 0)) { error = L"无法创建输出管道。"; return false; }
-    SetHandleInformation(readEnd, HANDLE_FLAG_INHERIT, 0);
-    STARTUPINFOW startup = { sizeof(STARTUPINFOW) };
-    startup.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-    startup.wShowWindow = SW_HIDE;
-    startup.hStdOutput = writeEnd;
-    startup.hStdError = writeEnd;
-    startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-    PROCESS_INFORMATION process = {0};
-    std::vector<wchar_t> line(command.begin(), command.end());
-    line.push_back(L'\0');
-    BOOL started = CreateProcessW(nullptr, &line[0], nullptr, nullptr, TRUE, CREATE_NO_WINDOW,
-                                  nullptr, nullptr, &startup, &process);
-    CloseHandle(writeEnd);
-    if (!started) { CloseHandle(readEnd); error = L"无法启动记录引擎。"; return false; }
-    char buffer[4096];
-    DWORD read = 0;
-    while (ReadFile(readEnd, buffer, sizeof(buffer), &read, nullptr) && read > 0) {
-        output.append(buffer, read);
-        if (output.size() > 1024u * 1024u) break;
-    }
-    DWORD waited = WaitForSingleObject(process.hProcess, 60000);
-    DWORD code = 1;
-    GetExitCodeProcess(process.hProcess, &code);
-    CloseHandle(process.hThread);
-    CloseHandle(process.hProcess);
-    CloseHandle(readEnd);
-    if (waited != WAIT_OBJECT_0) { error = L"记录引擎没有在预期时间内返回。"; return false; }
-    if (code != 0) {
-        error = output.empty() ? L"记录引擎未能完成本次操作。" : L"记录引擎报错：" + Utf8ToWide(output);
-        return false;
-    }
-    return true;
+    ProcessStatus status=RunControlledProcess(EnginePath(),arguments,output);
+    if(status==ProcessStatus::Success)return true;
+    error=status==ProcessStatus::TimedOut?L"记录引擎处理超过 60 秒，已停止本次处理。":
+          status==ProcessStatus::OutputLimit?L"记录引擎输出过多，已停止本次处理。":
+          L"记录引擎未能完成本次操作，请重试或联系管理员。";
+    return false;
 }
 
 bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& error) {

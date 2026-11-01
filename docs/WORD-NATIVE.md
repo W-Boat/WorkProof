@@ -2,6 +2,8 @@
 
 ## 2026-11-02 本机实际验收
 
+后续源码新增原生受控进程：读取、退出共用60秒期限，1MiB输出限制，失败终止Job内子孙并关闭句柄，避免stdout不关闭导致无限阻塞；真实Windows进程fixture在Actions运行，结果以最新任务为准。同步调用在期限内仍会阻塞Word，不能称为已实现无阻塞导出。
+
 当前实际交付为 C++ 原生 x64 COM DLL（`apps/word-native-cpp`），旧 `apps/word-native` 托管实现保留但不打包，不能把下方较早的 AnyCPU 描述当作已验证的32位支持。
 
 其他 agent 的提交已继续接入。`086a073` 修复 Ribbon 双接口 vtable 与 COM identity，专项 [41326697194](https://github.com/W-Boat/WorkProof/actions/runs/41326697194) 通过；本机 Word 2021 功能区实际出现 WorkProof，开始/桌面批准/暂停/继续实际可用。第一次导出在旧目录选择器期间导致诊断 Word 异常退出，不能忽略该失败；随后改现代文件夹对话框，修复未初始化 VARIANT、宿主引用以及拒绝文件覆盖。
