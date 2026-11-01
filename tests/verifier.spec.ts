@@ -20,11 +20,14 @@ test('replaced artifact fails without a trusted badge',async({page})=>{
   await page.goto('/');await page.getByLabel('选择最终作品').setInputFiles({name:'essay.md',mimeType:'text/plain',buffer:Buffer.from('different content')});
   await page.getByLabel('选择 .wproof 证书').setInputFiles(fixture+'essay.md.wproof');await page.getByRole('button',{name:'开始本地核验'}).click();
   await expect(page.getByText('证据核验未通过',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'保存证书图片'})).toBeDisabled();
+  await expect(page.getByText('作品与证书不匹配。请向提供者索取与这份证书对应的原始作品。',{exact:true})).toBeVisible();
+  await expect(page.getByText('这份作品与证书中记录的最终文件一致',{exact:true})).toHaveCount(0);
 });
 test('altered event is detected by browser protocol core',async({page})=>{
   const proof=JSON.parse(fs.readFileSync(fixture+'essay.md.wproof','utf8'));proof.records[5].event.inserted++;
   await page.goto('/');await page.getByLabel('选择最终作品').setInputFiles(fixture+'essay.md');await page.getByLabel('选择 .wproof 证书').setInputFiles({name:'tampered.wproof',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(proof))});
   await page.getByRole('button',{name:'开始本地核验'}).click();await expect(page.getByText('证据核验未通过',{exact:true})).toBeVisible();
+  await expect(page.getByText('过程记录未能核对一致。请向提供者索取未修改的原始证书。',{exact:true})).toBeVisible();
 });
 test('invalid JSON is a clear error',async({page})=>{
   await page.goto('/');await page.getByLabel('选择最终作品').setInputFiles(fixture+'essay.md');await page.getByLabel('选择 .wproof 证书').setInputFiles({name:'broken.wproof',mimeType:'application/json',buffer:Buffer.from('{')});await page.getByRole('button',{name:'开始本地核验'}).click();await expect(page.getByRole('region',{name:'核验作品与证书'}).getByRole('alert')).toBeVisible();

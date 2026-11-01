@@ -21,14 +21,14 @@ export function CertificateCard({proof,report,certificateId}:{proof:Proof;report
 }
 export function VerificationChecks({proof,report:r}:{proof:Proof;report:Report}){
   const partial=r.scope==='selective';
-  const checks:[boolean|string|null,string,string][]=[
-    [r.file_match,'文件匹配','这份作品与证书中记录的最终文件一致'],
-    [partial?r.merkle_valid:r.chain_valid,partial?'所选记录归属':'记录链完整',partial?'公开的事件属于这份已签名记录':'记录顺序一致，未发现链中事件被改动'],
-    [r.signature_valid,'签名有效','签名覆盖的证书内容未被改动'],
+  const checks:[boolean|string|null,string,string,string][]=[
+    [r.file_match,'文件匹配','这份作品与证书中记录的最终文件一致','作品与证书不匹配。请向提供者索取与这份证书对应的原始作品。'],
+    [partial?r.merkle_valid:r.chain_valid,partial?'所选记录归属':'记录链完整',partial?'公开的操作属于这份已签名记录':'记录顺序一致，未发现记录被改动',partial?'所选操作未能与原始记录核对一致。请索取原始证书。':'过程记录未能核对一致。请向提供者索取未修改的原始证书。'],
+    [r.signature_valid,'签名有效','签名覆盖的证书内容未被改动','签名未能通过检查。请索取原始证书，不要依据这份证书判断作品。'],
   ];
-  if(!partial&&r.merkle_valid!==null)checks.push([r.merkle_valid,'记录集合一致','全部事件与签名中确认的记录集合一致']);
+  if(!partial&&r.merkle_valid!==null)checks.push([r.merkle_valid,'记录集合一致','全部操作与签名中确认的记录一致','操作记录与签名不一致。请向提供者索取原始证书。']);
   return <Panel title="核验明细" className="checks-panel">
-    {checks.map(([ok,title,desc])=><div className="check-row" key={title}><span className={ok?'check-icon':'fail-icon'}>{ok?<Check size={15}/>:<X size={15}/>}</span><div><strong>{title}<Tag tone={ok?'ok':'danger'}>{ok?'通过':'失败'}</Tag></strong><p>{desc}</p></div></div>)}
+    {checks.map(([ok,title,desc,failure])=><div className="check-row" key={title}><span className={ok?'check-icon':'fail-icon'}>{ok?<Check size={15}/>:<X size={15}/>}</span><div><strong>{title}<Tag tone={ok?'ok':'danger'}>{ok?'通过':'失败'}</Tag></strong><p>{ok?desc:failure}</p></div></div>)}
     <div className="check-boundary"><Info size={17}/><div><strong>可信程度需要分别判断</strong><p>签名身份未经认证<br/>未提供外部时间凭据<br/>无法据此判断 AI 使用比例{partial&&<><br/>完整记录链未核验<br/>未披露区间的采集缺口未知</>}</p></div></div>
     <Dialog.Root><Dialog.Trigger asChild><Button variant="ghost"><Code2 size={15}/>查看原始核验详情</Button></Dialog.Trigger><Dialog.Portal>
       <Dialog.Overlay className="overlay wp-dialog-overlay"/>
