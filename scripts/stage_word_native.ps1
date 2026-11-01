@@ -10,6 +10,7 @@ param(
     [Parameter(Mandatory = $true)][string]$AddIn,
     [Parameter(Mandatory = $true)][string]$Engine,
     [string]$Desktop,
+    [string]$PowerPointAddIn,
     [string]$Verifier,
     [string]$Vsix,
     [string]$Docs,
@@ -31,6 +32,11 @@ $Package = (Resolve-Path -LiteralPath $Package).Path
 
 Copy-Required $AddIn (Join-Path $Package (Split-Path -Leaf $AddIn))
 Copy-Required $Engine (Join-Path $Package 'workproof-engine.exe')
+if ($PowerPointAddIn) {
+    Copy-Required $PowerPointAddIn (Join-Path $Package 'WorkProofPowerPoint.dll')
+    Copy-Required (Join-Path $PSScriptRoot 'local/install-native-powerpoint.ps1') (Join-Path $Package 'install-native-powerpoint.ps1')
+}
+
 if ($Desktop) { Copy-Required $Desktop (Join-Path $Package 'workproof-desktop.exe') }
 if ($Vsix) { Copy-Required $Vsix (Join-Path $Package 'workproof.vsix') }
 if ($Verifier) {

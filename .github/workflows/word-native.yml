@@ -78,6 +78,7 @@ jobs:
           $vsix = Get-ChildItem apps/extension/*.vsix | Select-Object -First 1
           ./scripts/stage_word_native.ps1 -Package "$env:RUNNER_TEMP/workproof-native-word" `
             -AddIn apps/word-native-cpp/out/WorkProofWord.dll `
+            -PowerPointAddIn apps/word-native-cpp/out-powerpoint/WorkProofPowerPoint.dll `
             -Engine target/release/workproof-engine.exe `
             -Desktop target/release/workproof-desktop.exe `
             -Verifier apps/verifier/out `
@@ -85,11 +86,6 @@ jobs:
             -Docs docs `
             -Notices .ci-word-notices `
             -Zip dist/workproof-native-word-windows-dev.zip
-      - name: Include PowerPoint adapter and installer
-        shell: pwsh
-        run: |
-          Copy-Item apps/word-native-cpp/out-powerpoint/WorkProofPowerPoint.dll "$env:RUNNER_TEMP/workproof-native-word/WorkProofPowerPoint.dll"
-          Copy-Item scripts/local/install-native-powerpoint.ps1 "$env:RUNNER_TEMP/workproof-native-word/install-native-powerpoint.ps1"
       - name: Register and unregister the staged kit in an isolated registry fixture
         shell: pwsh
         run: |
