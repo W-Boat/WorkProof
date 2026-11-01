@@ -2,6 +2,8 @@
 
 ## WorkProof 接入
 
+- `components/ui/FilePicker.vue`及公共components.css：统一中文文件按钮/选中文件名/无障碍输入，业务层继续负责类型与大小校验，原File对象不重新编码；证书和AI分析共享。
+
 - `AiAnalysisController` → `AiAnalysisService` → 已准备的独立Python模型：工作台可选辅助分析，独立`workproof:analysis:run`权限、明确发送同意、每用户隔离任务、单并发/120秒/8MiB/64KiB结果、实际进程取消及临时文件删除。任务是有期限的内存任务，不是持久批量队列；默认关闭，无数据库迁移。
 - `AiAnalysisDialog.vue`/`api/analysis.ts`：复用FormDialog/Field/Checkbox/Select/Tag/PermissionButton与统一HTTP客户端，上传原字节、轮询状态、取消、未校准参考得分。后台Python路径、script与models由管理员配置，不接收用户命令或路径。
 

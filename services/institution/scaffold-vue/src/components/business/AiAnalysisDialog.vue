@@ -5,6 +5,7 @@ import Field from '@/components/ui/Field.vue'
 import Checkbox from '@/components/ui/Checkbox.vue'
 import Select from '@/components/ui/Select.vue'
 import Tag from '@/components/ui/Tag.vue'
+import FilePicker from '@/components/ui/FilePicker.vue'
 import {analysisApi,ApiError} from '@/api'
 import type {AnalysisCapabilities,AnalysisTask} from '@/api/analysis'
 const props=defineProps<{open:boolean}>(),emit=defineEmits<{(event:'close'):void}>()
@@ -18,7 +19,7 @@ watch(()=>props.open,async open=>{
 })
 onBeforeUnmount(()=>{generation++;request?.abort();if(busy.value&&task.value)void analysisApi.cancel(task.value.id).catch(()=>{})})
 function resetResult(){task.value=null;error.value='';consent.value=false}
-function select(event:Event){if(busy.value)return;resetResult();const value=(event.target as HTMLInputElement).files?.[0]??null
+function select(value:File|null){if(busy.value)return;resetResult();
   if(value&&(!/\.(docx|txt|md)$/i.test(value.name)||value.size>(capability.value?.maxBytes??8*1024*1024))){file.value=null;error.value='请选择不超过 8 MB 的 DOCX、TXT 或 Markdown 文件。';return}file.value=value}
 async function close(){if(!busy.value){emit('close');return}if(cancelling.value)return;cancelling.value=true
   if(task.value)try{task.value=await analysisApi.cancel(task.value.id)}catch{error.value='暂时无法确认是否停止，服务器可能继续分析至超时；请稍后查询。'}
@@ -42,7 +43,7 @@ const label=(key:string)=>['AI','Fake'].includes(key)?'更接近生成样本的�
 </script>
 <template>
   <FormDialog :open="open" title="AI 辅助分析" sub="选择文档、确认发送范围，再查看参考结果。" :saving="busy" :submit-disabled="!ready" submit-text="发送并分析" @submit="submit" @close="close">
-    <Field label="选择文档" span :error="error||undefined"><input aria-label="选择文档" type="file" accept=".docx,.txt,.md" :disabled="busy" @change="select"><span class="field-hint">最多 8 MB。只分析主文档源文字，不含页眉、脚注或图片；隐藏或修订文字可能包含在内。</span></Field>
+    <Field label="选择文档" group span :error="error||undefined"><FilePicker label="选择文档" :file="file" accept=".docx,.txt,.md" :disabled="busy" @select="select"/><span class="field-hint">最多 8 MB。只分析主文档源文字，不含页眉、脚注或图片；隐藏或修订文字可能包含在内。</span></Field>
     <Field label="选择参考模型" span><Select :model-value="engine" :options="options" :disabled="busy" @update:model-value="value=>{engine=String(value);resetResult()}"/><p class="field-hint">英文模型仅为 GPT-2 参考；两种模型都可能误判，不能单独用于认定作弊或原创性。</p></Field>
     <Field label="确认发送范围" group span><Checkbox v-model="consent" :disabled="busy||!file" label="我同意将所选文档发送给机构服务器进行辅助分析"/><p class="field-hint">分析后删除临时文档，不保存正文；参考结果最多保留十分钟，服务器重启后不保留。作品较长时会提示未分析，不会悄悄只分析开头。</p><p class="field-hint" role="status">{{ busy ? (cancelling?'正在请求停止，请等待服务器确认…':'正在分析；点击取消可请求停止实际分析进程。') : capability?.message||'正在读取模型准备状态…' }}</p></Field>
     <Field v-if="task?.state==='cancelled'" label="分析已取消" group span><p role="status">服务器已结束本次分析。</p></Field>

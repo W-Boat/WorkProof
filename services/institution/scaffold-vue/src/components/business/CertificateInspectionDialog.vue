@@ -4,6 +4,7 @@ import FormDialog from './FormDialog.vue'
 import Field from '@/components/ui/Field.vue'
 import Checkbox from '@/components/ui/Checkbox.vue'
 import Tag from '@/components/ui/Tag.vue'
+import FilePicker from '@/components/ui/FilePicker.vue'
 import { ApiError, certificateApi, type CertificateCapabilities, type CertificateInspection } from '@/api'
 
 const props = defineProps<{open: boolean; saveToCatalog?: boolean}>()
@@ -22,10 +23,9 @@ watch(() => props.open, async open => {
   finally { if (current === generation) loading.value = false }
 }, {immediate: true})
 onBeforeUnmount(() => { generation++; request?.abort() })
-function select(event: Event) {
+function select(selected: File | null) {
   if (busy.value) return
   result.value = null; consent.value = false; error.value = ''
-  const selected = (event.target as HTMLInputElement).files?.[0] ?? null
   if (selected && !selected.name.toLowerCase().endsWith('.wproof')) { file.value = null; error.value = '请选择 .wproof 证书文件，其他文件不会发送。'; return }
   if (selected && selected.size > (capability.value?.maxProofBytes ?? 32 * 1024 * 1024)) { file.value = null; error.value = '证书超过 32 MB，请先在本机导出部分记录。'; return }
   file.value = selected
@@ -44,8 +44,8 @@ async function inspect() {
 
 <template>
   <FormDialog :open="open" :title="saveToCatalog ? '检查并保存证书摘要' : '检查一份证书'" sub="选择证书、确认发送，再查看结果。作品文件不会发送到机构服务器。" :saving="busy" :submit-disabled="!ready" :submit-text="saveToCatalog ? '检查并保存摘要' : '检查证书内容'" @close="emit('close')" @submit="inspect">
-    <Field label="选择 .wproof 证书" span :error="error || undefined">
-      <input type="file" accept=".wproof" :disabled="busy" @change="select">
+    <Field label="选择 .wproof 证书" group span :error="error || undefined">
+      <FilePicker label="选择 .wproof 证书" :file="file" accept=".wproof" :disabled="busy" @select="select"/>
       <span class="field-hint">这是创作者导出的过程证书。请选择证书文件，不要选择作品或证书截图。</span>
     </Field>
     <Field label="确认发送范围" group span>
