@@ -7,6 +7,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 class CertificateCatalogServiceTest {
+    @Test void enabledButIncompleteSchemaRefusesStorage() {
+        var mapper=mock(CertificateCatalogMapper.class);var inspector=mock(NativeCertificateInspector.class);
+        var service=new CertificateCatalogService(mapper,inspector,mock(AuthService.class),true);
+        assertFalse(service.status().ready());
+        assertThrows(ServiceException.class,()->service.save(new java.io.ByteArrayInputStream(new byte[0])));
+        verifyNoInteractions(inspector);
+    }
     @Test void disabledCatalogNeverTouchesDatabaseOrVerifier() {
         var mapper=mock(CertificateCatalogMapper.class);var inspector=mock(NativeCertificateInspector.class);
         var service=new CertificateCatalogService(mapper,inspector,mock(AuthService.class),false);

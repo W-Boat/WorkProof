@@ -2,6 +2,8 @@
 
 ## WorkProof 接入
 
+- `CertificateCatalogMapper.schemaReady`、`CertificateCatalogService.status`、`GET /api/workproof/certificates/status`：受列表权限保护的只读结构检查；未启用不触碰业务结构，接口操作前也检查。`Certificates.vue` 先取状态再加载列表，未就绪明确下一步。
+
 - `CertificateBatchDialog.vue`：页面内顺序队列，复用原始 Blob 保存接口，逐份结果、取消后续、结果 CSV；不新增服务器持久任务或后台队列。关闭网页后不会继续未发送项。
 
 - `CertificateCatalogController` → `CertificateCatalogService` → `CertificateCatalogMapper.xml`：检查后保存最小摘要，分页/详情/CSV 一律复用数据范围；缺失范围上下文默认拒绝。`V3__workproof_certificate_catalog.sql` 为显式迁移，`WORKPROOF_CATALOG_ENABLED` 默认 false；未迁移本机用户数据库。

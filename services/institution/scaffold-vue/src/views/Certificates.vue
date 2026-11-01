@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { certificateApi, type CertificateEntry } from '@/api'
 import { useListPage } from '@/composables/list'
 import { hasPermission } from '@/directives/permission'
 import { toastError } from '@/composables/toast'
 import { ListPage, PermissionButton } from '@/components/business'
-import { Field, TextInput, Tag, Select, type Column } from '@/components/ui'
+import { Field, TextInput, Tag, Select, Button, type Column } from '@/components/ui'
 import Modal from '@/components/ui/Modal.vue'
 import CertificateInspectionDialog from '@/components/business/CertificateInspectionDialog.vue'
 import CertificateBatchDialog from '@/components/business/CertificateBatchDialog.vue'
 const batch = ref(false)
+const ready = ref(false), statusMessage = ref('正在检查证书列表是否就绪…'), checking = ref(false)
 const upload = ref(false), detail = ref<CertificateEntry | null>(null)
 const list = useListPage<CertificateEntry, {keyword: string; scope: string}>({
+  immediate: false,
   query: {keyword:'',scope:''}, fetch: query => certificateApi.list(query),
   exporter: hasPermission('workproof:certificate:export') ? query => certificateApi.export(query) : undefined,
   exportName: '证书摘要列表.csv',
@@ -21,13 +23,24 @@ const columns: Column[] = [
   {key:'disclosedEvents',title:'已检查操作数',width:130}, {key:'createBy',title:'提交账号',width:130},
   {key:'checkedAt',title:'保存时间',width:180}, {key:'actions',title:'操作',width:100},
 ]
+async function checkStatus() {
+  if(checking.value)return
+  checking.value=true;ready.value=false
+  try {
+    const status=await certificateApi.status();statusMessage.value=status.message;ready.value=status.ready
+    if(status.ready)await list.load()
+  } catch { statusMessage.value='暂时无法连接证书列表，请稍后点击“重新检查”。' }
+  finally {checking.value=false}
+}
+onMounted(checkStatus)
 async function openDetail(row: CertificateEntry) {
   try { detail.value = await certificateApi.detail(row.id) } catch(error) { toastError(error, '详情加载失败') }
 }
 </script>
 <template>
-  <ListPage title="证书管理" desc="检查并保存证书摘要，随后按文件名或证书指纹查找。这里不检查作品，也不确认作者身份或实际创作时间。" table-title="已保存的证书摘要" :list="list" :columns="columns">
-    <template #actions><PermissionButton perm="workproof:certificate:add" @click="batch = true">批量检查</PermissionButton><PermissionButton perm="workproof:certificate:add" variant="primary" @click="upload = true">检查并保存摘要</PermissionButton></template>
+  <ListPage title="证书管理" desc="检查并保存证书摘要，随后按文件名或证书指纹查找。这里不检查作品，也不确认作者身份或实际创作时间。" table-title="已保存的证书摘要" :list="list" :columns="columns" :alt-view="!ready">
+    <template #actions><PermissionButton perm="workproof:certificate:add" :disabled="!ready" @click="batch = true">批量检查</PermissionButton><PermissionButton perm="workproof:certificate:add" variant="primary" :disabled="!ready" @click="upload = true">检查并保存摘要</PermissionButton></template>
+    <template #before><div v-if="!ready" class="panel m-surface stack" role="status"><p>{{ statusMessage }}</p><Button :loading="checking" @click="checkStatus">重新检查</Button></div></template>
     <template #search>
       <Field label="文件名或证书指纹" wide><TextInput v-model="list.query.keyword" placeholder="文件名的一部分 / 完整证书指纹" @enter="list.search()" /></Field>
       <Field label="检查范围"><Select :model-value="list.query.scope" :options="[{label:'全部范围',value:''},{label:'全部记录',value:'full'},{label:'部分记录',value:'selective'}]" @update:model-value="list.query.scope = String($event ?? '')" /></Field>

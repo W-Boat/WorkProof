@@ -118,6 +118,26 @@ with log_path.open("wb") as log:
         assert request('/api/workproof/certificates/capabilities', token=limited_token)[0] == 403
         assert request('/api/workproof/certificates/inspect', proof, limited_token)[0] == 403
         assert request('/api/workproof/certificates', proof, limited_token)[0] == 403
+        assert request('/api/workproof/certificates/status')[0] == 401
+        assert request('/api/workproof/certificates/status', token=limited_token)[0] == 403
+        assert json.loads(request('/api/workproof/certificates/status', token=token)[1])['data']['ready'] is True
+        subprocess.run(mysql, input='RENAME TABLE wp_certificate TO wp_certificate_readiness_fixture;', text=True, capture_output=True, check=True)
+        try:
+            missing_status=json.loads(request('/api/workproof/certificates/status', token=token)[1])['data']
+            assert missing_status['enabled'] and not missing_status['ready'] and not missing_status['schemaPrepared']
+            assert request('/api/workproof/certificates', token=token)[0] == 503
+            assert request('/api/workproof/certificates', proof, token)[0] == 503
+            assert inspect_certificate(proof)['certificate_valid'] is True
+            subprocess.run(['node', str(root/'scripts/test_institution_catalog_readiness.cjs')],env=dict(os.environ,WORKPROOF_TEST_TOKEN=token),check=True)
+        finally:
+            subprocess.run(mysql,input='RENAME TABLE wp_certificate_readiness_fixture TO wp_certificate;',text=True,capture_output=True,check=True)
+        subprocess.run(mysql,input='ALTER TABLE wp_certificate DROP INDEX uk_wp_certificate_owner_proof;',text=True,capture_output=True,check=True)
+        try:
+            assert json.loads(request('/api/workproof/certificates/status',token=token)[1])['data']['ready'] is False
+            assert request('/api/workproof/certificates',proof,token)[0] == 503
+        finally:
+            subprocess.run(mysql,input='ALTER TABLE wp_certificate ADD UNIQUE KEY uk_wp_certificate_owner_proof(owner_user_id,proof_hash);',text=True,capture_output=True,check=True)
+        assert json.loads(request('/api/workproof/certificates/status',token=token)[1])['data']['ready'] is True
         def catalog(path='', data=None, actor=token):
             code, body, _ = request('/api/workproof/certificates'+path, data, actor)
             parsed = json.loads(body)

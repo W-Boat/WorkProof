@@ -28,7 +28,15 @@ public class CertificateCatalogService {
         this.mapper=mapper;this.inspector=inspector;this.auth=auth;this.enabled=enabled;
     }
     private void requireReady() {
-        if (!enabled) throw new ServiceException(503,"证书列表尚未启用，请联系管理员完成准备。单份证书检查仍可使用。");
+        var status=status();
+        if (!status.ready()) throw new ServiceException(503,status.message());
+    }
+    public record Status(boolean enabled, boolean schemaPrepared, boolean ready, String message) {}
+    public Status status() {
+        if (!enabled) return new Status(false,false,false,"证书列表尚未启用，请联系管理员完成准备。单份证书检查仍可使用。");
+        boolean prepared;
+        try { prepared=mapper.schemaReady(); } catch (org.springframework.dao.DataAccessException error) { prepared=false; }
+        return new Status(true,prepared,prepared,prepared?"证书列表已就绪，可以查询和保存摘要。":"证书列表的数据结构尚未准备好，请联系管理员核对并执行 V3 迁移。单份证书检查仍可使用。");
     }
     private String keyword(String value) {
         if (value==null || value.isBlank()) return null;

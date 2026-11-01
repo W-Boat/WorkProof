@@ -15,6 +15,9 @@ import java.nio.charset.StandardCharsets;
 public class CertificateCatalogController {
     private final CertificateCatalogService catalog;
     public CertificateCatalogController(CertificateCatalogService catalog) { this.catalog=catalog; }
+    @GetMapping("/status")
+    @RequiresPermission("workproof:certificate:list")
+    public R<CertificateCatalogService.Status> status() { return R.success(catalog.status()); }
     @GetMapping
     @RequiresPermission("workproof:certificate:list")
     public R<PageResult<Map<String,Object>>> list(PageQuery page,@RequestParam(required=false) String keyword,@RequestParam(required=false) String scope) {

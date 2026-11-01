@@ -34,6 +34,7 @@ export interface CertificateInspection {
 }
 export function createCertificateApi(client: HttpClient) {
   return {
+    status: () => client.get<{enabled:boolean; schemaPrepared:boolean; ready:boolean; message:string}>('/workproof/certificates/status'),
     list: (query: import('./http').QueryParams) => client.get<PageResult<CertificateEntry>>('/workproof/certificates', query),
     detail: (id: number) => client.get<CertificateEntry>(`/workproof/certificates/${id}`),
     export: (query: import('./http').QueryParams) => client.download('/workproof/certificates/export', query),
