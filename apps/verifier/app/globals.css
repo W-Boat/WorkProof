@@ -27,3 +27,5 @@ html{scroll-behavior:smooth;scroll-padding-top:30px}svg{flex-shrink:0}button,a,i
 
 .certificate-id{margin-top:18px;position:relative}.certificate-id span{font-size:13px;color:#63725d}.certificate-id code{display:block;font:13px/1.8 var(--font-mono);color:#385440;overflow-wrap:anywhere;margin-top:6px}
 .certificate-stats>div:nth-child(2) strong{font-size:clamp(20px,2vw,26px);white-space:nowrap;letter-spacing:-.03em}
+
+.timestamp-panel p,.timestamp-panel summary,.timestamp-panel .quiet-label{font-size:14px;line-height:1.85}.timestamp-panel p{margin:12px 0}.timestamp-panel summary{cursor:pointer}.timestamp-files{display:grid;gap:12px;margin:16px 0}.timestamp-panel details>button{margin-top:12px}

@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {Panel,Tag} from './institution-ui';
 import {Button} from './button';
+import {Upload} from './FileDrop';
 import type {TimestampResult} from '../lib/timestamps';
 export function TimestampPanel({signature}:{signature:string}){
   const [files,setFiles]=useState<(File|null)[]>([null,null,null]),[trusted,setTrusted]=useState(false),[busy,setBusy]=useState(false),[result,setResult]=useState<TimestampResult|null>(null),[error,setError]=useState('');
@@ -22,7 +23,12 @@ export function TimestampPanel({signature}:{signature:string}){
   return <Panel title="检查外部时间凭据" className="timestamp-panel">
     <details><summary>有时间戳请求与响应？展开检查（可选）</summary>
     <p>如果提供者附上了时间戳请求和响应，可在这里单独检查。只选择你通过可信渠道取得并决定信任的 CA 证书；文件留在浏览器内。</p>
-    {['原始时间戳请求（.tsq）','时间戳响应（.tsr）','你信任的 CA 证书（.pem）'].map((label,index)=><label className="field" key={label}><span className="field-label">{label}</span><input type="file" disabled={busy} onChange={event=>{if(busy)return;reset();const file=event.target.files?.[0]??null;setFiles(previous=>previous.map((value,i)=>i===index?file:value));}}/></label>)}
+    <div className="timestamp-files">{[
+      {label:'原始时间戳请求（.tsq）',caption:'工具生成并保留的请求，最多 8 KB',accept:'.tsq'},
+      {label:'时间戳响应（.tsr）',caption:'时间服务返回的响应，最多 128 KB',accept:'.tsr'},
+      {label:'你信任的 CA 证书（.pem）',caption:'从可信渠道取得的签发机构证书，最多 256 KB',accept:'.pem'},
+    ].map((item,index)=><Upload key={item.label} {...item} file={files[index]} disabled={busy} onFile={file=>{if(busy)return;reset();setFiles(previous=>previous.map((value,i)=>i===index?file:value));}}/>)}</div>
+    <p>CA 指为时间服务签发证书的机构。不确定该信任谁时，可以跳过这项可选检查。</p>
     <label className="quiet-label"><input type="checkbox" checked={trusted} disabled={busy||!files[2]} onChange={event=>{if(busy)return;generation.current++;setTrusted(event.target.checked);setResult(null);}}/>我已核对 CA 来源，并同意以这份 CA 作为本次信任依据</label>
     <Button disabled={busy||!trusted||files.some(file=>!file)} onClick={verify}>{busy?'正在检查时间凭据…':'检查时间凭据'}</Button>
     {error&&<p role="alert">{error}</p>}
