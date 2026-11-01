@@ -157,7 +157,7 @@ with log_path.open("wb") as log:
         fixture_sql("UPDATE sys_role SET data_scope='DEPT' WHERE id=4;")
         visible(2)
         fixture_sql(f"UPDATE sys_role SET data_scope='DEPT_AND_CHILD' WHERE id=4; UPDATE sys_user SET dept_id=2 WHERE id={int(limited_me['userId'])};")
-        visible(3)
+        visible(5)  # Parent department 2 also includes the original admin's department 5.
         fixture_sql("UPDATE sys_role SET data_scope='CUSTOM' WHERE id=4; DELETE FROM sys_role_dept WHERE role_id=4; INSERT INTO sys_role_dept(role_id,dept_id) VALUES(4,7);")
         visible(2)
         fixture_sql("DELETE FROM sys_role_dept WHERE role_id=4;")
