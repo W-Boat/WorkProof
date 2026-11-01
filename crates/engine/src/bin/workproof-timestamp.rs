@@ -51,7 +51,7 @@ fn main()->Result<std::process::ExitCode,Box<dyn std::error::Error>>{
     let response=work.file("response.tsr");fs::write(&response,bounded(Path::new(&args[4]),1024*1024)?)?;
     let trust=work.file("trust.pem");fs::write(&trust,bounded(Path::new(&args[5]),1024*1024)?)?;
     let program=Path::new(&args[6]);
-    let verify=|binding:&str,value:&Path| openssl(program,&["ts".as_ref(),"-verify".as_ref(),binding.as_ref(),value.as_os_str(),"-in".as_ref(),response.as_os_str(),"-CAfile".as_ref(),trust.as_os_str(),"-no-CApath".as_ref(),"-no-CAstore".as_ref()]);
+    let verify=|binding:&str,value:&Path| openssl(program,&["ts".as_ref(),"-verify".as_ref(),binding.as_ref(),value.as_os_str(),"-in".as_ref(),response.as_os_str(),"-CAfile".as_ref(),trust.as_os_str()]);
     // Query binding enforces the nonce; data binding prevents substituting another query/response pair.
     let valid=verify("-queryfile",&query)?&&verify("-data",&data)?;
     println!("{}",serde_json::json!({"protocol":"workproof-timestamp/1","timestamp_verified":valid,
