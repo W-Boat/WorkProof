@@ -8,6 +8,8 @@ dist/
 test-results/
 playwright-report/
 test-timestamp-fixtures/
+.ci-c2pa-notices/
+test-c2pa-results.json
 apps/verifier/public/wasm/
 apps/desktop/src-tauri/resources/
 .ci-artifacts/

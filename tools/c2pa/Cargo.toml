@@ -1,0 +1,26 @@
+[package]
+name = "workproof-c2pa"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.96"
+license = "MIT"
+publish = false
+
+# Deliberately separate: the SDK must not enter the recorder/desktop dependency graph.
+[workspace]
+
+[dependencies]
+c2pa = { version = "=0.91.7", default-features = false, features = ["rust_native_crypto"] }
+workproof-protocol = { path = "../../crates/proof" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+crc32fast = "=1.5.3"
+zeroize = "=1.9.1"
+
+[dev-dependencies]
+ed25519-dalek = "2.2"
+hex = "0.4"
+
+[profile.release]
+opt-level = "s"
+strip = true
