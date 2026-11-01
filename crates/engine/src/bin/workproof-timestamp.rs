@@ -29,7 +29,7 @@ fn openssl(program:&Path,args:&[&std::ffi::OsStr])->Result<bool,Box<dyn std::err
         std::thread::sleep(Duration::from_millis(20));
     }
 }
-fn main()->Result<(),Box<dyn std::error::Error>>{
+fn main()->Result<std::process::ExitCode,Box<dyn std::error::Error>>{
     let args:Vec<_>=std::env::args_os().collect();
     let mode=args.get(1).and_then(|v|v.to_str()).unwrap_or("");
     if !((mode=="request"&&args.len()==5)||(mode=="verify"&&args.len()==7)){
@@ -45,7 +45,7 @@ fn main()->Result<(),Box<dyn std::error::Error>>{
         let bytes=bounded(&query,64*1024)?;
         let mut output=fs::OpenOptions::new().write(true).create_new(true).open(&args[3])?;output.write_all(&bytes)?;
         println!("{{\"protocol\":\"workproof-timestamp/1\",\"request_created\":true,\"timestamp_verified\":false,\"network_used\":false}}");
-        return Ok(());
+        return Ok(std::process::ExitCode::SUCCESS);
     }
     let query=work.file("request.tsq");fs::write(&query,bounded(Path::new(&args[3]),64*1024)?)?;
     let response=work.file("response.tsr");fs::write(&response,bounded(Path::new(&args[4]),1024*1024)?)?;
@@ -57,5 +57,5 @@ fn main()->Result<(),Box<dyn std::error::Error>>{
     println!("{}",serde_json::json!({"protocol":"workproof-timestamp/1","timestamp_verified":valid,
         "trust_policy":"explicit-ca-file","artifact_checked":false,"identity_verified":false,"creation_time_verified":false,
         "revocation_checked":false,"network_used":false}));
-    if !valid {std::process::exit(2);}Ok(())
+    Ok(if valid {std::process::ExitCode::SUCCESS} else {std::process::ExitCode::from(2)})
 }
