@@ -5,6 +5,11 @@ LIMITATIONS=[
              'Class softmax is not the proportion of AI-generated content or a calibrated authorship probability.',
              'Do not use alone for misconduct decisions. No identity or original certificate is verified.']
 ENGINES=json.loads(pathlib.Path(__file__).with_name('engines.json').read_text(encoding='utf-8'))
+def file_hash(path):
+    hasher=hashlib.sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda:stream.read(1024*1024),b''):hasher.update(block)
+    return hasher.hexdigest()
 def report(engine,status,**values):
     cfg=ENGINES[engine]
     return dict(protocol='workproof-ai-assessment/1',engine_id=engine,engine_version='1',model=cfg['model'],model_revision=cfg['revision'],status=status,limitations=cfg['limitations']+LIMITATIONS,**values)
@@ -13,7 +18,7 @@ def prepare(folder,engine):
     from huggingface_hub import snapshot_download
     folder.mkdir(parents=True,exist_ok=True)
     snapshot_download(model,revision=revision,allow_patterns=files,local_dir=folder)
-    hashes={name:hashlib.sha256((folder/name).read_bytes()).hexdigest() for name in files}
+    hashes={name:file_hash(folder/name) for name in files}
     (folder/'workproof-model.json').write_text(json.dumps(dict(model=model,revision=revision,sha256=hashes),indent=2),encoding='utf-8')
     return report(engine,'prepared',network_used=True,notice='Explicit public model download; no user text read. Code, base-model and weights licenses require separate review.')
 def infer(folder,request,engine):
@@ -30,7 +35,7 @@ def infer(folder,request,engine):
     evidence=json.loads(receipt.read_text(encoding='utf-8'))
     if evidence.get('model')!=model_id or evidence.get('revision')!=revision or set(evidence.get('sha256',{}))!=set(files):raise ValueError('MODEL_RECEIPT_MISMATCH')
     for name in files:
-        if hashlib.sha256((folder/name).read_bytes()).hexdigest()!=evidence['sha256'][name]:raise ValueError('MODEL_FILE_CHANGED')
+        if file_hash(folder/name)!=evidence['sha256'][name]:raise ValueError('MODEL_FILE_CHANGED')
     os.environ.update(HF_HUB_OFFLINE='1',TRANSFORMERS_OFFLINE='1',HF_HUB_DISABLE_TELEMETRY='1',DO_NOT_TRACK='1')
     import torch
     from transformers import AutoTokenizer,AutoModelForSequenceClassification
