@@ -12,6 +12,7 @@ const file = ref<File | null>(null), consent = ref(false), busy = ref(false), lo
 const capability = ref<CertificateCapabilities | null>(null), result = ref<CertificateInspection | null>(null), error = ref('')
 let generation = 0, request: AbortController | null = null
 const ready = computed(() => Boolean(file.value && consent.value && capability.value?.configured && !loading.value && !busy.value))
+const actionText = computed(() => props.saveToCatalog ? '检查并保存摘要' : '检查证书内容')
 watch(() => props.open, async open => {
   const current = ++generation; request?.abort(); request = null
   file.value = null; consent.value = false; result.value = null; error.value = ''; capability.value = null; busy.value = false; loading.value = open
@@ -54,13 +55,14 @@ async function inspect() {
       <p v-if="loading" class="field-hint" role="status">正在检查服务是否就绪…</p>
       <p v-else-if="capability && !capability.configured" class="field-hint" role="status">{{ capability.message }}</p>
       <p v-if="busy" class="field-hint" role="status">正在检查证书内容，请稍等…</p>
-      <p v-else-if="capability?.configured && !result" class="field-hint" role="status">{{ !file ? '下一步：选择一份证书。' : !consent ? '下一步：阅读上方说明，确认同意后勾选，再点击“检查证书内容”。' : '准备好了，点击“检查证书内容”查看结果。' }}</p>
+      <p v-else-if="capability?.configured && !result" class="field-hint" role="status">{{ !file ? '下一步：选择一份证书。' : !consent ? `下一步：阅读上方说明，确认同意后勾选，再点击“${actionText}”。` : `准备好了，点击“${actionText}”查看结果。` }}</p>
     </Field>
     <Field v-if="result" label="查看检查结果" group span aria-live="polite">
       <Tag :tone="result.certificate_valid ? 'ok' : 'danger'">{{ result.certificate_valid ? '证书内容一致' : '证书内容未能确认' }}</Tag>
       <Tag v-if="result.manifest?.demo" tone="neutral">演示证书</Tag>
       <p><strong>{{ result.manifest?.file_name || '无法识别文件名' }}</strong></p>
       <p v-if="result.certificate_valid">{{ result.scope === 'selective' ? '只检查本次分享的记录' : '已检查全部记录' }}；签名一致。</p>
+      <p v-if="saveToCatalog && result.certificate_valid" role="status">摘要已保存，可关闭窗口在列表查看。相同文件不会重复创建。</p>
       <p v-else>请向提供者索取原始 .wproof 文件，并确认它没有被修改。</p>
       <p v-if="result.scope === 'selective'" class="field-hint">未检查全部过程记录，不能据此判断未分享的过程。</p>
       <p class="field-hint">作品仍需在本机单独检查。这里没有确认作者身份，也没有确认实际创作时间。</p>

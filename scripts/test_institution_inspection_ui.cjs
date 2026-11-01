@@ -76,6 +76,36 @@ const {chromium,expect}=require('@playwright/test');
     assert((await batchDownload).suggestedFilename().endsWith('.csv'));
     await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.screenshot({path:'test-results/institution-certificate-batch-mobile.png',fullPage:true});
+    // Delay delivery of a real Java/Rust response: the server may already have saved
+    // while the user cancels. Do not mock success or assume abort rolls back a save.
+    await page.setViewportSize({width:1280,height:900});
+    await batch.getByRole('button',{name:'关闭',exact:true}).last().click();
+    await page.getByRole('button',{name:'批量检查',exact:true}).click();
+    const pair=[{name:'first.wproof',mimeType:'application/json',buffer:bytes},{name:'second.wproof',mimeType:'application/json',buffer:bytes}];
+    let serverFinished,releaseResponse,routeFinished;
+    const serverReady=new Promise(resolve=>serverFinished=resolve),gate=new Promise(resolve=>releaseResponse=resolve),routeDone=new Promise(resolve=>routeFinished=resolve);
+    let queuedSends=0;
+    const countSends=request=>{if(new URL(request.url()).pathname==='/api/workproof/certificates'&&request.method()==='POST')queuedSends++;};
+    page.on('request',countSends);
+    await page.route('**/api/workproof/certificates',async route=>{
+      try {const response=await route.fetch();assert.equal(response.status(),200);serverFinished();await gate;await route.fulfill({response}).catch(()=>{});}
+      finally{routeFinished();}
+    },{times:1});
+    await batch.getByLabel('选择多份 .wproof 证书').setInputFiles(pair);
+    await batch.getByText('我同意发送这一批证书，并保存检查通过的摘要',{exact:true}).click();await batchStart.click();
+    await Promise.race([serverReady,new Promise((_,reject)=>setTimeout(()=>reject(new Error('Real batch request did not reach the server')),20000))]);
+    await batch.getByRole('button',{name:'停止后续处理',exact:true}).click();
+    await expect(batch.getByText('未发送',{exact:true})).toHaveCount(1);assert.equal(queuedSends,1);
+    await expect(batch.getByText('已停止等待结果；服务器可能已保存，可在列表查询。',{exact:true})).toBeVisible();
+    await batch.getByRole('button',{name:'关闭',exact:true}).last().click();await page.getByRole('button',{name:'批量检查',exact:true}).click();
+    await batch.getByLabel('选择多份 .wproof 证书').setInputFiles({name:'fresh.wproof',mimeType:'application/json',buffer:bytes});
+    releaseResponse();await routeDone;
+    await expect(batch.getByRole('status')).toContainText('已处理 0 / 1');await expect(batchStart).toBeDisabled();
+    await expect(batch.getByText('已保存',{exact:true})).toHaveCount(0);assert.equal(queuedSends,1);
+    await batch.getByText('我同意发送这一批证书，并保存检查通过的摘要',{exact:true}).click();await batchStart.click();
+    await expect(batch.getByText('已保存',{exact:true})).toHaveCount(1);assert.equal(queuedSends,2);
+    page.off('request',countSends);
+    console.log('PASS: cancellation stops remaining uploads; a delayed real response cannot alter a reopened batch; resubmission succeeds');
     console.log('PASS: real sequential batch, consent gating, failure isolation, deduplication, results download and mobile layout');
     console.log('PASS: real Vue inspection and catalog navigation, scoped list, details, search/reset and CSV download');
   }catch(error){if(page){fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/institution-certificate-inspection-failure.png',fullPage:true}).catch(()=>{});}throw error;}
