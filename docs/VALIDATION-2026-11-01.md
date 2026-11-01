@@ -2,7 +2,7 @@
 
 ## 浏览器外部时间凭据
 
-源码 `245dddc` [专项Actions 41283260447](https://github.com/W-Boat/WorkProof/actions/runs/41283260447) 通过协议、原生TSA交换、Web构建和29项浏览器检查；专项仅运行共享协议/网页job，桌面打包明确skipped，普通push的完整四平台工作流仍保留。原生TSA源码3dd2113的[完整41281504351](https://github.com/W-Boat/WorkProof/actions/runs/41281504351)五任务全部通过。
+源码 `245dddc` [专项Actions 41283260447](https://github.com/W-Boat/WorkProof/actions/runs/41283260447) 通过协议、原生TSA交换、Web构建和29项浏览器检查；专项仅运行共享协议/网页job，桌面打包明确skipped，同源码[完整四平台41283260007](https://github.com/W-Boat/WorkProof/actions/runs/41283260007)现已全部成功。原生TSA源码3dd2113的[完整41281504351](https://github.com/W-Boat/WorkProof/actions/runs/41281504351)五任务全部通过。
 
 浏览器以OpenSSL真实合成CA/响应为交叉向量，确认正确凭据显示服务时间、错CA/nonce/其他证书/签名字节改动均拒绝，换文件清除确认和旧结果，无外部请求，390px无横向溢出。已人工查看手机截图。新增库精确锁定、实际tarball integrity与许可文本已核对；[许可证据41282185063](https://github.com/W-Boat/WorkProof/actions/runs/41282185063)成功，其Maven来源仍为旧基线JAR，不能据此宣称最新JAR已重新清点。
 
