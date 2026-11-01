@@ -29,7 +29,7 @@ export function VerificationChecks({proof,report:r}:{proof:Proof;report:Report})
   if(!partial&&r.merkle_valid!==null)checks.push([r.merkle_valid,'记录集合一致','全部操作与签名中确认的记录一致','操作记录与签名不一致。请向提供者索取原始证书。']);
   return <Panel title="核验明细" className="checks-panel">
     {checks.map(([ok,title,desc,failure])=><div className="check-row" key={title}><span className={ok?'check-icon':'fail-icon'}>{ok?<Check size={15}/>:<X size={15}/>}</span><div><strong>{title}<Tag tone={ok?'ok':'danger'}>{ok?'通过':'失败'}</Tag></strong><p>{ok?desc:failure}</p></div></div>)}
-    <div className="check-boundary"><Info size={17}/><div><strong>可信程度需要分别判断</strong><p>签名身份未经认证<br/>未提供外部时间凭据<br/>无法据此判断 AI 使用比例{partial&&<><br/>完整记录链未核验<br/>未披露区间的采集缺口未知</>}</p></div></div>
+    <div className="check-boundary"><Info size={17}/><div><strong>可信程度需要分别判断</strong><p>签名身份未经认证<br/>证书内未提供外部时间凭据<br/>无法据此判断 AI 使用比例{partial&&<><br/>完整记录链未核验<br/>未披露区间的采集缺口未知</>}</p></div></div>
     <Dialog.Root><Dialog.Trigger asChild><Button variant="ghost"><Code2 size={15}/>查看原始核验详情</Button></Dialog.Trigger><Dialog.Portal>
       <Dialog.Overlay className="overlay wp-dialog-overlay"/>
       <Dialog.Content className="modal wp-dialog"><header className="modal-head"><div><Dialog.Title className="modal-title">原始核验详情</Dialog.Title><Dialog.Description className="modal-sub">核验算法结果与签名清单；身份与时间需独立判断。</Dialog.Description></div><Dialog.Close asChild><Button variant="ghost" aria-label="关闭详情"><X size={17}/></Button></Dialog.Close></header><div className="modal-body"><pre>{JSON.stringify({report:r,manifest:proof.manifest},null,2)}</pre></div></Dialog.Content>
