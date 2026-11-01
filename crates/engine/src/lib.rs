@@ -6,6 +6,7 @@ use serde::{Deserialize,Serialize};
 use std::{path::PathBuf,sync::{Arc,Mutex,atomic::{AtomicBool,Ordering}},time::{SystemTime,UNIX_EPOCH}};
 use workproof_protocol::*;
 pub mod pairing;
+pub mod location;
 
 type Shared = Arc<Mutex<Store>>;
 static READY:AtomicBool=AtomicBool::new(false);
@@ -13,7 +14,7 @@ static READY:AtomicBool=AtomicBool::new(false);
 pub struct EngineSnapshot {pub ready:bool,pub sessions:u64,pub events:u64,pub last_kind:String}
 pub fn snapshot()->Result<EngineSnapshot,String>{
     if !READY.load(Ordering::Acquire){return Ok(EngineSnapshot{ready:false,sessions:0,events:0,last_kind:String::new()});}
-    let db=Connection::open_with_flags(data_dir().join("records.sqlite"),rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e|e.to_string())?;
+    let db=Connection::open_with_flags(data_dir()?.join("records.sqlite"),rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e|e.to_string())?;
     let sessions=db.query_row("SELECT COUNT(*) FROM sessions",[],|r|r.get(0)).map_err(|e|e.to_string())?;
     let events=db.query_row("SELECT COUNT(*) FROM events",[],|r|r.get(0)).map_err(|e|e.to_string())?;
     let last:Option<String>=db.query_row("SELECT json FROM events ORDER BY rowid DESC LIMIT 1",[],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
@@ -26,7 +27,7 @@ impl IntoResponse for ApiError { fn into_response(self)->axum::response::Respons
 impl From<rusqlite::Error> for ApiError { fn from(_:rusqlite::Error)->Self { Self(StatusCode::INTERNAL_SERVER_ERROR,"DATABASE_ERROR".into()) } }
 fn bad(s:&str)->ApiError {ApiError(StatusCode::BAD_REQUEST,s.into())}
 fn random_hex(n:usize)->String {let mut b=vec![0;n];rand::rngs::OsRng.fill_bytes(&mut b);hex::encode(b)}
-pub fn data_dir()->PathBuf {std::env::var_os("WORKPROOF_DATA_DIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap_or_else(|| ".".into())).join("WorkProof"))}
+pub fn data_dir()->Result<PathBuf,String>{location::resolve(std::env::consts::OS,|name|std::env::var_os(name))}
 #[derive(Serialize,Deserialize,Clone)]
 pub struct ConnectionInfo {pub port:u16,pub token:String}
 pub struct Store { db:Connection, key:SigningKey, info:ConnectionInfo }
@@ -155,7 +156,7 @@ async fn status(State(shared):State<Shared>,headers:HeaderMap)->ApiResult<serde_
     Ok(Json(serde_json::json!({"protocol":VERSION,"sessions":sessions,"events":events})))
 }
 pub async fn run(port:u16)->Result<(),Box<dyn std::error::Error>> {
-    let dir=data_dir();
+    let dir=data_dir()?;
     // Acquire the port before touching keys, so a second instance cannot race setup.
     let listener=tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST,port)).await?;
     let store=Store::open(&dir,port)?;

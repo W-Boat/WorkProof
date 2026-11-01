@@ -8,5 +8,5 @@ assert 'GNU GENERAL PUBLIC LICENSE' in (source/'COPYING').read_text(encoding='ut
 assert (source/'MIT-LICENSE.txt').read_bytes()==(root/'LICENSE').read_bytes(), 'Preserve original MIT notice'
 out=root/'dist';out.mkdir(exist_ok=True)
 with zipfile.ZipFile(out/f"workproof-blender-{manifest['version']}.zip",'w',zipfile.ZIP_DEFLATED) as z:
-    for name in ['__init__.py','blender_manifest.toml','COPYING','MIT-LICENSE.txt','README.md']:
+    for name in ['__init__.py','location.py','blender_manifest.toml','COPYING','MIT-LICENSE.txt','README.md']:
         z.write(source/name,name)

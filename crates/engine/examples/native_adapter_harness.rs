@@ -3,7 +3,7 @@ use std::io::BufRead;
 #[tokio::main]
 async fn main()->Result<(),Box<dyn std::error::Error>>{
     if std::env::var("GITHUB_ACTIONS").as_deref()!=Ok("true"){return Err("CI harness only".into());}
-    let dir=workproof_engine::data_dir();
+    let dir=workproof_engine::data_dir()?;
     let root=std::env::temp_dir().canonicalize()?;
     let actual=dir.canonicalize()?;
     if !actual.starts_with(root)||!actual.file_name().is_some_and(|s|s.to_string_lossy().starts_with("workproof-photoshop-")){return Err("Isolated fixture directory required".into());}

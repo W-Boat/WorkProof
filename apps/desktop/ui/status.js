@@ -13,27 +13,27 @@ function showConnections(connections){
       card=document.createElement('div');card.className='connection-card';
       const title=document.createElement('strong'),origin=document.createElement('p'),expiry=document.createElement('p'),button=document.createElement('button');
       title.textContent=adapterName(connection.source)+' · 已允许连接';
-      origin.textContent=connection.channel==='native'?'本机插件自声明 · 身份未认证':connection.origin;
+      origin.textContent=connection.channel==='native'?'插件称自己来自本机，尚未确认发布者。':connection.origin;
       expiry.className='connection-expiry';button.textContent='断开 '+adapterName(connection.source)+' 连接';
       button.addEventListener('click',async()=>{
         button.disabled=true;
         try{
           await window.__TAURI__.core.invoke('revoke_adapter',{ticket:connection.ticket});
-          document.getElementById('message').textContent='已撤销连接。后续请求将被拒绝；正在处理的请求可能完成，已有记录不会删除。重新使用时需再次批准。';
+          document.getElementById('message').textContent='已断开连接。这个软件要再次获得允许才能继续提交记录；已经在处理的操作可能完成。已有记录不会删除。';
           await refresh();
         }catch(error){document.getElementById('message').textContent=String(error);button.disabled=false;}
       });
       card.append(title,origin,expiry,button);connectionCards.set(connection.ticket,card);region.append(card);
     }
     const minutes=Math.ceil(connection.expires_in_seconds/60);
-    card.querySelector('.connection-expiry').textContent=`${connection.sessions} 个记录会话 · ${minutes>0?'约 '+minutes+' 分钟后到期':'即将到期'}`;
+    card.querySelector('.connection-expiry').textContent=`已开始 ${connection.sessions} 份记录 · ${minutes>0?'约 '+minutes+' 分钟后需重新允许':'即将需要重新允许'}`;
   }
 }
 async function refresh(){
   if(document.hidden)return;
   try{
     const s=await window.__TAURI__.core.invoke('engine_status');
-    document.getElementById('status').textContent=s.ready?'本地引擎就绪 · 等待或接收插件事件':'引擎正在启动';
+    document.getElementById('status').textContent=s.ready?'WorkProof 已就绪，可以开始记录。':'正在准备记录服务…';
     document.getElementById('sessions').textContent=s.sessions.toLocaleString();
     document.getElementById('events').textContent=s.events.toLocaleString();
     document.querySelector('.trace').classList.toggle('active',last>=0&&s.events>last);last=s.events;
@@ -47,8 +47,8 @@ async function refresh(){
       for(const request of requests){
         const card=document.createElement('div'),title=document.createElement('strong'),origin=document.createElement('p');
         const native=request.channel==='native';
-        title.textContent=`连接请求：${request.source}（${native?'本机插件自声明':'网页声明'}）`;origin.textContent=native?'本机原生连接 · 无网站来源':request.origin;
-        const note=document.createElement('p');note.textContent=native?'仅当你刚在 Photoshop 中点击连接时允许。插件身份未认证，此授权仅操作自己的会话，不授予本机路径读取。':'仅允许你正在使用的加载项网址。此授权可创建该来源自己的记录，不授予本机文件访问。';
+        title.textContent=`${adapterName(request.source)} 想连接 WorkProof`;origin.textContent=native?'插件称自己来自本机，尚未确认发布者。':request.origin;
+        const note=document.createElement('p');note.textContent=native?'请只允许你刚在 Photoshop 中发起的连接。允许后，它只能提交自己的记录，不能读取其他本机文件。':'请确认下面的网址属于你刚打开的加载项。允许后，它只能提交自己的记录，不能读取本机文件。';
         card.append(title,origin,note);
         for(const [text,approve] of [['允许连接',true],['拒绝',false]]){
           const button=document.createElement('button');button.textContent=text;
@@ -57,14 +57,25 @@ async function refresh(){
         region.append(card);
       }
     }
-  }catch{document.getElementById('status').textContent='无法读取引擎状态，请重启托盘程序。';}
+  }catch{document.getElementById('status').textContent='暂时无法连接记录服务。请退出并重新打开 WorkProof。';}
 }
 refresh();setInterval(refresh,1500);document.addEventListener('visibilitychange',refresh);
 for(const [id,command] of [['install','install_vscode'],['verify','open_verifier']]){
   document.getElementById(id).addEventListener('click',async()=>{
     const button=document.getElementById(id);button.disabled=true;
     const message=document.getElementById('message');message.textContent='正在处理…';
-    try{const result=await window.__TAURI__.core.invoke(command);message.textContent=result||'核验工作台已在浏览器中打开。';}
+    try{const result=await window.__TAURI__.core.invoke(command);message.textContent=result||'已请求系统浏览器打开检查页面。';}
     catch(error){message.textContent=String(error);}finally{button.disabled=false;}
   });
 }
+
+const guides={
+  word:{steps:['打开 Word 文档，在“加载项”中打开 WorkProof。','点击“开始记录当前文档”，回到这里核对网址并允许连接。','完成后导出作品和证书，将这两个文件一起交付。'],note:'还没有 WorkProof 加载项？请先按学校或团队提供的安装说明完成安装。当前桌面包不会自动安装 Word 加载项。'},
+  wps:{steps:['打开 WPS 文档，在 WorkProof 标签中选择“打开记录工作台”。','点击开始记录，回到这里核对网址并允许连接。','完成后导出作品和证书，将这两个文件一起交付。'],note:'WPS 暂未提供面向普通用户的一键安装包，当前需按接入说明安装。没有安装入口时，请联系学校或团队。'},
+  vscode:{steps:['先点击下方按钮，安装 WorkProof 插件。','打开文件，点击 VS Code 底部的 WorkProof，选择记录当前文件。','完成后导出证书，将它与这份作品一起交付。'],note:'需要先安装 VS Code。插件会自动连接本机的 WorkProof。'},
+  photoshop:{steps:['先安装 WorkProof 插件，再从 Photoshop 的插件菜单打开它。','选择作品副本的位置，点击开始，并回到这里允许连接。','完成后导出 PSD 副本和证书，将这两个文件一起交付。'],note:'Photoshop 当前提供测试版插件文件，尚未提供正式的一键安装包。请交付本次导出的 PSD 副本。'},
+  blender:{steps:['在 Blender 设置中选择“从磁盘安装”，导入 WorkProof 插件文件。','先保存工程，在侧栏 WorkProof 面板中点击开始记录。','完成后保存并导出，将工程和旁边的证书一起交付。'],note:'需要 Blender 4.2 或更新版本。插件会自动连接本机的 WorkProof。'}
+};
+const creationTool=document.getElementById('creation-tool');
+function showGuide(){const guide=guides[creationTool.value];const steps=document.getElementById('creation-steps');steps.replaceChildren();for(const text of guide.steps){const li=document.createElement('li');li.textContent=text;steps.append(li);}document.getElementById('installation-note').textContent=guide.note;document.getElementById('install').hidden=creationTool.value!=='vscode';}
+creationTool.addEventListener('change',showGuide);showGuide();

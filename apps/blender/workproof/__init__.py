@@ -6,12 +6,13 @@ bl_info = {"name":"WorkProof · 开源证人","author":"WorkProof contributors",
 import datetime,json,os,pathlib,queue,threading,time,urllib.request
 import bpy
 from bpy.app.handlers import persistent
+from .location import data_directory
 _runtime=None
 _dirty=False
 _last_metrics=None
 
 def request(route,body):
-    directory=os.environ.get('WORKPROOF_DATA_DIR') or os.path.join(os.environ.get('LOCALAPPDATA',os.path.expanduser('~/.local/share')),'WorkProof')
+    directory=data_directory()
     info=json.loads(pathlib.Path(directory,'connection.json').read_text(encoding='utf-8'))
     token=info.get('token','')
     if info.get('port')!=43127 or len(token)!=64 or any(c not in '0123456789abcdef' for c in token):raise RuntimeError('无效的本地引擎连接信息')

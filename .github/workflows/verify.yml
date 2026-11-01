@@ -40,6 +40,10 @@ jobs:
         run: |
           cargo build -p workproof-engine
           python scripts/test_engine.py target/debug/workproof-engine
+      - name: Cross-adapter state location policy
+        run: |
+          cargo build --locked -p workproof-engine --example data_location
+          node scripts/test_locations.cjs target/debug/examples/data_location
       - name: Independent Merkle and selective proof interoperability
         run: node scripts/test_disclosure.cjs target/debug/workproof-engine
       - run: npm run typecheck
@@ -119,6 +123,13 @@ jobs:
           Copy-Item .ci-artifacts/apps/extension/*.vsix apps/desktop/src-tauri/resources/workproof.vsix
           npm run icons -w @workproof/desktop
       - run: cargo test --locked -p workproof-protocol -p workproof-engine
+      - name: Windows state location and desktop integration tests
+        shell: pwsh
+        run: |
+          cargo build --locked -p workproof-engine --example data_location
+          node scripts/test_locations.cjs target/debug/examples/data_location.exe
+          rustc --test apps/desktop/src-tauri/src/platform.rs -o "$env:RUNNER_TEMP/workproof-platform-tests.exe"
+          & "$env:RUNNER_TEMP/workproof-platform-tests.exe"
       - run: cargo build --locked -p workproof-engine --release
       - run: npm run build -w @workproof/desktop
       - name: Start real tray binary
@@ -148,3 +159,80 @@ jobs:
             test-engine-results.json
             README.md
             docs/
+
+  unix-desktop:
+    needs: protocol-and-web
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            name: linux-x64
+            build: build:linux
+          - runner: macos-15
+            name: macos-arm64
+            build: build:macos
+          - runner: macos-15-intel
+            name: macos-x64
+            build: build:macos
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.name }}
+      - name: Linux native dependencies and virtual display
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev xvfb dbus-x11
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: workproof-web-and-extension
+          path: .ci-artifacts
+      - name: Prepare the same offline resources and brand icons
+        run: |
+          python3 - <<'PY'
+          import pathlib,shutil
+          base=pathlib.Path('apps/desktop/src-tauri/resources');base.mkdir(parents=True,exist_ok=True)
+          shutil.copytree('.ci-artifacts/apps/verifier/out',base/'verifier',dirs_exist_ok=True)
+          packages=list(pathlib.Path('.ci-artifacts/apps/extension').glob('*.vsix'));assert len(packages)==1
+          shutil.copy2(packages[0],base/'workproof.vsix')
+          PY
+          npm run icons -w @workproof/desktop
+      - name: Native protocol, state discovery and desktop integration
+        run: |
+          cargo test --locked -p workproof-protocol -p workproof-engine
+          cargo build --locked -p workproof-engine --example data_location
+          node scripts/test_locations.cjs target/debug/examples/data_location
+          rustc --test apps/desktop/src-tauri/src/platform.rs -o "$RUNNER_TEMP/workproof-platform-tests"
+          "$RUNNER_TEMP/workproof-platform-tests"
+      - run: cargo build --locked -p workproof-engine --release
+      - run: npm run ${{ matrix.build }} -w @workproof/desktop
+      - name: Install and start the real Linux package under a virtual display
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y "$PWD"/target/release/bundle/deb/*.deb
+          xvfb-run -a dbus-run-session -- python3 scripts/test_tray.py /usr/bin/workproof-desktop
+      - name: Start the real macOS app bundle and preserve its executable permissions
+        if: runner.os == 'macOS'
+        run: |
+          python3 scripts/test_tray.py target/release/bundle/macos/WorkProof.app/Contents/MacOS/workproof-desktop
+          tar -czf WorkProof-${{ matrix.name }}.app.tar.gz -C target/release/bundle/macos WorkProof.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            target/release/bundle/deb/*.deb
+            WorkProof-*.app.tar.gz
+            target/release/workproof-engine
+            test-tray-results.json
+            docs/DESKTOP-PLATFORMS.md

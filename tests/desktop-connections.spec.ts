@@ -24,9 +24,9 @@ async function desktop(page:import('@playwright/test').Page,fail=false){
 
 test('desktop shows grant origins and revokes one connection while retaining the other',async({page})=>{
   await desktop(page);
-  const region=page.getByRole('region',{name:'已授权的插件连接'});
+  const region=page.getByRole('region',{name:'允许连接的软件'});
   await expect(region).toContainText('https://school.example');
-  await expect(region).toContainText('2 个记录会话');
+  await expect(region).toContainText('已开始 2 份记录');
   const wps=page.getByRole('button',{name:'断开 WPS 连接'});
   await wps.focus();
   await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
@@ -45,5 +45,21 @@ test('failed desktop revocation keeps the connection and offers retry',async({pa
   await button.click();
   await expect(page.locator('#message')).toContainText('撤销失败');
   await expect(button).toBeEnabled();
-  await expect(page.getByRole('region',{name:'已授权的插件连接'})).toContainText('https://school.example');
+  await expect(page.getByRole('region',{name:'允许连接的软件'})).toContainText('https://school.example');
+});
+
+test('desktop starts with Word and shows only the chosen software steps',async({page})=>{
+  await desktop(page);await page.setViewportSize({width:420,height:600});
+  await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('word');
+  const steps=page.getByRole('list',{name:'开始记录的三个步骤'});
+  await expect(steps.getByRole('listitem')).toHaveCount(3);
+  await expect(steps).toContainText('Word 文档');
+  const install=page.getByRole('button',{name:'安装 / 更新 VS Code 插件'});
+  await expect(install).toBeHidden();
+  await page.getByLabel('你用什么软件创作？').selectOption('vscode');
+  await expect(install).toBeVisible();await expect(steps).toContainText('VS Code 底部');
+  await page.getByLabel('你用什么软件创作？').selectOption('wps');
+  await expect(install).toBeHidden();await expect(page.locator('#installation-note')).toContainText('暂未提供面向普通用户的一键安装包');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/desktop-simple-guide.png',fullPage:true});
 });

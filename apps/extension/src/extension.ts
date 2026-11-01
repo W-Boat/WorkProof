@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { blake3 } from '@noble/hashes/blake3.js';
+import {dataDirectory} from './location';
 
 type Event = {seq:number;elapsed_ms:number;kind:string;inserted:number;deleted:number;chars:number;checkpoint:string};
 type Session = {id:string;uri:string;next:number;elapsed:number;pending:Event[];paused:boolean;chars:number};
@@ -14,8 +15,7 @@ const elapsed=()=>Math.floor(elapsedBase+performance.now()-baseline);
 function paint(){if(!status)return;status.text=session?`$(shield) WorkProof · ${fault?'连接中断':session.paused?'已暂停':'记录中'}`:'$(shield) WorkProof';status.tooltip=fault||'点击选择记录操作；不保存文本内容';status.show();}
 async function persist(){await ctx.workspaceState.update('workproof.session',session);}
 async function autoPair(){
-  const dir=process.env.WORKPROOF_DATA_DIR||(process.env.LOCALAPPDATA?path.join(process.env.LOCALAPPDATA,'WorkProof'):'');
-  if(!dir)throw new Error('请先打开 WorkProof 桌面应用。');
+  const dir=dataDirectory();
   const value=JSON.parse(await fs.readFile(path.join(dir,'connection.json'),'utf8')) as Pair;
   if(value.port!==43127||!/^[0-9a-f]{64}$/.test(value.token))throw new Error('本地引擎连接信息无效，请重新打开 WorkProof。');
   pair=value;await ctx.secrets.store('workproof.pair',JSON.stringify(value));
@@ -40,8 +40,7 @@ async function flush(){
 }
 async function safe(action:()=>Promise<unknown>){try{await action();}catch(e){void vscode.window.showErrorMessage(`WorkProof: ${e instanceof Error?e.message:String(e)}`);}}
 async function pairEngine(){
-  const local=process.env.LOCALAPPDATA;
-  const defaultFile=process.env.WORKPROOF_DATA_DIR?path.join(process.env.WORKPROOF_DATA_DIR,'connection.json'):local?path.join(local,'WorkProof','connection.json'):'';
+  const defaultFile=path.join(dataDirectory(),'connection.json');
   let file=defaultFile;
   try{await fs.access(file);}catch{const choice=await vscode.window.showOpenDialog({canSelectMany:false,filters:{'引擎配对文件':['json']},openLabel:'选择 connection.json'});if(!choice)return;file=choice[0].fsPath;}
   const value=JSON.parse(await fs.readFile(file,'utf8')) as Pair;
