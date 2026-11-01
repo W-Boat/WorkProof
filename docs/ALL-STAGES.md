@@ -30,6 +30,8 @@ VS Code 单文件记录、签名导出、独立 CLI/Wasm 核验、证书图像�
 
 ## 当前进行中
 
+C2PA独立PNG工具已通过[真实专项41288148673](https://github.com/W-Boat/WorkProof/actions/runs/41288148673)，含无损恢复原PNG与WorkProof绑定、显式CA、部分证据、篡改拒绝及离线运行；Windows/macOS工具、JPEG/PDF、浏览器/桌面操作入口与公共信任策略仍未完成，见[C2PA](C2PA.md)。此前时间凭据Worker版本386cc41的[完整四平台41285854361](https://github.com/W-Boat/WorkProof/actions/runs/41285854361)已全部通过，本机4173启动仍受执行审查限制，以[本地运行](LOCAL-RUNTIME.md)最新记录为准。
+
 外部时间戳增加可选Rust/OpenSSL RFC3161请求与核验工具，绑定原签名字节且不改证书；真实合成TSA交换步骤已通过[Actions 41281504351](https://github.com/W-Boat/WorkProof/actions/runs/41281504351)，该原生版本五任务已全部通过。浏览器SHA256/SigningCertificateV2时间戳核验和显式CA选择已通过专项41283260447并部署本机4173，完整四平台41283260007也已全部通过；公共信任策略、撤销与长期验证、TSA自动请求与C2PA仍未完成，详见[时间凭据](TIMESTAMPS.md)。
 
 机构摘要索引、分页、详情、CSV、页面内批量处理与部门范围已通过真实集成：[列表与查询 41276900621](https://github.com/W-Boat/WorkProof/actions/runs/41276900621)、[批量与部门 41278566617](https://github.com/W-Boat/WorkProof/actions/runs/41278566617)、[取消与重开 41278937068](https://github.com/W-Boat/WorkProof/actions/runs/41278937068)。新部署须显式执行V3并开启配置；本机已完成私有全库备份、V3迁移与启用，原账号保留；页面关闭后继续运行的服务器持久任务仍未实现。以下较早阶段描述保留为历史上下文，以此段与机构证书说明为最新业务状态。
