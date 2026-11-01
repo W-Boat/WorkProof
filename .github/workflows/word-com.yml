@@ -1,0 +1,26 @@
+name: Native Word COM ABI verification
+on:
+  push:
+    paths: ['apps/word-native-cpp/**', '.github/workflows/word-com.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  word-com:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Build and exercise actual COM vtables and dispatch
+        shell: pwsh
+        run: ./apps/word-native-cpp/build.ps1 -OutDir apps/word-native-cpp/out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-word-com-x64
+          path: |
+            apps/word-native-cpp/out/WorkProofWord.dll
+            apps/word-native-cpp/out/test_addin.exe
+          if-no-files-found: error
