@@ -147,6 +147,7 @@ private:
 // ------------------------------------------------------------------ extensibility
 
 STDMETHODIMP CExtensibility::QueryInterface(REFIID iid, void** object) {
+    TraceIid(L"Extensibility QueryInterface", iid);
     if (!object) return E_POINTER;
     *object = nullptr;
     if (iid == IID_IUnknown || iid == IID_IDispatch || iid == IID_IExtensibility2) {
@@ -224,6 +225,7 @@ HRESULT __stdcall CExtensibility::OnBeginShutdown(SAFEARRAY** custom) {
 // ------------------------------------------------------------------------ ribbon
 
 STDMETHODIMP CRibbon::QueryInterface(REFIID iid, void** object) {
+    TraceIid(L"Ribbon QueryInterface", iid);
     if (!object) return E_POINTER;
     *object = nullptr;
     if (iid == IID_IUnknown || iid == IID_IRibbon) {
