@@ -9,6 +9,22 @@ export function TimestampPanel({signature}:{signature:string}){
   const generation=useRef(0);
   useEffect(()=>()=>{generation.current++},[]);
   function reset(){generation.current++;setResult(null);setError('');setTrusted(false);setBusy(false);}
+  async function generate(){
+    if(busy)return;
+    const current=++generation.current;setBusy(true);setError('');
+    try{
+      const {createTimestampRequest}=await import('../lib/timestamps');
+      const buffer=await createTimestampRequest(signature);
+      if(current!==generation.current)return;
+      const file=new File([buffer],'workproof-time-request.tsq',{type:'application/timestamp-query'});
+      // A new nonce means a previous response cannot be reused with this request.
+      setFiles([file,null,files[2]]);setTrusted(false);setResult(null);
+      const url=URL.createObjectURL(file),anchor=document.createElement('a');
+      anchor.href=url;anchor.download=file.name;document.body.appendChild(anchor);anchor.click();anchor.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch{if(current===generation.current)setError('时间戳请求未能生成，请重试。');}
+    finally{if(current===generation.current)setBusy(false);}
+  }
   async function verify(){
     if(busy||!trusted||files.some(file=>!file))return;
     const current=++generation.current;setBusy(true);setError('');setResult(null);
@@ -21,8 +37,12 @@ export function TimestampPanel({signature}:{signature:string}){
     finally{if(current===generation.current)setBusy(false);}
   }
   return <Panel title="检查外部时间凭据" className="timestamp-panel">
-    <details><summary>有时间戳请求与响应？展开检查（可选）</summary>
-    <p>如果提供者附上了时间戳请求和响应，可在这里单独检查。只选择你通过可信渠道取得并决定信任的 CA 证书；文件留在浏览器内。</p>
+    <details><summary>添加或检查时间凭据（可选）</summary>
+    <p>想证明这份签名在某个时间前已经存在，可以向独立时间服务申请凭据。已有请求和响应文件时，直接从第 3 步开始。作品和证书不会上传。</p>
+    <p><strong>1. 生成请求文件</strong><br/>请求只含签名摘要和随机编号，不含作品内容。每次重新生成都会清除旧响应，请保留下载的原始请求。</p>
+    <Button disabled={busy} onClick={generate}>生成并下载时间戳请求</Button>
+    <p><strong>2. 交给你选择的时间服务</strong><br/>按服务方的说明提交 .tsq 文件，保存返回的 .tsr 文件。页面不会自动发送请求；服务方可能要求注册或收费。</p>
+    <p><strong>3. 选择文件并检查</strong><br/>加载请求、响应和从可信渠道独立取得的 CA 证书。下面的检查在浏览器内完成。</p>
     <div className="timestamp-files">{[
       {label:'原始时间戳请求（.tsq）',caption:'工具生成并保留的请求，最多 8 KB',accept:'.tsq'},
       {label:'时间戳响应（.tsr）',caption:'时间服务返回的响应，最多 128 KB',accept:'.tsr'},

@@ -11,6 +11,26 @@ function octets(value:unknown){if(!(value instanceof asn1.OctetString)||value.id
 function nonce(value:asn1.Integer|undefined){if(!value)fail();let v=value.valueBlock.valueHexView;if(!v.length||(v[0]&128))fail();while(v.length>1&&v[0]===0)v=v.slice(1);return v;}
 const hex=(value:ArrayBuffer)=>Array.from(new Uint8Array(value),b=>b.toString(16).padStart(2,'0')).join('');
 export interface TimestampResult {time:string;trustFingerprints:string[];revocationChecked:false;identityVerified:false;creationTimeVerified:false}
+/** RFC3161 request over the original verified signature; no artifact or network access. */
+export async function createTimestampRequest(signature:string):Promise<ArrayBuffer>{
+  if(!/^[a-f0-9]{128}$/i.test(signature))fail();
+  const input=Uint8Array.from(signature.match(/../g)!,v=>parseInt(v,16));
+  const digest=await crypto.subtle.digest('SHA-256',input);
+  // A leading zero keeps the random 128-bit INTEGER positive, including high-bit values.
+  const random=crypto.getRandomValues(new Uint8Array(16));
+  const positive=new Uint8Array(17);positive.set(random,1);
+  let offset=0;
+  while(offset<16&&positive[offset]===0&&(positive[offset+1]&128)===0)offset++;
+  return new asn1.Sequence({value:[
+    new asn1.Integer({value:1}),
+    new asn1.Sequence({value:[
+      new asn1.Sequence({value:[new asn1.ObjectIdentifier({value:SHA256}),new asn1.Null()]}),
+      new asn1.OctetString({valueHex:digest}),
+    ]}),
+    new asn1.Integer({valueHex:positive.slice(offset).buffer}),
+    new asn1.Boolean({value:true}),
+  ]}).toBER(false);
+}
 export async function verifyTimestamp(signature:string,query:ArrayBuffer,response:ArrayBuffer,pem:string):Promise<TimestampResult>{
   if(!/^[a-f0-9]{128}$/i.test(signature)||query.byteLength>8192||response.byteLength>128*1024||pem.length>256*1024)fail();
   setEngine('WorkProof WebCrypto',new CryptoEngine({name:'WorkProof WebCrypto',crypto:globalThis.crypto,subtle:globalThis.crypto.subtle}));
