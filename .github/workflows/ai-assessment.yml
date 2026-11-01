@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        engine: ['roberta-gpt2-reference', 'mpu-zh-v3']
+        engine: ['mpu-en-v3', 'mpu-zh-v3']
     timeout-minutes: 25
     env:
       HF_HUB_DISABLE_TELEMETRY: '1'

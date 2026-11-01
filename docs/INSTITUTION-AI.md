@@ -1,5 +1,7 @@
 # 机构 AI 辅助分析工作台
 
+模型选项已改为中文/英文 MPU v3，旧 GPT-2 ID 从选项和服务端允许列表移除；现有旧模型文件不会自动删除，但不能继续提交分析。管理员需显式准备 mpu-en-v3 新子目录。两种语言属于同一方法，效果评估和完整许可材料仍待完成。
+
 普通核验页保持默认本地处理；本功能位于机构工作台，需要登录及单独的 `workproof:analysis:run` 权限。超级管理员继承已有全部权限，其他角色需通过现有菜单/按钮权限管理明确授权；不自动扩大证书检查权限，不自动迁移数据库。
 
 用户依次选择DOCX/TXT/MD、选择语言对应的模型、确认发送文档，再查看参考结果。提交的是作品原字节，最多8MiB，发送同意同时在页面与接口检查。结果不是原证书的一部分，不认证身份、人类创作比例或原创性。短文本、超出处理长度、未配置、失败与取消分别说明；不给失败任务补零分。
@@ -10,7 +12,7 @@
 
 ```text
 python detector.py prepare --engine mpu-zh-v3 --model-dir /srv/workproof-models/mpu-zh-v3
-python detector.py prepare --engine roberta-gpt2-reference --model-dir /srv/workproof-models/roberta-gpt2-reference
+python detector.py prepare --engine mpu-en-v3 --model-dir /srv/workproof-models/mpu-en-v3
 
 WORKPROOF_AI_ENABLED=true
 WORKPROOF_AI_PYTHON=/absolute/venv/bin/python

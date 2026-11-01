@@ -40,11 +40,11 @@ public class AiAnalysisService {
     }
     public Map<String,Object> capabilities(){return Map.of("maxBytes",MAX_BYTES,"maxConcurrent",1,"retentionMinutes",10,
         "engines",List.of(Map.of("id","mpu-zh-v3","label","中文 MPU v3","configured",ready("mpu-zh-v3")),
-                          Map.of("id","roberta-gpt2-reference","label","英文 GPT-2 参考模型","configured",ready("roberta-gpt2-reference"))),
+                          Map.of("id","mpu-en-v3","label","英文 MPU v3","configured",ready("mpu-en-v3"))),
         "message","仅作辅助参考。需要发送所选文档；分析后删除临时文件，不保存正文。模型准备状态不代表准确率或许可审查已完成。");}
     private void cleanExpired(){long cutoff=System.currentTimeMillis()-600000;jobs.entrySet().removeIf(e->e.getValue().finished&&e.getValue().created<cutoff);}
     public Map<String,Object> submit(long owner,String engine,String format,InputStream input)throws IOException{
-        if(!Set.of("mpu-zh-v3","roberta-gpt2-reference").contains(engine)||!Set.of("docx","txt","md").contains(format))throw new BusinessException("请选择支持的模型和 DOCX、TXT 或 Markdown 文件。");
+        if(!Set.of("mpu-zh-v3","mpu-en-v3").contains(engine)||!Set.of("docx","txt","md").contains(format))throw new BusinessException("请选择支持的模型和 DOCX、TXT 或 Markdown 文件。");
         if(!ready(engine))throw new ServiceException(503,"所选模型尚未准备好，请联系管理员。");
         cleanExpired();if(jobs.size()>=16||!slot.tryAcquire())throw new ServiceException(429,"正在分析其他文档，请稍后重试。");
         Path file=null;
@@ -95,7 +95,7 @@ public class AiAnalysisService {
                 });
                 if(result.equals("completed")){
                     if(!"uncalibrated_class_softmax".equals(value.path("score_kind").asText())||!value.path("calibration").isNull())throw new IOException("INVALID_SCORE_KIND");
-                    List<String> labels=engine.equals("mpu-zh-v3")?List.of("Human","AI"):List.of("Fake","Real");ObjectNode scores=safe.putObject("raw_scores");double sum=0;
+                    List<String> labels=List.of("Human","AI");ObjectNode scores=safe.putObject("raw_scores");double sum=0;
                     for(String label:labels){JsonNode v=value.path("raw_scores").path(label);double number=v.asDouble(Double.NaN);if(!v.isNumber()||!Double.isFinite(number)||number<0||number>1)throw new IOException("INVALID_SCORE");scores.put(label,number);sum+=number;}
                     if(Math.abs(sum-1)>0.0001)throw new IOException("INVALID_SCORE_SUM");
                 }

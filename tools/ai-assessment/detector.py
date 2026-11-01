@@ -50,7 +50,7 @@ def infer(folder,request,engine):
     if not all(0<=v<=1 for v in scores):raise ValueError('INVALID_MODEL_OUTPUT')
     return respond('completed',score_kind='uncalibrated_class_softmax',raw_scores=dict(zip(cfg['labels'],scores)),calibration=None,**identity)
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=['prepare','infer','infer-file']);parser.add_argument('--model-dir',required=True,type=pathlib.Path);parser.add_argument('--engine',choices=ENGINES,default='roberta-gpt2-reference');parser.add_argument('--input-file',type=pathlib.Path);parser.add_argument('--language',choices=['en','zh']);args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=['prepare','infer','infer-file']);parser.add_argument('--model-dir',required=True,type=pathlib.Path);parser.add_argument('--engine',choices=ENGINES,required=True);parser.add_argument('--input-file',type=pathlib.Path);parser.add_argument('--language',choices=['en','zh']);args=parser.parse_args()
     try:
         if args.action=='prepare':value=prepare(args.model_dir,args.engine)
         elif args.action=='infer-file':

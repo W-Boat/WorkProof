@@ -44,7 +44,7 @@ async function inspect() {
 
 <template>
   <FormDialog :open="open" :title="saveToCatalog ? '检查并保存证书摘要' : '检查一份证书'" sub="选择证书、确认发送，再查看结果。作品文件不会发送到机构服务器。" :saving="busy" :submit-disabled="!ready" :submit-text="saveToCatalog ? '检查并保存摘要' : '检查证书内容'" @close="emit('close')" @submit="inspect">
-    <Field label="选择 .wproof 证书" group span :error="error || undefined">
+    <Field label="证书文件" group span :error="error || undefined">
       <FilePicker label="选择 .wproof 证书" :file="file" accept=".wproof" :disabled="busy" @select="select"/>
       <span class="field-hint">这是创作者导出的过程证书。请选择证书文件，不要选择作品或证书截图。</span>
     </Field>

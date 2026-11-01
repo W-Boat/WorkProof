@@ -24,7 +24,7 @@ class AiAnalysisServiceTest{
     }
     @Test void unconfiguredAndInvalidFormatFailClosed()throws Exception{
         var service=new AiAnalysisService(false,"","","",new ObjectMapper());
-        try{assertEquals(503,assertThrows(ServiceException.class,()->service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0]))).code());assertThrows(BusinessException.class,()->service.submit(1,"../anything","txt",new ByteArrayInputStream(new byte[0])));}finally{service.close();}
+        try{assertEquals(503,assertThrows(ServiceException.class,()->service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0]))).code());assertThrows(BusinessException.class,()->service.submit(1,"../anything","txt",new ByteArrayInputStream(new byte[0])));assertThrows(BusinessException.class,()->service.submit(1,"roberta-gpt2-reference","txt",new ByteArrayInputStream(new byte[0])));}finally{service.close();}
     }
     @Test void validWhitelistedReportAndOwnerIsolation()throws Exception{
         byte[] data="sample".getBytes();String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));

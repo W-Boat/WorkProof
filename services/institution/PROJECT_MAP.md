@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+本轮 AI 引擎更新为 mpu-zh-v3 / mpu-en-v3，拒绝旧 GPT-2 ID；原始报告标签统一 Human/AI。共享 FilePicker 的外层分组与内部输入分别命名，避免无障碍名称歧义。真实模型专项新增英文生产网页路径。
+
 ## WorkProof 接入
 
 - `components/ui/FilePicker.vue`及公共components.css：统一中文文件按钮/选中文件名/无障碍输入，业务层继续负责类型与大小校验，原File对象不重新编码；证书和AI分析共享。

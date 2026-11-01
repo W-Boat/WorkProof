@@ -1,35 +1,43 @@
-# 可选AI参考引擎（实验适配）
+# 可选 AI 辅助分析工具
 
-新增本机文件入口（源码47a255a真实中英文模型专项41290405320通过，ZIP目录预检增强d0c95fc另行验证）：
+独立 Python 按需运行，不进入 Rust 常驻记录进程。机构工作台已接入文件选择、明确发送同意、任务查询及取消，配置见[机构辅助分析](../../docs/INSTITUTION-AI.md)。用户本机尚未安装模型。
 
-```text
-python detector.py infer-file --input-file /absolute/path/work.docx --language zh --engine mpu-zh-v3 --model-dir /absolute/path/chinese-model
-```
+当前仅适配同一方法的两个语言模型，不能称为“大多数开源引擎已支持”。旧英文 GPT-2 参考模型已从注册表、机构接口和用户选项移除；命令行必须明确指定引擎，不再隐式选择它。
 
-支持Word/WPS保存的UTF-8 XML DOCX及UTF-8 `.txt`/`.md`。报告同时标明原文件SHA256、提取文本SHA256和提取范围，不保存正文或改写作品/证书。只取主文档w:t源文字，不代表Office排版后的可见全文，可能含隐藏/修订文字；不读取页眉、脚注、批注，不做OCR，不执行宏、外部关系或链接。原文件64MiB、ZIP4096项/4MiB中心目录、声明展开128MiB、主XML4MiB/200倍压缩比/10万节点/128层、提取文本32KiB；模型512token上限不默默截断。拒绝DTD、UTF16 XML、重复ZIP路径、宏包或异常目录。测试使用合成OOXML包和真实模型权重，不等于已在真实Word/WPS宿主里完成安装或交互验收。
+| 引擎 | 固定权重 revision | 语言 |
+|---|---|---|
+| `mpu-zh-v3` | `47695ff451b32c225dd938f4f478f7fdc6aa6bb0` | 中文 |
+| `mpu-en-v3` | `3ceb1d1bb7b9ca11585ce3f4299950e1c465b6d8` | 英文 |
 
-新增 `--engine mpu-zh-v3`，选择固定中文MPU v3模型；未指定engine仍使用英文GPT-2参考模型。中文输入至少80个汉字，超过512token拒绝而不默默截断。类别顺序依照[固定官方演示代码](https://huggingface.co/spaces/yuchuantian/AIGC_text_detector/blob/191c98291f204cae3e52db965ab0f944c9005067/app.py)：0=Human，1=AI；配置中的LABEL_0/1按此明确映射，并保留原始softmax而不输出AI占比。
+两者类别映射均为 0=Human、1=AI，依据[固定官方演示代码](https://huggingface.co/spaces/yuchuantian/AIGC_text_detector/blob/191c98291f204cae3e52db965ab0f944c9005067/app.py)，不是根据分数或默认 LABEL 名称猜测。配置预期 LABEL_0/1，运行时若变化拒绝推理。
 
-```text
-python detector.py prepare --model-dir /absolute/path/to/chinese-model --engine mpu-zh-v3
-python detector.py infer --model-dir /absolute/path/to/chinese-model --engine mpu-zh-v3 < chinese-request.json
-```
+上游[项目说明](https://github.com/YuchuanTian/AIGC_text_detector)称 2025 年 v3 面向 GPT-4、DeepSeek-V3 及推理模型。这是上游适用范围声明，不能代替 WorkProof 对当前模型、中文误报、混合写作、改写和翻译的独立评估。真实模型合成输入测试只验证调用链路和数值格式。
 
-中文权重上游仅发布.bin，使用PyTorch2.15的显式weights_only=True受限加载、trust_remote_code=False，固定revision并逐文件流式核对SHA256。不会回退到weights_only=False或任意增加反序列化类白名单。受限加载不能代替内存沙箱或防止所有拒绝服务，见[PyTorch官方说明](https://docs.pytorch.org/docs/2.15/notes/serialization.html)。中文模型及配置所指向的hfl/chinese-roberta-wwm-ext模型卡均声明Apache-2.0；完整许可材料与生产校准仍待独立审查，不作整体商业分发放行。
-
-这是独立的Python按需工具，不进入Rust常驻记录进程。首个适配器固定为英文GPT-2参考分类器，不能当作中文、ChatGPT或所有现代生成器的通用检测器。它不是新增阶段全部完成，也尚未接入普通用户的网页/机构分析流程。
+## 使用
 
 ```text
-python detector.py prepare --model-dir /absolute/path/to/model
-python detector.py infer --model-dir /absolute/path/to/model < request.json
+python detector.py prepare --engine mpu-zh-v3 --model-dir /absolute/path/models/mpu-zh-v3
+python detector.py infer-file --engine mpu-zh-v3 --model-dir /absolute/path/models/mpu-zh-v3 --input-file /absolute/path/work.docx --language zh
+python detector.py prepare --engine mpu-en-v3 --model-dir /absolute/path/models/mpu-en-v3
+python detector.py infer --engine mpu-en-v3 --model-dir /absolute/path/models/mpu-en-v3 < request.json
 ```
 
-请求JSON形如 `{"language":"en","text":"..."}`。prepare明确联网下载公开模型，不读取用户文本；infer只使用本地模型，设置HF离线模式，禁止远程自定义代码，只允许Safetensors。准备记录列出文件摘要，运行前核对文件没有相对准备记录改变；该记录不是第三方签名认证。
+JSON 输入形如 `{"language":"en","text":"..."}`。prepare 明确联网下载固定公开文件，不读取作品；infer 只使用本地模型并关闭遥测，禁止远程自定义代码。准备记录含逐文件 SHA256，运行前以 1 MiB 缓冲流式核对；该记录不是第三方签名。
 
-明确支持范围：英文，至少80个空格分词，最多512个模型token；不截断长文，不把不支持、缺模型或错误当成“未使用AI”。返回uncalibrated_class_softmax与Fake/Real两个原始分数、输入SHA256及模型revision，不能解释为AI内容占比或已校准的作者概率。短文本、中文和缺模型分别给出独立状态。
+两个上游模型都只发布 `.bin` 权重：固定 PyTorch 版本，显式 `weights_only=True`，不回退到不受限加载，不扩展反序列化白名单。受限加载不能替代操作系统内存沙箱或防止所有拒绝服务，见[PyTorch 说明](https://docs.pytorch.org/docs/2.15/notes/serialization.html)。
 
-模型来源：[固定revision模型卡](https://huggingface.co/openai-community/roberta-base-openai-detector/blob/6cba99c003b711c7fe94f8a3aa2be35a792cb6fa/README.md)。模型卡声明MIT并明确其GPT-2/英文使用范围及不宜独立判断学术不端的限制。运行时依赖、完整许可原文与分发包仍需独立审查，当前没有作整个模型运行环境的商业分发放行，不自动向用户设备安装模型。
+## 输入与结果
 
-中文候选[yuchuantian/AIGC_detector_zhv3](https://huggingface.co/yuchuantian/AIGC_detector_zhv3)已核对到固定revision `47695ff451b32c225dd938f4f478f7fdc6aa6bb0`，模型卡声明Apache-2.0，当前只提供pytorch_model.bin且配置未明确标签映射；仍需核对官方推理逻辑、基础模型许可、安全加载和真实中文验收，不能因为看到Apache标签就称已可用。
+中文至少 80 个汉字，英文至少 80 个空格分词；所选语言必须匹配。最多 512 个模型 token，超长返回未分析，绝不悄悄截断。文字输入上限 32 KiB。不支持、太短、未准备、错误分别报告，不将失败解释为未使用 AI。
 
-专用Actions会显式下载真实权重，在CPU离线推理合成文本，验证状态、标签与数值格式，不声称这些样本证明检测准确率。模型和用户正文不进入公开产物，只保留运行结果、依赖元数据与模型文件摘要；中文误报/漏报、多引擎校准和用户操作入口仍在后续范围。
+结果含引擎、模型 revision、输入 SHA256、Human/AI 原始 `raw_scores`、`score_kind=uncalibrated_class_softmax` 和 `calibration=null`。这些数值不是 AI 内容比例或已校准的作者概率。不得单独据此认定作弊或原创性，也不验证作者身份或创作证书。
+
+支持 UTF-8 TXT/Markdown、Word/WPS 保存的 UTF-8 XML DOCX。原文件不改写，报告含原文件和提取文字 SHA256，不保存正文。DOCX 仅提取主文档 w:t 源文字，可能包括隐藏和修订文字；不是 Office 排版后的可见全文，不读取页眉、脚注、批注，不做 OCR，不执行宏或外部关系。
+
+独立工具限制：原件 64 MiB、ZIP 4096 项/4 MiB 中心目录、声明展开 128 MiB、主 XML 4 MiB/200 倍压缩比/10 万节点/128 层、提取文字 32 KiB。拒绝 DTD、UTF-16 XML、重复 ZIP 路径、宏包和异常目录。机构入口另收紧原件为 8 MiB。合成 DOCX 测试不代表真实 Word/WPS 插件安装验收。
+
+## 许可与验证边界
+
+中英文固定 revision 模型卡均声明 Apache-2.0；[英文模型卡](https://huggingface.co/yuchuantian/AIGC_detector_env3/blob/3ceb1d1bb7b9ca11585ce3f4299950e1c465b6d8/README.md)仅有许可标签。英文配置指向 RoBERTa-base，中文指向 hfl/chinese-roberta-wwm-ext。代码、权重、基础模型及实际运行依赖的完整许可材料仍需分别核对，当前不作整套环境商业分发放行。
+
+专用 Actions 显式准备真实固定权重，检查离线推理、语言/短文状态、真实 DOCX 输入及 Java 服务调用；机构手动 `ai_models=true` 另验证生产网页中英文选择和结果。公开产物只保留结果、依赖清单及模型文件摘要，不含权重或作品正文。不同方法的引擎、现代样本误报评估、长期任务和安装向导仍待完成。

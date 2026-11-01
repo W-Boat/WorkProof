@@ -1,13 +1,14 @@
 {
-  "roberta-gpt2-reference": {
-    "model": "openai-community/roberta-base-openai-detector",
-    "revision": "6cba99c003b711c7fe94f8a3aa2be35a792cb6fa",
+  "mpu-en-v3": {
+    "model": "yuchuantian/AIGC_detector_env3",
+    "revision": "3ceb1d1bb7b9ca11585ce3f4299950e1c465b6d8",
     "language": "en",
-    "files": ["model.safetensors", "config.json", "tokenizer.json", "tokenizer_config.json", "vocab.json", "merges.txt", "README.md"],
-    "labels": ["Fake", "Real"],
-    "config_labels": ["Fake", "Real"],
-    "safetensors": true,
-    "limitations": ["English GPT-2 reference detector; not calibrated for modern models or Chinese."]
+    "files": ["pytorch_model.bin", "config.json", "special_tokens_map.json", "tokenizer_config.json", "vocab.json", "merges.txt", "README.md"],
+    "labels": ["Human", "AI"],
+    "config_labels": ["LABEL_0", "LABEL_1"],
+    "safetensors": false,
+    "label_source": "https://huggingface.co/spaces/yuchuantian/AIGC_text_detector/blob/191c98291f204cae3e52db965ab0f944c9005067/app.py",
+    "limitations": ["English MPU v3 classifier; labels follow pinned official inference code. Coverage of current models, paraphrases and mixed authorship has not been evaluated in WorkProof.", "Upstream publishes only .bin: restricted weights_only loading is mandatory; no remote custom code."]
   },
   "mpu-zh-v3": {
     "model": "yuchuantian/AIGC_detector_zhv3",
