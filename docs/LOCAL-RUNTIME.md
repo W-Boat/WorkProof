@@ -1,5 +1,7 @@
 # WorkProof 本地机构后台
 
+当前机构运行版本86012bd：使用完整真实中英文模型网页专项41298827415的已校验JAR，归档SHA256 ade3bd8e6ab7c95e0f1224d9fe656c86190197965cef32e77e9614d0885fe467。旧JAR备份state/previous/scaffold-admin-pre-86012bd.jar，原credentials逐字节保持、既有V3准备状态未改。已启动自有MySQL/cache/Java，HTTP18081与HTTPS18443健康；原账号验证码登录/登出及模型能力接口复核成功，两个MPU模型均正确显示未准备。没有本机安装模型、重置账号、更改Root或注册Office。升级收据在私有state/institution-upgrade-86012bd.json；不将该运行验收描述为本机编译测试。下方较旧运行记录保留为历史。
+
 最新运行复核：6f31baf静态包已校验并解压至 `E:/work/workproof-browser-6f31baf`，但4173已无监听，245旧进程19652不存在。新启动命令被执行审查拒绝，返回 `blocked by policy`，没有更具体原因，命令未执行。下方245站点运行记录是历史验收，当前不能保证4173可访问，新版也尚未启动。机构JAR、数据库、账号和系统信任未改。
 
 本机入口：[http://127.0.0.1:18081/login](http://127.0.0.1:18081/login)。这是机构后台，不是桌面记录引擎；本地记录引擎的端口仍为 43127，停止机构后台不会停止记录。
