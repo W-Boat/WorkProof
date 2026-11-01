@@ -12,7 +12,9 @@
 
 Windows 保留现有 NSIS 安装器。新增 Actions 任务在 Ubuntu 22.04 x64 构建 DEB，在 macOS 15 Apple Silicon 与 Intel 运行器分别构建 `.app` 并用 tar.gz 保留可执行权限。Linux 任务安装真实 DEB 后在虚拟显示环境启动，macOS 任务启动真实 app bundle 的二进制；只有各自任务成功后才将相应平台记为通过。
 
-当前新增平台任务待验证。没有 Apple 开发者签名或公证凭据，不能把开发版 macOS 包称为已公证正式发布。不同 Linux 桌面的托盘、默认浏览器、Wayland 和宿主插件仍需实机验收；不支持用一个 CI 运行器证明全部发行版、全部 macOS 版本或所有宿主。
+最终代码 `c5a830a` 已通过 [Actions 41269692613](https://github.com/W-Boat/WorkProof/actions/runs/41269692613) 的五项任务：协议/网页、Windows、Linux x64、Mac ARM、Mac Intel，28 项浏览器测试通过。没有 Apple 开发者签名或公证凭据，不能把开发版 macOS 包称为已公证正式发布。不同 Linux 桌面的托盘、默认浏览器、Wayland 和宿主插件仍需实机验收；不支持用一个 CI 运行器证明全部发行版、全部 macOS 版本或所有宿主。
+
+本机交付目录为 `E:/work/workproof-delivery-c5a830a`，按 `Windows`、`Linux`、`macOS-AppleSilicon`、`macOS-Intel` 分开存放。独立检查确认 Unix 包含离线核验页、Wasm 和 VSIX，Mac 两种 Mach-O 架构正确、tar 保留可执行权限。未在 Windows 上安装或运行 Unix 包，也未在本机执行 Windows 安装器。
 
 浏览器打开命令分别使用 Windows 的系统处理程序、macOS `open` 和 Linux `xdg-open`。接口只接收本机核验服务端口，不接收任意网址。某些系统工具会等待浏览器退出，WorkProof 不因此杀死浏览器；界面仅表示已向系统发出打开请求。找不到工具或快速返回失败会显示错误。
 

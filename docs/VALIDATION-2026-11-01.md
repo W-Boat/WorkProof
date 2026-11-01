@@ -90,3 +90,23 @@ Photoshop 最终控制器代码 `d07f971` 的 [完整 Actions 41222699360](https
 交付目录 `E:/work/workproof-delivery-15f7342`。本机机构 JAR 已通过运行锁、进程归属校验与文件替换升级，旧 JAR 保留在私有 `state/previous/scaffold-admin-pre-15f7342.jar`。只重启 Java，MySQL/Garnet 保持运行；账号文件 SHA-256 未变，原密码登录、权限路由、登出失效已复核，服务器提供的 Office JS 包含新的授权失效处理。
 
 独立核验站也已切换至 `E:/work/workproof-browser-15f7342` 的本轮预构建 CLI 和静态资源，HTTP 200，指纹 Worker 正常；旧静态进程停止，新归属记录与日志在新目录。没有本地构建，没有执行安装器、启动采集器、修改系统信任或 Office 注册项。长期目标继续保留未完成阶段。
+
+## 简明流程、操作互斥与原生平台交付
+
+最终 `c5a830a` 的 [Actions 41269692613](https://github.com/W-Boat/WorkProof/actions/runs/41269692613) 五项任务均成功：协议/网页、Windows、Ubuntu 22.04 x64、macOS 15 ARM、macOS 15 Intel。28 项浏览器测试通过，包含实际界面位置检查、软件选择、延迟接口下重复点击、文档切换和授权失效。测试未放宽安全条件：上一轮 `bcbaa4f` 的唯一失败是仍匹配旧文案，已同步断言；不将其记为通过。`ac1af3f`/`53a8989` 的被替代主流程取消。
+
+Linux 安装真实 DEB 后在虚拟显示环境启动，Mac 启动 `.app` 内二进制，Windows 验证托盘及 NSIS。三种语言在各平台对照同一目录规则，平台命令检查仅证明参数和失败处理，不代表已操作真实浏览器/VS Code。独立只读解包确认离线页面、Wasm、VSIX 在 Unix 包中，Mac Mach-O 架构及可执行权限正确。新 Mac 包仍未取得 Apple 签名/公证。
+
+| 当前已校验下载包 | SHA-256 |
+|---|---|
+| `workproof-web-and-extension` | `9a455c1841060cc5de2b8f58168086d057f84a02caba24f7491167d630fdae72` |
+| `verification-report` | `1c0a21a4f7a7d3048e6c57321d9227d61591dfe69560dbcf96a48c5757f174fe` |
+| `workproof-windows-x64` | `ebb9289f54228fee6d782b94e76560d3b1738218029c7d71967ebba26f10e73f` |
+| `workproof-linux-x64` | `50828a1655679309adc98ad1d7965d3ce1bdaac2206e5192bb41632d822fe8b7` |
+| `workproof-macos-arm64` | `b1750de80837b1e7c198092b555f557caf6262e9f48e82b0ff8d21287225d062` |
+| `workproof-macos-x64` | `3de15f63d847ba8c3210791052fcc0c0aec9dff71ad4d0e0506cfa98678b5a46` |
+| `institution-baseline`（bcbaa4f） | `326bc4ff4e6ab5f4b243097756a468125144e8b56c94ee71983f7a7d2ff4be46` |
+
+交付目录 `E:/work/workproof-delivery-c5a830a` 按系统分开，Windows 安装器 SHA-256 为 `2ca34a9e03c1217077a2c32bfc98f79d8f4118a6e6d4ea15bb656077f634008e`。Linux DEB 为 5,665,520 字节，Mac ARM tar 为 6,921,022 字节、Intel tar 为 7,081,905 字节；这是具体包大小，不是所有系统的通用承诺。Windows 本轮工作集 16.30 MB、3 秒空闲单核 CPU 0%、128 事件 HTTP 批次 p95 11.915 ms；仍只覆盖根及直接子进程与合成负载。
+
+本机机构 JAR 升级为 `bcbaa4f`，旧 JAR 备份 `state/previous/scaffold-admin-pre-bcbaa4f.jar`；持锁、校验归属后只重启 Java，原账号文件 hash 未变，原密码登录/routes/logout 重新通过。独立站为 `E:/work/workproof-browser-c5a830a`，HTTP 200，证书指纹 Worker 和简明 Office 页均正常。全部使用 CI 预构建文件，没有本地构建、执行安装器、启动采集器或修改系统信任。真实宿主、全新用户默认目录自动发现/首次安装及剩余全部阶段继续保留。

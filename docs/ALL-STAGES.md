@@ -53,3 +53,5 @@ Photoshop UXP 自有开发适配已加入：图层/组/可见统计、生产动�
 核验页已实现三步引导、大字号证书、保留原始字节的签名文件分享、SHA-256 签名指纹与接收方指纹核对。完整与部分证据的分享明确区分公开范围；没有宣称自签名认证作者身份，没有将 localhost 冒充公网分享链接。`0a53020` 已通过 [Linux/Windows Actions 41224054908](https://github.com/W-Boat/WorkProof/actions/runs/41224054908)，25 项浏览器测试通过，本机4173已更新，功能边界见 [证书分享](CERTIFICATE-SHARING.md)。
 
 桌面已加入 Word/WPS/Photoshop 的逐次授权连接列表与单独撤销；Office 收到授权失效时暂停并提示重新加载、重新批准和新记录，不跨授权拼接未提交事件。`15f7342` 通过 [完整两平台 Actions](https://github.com/W-Boat/WorkProof/actions/runs/41225883860) 和 [机构 Actions](https://github.com/W-Boat/WorkProof/actions/runs/41225883861)，27 项浏览器测试通过；本机机构 JAR/Office 与独立核验站均已更新，原账号保留。真实宿主和首次安装范围仍未完成，详见 [连接管理](ADAPTER-CONNECTIONS.md)。
+
+`c5a830a` 进一步完成简明桌面/Office 流程、操作互斥、跨平台状态目录与浏览器/VS Code 入口，新增 Linux DEB、Mac ARM/Intel 开发版 `.app`。当前 [完整 Actions 41269692613](https://github.com/W-Boat/WorkProof/actions/runs/41269692613) 五项任务均通过，28 浏览器用例通过；[机构 Actions 41269163840](https://github.com/W-Boat/WorkProof/actions/runs/41269163840) 两任务通过（该源码与 c5 的产品代码相同，差异仅测试断言）。本机机构与核验入口已更新，各平台包已校验并归档。默认目录的解析对照不替代全新用户端到端安装；Apple 签名/公证、真实宿主和首次运行仍未完成。说明见 [平台交付](DESKTOP-PLATFORMS.md) 与 [易用性](USABILITY.md)。
