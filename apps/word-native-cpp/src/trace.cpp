@@ -35,4 +35,13 @@ void TraceHresult(const wchar_t* step, long result) {
     Trace(buffer);
 }
 
+void TraceIid(const wchar_t* step, const GUID& value) {
+    wchar_t buffer[256];
+    swprintf_s(buffer, L"%s {%08lX-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}", step,
+               (unsigned long)value.Data1, value.Data2, value.Data3,
+               value.Data4[0], value.Data4[1], value.Data4[2], value.Data4[3],
+               value.Data4[4], value.Data4[5], value.Data4[6], value.Data4[7]);
+    Trace(buffer);
+}
+
 } // namespace workproof

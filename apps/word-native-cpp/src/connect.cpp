@@ -181,6 +181,7 @@ STDMETHODIMP CRibbon::GetCustomUI(BSTR ribbonId, BSTR* ribbonXml) {
 }
 
 STDMETHODIMP CConnect::QueryInterface(REFIID iid, void** object) {
+    TraceIid(L"QueryInterface", iid);
     if (!object) return E_POINTER;
     *object = nullptr;
     if (iid == IID_IUnknown || iid == IID_IDispatch) {
@@ -284,6 +285,8 @@ private:
 } // namespace
 
 HRESULT CreateClassFactory(REFCLSID clsid, REFIID iid, void** object) {
+    TraceIid(L"CreateClassFactory clsid", clsid);
+    TraceIid(L"CreateClassFactory iid", iid);
     if (!object) return E_POINTER;
     *object = nullptr;
     if (clsid != CLSID_Connect) return CLASS_E_CLASSNOTAVAILABLE;

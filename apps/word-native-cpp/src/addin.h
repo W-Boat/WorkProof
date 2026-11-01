@@ -31,6 +31,7 @@ struct __declspec(uuid("000C0396-0000-0000-C000-000000000046")) IRibbonExtensibi
 
 void Trace(const wchar_t* message);
 void TraceHresult(const wchar_t* step, long result);
+void TraceIid(const wchar_t* step, const GUID& value);
 
 std::wstring RibbonXml();
 std::wstring EnginePath();

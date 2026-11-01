@@ -11,7 +11,6 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
         case DLL_PROCESS_ATTACH:
             workproof::g_module = module;
             DisableThreadLibraryCalls(module);
-            workproof::Trace(L"DllMain attach");
             break;
         case DLL_THREAD_ATTACH:
         case DLL_THREAD_DETACH:
@@ -22,7 +21,10 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
 }
 
 extern "C" HRESULT __stdcall DllGetClassObject(REFCLSID clsid, REFIID iid, void** object) {
-    return workproof::CreateClassFactory(clsid, iid, object);
+    workproof::Trace(L"DllGetClassObject entered");
+    HRESULT hr = workproof::CreateClassFactory(clsid, iid, object);
+    workproof::TraceHresult(L"DllGetClassObject result", hr);
+    return hr;
 }
 
 extern "C" HRESULT __stdcall DllCanUnloadNow() {
