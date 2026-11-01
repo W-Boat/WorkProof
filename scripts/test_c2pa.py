@@ -52,7 +52,8 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
     (root/'bad.wproof').write_text(json.dumps(proof));embed(proof='bad.wproof',destination=root/'bad.png',ok=False);assert not (root/'bad.png').exists()
     selected=root/'selected.png';embed(proof='selected.wproof',destination=selected)
     partial=json.loads(run(tool,'verify',selected,root/'ca.pem').stdout)
-    assert partial['workproof']['scope']=='selective' and partial['workproof']['disclosed_events']==1 and partial['workproof']['total_events']==3
+    # The protocol always includes start/save boundary records, plus the selected edit.
+    assert partial['workproof']['scope']=='selective' and partial['workproof']['disclosed_events']==3 and partial['workproof']['total_events']==5, partial['workproof']
     # Runtime evidence for offline verification, in addition to disabled HTTP features.
     trace=root/'network.trace';run('strace','-f','-e','trace=network','-o',trace,tool,'verify',signed,root/'ca.pem')
     calls=trace.read_text();assert 'connect(' not in calls and 'sendto(' not in calls
