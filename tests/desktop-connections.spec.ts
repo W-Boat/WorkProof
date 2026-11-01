@@ -60,6 +60,8 @@ test('desktop starts with Word and shows only the chosen software steps',async({
   await expect(install).toBeVisible();await expect(steps).toContainText('VS Code 底部');
   await page.getByLabel('你用什么软件创作？').selectOption('wps');
   await expect(install).toBeHidden();await expect(page.locator('#installation-note')).toContainText('暂未提供面向普通用户的一键安装包');
+  const guideBox=await steps.boundingBox(),connectionsBox=await page.getByRole('region',{name:'允许连接的软件'}).boundingBox();
+  expect(guideBox).not.toBeNull();expect(connectionsBox).not.toBeNull();expect(guideBox!.y).toBeLessThan(connectionsBox!.y);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/desktop-simple-guide.png',fullPage:true});
 });
