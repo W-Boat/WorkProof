@@ -501,10 +501,10 @@ void Export() {
     bool verified = RunEngine(L"verify \"" + artifact + L"\" \"" + certificate + L"\"", verify, verifyError);
     SetStatus(verified ? L"已导出，本地独立核验通过。" : L"已导出，但本地独立核验未通过，请重新导出。");
 
-    std::wstring message = L"已保存到：\n" + folder + L"\n\n作品：" + g.documentName + L"\n证书：" + g.documentName + L".wproof\n\n";
-    message += verified ? L"本地独立核验：通过（作品与证书互相匹配）。" : L"本地独立核验：未通过，请不要交付这份证书。";
-    message += L"\n\n请把这两份文件一起交付；之后任何修改都需要重新导出。";
-    MessageBoxW(g.window, message.c_str(), L"WorkProof", MB_OK | MB_ICONINFORMATION);
+    // A modal success dialog used to keep g.writing true and suppress every
+    // sampling timer until the user dismissed it. Report delivery inline instead.
+    SetStatus(verified ? L"导出并核验通过。请一起交付作品和同名证书；记录仍在继续。\n保存位置："+folder
+                       : L"已导出，但核验未通过。请不要交付这份证书，重新导出后再检查。");
     g.writing = false;
     PaintState();
 }
