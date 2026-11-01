@@ -1,6 +1,7 @@
 //! Locally signed process records and selective inclusion, not proof of human authorship.
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
+#[cfg(feature="wasm")]
 use wasm_bindgen::prelude::*;
 
 pub const VERSION: &str = "workproof/3";
@@ -197,6 +198,7 @@ pub fn inspect_certificate_json(json:&[u8])->CertificateInspection{
         assert!(!inspect_certificate_json(b"not JSON").certificate_valid);
     }
 }
+#[cfg(feature="wasm")]
 #[wasm_bindgen]
 pub fn create_disclosure_json(json:&str,indices:&str)->Result<String,JsValue>{
     if json.len()>32*1024*1024||indices.len()>16*1024{return Err(JsValue::from_str("PROOF_TOO_LARGE"));}
@@ -206,8 +208,10 @@ pub fn create_disclosure_json(json:&str,indices:&str)->Result<String,JsValue>{
     serde_json::to_string_pretty(&proof).map_err(|_|JsValue::from_str("INVALID_PROOF"))
 }
 
+#[cfg(feature="wasm")]
 #[wasm_bindgen]
 pub struct FileHasher { hasher: blake3::Hasher, bytes: u64 }
+#[cfg(feature="wasm")]
 #[wasm_bindgen]
 impl FileHasher {
     #[wasm_bindgen(constructor)]

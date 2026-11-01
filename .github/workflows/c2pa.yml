@@ -37,6 +37,7 @@ jobs:
         if: always()
         with:
           name: c2pa-validation-and-lock
+          include-hidden-files: true
           path: |
             tools/c2pa/Cargo.lock
             test-c2pa-results.json

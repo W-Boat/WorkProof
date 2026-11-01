@@ -9,21 +9,27 @@ for package in metadata['packages']:
     source=pathlib.Path(package['manifest_path']).parent
     key=f"{package['name']}-{package['version']}"
     candidates=set()
-    for path in source.rglob('*'):
-        if path.is_file() and re.match(r'^(license|licence|notice|copying|copyright)([.\-_]|$)',path.name,re.I):
-            candidates.add(path)
+    local=package['source'] is None
+    if local:
+        candidates.add(root/'LICENSE')
+    else:
+        for path in source.rglob('*'):
+            if path.is_file() and re.match(r'^(license|licence|notice|copying|copyright)([.\-_]|$)',path.name,re.I):
+                candidates.add(path)
     if package.get('license_file'):
         path=(source/package['license_file']).resolve()
         if path.is_file() and path.is_relative_to(source.resolve()): candidates.add(path)
-    local=package['source'] is None
     if local and not candidates: candidates.add(root/'LICENSE')
+    if package['name']=='c2pa' and package['version']=='0.91.7' and not candidates:
+        # Published SDK crate omits root license files. Bound to its verified VCS commit.
+        candidates.update([root/'docs/licenses/c2pa-sdk/LICENSE-MIT',root/'docs/licenses/c2pa-sdk/LICENSE-APACHE'])
     texts=[]
     for path in sorted(candidates):
         data=path.read_bytes()
         if len(data)>2*1024*1024: continue
         try: data.decode('utf-8')
         except UnicodeDecodeError: continue
-        relative=path.relative_to(source) if path.is_relative_to(source) else pathlib.Path('WORKPROOF-LICENSE')
+        relative=path.relative_to(source) if path.is_relative_to(source) else pathlib.Path('UPSTREAM-'+path.name)
         target=destination/key/relative;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
         texts.append({'path':str(relative),'sha256':hashlib.sha256(data).hexdigest()})
     declared=package.get('license') or ('MIT' if local else None)

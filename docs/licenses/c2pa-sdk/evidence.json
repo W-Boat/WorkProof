@@ -1,0 +1,17 @@
+{
+  "version": "0.91.7",
+  "checksum": "f258d5bfe6465d1a5c570d32b70a261f35e4e45a753e7122a88d3ba0472999b0",
+  "license": "MIT OR Apache-2.0",
+  "rust_version": "1.96.0",
+  "source_commit": "a5ce78b78a22d2ed8186b5ee3fe5f02b275822e0",
+  "notice_sources": [
+    {
+      "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/a5ce78b78a22d2ed8186b5ee3fe5f02b275822e0/LICENSE-MIT",
+      "sha256": "89375a50de90d2dcaa04406086da832ad452ebcaf6ab402ef3d51b8401a67c71"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/a5ce78b78a22d2ed8186b5ee3fe5f02b275822e0/LICENSE-APACHE",
+      "sha256": "86bdd5dafab77451044b6fd6d2efab23e3410ce658eb097f04c04f4f54aed62f"
+    }
+  ]
+}
