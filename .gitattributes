@@ -14,5 +14,5 @@ docs/licenses/maven-notices/** -text -whitespace
 docs/licenses/ai-runtime/** -text -whitespace
 scripts/local/*.cmd text eol=crlf
 
-docs/licenses/office-supplemental/** -text
-docs/licenses/office-npm-supplemental/** -text
+docs/licenses/office-supplemental/** -text -whitespace
+docs/licenses/office-npm-supplemental/** -text -whitespace
