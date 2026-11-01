@@ -98,6 +98,18 @@ int main(){
     current.identity=g.identity;current.name=L"A.docx";g.paused=false;
     Export();
     if(folderCalls!=1||saveCalls||copyCalls||g.writing){std::puts("FAIL: matching export did not reach chooser safely");return 1;}
+    // Paused users can export without manufacturing a resume event or restarting sampling.
+    g.paused=true;const int pausedRequests=httpCalls;
+    Export();
+    if(folderCalls!=2||!g.paused||g.writing||httpCalls!=pausedRequests){
+        std::puts("FAIL: paused matching export did not reach chooser while staying paused");return 1;
+    }
+    current.identity=L"C:\\fixture\\B.docx";current.name=L"B.docx";
+    Export();
+    if(folderCalls!=2||!g.paused||g.writing||httpCalls!=pausedRequests){
+        std::puts("FAIL: paused export accepted another document");return 1;
+    }
+    g.paused=false;
     // Reset is guarded while recording, busy or pairing, and cannot drop unacknowledged bytes.
     const std::wstring oldSession=g.session;
     if(ResetPausedRecording()||g.session!=oldSession){std::puts("FAIL: active recording reset");return 1;}

@@ -139,11 +139,10 @@ void SetStatus(const std::wstring& text) {
 
 void PaintState() {
     if (!g.window) return;
-    bool recording = !g.paused && !g.session.empty();
     EnableWindow(g.startButton, !g.pairing && !g.writing && g.session.empty());
     EnableWindow(g.pauseButton, !g.pairing && !g.writing && !g.session.empty());
     SetWindowTextW(g.pauseButton, g.paused ? L"继续记录" : L"暂停记录");
-    EnableWindow(g.exportButton, !g.pairing && !g.writing && recording);
+    EnableWindow(g.exportButton, !g.pairing && !g.writing && !g.session.empty());
     EnableWindow(g.newButton, !g.session.empty() && g.paused && !g.pairing && !g.writing);
     EnableWindow(g.cancelButton, g.pairing);
     ShowWindow(g.cancelButton, g.pairing ? SW_SHOW : SW_HIDE);
@@ -403,7 +402,7 @@ bool ResetPausedRecording(){
 }
 void NewRecording(){
     if(g.session.empty()||!g.paused||g.pairing||g.writing)return;
-    if(MessageBoxW(g.window,L"开始另一份记录后，旧记录仍保留在 WorkProof 中，但此侧栏会切换到新记录。\n\n如果还没导出旧作品和证书，请先取消，继续旧记录并导出。\n\n现在开始记录当前文档吗？",L"开始另一份记录",MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
+    if(MessageBoxW(g.window,L"开始另一份记录后，旧记录仍保留在 WorkProof 中，但此侧栏会切换到新记录。\n\n如果还没导出旧作品和证书，请先取消，导出旧作品和证书。\n\n现在开始记录当前文档吗？",L"开始另一份记录",MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
     if(ResetPausedRecording())BeginPairing();
 }
 
@@ -432,7 +431,7 @@ bool WriteAll(const std::wstring& path, const std::string& body) {
 }
 
 void Export() {
-    if (g.paused || g.session.empty() || g.writing) return;
+    if (g.session.empty() || g.pairing || g.writing) return;
     g.writing = true;
     PaintState();
     std::wstring error;
@@ -445,7 +444,7 @@ void Export() {
     }
 
     std::wstring parent = ChooseFolder(g.window);
-    if (parent.empty()) { SetStatus(L"已取消导出。记录仍在继续。"); g.writing = false; PaintState(); return; }
+    if (parent.empty()) { SetStatus(g.paused ? L"已取消导出。记录保持暂停。" : L"已取消导出。记录仍在继续。"); g.writing = false; PaintState(); return; }
 
     SYSTEMTIME now;
     GetLocalTime(&now);
