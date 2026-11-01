@@ -1,5 +1,13 @@
 # 2026-11-01：协议 v3 与浏览器统一体验
 
+## 浏览器外部时间凭据
+
+源码 `245dddc` [专项Actions 41283260447](https://github.com/W-Boat/WorkProof/actions/runs/41283260447) 通过协议、原生TSA交换、Web构建和29项浏览器检查；专项仅运行共享协议/网页job，桌面打包明确skipped，普通push的完整四平台工作流仍保留。原生TSA源码3dd2113的[完整41281504351](https://github.com/W-Boat/WorkProof/actions/runs/41281504351)五任务全部通过。
+
+浏览器以OpenSSL真实合成CA/响应为交叉向量，确认正确凭据显示服务时间、错CA/nonce/其他证书/签名字节改动均拒绝，换文件清除确认和旧结果，无外部请求，390px无横向溢出。已人工查看手机截图。新增库精确锁定、实际tarball integrity与许可文本已核对；[许可证据41282185063](https://github.com/W-Boat/WorkProof/actions/runs/41282185063)成功，其Maven来源仍为旧基线JAR，不能据此宣称最新JAR已重新清点。
+
+已校验网页归档 SHA-256 `d1ff0f13d23fd029a1a1c873095bcaeefb38f06628e6053fff73a4144d7b76cb`、截图报告 `127acf5a71a33a2e29d7c54764a1cb8e27e7dd001d35ddb6a7a2284e652204d0`。本机4173已使用新静态目录 `E:/work/workproof-browser-245dddc`，静态服务CLI仍为经原归档复核的3bc7511；首页及公开许可文件HTTP200。未升级机构JAR、修改数据库/账号/信任，也未将演示TSA向量作为用户凭据存入目录。全部构建/完整测试在Actions，本机只运行校验产物。
+
 ## 本机证书管理启用与真实备份恢复
 
 [Windows原生 41280596255](https://github.com/W-Boat/WorkProof/actions/runs/41280596255) 使用固定摘要MySQL8.4.13原生服务/客户端，验证只读方案、实际缺失dump时拒绝、真实备份/V3/去重执行、第二个库恢复及全部账号逐行/二进制/NULL/中文比较。[机构6306b53验证41280475459](https://github.com/W-Boat/WorkProof/actions/runs/41280475459) 两任务通过。

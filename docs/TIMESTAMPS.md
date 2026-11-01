@@ -1,10 +1,10 @@
 # 外部时间凭据：RFC 3161 工具
 
-浏览器增量（待Actions）：作品与证书先通过原Rust核验后，展开“检查外部时间凭据”，选择原始tsq、tsr以及独立获得的CA PEM，明确确认信任来源后在本机检查。只支持SHA256、SigningCertificateV2的DER凭据，限制请求8KiB/响应128KiB/CA256KiB/根8张/嵌入证书10张；校验nonce、原签名字节摘要、CMS签名、ESS证书绑定、专用关键时间戳EKU及当前证书有效期，拒绝未来超过5分钟的时间。PKI.js的链验证使用TSTInfo时间，额外检查所选路径在当前时刻也有效；未实现撤销或长期历史核验。
+浏览器核验（已通过专项Actions）：作品与证书先通过原Rust核验后，展开“检查外部时间凭据”，选择原始tsq、tsr以及独立获得的CA PEM，明确确认信任来源后在本机检查。只支持SHA256、SigningCertificateV2的DER凭据，限制请求8KiB/响应128KiB/CA256KiB/根8张/嵌入证书10张；校验nonce、原签名字节摘要、CMS签名、ESS证书绑定、专用关键时间戳EKU及当前证书有效期，拒绝未来超过5分钟的时间。PKI.js的链验证使用TSTInfo时间，额外检查所选路径在当前时刻也有效；未实现撤销或长期历史核验。
 
 新增按需加载PKI.js3.3.3及asn1js3.0.6；依赖锁定并保留实际包内许可文本与integrity证据于 `docs/licenses/timestamp-npm-notices`。不新增守护进程依赖。页面仅展示单独检查的TSA时间和本次信任CA指纹，不改原证书的身份/实际创作时间声明。
 
-新增可选 Rust CLI `workproof-timestamp`，使用管理员显式指定的 OpenSSL 3 可执行文件生成标准请求和核验标准响应。它不进入后台守护进程，不新增 Rust 依赖，不更改 `.wproof` 或原签名，不连接网络。当前是原生互操作增量；浏览器核验、时间值展示、TSA服务配置和自动请求仍未实现。
+新增可选 Rust CLI `workproof-timestamp`，使用管理员显式指定的 OpenSSL 3 可执行文件生成标准请求和核验标准响应。它不进入后台守护进程，不新增 Rust 依赖，不更改 `.wproof` 或原签名，不连接网络。浏览器现可独立核验并展示服务声明时间；TSA服务配置、自动请求和C2PA仍未实现。
 
 依据 [RFC 3161](https://www.rfc-editor.org/rfc/rfc3161.html) 与 [OpenSSL ts 官方文档](https://docs.openssl.org/3.5/man1/openssl-ts/)。时间戳绑定原证书已验证的64字节签名，使用SHA-256和随机nonce；完整/部分记录保留相同原签名，因此可使用同一时间凭据，但它不证明部分文件的生成时间。
 
@@ -21,4 +21,6 @@ Windows也需OpenSSL可执行文件的绝对路径。工具不包含OpenSSL程�
 
 这份凭据只能支持签名在TSA断言时间之前存在，不能确认实际开始/结束创作时间、劳动时长、作者身份或人类创作比例。CI使用短期合成测试CA和TSA，测试生成/核验、nonce不匹配、错CA、另一份证书的合法时间戳、修改证书、截断响应和部分证据复用；不以本地测试CA替代真实TSA信任验收。
 
-源码 `3dd2113` 的[完整 Actions 41281504351](https://github.com/W-Boat/WorkProof/actions/runs/41281504351) 中 `Real RFC 3161 exchange with a synthetic test authority` 步骤已通过，包含所有成功/失败路径临时目录清理与原证书未修改检查；主工作流仍需等待全部任务终态。初版使用了 `ts` 不支持的CA禁用选项，已按官方实现改为仅传显式CA文件。此记录不证明浏览器或真实外部服务已完成验收。
+源码 `3dd2113` 的[完整 Actions 41281504351](https://github.com/W-Boat/WorkProof/actions/runs/41281504351) 中 `Real RFC 3161 exchange with a synthetic test authority` 步骤已通过，包含所有成功/失败路径临时目录清理与原证书未修改检查；该原生版本主工作流五任务已全部通过。初版使用了 `ts` 不支持的CA禁用选项，已按官方实现改为仅传显式CA文件。此记录不证明浏览器或真实外部服务已完成验收。
+
+浏览器源码 `245dddc` 已通过[专项验证41283260447](https://github.com/W-Boat/WorkProof/actions/runs/41283260447)：29项浏览器测试含真实OpenSSL响应交叉验证、错误CA/nonce/另一证书/损坏签名拒绝、确认与换文件清理、无外部请求、手机无溢出。专项主动跳过桌面打包，完整四平台推送工作流另行保留。页面复用文件卡片，服务时间按北京时间展示；许可原文随静态站提供，原证书和图片不自动附带该结果。
