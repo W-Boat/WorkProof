@@ -5,7 +5,7 @@ import { useListPage } from '@/composables/list'
 import { hasPermission } from '@/directives/permission'
 import { toastError } from '@/composables/toast'
 import { ListPage, PermissionButton } from '@/components/business'
-import { Field, TextInput, Tag, type Column } from '@/components/ui'
+import { Field, TextInput, Tag, Select, type Column } from '@/components/ui'
 import Modal from '@/components/ui/Modal.vue'
 import CertificateInspectionDialog from '@/components/business/CertificateInspectionDialog.vue'
 const upload = ref(false), detail = ref<CertificateEntry | null>(null)
@@ -28,7 +28,7 @@ async function openDetail(row: CertificateEntry) {
     <template #actions><PermissionButton perm="workproof:certificate:add" variant="primary" @click="upload = true">检查并保存摘要</PermissionButton></template>
     <template #search>
       <Field label="文件名或证书指纹" wide><TextInput v-model="list.query.keyword" placeholder="文件名的一部分 / 完整证书指纹" @enter="list.search()" /></Field>
-      <Field label="检查范围"><select v-model="list.query.scope"><option value="">全部范围</option><option value="full">全部记录</option><option value="selective">部分记录</option></select></Field>
+      <Field label="检查范围"><Select :model-value="list.query.scope" :options="[{label:'全部范围',value:''},{label:'全部记录',value:'full'},{label:'部分记录',value:'selective'}]" @update:model-value="list.query.scope = String($event ?? '')" /></Field>
     </template>
     <template #cell-fileName="{row}"><span class="cell-title">{{ row.fileName }}</span><Tag v-if="row.demo" tone="neutral">演示</Tag></template>
     <template #cell-scope="{row}"><Tag tone="info">{{ row.scope === 'full' ? '全部记录' : '部分记录' }}</Tag></template>
