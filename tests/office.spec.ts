@@ -95,7 +95,7 @@ for(const failure of ['unsaved','save-denied','empty-bytes','unicode-bytes','ren
       await expect(page.locator('#status')).toContainText('已暂停');
       await page.evaluate(()=>{(window as any).hostFixture.identity='C:\\private\\other.docx';});
       await page.getByRole('button',{name:'继续记录'}).click();
-      await expect(page.locator('#status')).toContainText('活动文档已改变');
+      await expect(page.locator('#status')).toContainText('你已切换到另一份文档');
       await expect(page.getByRole('button',{name:'导出作品和证书'})).toBeDisabled();
     }else{
       await page.getByRole('button',{name:'导出作品和证书'}).click();
