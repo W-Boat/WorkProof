@@ -33,6 +33,7 @@ struct State {
     IDispatch* factory = nullptr;
     IDispatch* taskPane = nullptr;
     bool launchFeedback = false;
+    int scroll=0;
     HWND heading=nullptr, intro=nullptr, privacy=nullptr;
     HWND status = nullptr;
     HWND counter = nullptr;
@@ -477,15 +478,21 @@ HRESULT Dispatch(IDispatch* object,const wchar_t* name,WORD flags,VARIANT* args,
 }
 void LayoutControls(){
     if(!g.window)return;
-    RECT r;GetClientRect(g.window,&r);int width=r.right>40?r.right-32:8;
-    auto move=[&](HWND h,int y,int height){if(h)MoveWindow(h,16,y,width,height,TRUE);};
+    RECT r;GetClientRect(g.window,&r);int dpi=(int)GetDpiForWindow(g.window);
+    auto scale=[&](int value){return MulDiv(value,dpi?dpi:96,96);};
+    int margin=scale(16),width=r.right>margin*2?r.right-margin*2:8;
+    SCROLLINFO info={sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS};info.nMin=0;info.nMax=scale(656);info.nPage=(UINT)r.bottom;
+    int limit=info.nMax-(int)info.nPage+1;if(limit<0)limit=0;if(g.scroll>limit)g.scroll=limit;
+    info.nPos=g.scroll;SetScrollInfo(g.window,SB_VERT,&info,TRUE);
+    auto move=[&](HWND h,int y,int height){if(h)MoveWindow(h,margin,scale(y)-g.scroll,width,scale(height),TRUE);};
     move(g.heading,20,30);move(g.intro,58,52);move(g.status,124,92);move(g.counter,222,26);
     move(g.startButton,266,38);move(g.pauseButton,314,38);move(g.exportButton,362,38);
     move(g.cancelButton,410,32);move(g.verifierLink,454,34);move(g.privacy,510,128);
 }
 void CreateControls(HWND window) {
     g.background=CreateSolidBrush(GetSysColor(COLOR_WINDOW));g.cardBrush=CreateSolidBrush(GetSysColor(COLOR_WINDOW));
-    auto font=[](int size,int weight){return CreateFontW(size,0,0,0,weight,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");};
+    int dpi=(int)GetDpiForWindow(window);
+    auto font=[&](int size,int weight){return CreateFontW(MulDiv(size,dpi?dpi:96,96),0,0,0,weight,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");};
     g.titleFont=font(-22,FW_SEMIBOLD);g.statusFont=font(-17,FW_SEMIBOLD);g.bodyFont=font(-15,FW_NORMAL);
     auto create=[&](const wchar_t* type,const wchar_t* text,DWORD style){
         HWND h=CreateWindowExW(0,type,text,WS_CHILD|WS_VISIBLE|style,0,0,10,10,window,nullptr,g_module,nullptr);
@@ -549,6 +556,18 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
         }
         case WM_SIZE:
             LayoutControls();return 0;
+        case WM_MOUSEWHEEL:
+            g.scroll-=GET_WHEEL_DELTA_WPARAM(wParam)/WHEEL_DELTA*60;
+            if(g.scroll<0)g.scroll=0;LayoutControls();return 0;
+        case WM_VSCROLL: {
+            SCROLLINFO info={sizeof(info),SIF_ALL};GetScrollInfo(window,SB_VERT,&info);
+            switch(LOWORD(wParam)){
+                case SB_LINEUP:g.scroll-=24;break;case SB_LINEDOWN:g.scroll+=24;break;
+                case SB_PAGEUP:g.scroll-=(int)info.nPage;break;case SB_PAGEDOWN:g.scroll+=(int)info.nPage;break;
+                case SB_THUMBTRACK:g.scroll=info.nTrackPos;break;
+            }
+            if(g.scroll<0)g.scroll=0;LayoutControls();return 0;
+        }
         case WM_TIMER:
             if (wParam == kSampleTimer) Sample();
             return 0;
@@ -648,7 +667,7 @@ void PaneShow() {
 HWND PaneCreateChild(HWND parent,const RECT& rect){
     if(!parent||!EnsureClass())return nullptr;
     if(g.window)return GetParent(g.window)==parent?g.window:nullptr;
-    return CreateWindowExW(WS_EX_CONTROLPARENT,kClassName,L"WorkProof 创作记录",WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN,
+    return CreateWindowExW(WS_EX_CONTROLPARENT,kClassName,L"WorkProof 创作记录",WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_VSCROLL,
         rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,parent,nullptr,g_module,nullptr);
 }
 void PaneResizeChild(const RECT& rect){if(g.window)MoveWindow(g.window,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,TRUE);}
