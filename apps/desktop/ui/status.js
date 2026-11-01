@@ -48,7 +48,7 @@ async function refresh(){
         const card=document.createElement('div'),title=document.createElement('strong'),origin=document.createElement('p');
         const native=request.channel==='native';
         title.textContent=`${adapterName(request.source)} 想连接 WorkProof`;origin.textContent=native?'插件称自己来自本机，尚未确认发布者。':request.origin;
-        const note=document.createElement('p');note.textContent=native?'请只允许你刚在 Photoshop 中发起的连接。允许后，它只能提交自己的记录，不能读取其他本机文件。':'请确认下面的网址属于你刚打开的加载项。允许后，它只能提交自己的记录，不能读取本机文件。';
+        const note=document.createElement('p');note.textContent=native?'请只允许你刚在 Photoshop 中发起的连接。这次允许只用于提交和导出它自己的记录，不允许通过 WorkProof 读取本机文件。':'请确认下面的网址属于你刚打开的加载项。这次允许只用于提交和导出它自己的记录，不允许通过 WorkProof 读取本机文件。';
         card.append(title,origin,note);
         for(const [text,approve] of [['允许连接',true],['拒绝',false]]){
           const button=document.createElement('button');button.textContent=text;
