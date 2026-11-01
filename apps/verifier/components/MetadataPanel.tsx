@@ -5,7 +5,8 @@ import {Button} from './button';
 type Finding={field:string;location:string;value:string;hint:boolean};
 export function MetadataPanel({file}:{file:File|null}){
   const active=useRef<Worker|null>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[result,setResult]=useState<{findings:Finding[];skipped:number}|null>(null);
+  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setResult]=useState<{file:File;findings:Finding[];skipped:number}|null>(null);
+  const result=saved?.file===file?saved:null;
   function stop(){active.current?.terminate();active.current=null;if(timer.current)clearTimeout(timer.current);timer.current=null;}
   useEffect(()=>{setResult(null);setError('');setBusy(false);return stop;},[file]);
   function scan(){
@@ -13,7 +14,7 @@ export function MetadataPanel({file}:{file:File|null}){
     try{
       const worker=new Worker('/metadata-worker.js');active.current=worker;
       const fail=(message:string)=>{if(active.current!==worker)return;stop();setBusy(false);setError(message);};
-      worker.onmessage=({data})=>{if(active.current!==worker)return;stop();setBusy(false);if(data.ok)setResult(data);else setError(data.message);};
+      worker.onmessage=({data})=>{if(active.current!==worker)return;stop();setBusy(false);if(data.ok)setResult({...data,file});else setError(data.message);};
       worker.onerror=()=>fail('检查工具无法加载，请重新加载完整站点。');
       worker.onmessageerror=()=>fail('检查结果无法读取，请重试。');
       timer.current=setTimeout(()=>fail('检查耗时过长，已停止。'),15000);worker.postMessage({file});

@@ -30,7 +30,8 @@ self.onmessage=async({data:{file}})=>{
               if(offset+2>body.length||body[offset]!==0){skipped++;}
               else{
                 offset+=2;const languageEnd=body.indexOf(0,offset),translationEnd=languageEnd<0?-1:body.indexOf(0,languageEnd+1);
-                if(translationEnd<0){skipped++;}else text=new TextDecoder('utf-8',{fatal:true}).decode(body.slice(translationEnd+1));
+                if(translationEnd<0){skipped++;}
+                else{try{text=new TextDecoder('utf-8',{fatal:true}).decode(body.slice(translationEnd+1));}catch{skipped++;}}
               }
             }
             if(text!==undefined){
@@ -45,5 +46,5 @@ self.onmessage=async({data:{file}})=>{
     }
     if(!header||!ended)throw Error('PNG 文件不完整。');
     self.postMessage({ok:true,findings,skipped});
-  }catch(error){self.postMessage({ok:false,message:error instanceof Error?error.message:'无法读取元数据，请重新选择文件。'});}
+  }catch(error){self.postMessage({ok:false,message:error instanceof Error&&/[\u4e00-\u9fff]/.test(error.message)?error.message:'无法读取元数据，请重新选择文件。'});}
 };
