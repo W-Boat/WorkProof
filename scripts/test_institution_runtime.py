@@ -195,6 +195,7 @@ with log_path.open("wb") as log:
         assert audit_lines and all(line == '[]' for line in audit_lines), 'Certificate contents must not be copied into audit records'
         subprocess.run(['node', str(root/'scripts/test_institution_inspection_ui.cjs')], env=dict(os.environ, WORKPROOF_TEST_ORIGIN=base, WORKPROOF_TEST_TOKEN=token), check=True)
         subprocess.run(['node', str(root/'scripts/test_institution_ai_ui.cjs')], env=dict(os.environ, WORKPROOF_TEST_ORIGIN=base, WORKPROOF_TEST_TOKEN=token), check=True)
+        subprocess.run(['node', str(root/'scripts/test_institution_jobs_ui.cjs')], env=dict(os.environ, WORKPROOF_TEST_ORIGIN=base, WORKPROOF_TEST_TOKEN=token), check=True)
         print('PASS: real Rust certificate inspection through authenticated Java, full/partial scope, tamper rejection, low-permission denial and content-free audit')
         assert request("/api/auth/logout", {}, token)[0] == 200
         assert request("/api/auth/me", token=token)[0] == 401, "Logout did not revoke cache token"

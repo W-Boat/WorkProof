@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+CertificateJobController→CertificateJobService：显式V4/POSIX私有spool的持久批量任务，数据库与目录独占锁、原件幂等、实际取消/重启恢复/权限重查及统一审计。CertificateJobsDialog复用Modal/Field/FilePicker/Checkbox/Tag/Button和原字节PUT，另保留页面内旧批量。默认关闭，尚待本次Actions。
+
 AiAnalysisDialog 按文件→语言→同意组织，完成后需换文件或语言才再发送；所有按钮/浮层/下载均继续复用管理端底座。Python运行环境许可原文在独立模型CI归档，不进入常驻引擎。
 
 - AiAnalysisService 的固定引擎描述统一模型/语言/revision，校验实际报告版本；AiAnalysisDialog 使用已有 downloadBlob 保存独立辅助记录，不更改原证书。

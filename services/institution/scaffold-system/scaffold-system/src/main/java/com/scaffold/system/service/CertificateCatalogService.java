@@ -67,13 +67,8 @@ public class CertificateCatalogService {
         var digest=MessageDigest.getInstance("SHA-256");
         var report=inspector.inspect(new DigestInputStream(input,digest));
         if (!report.path("certificate_valid").asBoolean()) throw new BusinessException("证书内容未能确认，没有保存。请索取未修改的原始证书。");
-        var user=auth.currentUser();var manifest=report.path("manifest");
-        Map<String,Object> row=new HashMap<>();
-        row.put("ownerUserId",user.userId());row.put("deptId",user.deptId());row.put("createBy",user.username());
-        row.put("certificateId",report.path("certificateId").asText());row.put("proofHash",HexFormat.of().formatHex(digest.digest()));
-        row.put("fileName",manifest.path("file_name").asText());row.put("artifactHash",manifest.path("artifact_hash").asText());
-        row.put("scope",report.path("scope").asText());row.put("disclosedEvents",report.path("disclosed_events").longValue());
-        row.put("totalEvents",report.path("total_events").longValue());row.put("demo",manifest.path("demo").asBoolean()?1:0);
+        var user=auth.currentUser();
+        Map<String,Object> row=CertificateSummaryFactory.row(report,HexFormat.of().formatHex(digest.digest()),user.userId(),user.deptId(),user.username());
         mapper.insert(row);
         return new Saved(boundaries(mapper.detail(((Number)row.get("id")).longValue(),DataScopeContext.required())),report);
     }

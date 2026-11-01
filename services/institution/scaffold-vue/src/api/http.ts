@@ -18,6 +18,7 @@ export interface HttpClient {
   postRawJson<T>(path: string, body: Blob, signal?: AbortSignal): Promise<T>
   postBinary<T>(path: string, body: Blob, signal?: AbortSignal): Promise<T>
   put<T>(path: string, body?: unknown): Promise<T>
+  putBinary<T>(path: string, body: Blob, signal?: AbortSignal): Promise<T>
   delete<T>(path: string): Promise<T>
   download(path: string, query?: QueryParams): Promise<Blob>
 }
@@ -93,6 +94,7 @@ export function createHttpClient(options: HttpClientOptions = {}): HttpClient {
     postRawJson: (path, body, signal) => request('POST', path, undefined, undefined, body, signal),
     postBinary: (path, body, signal) => request('POST', path, undefined, undefined, body, signal, 'application/octet-stream'),
     put: (path, body) => request('PUT', path, body),
+    putBinary: (path, body, signal) => request('PUT', path, undefined, undefined, body, signal, 'application/octet-stream'),
     delete: (path) => request('DELETE', path),
     download,
   }

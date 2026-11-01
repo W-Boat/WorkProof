@@ -100,7 +100,9 @@ jobs:
           REDIS_PORT: '6379'
           MYSQL_CONTAINER_ID: ${{ job.services.mysql.id }}
           WORKPROOF_TEST_REAL_AI: ${{ inputs.ai_models && '1' || '0' }}
-        run: python scripts/test_institution_runtime.py
+        run: |
+          python scripts/test_institution_runtime.py
+          python scripts/test_institution_jobs.py
       - uses: actions/upload-artifact@v4
         with:
           name: institution-baseline
@@ -113,12 +115,14 @@ jobs:
             test-results/institution-certificate-catalog.png
             test-results/institution-certificate-batch-mobile.png
             test-results/institution-ai-*.png
+            test-results/institution-jobs-*.png
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: institution-runtime-diagnostics
           path: |
             institution-runtime.log
+            test-results/institution-jobs-*.png
             test-results/institution-ai-*.png
             institution-https.log
             test-results/institution-certificate-batch-mobile.png
