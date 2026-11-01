@@ -500,7 +500,17 @@ HRESULT Dispatch(IDispatch* object,const wchar_t* name,WORD flags,VARIANT* args,
     if(FAILED(hr))return hr;
     DISPID put=DISPID_PROPERTYPUT;DISPPARAMS parameters={args,(flags&DISPATCH_PROPERTYPUT)?&put:nullptr,count,(flags&DISPATCH_PROPERTYPUT)?1u:0u};
     if(result)VariantInit(result);
-    return object->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,flags,&parameters,result,nullptr,nullptr);
+    EXCEPINFO exception={};
+    HRESULT invoked=object->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,flags,&parameters,result,&exception,nullptr);
+    if(FAILED(invoked)&&wcscmp(name,L"CreateCTP")==0){
+        if(exception.pfnDeferredFillIn)exception.pfnDeferredFillIn(&exception);
+        TraceHresult(L"CreateCTP Office exception",exception.scode);
+        if(exception.bstrDescription)Trace(exception.bstrDescription);
+    }
+    if(exception.bstrSource)SysFreeString(exception.bstrSource);
+    if(exception.bstrDescription)SysFreeString(exception.bstrDescription);
+    if(exception.bstrHelpFile)SysFreeString(exception.bstrHelpFile);
+    return invoked;
 }
 void LayoutControls(){
     if(!g.window)return;
@@ -686,13 +696,19 @@ void PaneShow() {
     if(!g.taskPane){
         if(!g.factory){MessageBoxW(nullptr,L"Word 尚未提供侧栏接口。请重启 Word 后重试。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;}
         VARIANT args[3];for(auto& value:args)VariantInit(&value);
-        args[0].vt=VT_ERROR;args[0].scode=DISP_E_PARAMNOTFOUND;
+        // Bind to the actual document window; relying on Office's implicit
+        // ActiveWindow can fail during the new-document startup transition.
+        HRESULT windowResult=Dispatch(g.word,L"ActiveWindow",DISPATCH_PROPERTYGET,nullptr,0,&args[0]);
+        if(FAILED(windowResult)||args[0].vt!=VT_DISPATCH||!args[0].pdispVal){
+            VariantClear(&args[0]);
+            MessageBoxW(nullptr,L"请先在 Word 中打开或新建一份文档，再打开创作记录。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;
+        }
         args[1].vt=VT_BSTR;args[1].bstrVal=SysAllocString(L"WorkProof · 创作记录");
         args[2].vt=VT_BSTR;args[2].bstrVal=SysAllocString(L"WorkProof.WordNative.TaskPane");
         VARIANT result;VariantInit(&result);HRESULT hr=Dispatch(g.factory,L"CreateCTP",DISPATCH_METHOD,args,3,&result);
         for(auto& value:args)VariantClear(&value);TraceHresult(L"CreateCTP",hr);
         if(SUCCEEDED(hr)&&result.vt==VT_DISPATCH){g.taskPane=result.pdispVal;g.taskPane->AddRef();}VariantClear(&result);
-        if(!g.taskPane){MessageBoxW(nullptr,L"侧栏未能加载。请重新安装 WorkProof 的 Word 加载项后重试。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;}
+        if(!g.taskPane){MessageBoxW(nullptr,L"Word 未能打开记录侧栏。请先保存当前文档后重试；若仍失败，请保留当前文档并反馈此提示。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;}
         VARIANT setting;VariantInit(&setting);setting.vt=VT_I4;setting.lVal=2;
         Dispatch(g.taskPane,L"DockPosition",DISPATCH_PROPERTYPUT,&setting,1);setting.lVal=360;Dispatch(g.taskPane,L"Width",DISPATCH_PROPERTYPUT,&setting,1);
     }
