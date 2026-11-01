@@ -234,7 +234,7 @@ STDMETHODIMP CExtensibility::Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPAR
                                    EXCEPINFO*, UINT*) {
     TraceHresult(L"Extensibility Invoke dispid", (long)id);
     if (result) VariantInit(result);
-    if (flags & DISPATCH_PROPERTYGET) return S_OK;
+    if ((flags & DISPATCH_PROPERTYGET) && !(flags & DISPATCH_METHOD)) return S_OK;
 
     IDispatch* application = nullptr;
     IDispatch* addInInstance = nullptr;
@@ -394,7 +394,7 @@ STDMETHODIMP CConnect::Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPARAMS*, 
                               EXCEPINFO*, UINT*) {
     TraceHresult(L"Add-in Invoke dispid", (long)id);
     if (result) VariantInit(result);
-    if (flags & DISPATCH_PROPERTYGET) return S_OK;
+    if ((flags & DISPATCH_PROPERTYGET) && !(flags & DISPATCH_METHOD)) return S_OK;
     switch (id) {
         case CommandOpen:
             PaneShow();
