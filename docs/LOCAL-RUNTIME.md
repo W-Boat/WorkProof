@@ -2,15 +2,15 @@
 
 本机入口：[http://127.0.0.1:18081/login](http://127.0.0.1:18081/login)。这是机构后台，不是桌面记录引擎；本地记录引擎的端口仍为 43127，停止机构后台不会停止记录。
 
-2026-11-01 最新本机资源：机构 JAR 来自 `7d3ed37` 的成功 Actions，增加简明证书检查弹窗、共享 Rust 内容预检、权限与隐私审计；Windows 检查工具来自 `3bc7511` 的成功构建，放在运行目录 `native/workproof-inspector.exe`。原账号文件保持不变，已复核登录、登出、真实内容检查和修改后拒绝。独立核验入口 [http://127.0.0.1:4173/](http://127.0.0.1:4173/) 使用 `E:/work/workproof-browser-3bc7511` 的预构建 CLI 和静态资源，其进程记录与日志均在该目录；旧 `c5a830a` 静态服务已停止。桌面新安装包尚未执行，当前未启动 43127 采集器；localhost Root 信任仍未变更。
+2026-11-01 最新本机机构 JAR/启动包为 `6306b53`，已执行备份后V3迁移并启用证书目录、批量处理与准备状态。原账号文件逐字节保留，登录/菜单/准备就绪/空列表/登出、真实Windows检查工具正常与篡改拒绝、HTTP/HTTPS健康均已复核；未向用户目录插入演示证书。旧JAR备份为 `state/previous/scaffold-admin-pre-6306b53.jar`，私有SQL备份位置及摘要在 `state/catalog.json`，不得公开。Windows检查工具仍为兼容的 `3bc7511`。独立核验资源目录仍 `E:/work/workproof-browser-3bc7511`，入口 [4173](http://127.0.0.1:4173/)；本轮未检查该独立服务是否仍在运行。桌面安装器未执行，Root信任/Office注册项未改变。
 
 ## 运行方式
 
-证书管理准备入口（当前本机尚未执行）：更新同一版本的 JAR、启动包及原生检查工具后，先正常启动本目录服务，打开 `Certificate catalog plan.cmd` 查看方案，再按需要打开 `Prepare certificate catalog.cmd`。后者只操作已核对归属的 `workproof_local`，停止自己的 Java 服务但保留数据库，先用 mysqldump 完整备份，再执行包内V3并生成 `state/catalog.json`。完成后点击 Start、重新登录。普通 Start 不会自动迁移；只有准备记录和包内迁移摘要匹配时才传入启用配置。
+证书管理准备入口（本机已执行，其他安装按需使用）：更新同一版本的 JAR、启动包及原生检查工具后，先正常启动本目录服务，打开 `Certificate catalog plan.cmd` 查看方案，再按需要打开 `Prepare certificate catalog.cmd`。后者只操作已核对归属的 `workproof_local`，停止自己的 Java 服务但保留数据库，先用 mysqldump 完整备份，再执行包内V3并生成 `state/catalog.json`。完成后点击 Start、重新登录。普通 Start 不会自动迁移；只有准备记录和包内迁移摘要匹配时才传入启用配置。
 
 [机构 Actions 41279970799](https://github.com/W-Boat/WorkProof/actions/runs/41279970799) 已通过Windows准备流程fixture和真实MySQL业务回归，下载的启动包SHA-256为 `2491b966f2b335f10e82c801c782f1c90e6a6f53f99883d8e798992b47059c8d`，两个入口/准备脚本/V3均已只读核对。流程fixture模拟了原生命令边界，尚不能证明完整Windows原生MySQL备份/恢复链路已验收。
 
-原生验收增量使用独立 `Windows catalog backup and restore` Actions，下载[MySQL官方 Windows 8.4.13 ZIP](https://dev.mysql.com/downloads/mysql/8.4.html)，固定 SHA-256 `e9cd98b1d23f122987b1afca26ad942efec5891481103d48ae3cde237fa3ea54`。隔离CI运行真实服务、mysqldump、迁移及另库恢复，覆盖二进制/NULL/中文和原账号；该轮尚待通过，不在本机执行。
+原生验收增量使用独立 `Windows catalog backup and restore` Actions，下载[MySQL官方 Windows 8.4.13 ZIP](https://dev.mysql.com/downloads/mysql/8.4.html)，固定 SHA-256 `e9cd98b1d23f122987b1afca26ad942efec5891481103d48ae3cde237fa3ea54`。隔离CI运行真实服务、mysqldump、迁移及另库恢复，覆盖二进制/NULL/中文和原账号；已通过[原生验收 41280596255](https://github.com/W-Boat/WorkProof/actions/runs/41280596255)，账号逐行完整比较，备份恢复只在隔离CI另一库执行。本机随后使用校验产物做备份和迁移，未在本地构建。
 
 备份在私有 `state/backups`，包含数据库敏感内容，不能上传公共仓库；`catalog-preparation.json` 表示未完成或需人工检查的操作。MySQL DDL不能整体回滚，失败时保留备份和记录，不自动删表或重放。已有不明证书表/菜单冲突会拒绝；恢复须先核对现场及备份，不能直接对已有数据重跑初始化SQL。此工具固定用于本地Windows运行目录，不是通用生产服务器迁移器。备份失败时可能已停止Java，可检查日志后恢复原版本；工具不会把停止误报为已启用。
 
