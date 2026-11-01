@@ -3,10 +3,15 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      web_only:
+        description: 'Run shared protocol and browser checks without desktop packaging'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
-  group: workproof-${{ github.ref }}
+  group: workproof-${{ github.ref }}${{ inputs.web_only && '-web' || '' }}
   cancel-in-progress: false
 env:
   CARGO_TERM_COLOR: always
@@ -103,6 +108,7 @@ jobs:
             README.md
             Cargo.lock
   windows-desktop:
+    if: ${{ inputs.web_only != true }}
     needs: protocol-and-web
     runs-on: windows-latest
     timeout-minutes: 40
@@ -169,6 +175,7 @@ jobs:
             docs/
 
   unix-desktop:
+    if: ${{ inputs.web_only != true }}
     needs: protocol-and-web
     strategy:
       fail-fast: false
