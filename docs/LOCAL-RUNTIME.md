@@ -75,6 +75,8 @@ MySQL 为 `127.0.0.1:33307`，Garnet 为 `127.0.0.1:36379`，新 JAR 为 `127.0.
 
 本地 HTTP 入口用于开发与验收。Word 安装仍需要受信任 HTTPS；这里没有自动导入证书或修改浏览器/Office 的信任配置。WPS、Word 真实宿主验收和生产机构权限业务仍见 [全阶段验收](ALL-STAGES.md)。
 
+Windows Word 已另有**原生 COM 加载项**入口：安装后功能区直接出现 WorkProof，不依赖本机 HTTPS 信任、Office 商店或共享文件夹目录；安装、使用、卸载与验证边界见 [Word 原生入口](WORD-NATIVE.md)。上面这段 HTTPS 说明仍适用于网页版与跨平台 Office.js 清单。
+
 可选本地 HTTPS 准备脚本为 `prepare-local-https.ps1`；生成/复用 localhost 短期叶子证书后重启，JAR 同时提供 18081 HTTP 和 18443 HTTPS。证书信任另行明确确认，详见 [Word/WPS 接入](OFFICE-SERVER.md)。未信任前不绕过验证来宣称 Word 可用。证书到期时停止使用并显式更新，不静默替换已获信任的指纹。
 
 本阶段证据：[Actions 41185301362](https://github.com/W-Boat/WorkProof/actions/runs/41185301362) 两个任务通过；本机从该次校验 SHA-256 的产物升级到单 JAR，已确认账号文件未变化、原管理员登录成功、未登录 API 返回 401、登出令牌失效，以及 MySQL 正常关闭后的完整重启。

@@ -94,7 +94,7 @@ fn require_native(headers:&HeaderMap)->Result<(),ApiError>{
 }
 pub async fn request_native(headers:HeaderMap,Json(input):Json<PairRequest>)->ApiResult<Pending>{
     require_native(&headers)?;
-    if input.source!="photoshop"{return Err(bad("UNSUPPORTED_NATIVE_ADAPTER"));}
+    if !matches!(input.source.as_str(),"photoshop"|"word"){return Err(bad("UNSUPPORTED_NATIVE_ADAPTER"));}
     insert_request(String::new(),input.source,"native")
 }
 pub async fn poll_native(headers:HeaderMap,Path(ticket):Path<String>)->ApiResult<serde_json::Value>{
@@ -147,6 +147,17 @@ mod tests{
         assert!(poll_pair(authenticated,Path(p.ticket.clone())).await.is_err());
         decide(&p.ticket,false).unwrap();
         assert!(!allows(&headers,None,None));
+    }
+    #[tokio::test]async fn native_word_requires_approval_and_stays_scoped(){
+        let Json(p)=request_native(HeaderMap::new(),Json(PairRequest{source:"word".into()})).await.ok().unwrap();
+        assert_eq!(p.source,"word");assert_eq!(p.channel,"native");
+        decide(&p.ticket,true).unwrap();
+        let Json(result)=poll_native(HeaderMap::new(),Path(p.ticket.clone())).await.ok().unwrap();
+        let mut headers=HeaderMap::new();headers.insert("authorization",HeaderValue::from_str(&format!("Bearer {}",result["token"].as_str().unwrap())).unwrap());
+        assert!(allows(&headers,None,Some("word")));assert!(!allows(&headers,None,Some("photoshop")));
+        bind(&headers,"word-native-owned");assert!(allows(&headers,Some("word-native-owned"),None));assert!(!allows(&headers,Some("foreign"),None));
+        headers.insert("origin",HeaderValue::from_static("https://localhost:18443"));assert!(!allows(&headers,None,Some("word")));
+        decide(&p.ticket,false).unwrap();
     }
     #[tokio::test]async fn desktop_revocation_preserves_other_connections_and_hides_secrets(){
         let mut word=HeaderMap::new();word.insert("origin",HeaderValue::from_static("https://revoke-word.example"));

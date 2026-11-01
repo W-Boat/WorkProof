@@ -9,6 +9,16 @@ fn read_proof(path:&str)->Result<Vec<u8>,Box<dyn std::error::Error>>{
 #[tokio::main(worker_threads = 2)]
 async fn main()->Result<(),Box<dyn std::error::Error>> {
     let args:Vec<String>=std::env::args().collect();
+    if args.get(1).map(String::as_str)==Some("fingerprint") {
+        if args.len()!=3{return Err("Usage: workproof-engine fingerprint FILE".into());}
+        let mut file=std::fs::File::open(&args[2])?;let before=file.metadata()?;
+        if !before.is_file()||before.len()>128*1024*1024{return Err("Expected a regular file up to 128 MiB".into());}
+        let mut hasher=blake3::Hasher::new();let mut buffer=[0u8;65536];let mut length=0u64;
+        loop{let n=file.read(&mut buffer)?;if n==0{break;}length+=n as u64;if length>128*1024*1024{return Err("File exceeds 128 MiB".into());}hasher.update(&buffer[..n]);}
+        let after=std::fs::metadata(&args[2])?;
+        if length!=before.len()||length!=after.len()||before.modified()?!=after.modified()?{return Err("File changed during fingerprinting".into());}
+        println!("{}",serde_json::json!({"hash":hasher.finalize().to_hex().to_string(),"bytes":length}));return Ok(());
+    }
     if args.get(1).map(String::as_str)==Some("inspect-stdin"){
         if args.len()!=2{return Err("Usage: workproof-engine inspect-stdin < certificate.wproof".into());}
         let mut bytes=vec![];std::io::stdin().take(32*1024*1024+1).read_to_end(&mut bytes)?;

@@ -1,0 +1,40 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)'==''">Release</Configuration>
+    <Platform Condition="'$(Platform)'==''">AnyCPU</Platform>
+    <!-- AnyCPU keeps one DLL loadable in 32-bit and 64-bit Word; COM activation goes through mscoree.dll. -->
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <OutputType>Library</OutputType>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <AssemblyName>WorkProof.WordNative</AssemblyName>
+    <RootNamespace>WorkProof.WordNative</RootNamespace>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <LangVersion>7.3</LangVersion>
+    <RegisterForComInterop>false</RegisterForComInterop>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <WarningLevel>4</WarningLevel>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System"/>
+    <Reference Include="System.Core"/>
+    <Reference Include="System.Drawing"/>
+    <Reference Include="System.Windows.Forms"/>
+    <Reference Include="System.Net.Http"/>
+    <Reference Include="System.Web.Extensions"/>
+    <Reference Include="Microsoft.CSharp"/>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AssemblyInfo.cs"/>
+    <Compile Include="Connect.cs"/>
+    <Compile Include="Recorder.cs"/>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Ribbon button artwork; embedded so the add-in needs no extra files next to the DLL. -->
+    <EmbeddedResource Include="ribbon-32.png">
+      <LogicalName>WorkProof.WordNative.ribbon-32.png</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

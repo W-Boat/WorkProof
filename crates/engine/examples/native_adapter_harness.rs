@@ -6,7 +6,7 @@ async fn main()->Result<(),Box<dyn std::error::Error>>{
     let dir=workproof_engine::data_dir()?;
     let root=std::env::temp_dir().canonicalize()?;
     let actual=dir.canonicalize()?;
-    if !actual.starts_with(root)||!actual.file_name().is_some_and(|s|s.to_string_lossy().starts_with("workproof-photoshop-")){return Err("Isolated fixture directory required".into());}
+    if !actual.starts_with(root)||!actual.file_name().is_some_and(|s|{let n=s.to_string_lossy();n.starts_with("workproof-photoshop-")||n.starts_with("workproof-word-")}){return Err("Isolated fixture directory required".into());}
     std::thread::spawn(||{
         for line in std::io::stdin().lock().lines(){
             let Ok(line)=line else{break;};
@@ -20,5 +20,7 @@ async fn main()->Result<(),Box<dyn std::error::Error>>{
             }
         }
     });
-    workproof_engine::run(43127).await
+    // Optional port keeps fixture runs from colliding with an installed desktop on 43127.
+    let port=std::env::var("WORKPROOF_HARNESS_PORT").ok().and_then(|p|p.parse().ok()).unwrap_or(43127);
+    workproof_engine::run(port).await
 }

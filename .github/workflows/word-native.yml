@@ -1,0 +1,121 @@
+name: Native Word add-in and matching Windows collector
+on:
+  push:
+    paths:
+      - 'apps/word-native/**'
+      - 'apps/desktop/**'
+      - 'apps/verifier/**'
+      - 'apps/extension/**'
+      - 'crates/engine/**'
+      - 'crates/proof/**'
+      - 'scripts/local/install-native-word.ps1'
+      - 'scripts/stage_word_native.ps1'
+      - 'scripts/test_native_fingerprint.py'
+      - 'scripts/test_word_native.cjs'
+      - 'scripts/test_word_native_dll.ps1'
+      - 'docs/WORD-NATIVE.md'
+      - '.github/workflows/word-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-word:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: microsoft/setup-msbuild@v2
+      - run: npm ci
+      - name: Build the offline verifier and the VS Code extension for the same desktop
+        run: |
+          npm run build:web
+          npm run build:extension
+          npm run package -w workproof-vscode
+      - name: Prepare bundling resources and brand icons
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force apps/desktop/src-tauri/resources | Out-Null
+          Copy-Item -Recurse apps/verifier/out apps/desktop/src-tauri/resources/verifier
+          Copy-Item apps/extension/*.vsix apps/desktop/src-tauri/resources/workproof.vsix
+          npm run icons -w @workproof/desktop
+      - name: Protocol and collector tests
+        run: cargo test --locked -p workproof-protocol -p workproof-engine
+      - name: Build the collector that ships with the add-in
+        run: cargo build --locked --release -p workproof-engine --bin workproof-engine
+      - name: Native fingerprint matches the published BLAKE3 vector
+        run: python scripts/test_native_fingerprint.py target/release/workproof-engine.exe
+      - name: Build the desktop that accepts the native word grant
+        working-directory: apps/desktop
+        run: npx tauri build --no-bundle
+      - name: Build the Framework COM add-in without Office or NuGet
+        run: msbuild apps/word-native/WorkProof.WordNative.csproj /p:Configuration=Release /p:Platform=AnyCPU /p:RegisterForComInterop=false /verbosity:minimal
+      - name: Inspect the real COM type, ribbon markup and embedded picture
+        shell: pwsh
+        run: ./scripts/test_word_native_dll.ps1 -Assembly apps/word-native/bin/Release/WorkProof.WordNative.dll
+      - name: Native word grant, session, export and isolation against the real collector
+        run: |
+          cargo build --locked -p workproof-engine --example native_adapter_harness
+          node scripts/test_word_native.cjs target/debug/examples/native_adapter_harness.exe target/release/workproof-engine.exe
+      - name: Stage the portable kit and hash every file
+        shell: pwsh
+        run: |
+          $vsix = Get-ChildItem apps/extension/*.vsix | Select-Object -First 1
+          ./scripts/stage_word_native.ps1 -Package "$env:RUNNER_TEMP/workproof-native-word" `
+            -AddIn apps/word-native/bin/Release/WorkProof.WordNative.dll `
+            -Engine target/release/workproof-engine.exe `
+            -Desktop target/release/workproof-desktop.exe `
+            -Verifier apps/verifier/out `
+            -Vsix $vsix.FullName `
+            -Docs docs `
+            -Zip dist/workproof-native-word-windows-dev.zip
+      - name: Register and unregister the staged kit in an isolated registry fixture
+        shell: pwsh
+        run: |
+          $package = "$env:RUNNER_TEMP/workproof-native-word"
+          $fixture = 'Software\WorkProofNativeWordCI\' + [Guid]::NewGuid().ToString()
+          $clsid = '{5F628C20-62BB-4DA6-94DF-36BD599A9301}'
+          function OpenCurrentUser {
+            [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, [Microsoft.Win32.RegistryView]::Registry64)
+          }
+          try {
+            & ./scripts/local/install-native-word.ps1 -RuntimeRoot $package -RegistryFixture $fixture
+            $registry = OpenCurrentUser
+            try {
+              $entry = $registry.OpenSubKey($fixture + '\Software\Microsoft\Office\Word\Addins\WorkProof.WordNative.Connect')
+              if (-not $entry) { throw 'Word Addins registration is missing' }
+              if ($entry.GetValue('LoadBehavior') -ne 3) { throw 'LoadBehavior is not 3' }
+              if ([string]::IsNullOrWhiteSpace([string]$entry.GetValue('FriendlyName'))) { throw 'FriendlyName is missing' }
+              $entry.Dispose()
+              $inproc = $registry.OpenSubKey($fixture + '\Software\Classes\CLSID\' + $clsid + '\InprocServer32')
+              if (-not $inproc) { throw 'InprocServer32 registration is missing' }
+              if ($inproc.GetValue('') -ne 'mscoree.dll') { throw 'InprocServer32 default value is not mscoree.dll' }
+              if ($inproc.GetValue('RuntimeVersion') -ne 'v4.0.30319') { throw 'RuntimeVersion is not v4.0.30319' }
+              if ([string]$inproc.GetValue('Assembly') -notlike 'WorkProof.WordNative,*') { throw 'Assembly value does not name the add-in' }
+              if (-not ([string]$inproc.GetValue('CodeBase')).StartsWith('file:///')) { throw 'CodeBase is not a file URL' }
+              $inproc.Dispose()
+            } finally { $registry.Dispose() }
+            & ./scripts/local/install-native-word.ps1 -RuntimeRoot $package -RegistryFixture $fixture -Remove
+            $registry = OpenCurrentUser
+            try {
+              if ($registry.OpenSubKey($fixture + '\Software\Microsoft\Office\Word\Addins\WorkProof.WordNative.Connect')) { throw 'Add-in registration survived removal' }
+              if ($registry.OpenSubKey($fixture + '\Software\Classes\CLSID\' + $clsid)) { throw 'CLSID registration survived removal' }
+              if ($registry.OpenSubKey($fixture + '\Software\Classes\WorkProof.WordNative.Connect')) { throw 'ProgId survived removal' }
+            } finally { $registry.Dispose() }
+            Write-Output 'PASS: isolated registration install, inspection and removal'
+          } finally {
+            Remove-Item -LiteralPath ('HKCU:\' + $fixture) -Recurse -Force -ErrorAction SilentlyContinue
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-native-word-windows-dev
+          path: |
+            ${{ runner.temp }}/workproof-native-word/
+            dist/workproof-native-word-windows-dev.zip
+            test-word-native-results.json
+          if-no-files-found: error
