@@ -13,6 +13,7 @@ on:
       - 'scripts/local/open-native-word.ps1'
       - 'scripts/local/*.cmd'
       - 'scripts/stage_word_native.ps1'
+      - 'scripts/word_package_notices.py'
       - 'scripts/test_native_fingerprint.py'
       - 'scripts/test_word_native.cjs'
       - 'scripts/test_word_native_dll.ps1'
@@ -66,6 +67,8 @@ jobs:
         run: |
           cargo build --locked -p workproof-engine --example native_adapter_harness
           node scripts/test_word_native.cjs target/debug/examples/native_adapter_harness.exe target/release/workproof-engine.exe
+      - name: Collect locked dependency notices for the delivered kit
+        run: python scripts/word_package_notices.py --output .ci-word-notices
       - name: Stage the portable kit and hash every file
         shell: pwsh
         run: |
@@ -77,12 +80,13 @@ jobs:
             -Verifier apps/verifier/out `
             -Vsix $vsix.FullName `
             -Docs docs `
+            -Notices .ci-word-notices `
             -Zip dist/workproof-native-word-windows-dev.zip
       - name: Register and unregister the staged kit in an isolated registry fixture
         shell: pwsh
         run: |
           $package = "$env:RUNNER_TEMP/workproof-native-word"
-          foreach ($entry in @('Install Word.cmd','Open WorkProof.cmd','Remove Word add-in.cmd','open-native-word.ps1')) {
+          foreach ($entry in @('Install Word.cmd','Open WorkProof.cmd','Remove Word add-in.cmd','open-native-word.ps1','BUILD-INFO.json','third-party-notices/inventory.json')) {
             if (-not (Test-Path -LiteralPath (Join-Path $package $entry) -PathType Leaf)) { throw "Missing click entry: $entry" }
           }
           $errors=$null;$tokens=$null

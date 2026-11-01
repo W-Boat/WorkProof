@@ -27,7 +27,7 @@ $TaskPaneProgId = 'WorkProof.WordNative.TaskPane'
 $TaskPaneClsid = '{41D77603-57A1-43C8-839E-BB5375A9D843}'
 $Marker = '.workproof-native'
 $AddInNames = @('WorkProofWord.dll', 'WorkProof.WordNative.dll')
-$OptionalFiles = @('workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'README-WORD.md', 'install-native-word.ps1', 'Install Word.cmd', 'Open WorkProof.cmd', 'Remove Word add-in.cmd', 'open-native-word.ps1')
+$OptionalFiles = @('workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'BUILD-INFO.json', 'README-WORD.md', 'install-native-word.ps1', 'Install Word.cmd', 'Open WorkProof.cmd', 'Remove Word add-in.cmd', 'open-native-word.ps1')
 
 function Get-PeArchitecture([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)
@@ -202,7 +202,7 @@ try {
                     Copy-Item -LiteralPath $from -Destination (Join-Path $installDir $name) -Force
                 }
             }
-            foreach ($name in @('verifier', 'docs')) {
+            foreach ($name in @('verifier', 'docs', 'third-party-notices')) {
                 $from = Join-Path $source $name
                 if (Test-Path -LiteralPath $from -PathType Container) {
                     Copy-Item -LiteralPath $from -Destination $installDir -Recurse -Force

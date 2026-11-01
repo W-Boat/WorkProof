@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Assembles the portable native Word kit from already-built artifacts and hashes every file.
@@ -13,6 +13,7 @@ param(
     [string]$Verifier,
     [string]$Vsix,
     [string]$Docs,
+    [string]$Notices,
     [string]$Zip
 )
 $ErrorActionPreference = 'Stop'
@@ -42,6 +43,18 @@ if ($Docs) {
         Copy-Item -LiteralPath $readme -Destination (Join-Path $Package 'README-WORD.md') -Force
     }
 }
+if ($Notices) {
+    if (-not (Test-Path -LiteralPath (Join-Path $Notices 'inventory.json') -PathType Leaf)) { throw 'Dependency notice inventory is missing.' }
+    Copy-Item -LiteralPath $Notices -Destination (Join-Path $Package 'third-party-notices') -Recurse -Force
+}
+$provenance = [ordered]@{
+    schema = 'workproof.package.v1'
+    source_commit = $env:GITHUB_SHA
+    build_run = $env:GITHUB_RUN_ID
+    repository = $env:GITHUB_REPOSITORY
+    notices = $(if ($Notices) { 'third-party-notices/inventory.json' } else { $null })
+}
+[IO.File]::WriteAllText((Join-Path $Package 'BUILD-INFO.json'), ($provenance | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'local/install-native-word.ps1') -Destination $Package -Force
 foreach ($entry in @('Install Word.cmd','Open WorkProof.cmd','Remove Word add-in.cmd','open-native-word.ps1')) {
     Copy-Required (Join-Path $PSScriptRoot ('local/'+$entry)) (Join-Path $Package $entry)
