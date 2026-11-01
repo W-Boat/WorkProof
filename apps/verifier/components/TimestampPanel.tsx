@@ -4,17 +4,19 @@ import {Panel,Tag} from './institution-ui';
 import {Button} from './button';
 import {Upload} from './FileDrop';
 import type {TimestampResult} from '../lib/timestamps';
+import {createTimestampRequestInWorker,verifyTimestampInWorker} from '../lib/timestamp-client';
 export function TimestampPanel({signature}:{signature:string}){
   const [files,setFiles]=useState<(File|null)[]>([null,null,null]),[trusted,setTrusted]=useState(false),[busy,setBusy]=useState(false),[result,setResult]=useState<TimestampResult|null>(null),[error,setError]=useState('');
-  const generation=useRef(0);
-  useEffect(()=>()=>{generation.current++},[]);
-  function reset(){generation.current++;setResult(null);setError('');setTrusted(false);setBusy(false);}
+  const generation=useRef(0),active=useRef<AbortController|null>(null);
+  const [notice,setNotice]=useState('');
+  useEffect(()=>()=>{generation.current++;active.current?.abort();},[]);
+  function reset(){generation.current++;active.current?.abort();active.current=null;setResult(null);setError('');setNotice('');setTrusted(false);setBusy(false);}
+  function cancel(){generation.current++;active.current?.abort();active.current=null;setBusy(false);setResult(null);setError('');setNotice('已取消。可以更换文件或重新检查。');}
   async function generate(){
     if(busy)return;
-    const current=++generation.current;setBusy(true);setError('');
+    const current=++generation.current,controller=new AbortController();active.current=controller;setBusy(true);setError('');setNotice('');
     try{
-      const {createTimestampRequest}=await import('../lib/timestamps');
-      const buffer=await createTimestampRequest(signature);
+      const buffer=await createTimestampRequestInWorker(signature,controller.signal);
       if(current!==generation.current)return;
       const file=new File([buffer],'workproof-time-request.tsq',{type:'application/timestamp-query'});
       // A new nonce means a previous response cannot be reused with this request.
@@ -22,19 +24,18 @@ export function TimestampPanel({signature}:{signature:string}){
       const url=URL.createObjectURL(file),anchor=document.createElement('a');
       anchor.href=url;anchor.download=file.name;document.body.appendChild(anchor);anchor.click();anchor.remove();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
-    }catch{if(current===generation.current)setError('时间戳请求未能生成，请重试。');}
-    finally{if(current===generation.current)setBusy(false);}
+    }catch(failure){if(current===generation.current)setError(failure instanceof Error?failure.message:'时间戳请求未能生成，请重试。');}
+    finally{if(current===generation.current){active.current=null;setBusy(false);}}
   }
   async function verify(){
     if(busy||!trusted||files.some(file=>!file))return;
-    const current=++generation.current;setBusy(true);setError('');setResult(null);
+    const current=++generation.current,controller=new AbortController();active.current=controller;setBusy(true);setError('');setNotice('');setResult(null);
     try {
       if(files[0]!.size>8192||files[1]!.size>128*1024||files[2]!.size>256*1024)throw new Error('时间文件过大：请求最多8 KB，响应最多128 KB，信任证书最多256 KB。');
-      const {verifyTimestamp}=await import('../lib/timestamps');
-      const value=await verifyTimestamp(signature,await files[0]!.arrayBuffer(),await files[1]!.arrayBuffer(),await files[2]!.text());
+      const value=await verifyTimestampInWorker(signature,files as [File,File,File],controller.signal);
       if(current===generation.current)setResult(value);
     }catch(failure){if(current===generation.current)setError(failure instanceof Error&&failure.message.startsWith('时间')?failure.message:'时间凭据未能通过检查，请核对文件与信任来源。');}
-    finally{if(current===generation.current)setBusy(false);}
+    finally{if(current===generation.current){active.current=null;setBusy(false);}}
   }
   return <Panel title="检查外部时间凭据" className="timestamp-panel">
     <details><summary>添加或检查时间凭据（可选）</summary>
@@ -50,7 +51,10 @@ export function TimestampPanel({signature}:{signature:string}){
     ].map((item,index)=><Upload key={item.label} {...item} file={files[index]} disabled={busy} onFile={file=>{if(busy)return;reset();setFiles(previous=>previous.map((value,i)=>i===index?file:value));}}/>)}</div>
     <p>CA 指为时间服务签发证书的机构。不确定该信任谁时，可以跳过这项可选检查。</p>
     <label className="quiet-label"><input type="checkbox" checked={trusted} disabled={busy||!files[2]} onChange={event=>{if(busy)return;generation.current++;setTrusted(event.target.checked);setResult(null);}}/>我已核对 CA 来源，并同意以这份 CA 作为本次信任依据</label>
-    <Button disabled={busy||!trusted||files.some(file=>!file)} onClick={verify}>{busy?'正在检查时间凭据…':'检查时间凭据'}</Button>
+    <Button disabled={busy||!trusted||files.some(file=>!file)} onClick={verify}>{busy?'请稍候…':'检查时间凭据'}</Button>
+    {busy&&<p role="status">正在处理时间文件。可以取消；超过 15 秒会自动停止。</p>}
+    {busy&&<Button onClick={cancel}>取消当前操作</Button>}
+    {notice&&<p role="status">{notice}</p>}
     {error&&<p role="alert">{error}</p>}
     {result&&<div role="status"><Tag tone="ok">时间凭据与签名一致</Tag><p>服务声明的时间：<strong><time dateTime={result.time}>{new Date(result.time).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})}（北京时间）</time></strong></p><p>在本次选择的 CA 信任范围内核验通过。它说明这份签名在该时间前已存在，不是实际创作起止时间。</p>{result.trustFingerprints.map(value=><p key={value}>信任证书 SHA-256：<code style={{overflowWrap:'anywhere'}}>{value}</code></p>)}</div>}
     <p className="caption">未查询撤销状态，不认证作者身份或人类创作比例。自建 CA 也可签发时间戳；通过检查不等于公共权威认可。当前仅支持 SHA-256、SigningCertificateV2 的 DER 时间凭据。</p>

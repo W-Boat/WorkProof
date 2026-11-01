@@ -44,3 +44,29 @@ test('browser request downloads, round-trips through OpenSSL and clears stale re
   await page.screenshot({path:testInfo.outputPath('timestamp-steps-mobile.png'),fullPage:true});
   expect(external).toEqual([]);
 });
+
+test('timestamp worker can be cancelled and times out without blocking the page',async({page})=>{
+  await page.addInitScript(()=>{
+    const Original=window.Worker;
+    const state={terminated:0,posted:0};Object.assign(window,{timestampWorkerTest:state});
+    window.Worker=class extends Original{
+      timestamp:boolean;
+      constructor(url:string|URL,options?:WorkerOptions){super(url,options);this.timestamp=!String(url).endsWith('/verify-worker.js');}
+      postMessage(message:unknown,transfer:Transferable[]=[]){if(this.timestamp){state.posted++;return;}super.postMessage(message,transfer);}
+      terminate(){if(this.timestamp)state.terminated++;super.terminate();}
+    };
+  });
+  await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  const panel=page.getByRole('region',{name:'检查外部时间凭据',exact:true});await panel.getByText('添加或检查时间凭据（可选）',{exact:true}).click();
+  const generate=panel.getByRole('button',{name:'生成并下载时间戳请求',exact:true});
+  await generate.click();await expect(panel.getByRole('button',{name:'取消当前操作',exact:true})).toBeVisible();
+  // A worker that never replies must leave the main thread responsive to cancellation.
+  await panel.getByRole('button',{name:'取消当前操作',exact:true}).click();await expect(panel.getByText('已取消。可以更换文件或重新检查。',{exact:true})).toBeVisible();await expect(generate).toBeEnabled();
+  expect(await page.evaluate(()=>(window as unknown as {timestampWorkerTest:{terminated:number}}).timestampWorkerTest.terminated)).toBe(1);
+  await page.clock.install();await generate.click();await page.clock.fastForward(16000);
+  await expect(panel.getByRole('alert')).toContainText('耗时过长，已停止');await expect(generate).toBeEnabled();await expect(panel.getByRole('button',{name:'取消当前操作',exact:true})).toHaveCount(0);
+  expect(await page.evaluate(()=>(window as unknown as {timestampWorkerTest:{terminated:number}}).timestampWorkerTest.terminated)).toBe(2);
+  await generate.click();await expect(panel.getByRole('button',{name:'取消当前操作',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'先体验一份演示证据'}).click();
+  await expect.poll(()=>page.evaluate(()=>(window as unknown as {timestampWorkerTest:{terminated:number}}).timestampWorkerTest.terminated)).toBe(3);
+});
