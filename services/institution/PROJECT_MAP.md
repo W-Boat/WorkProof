@@ -2,6 +2,10 @@
 
 ## WorkProof 接入
 
+- `CertificateCatalogController` → `CertificateCatalogService` → `CertificateCatalogMapper.xml`：检查后保存最小摘要，分页/详情/CSV 一律复用数据范围；缺失范围上下文默认拒绝。`V3__workproof_certificate_catalog.sql` 为显式迁移，`WORKPROOF_CATALOG_ENABLED` 默认 false；未迁移本机用户数据库。
+- `scaffold-vue/src/views/Certificates.vue`：复用 ListPage、useListPage、权限按钮、检查弹窗和 Modal；注册后端组件标识 `workproof/certificates/index`。完整/部分范围区分，证书指纹与本次原字节摘要分开。
+- `CsvExport`：共享 CSV 编码及公式文本防护，系统原导出与证书导出统一复用。
+
 - `scaffold-vue/src/data/index.ts`：WorkProof 机构品牌与共享图标；登录/侧栏仍使用管理端原组件。
 - 根仓库 `apps/verifier/components/institution-ui.tsx`：React 对管理端公共 UI 契约的薄适配；`apps/verifier/app/globals.css` 直接导入本项目 CSS 单一来源。Vue SFC 未跨框架导入，界面不会据此伪称使用同一渲染组件。
 - `apps/verifier/components/ProofPanels.tsx`、`FileDrop.tsx`、`ProcessTimeline.tsx`：核验业务组件；原 `verify-worker.js` 保持本地 Worker/Wasm 处理边界。

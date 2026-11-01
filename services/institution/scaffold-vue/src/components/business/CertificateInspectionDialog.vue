@@ -6,8 +6,8 @@ import Checkbox from '@/components/ui/Checkbox.vue'
 import Tag from '@/components/ui/Tag.vue'
 import { ApiError, certificateApi, type CertificateCapabilities, type CertificateInspection } from '@/api'
 
-const props = defineProps<{open: boolean}>()
-const emit = defineEmits<{(event: 'close'): void}>()
+const props = defineProps<{open: boolean; saveToCatalog?: boolean}>()
+const emit = defineEmits<{(event: 'close'): void; (event: 'saved'): void}>()
 const file = ref<File | null>(null), consent = ref(false), busy = ref(false), loading = ref(false)
 const capability = ref<CertificateCapabilities | null>(null), result = ref<CertificateInspection | null>(null), error = ref('')
 let generation = 0, request: AbortController | null = null
@@ -32,19 +32,23 @@ function select(event: Event) {
 async function inspect() {
   if (!ready.value || !file.value) return
   const current = generation, proof = file.value; request = new AbortController(); busy.value = true; error.value = ''; result.value = null
-  try { const value = await certificateApi.inspect(proof, request.signal); if (current === generation) result.value = value }
+  try {
+    const value = props.saveToCatalog ? (await certificateApi.save(proof, request.signal)).inspection : await certificateApi.inspect(proof, request.signal)
+    if (current === generation) { result.value = value; if (props.saveToCatalog) emit('saved') }
+  }
   catch (failure) { if (current === generation && !request?.signal.aborted) error.value = failure instanceof ApiError ? failure.message : '检查没有完成，请稍后重试。' }
   finally { if (current === generation) { busy.value = false; request = null } }
 }
 </script>
 
 <template>
-  <FormDialog :open="open" title="检查一份证书" sub="选择证书、确认发送，再查看结果。作品文件不会发送到机构服务器。" :saving="busy" :submit-disabled="!ready" submit-text="检查证书内容" @close="emit('close')" @submit="inspect">
+  <FormDialog :open="open" :title="saveToCatalog ? '检查并保存证书摘要' : '检查一份证书'" sub="选择证书、确认发送，再查看结果。作品文件不会发送到机构服务器。" :saving="busy" :submit-disabled="!ready" :submit-text="saveToCatalog ? '检查并保存摘要' : '检查证书内容'" @close="emit('close')" @submit="inspect">
     <Field label="选择 .wproof 证书" span :error="error || undefined">
       <input type="file" accept=".wproof" :disabled="busy" @change="select">
       <span class="field-hint">这是创作者导出的过程证书。请选择证书文件，不要选择作品或证书截图。</span>
     </Field>
     <Field label="确认发送范围" group span>
+      <p v-if="saveToCatalog" class="field-hint">检查通过后保存文件名、证书指纹、操作数量和提交账号，供权限范围内的机构成员查询。不保存作品或完整过程记录。</p>
       <p class="field-hint">证书可能包含文件名、记录时间和操作数量。若只想分享部分过程，请先在本机检查页面导出部分记录。</p>
       <Checkbox v-model="consent" :disabled="busy || !file" label="我同意将所选证书发送给机构服务器检查" />
       <p v-if="loading" class="field-hint" role="status">正在检查服务是否就绪…</p>

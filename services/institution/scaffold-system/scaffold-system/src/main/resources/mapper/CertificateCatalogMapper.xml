@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.scaffold.system.mapper.CertificateCatalogMapper">
+  <sql id="access">
+    (#{access.allScope}=TRUE OR c.owner_user_id=#{access.userId}
+    <if test="access.deptIds != null and access.deptIds.size > 0">
+      OR c.dept_id IN <foreach collection="access.deptIds" item="department" open="(" separator="," close=")">#{department}</foreach>
+    </if>)
+  </sql>
+  <sql id="filters">
+    <include refid="access"/>
+    AND (#{keyword} IS NULL OR LOCATE(#{keyword}, c.file_name)>0 OR c.certificate_id=#{keyword})
+    AND (#{recordScope} IS NULL OR c.record_scope=#{recordScope})
+  </sql>
+  <sql id="columns">
+    c.id,c.owner_user_id AS ownerUserId,c.dept_id AS deptId,c.certificate_id AS certificateId,
+    c.proof_hash AS proofHash,c.file_name AS fileName,c.artifact_hash AS artifactHash,c.record_scope AS scope,
+    c.disclosed_events AS disclosedEvents,c.total_events AS totalEvents,c.demo,c.create_by AS createBy,
+    DATE_FORMAT(c.create_time,'%Y-%m-%d %H:%i:%s') AS checkedAt
+  </sql>
+  <select id="count" resultType="long">SELECT COUNT(*) FROM wp_certificate c WHERE <include refid="filters"/></select>
+  <select id="list" resultType="map">SELECT <include refid="columns"/> FROM wp_certificate c WHERE <include refid="filters"/> ORDER BY c.id DESC LIMIT #{limit} OFFSET #{offset}</select>
+  <select id="detail" resultType="map">SELECT <include refid="columns"/> FROM wp_certificate c WHERE c.id=#{id} AND <include refid="access"/></select>
+</mapper>

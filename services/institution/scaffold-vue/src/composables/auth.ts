@@ -36,6 +36,7 @@ setPermissions(currentUser.value?.permissions ?? [])
 
 /** sys_menu.component 的取值必须在此登记 */
 const COMPONENT_MAP: Record<string, () => Promise<{ default: Component }>> = {
+  'workproof/certificates/index': () => import('@/views/Certificates.vue'),
   'dashboard/index': () => import('@/views/Dashboard.vue'),
   'system/user/index': () => import('@/views/system/Users.vue'),
   'system/role/index': () => import('@/views/system/Roles.vue'),

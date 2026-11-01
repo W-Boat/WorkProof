@@ -1,4 +1,11 @@
 import type { HttpClient } from './http'
+import type { PageResult } from './system'
+
+export interface CertificateEntry {
+  id: number; fileName: string; scope: 'full' | 'selective'; certificateId: string; proofHash: string
+  disclosedEvents: number; totalEvents: number; createBy: string; checkedAt: string; demo: number
+  artifactChecked: false; identityVerified: false; timeVerified: false
+}
 
 /** 机构证书内容检查；不读取或核对作品文件。 */
 export interface CertificateCapabilities {
@@ -27,6 +34,10 @@ export interface CertificateInspection {
 }
 export function createCertificateApi(client: HttpClient) {
   return {
+    list: (query: import('./http').QueryParams) => client.get<PageResult<CertificateEntry>>('/workproof/certificates', query),
+    detail: (id: number) => client.get<CertificateEntry>(`/workproof/certificates/${id}`),
+    export: (query: import('./http').QueryParams) => client.download('/workproof/certificates/export', query),
+    save: (proof: Blob, signal?: AbortSignal) => client.postRawJson<{entry: CertificateEntry; inspection: CertificateInspection}>('/workproof/certificates', proof, signal),
     capabilities: () => client.get<CertificateCapabilities>('/workproof/certificates/capabilities'),
     inspect: (proof: Blob, signal?: AbortSignal) => client.postRawJson<CertificateInspection>('/workproof/certificates/inspect', proof, signal),
   }

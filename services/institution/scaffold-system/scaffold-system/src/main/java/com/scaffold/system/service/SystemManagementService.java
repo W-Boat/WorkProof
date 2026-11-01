@@ -819,33 +819,11 @@ public class SystemManagementService {
     }
 
     private String csv(List<String> headers, List<List<Object>> rows) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(String.join(",", headers)).append('\n');
-        for (List<Object> row : rows) {
-            for (int i = 0; i < row.size(); i++) {
-                if (i > 0) {
-                    sb.append(',');
-                }
-                sb.append(csvCell(row.get(i)));
-            }
-            sb.append('\n');
-        }
-        return sb.toString();
+        return com.scaffold.common.util.CsvExport.encode(headers, rows);
     }
 
     private List<Object> csvRow(Object... values) {
         return Arrays.asList(values);
-    }
-
-    private String csvCell(Object value) {
-        String text = value == null ? "" : String.valueOf(value);
-        if (text.contains("\"")) {
-            text = text.replace("\"", "\"\"");
-        }
-        if (text.contains(",") || text.contains("\"") || text.contains("\n") || text.contains("\r")) {
-            return "\"" + text + "\"";
-        }
-        return text;
     }
 
     private Object value(Map<String, Object> row, String key) {

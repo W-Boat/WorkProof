@@ -14,10 +14,13 @@ scaffold:
     expires-seconds: 7200
 
 mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
     call-setters-on-nulls: true
 
 workproof:
+  catalog:
+    enabled: "${WORKPROOF_CATALOG_ENABLED:false}"
   verifier:
     executable: "${WORKPROOF_VERIFIER_EXECUTABLE:}"

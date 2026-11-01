@@ -29,7 +29,10 @@ seed = (root / "services/institution/scaffold-system/sql/V2__seed_data.sql").rea
 seed = re.sub(r"\$2[aby]\$\d{2}\$[A-Za-z0-9./]{53}", lambda _: hashed, seed)
 mysql = ["docker", "exec", "-i", "-e", "MYSQL_PWD=" + os.environ["DB_PASSWORD"], os.environ["MYSQL_CONTAINER_ID"], "mysql", "--user=workproof_ci", "--default-character-set=utf8mb4", "workproof_ci"]
 subprocess.run(mysql, input=schema + "\n" + seed + "\nUPDATE sys_user SET status=0 WHERE username<>'admin';", text=True, capture_output=True, check=True)
-environment = dict(os.environ, JWT_SECRET=secrets.token_hex(32), WORKPROOF_VERIFIER_EXECUTABLE=str(root / 'target/release/workproof-inspector'))
+catalog_migration = (root/'services/institution/scaffold-system/sql/V3__workproof_certificate_catalog.sql').read_text(encoding='utf-8')
+for _ in range(2):
+    subprocess.run(mysql, input=catalog_migration, text=True, capture_output=True, check=True)
+environment = dict(os.environ, JWT_SECRET=secrets.token_hex(32), WORKPROOF_VERIFIER_EXECUTABLE=str(root / 'target/release/workproof-inspector'), WORKPROOF_CATALOG_ENABLED='true')
 port = 18089
 base = f"http://127.0.0.1:{port}"
 
@@ -114,6 +117,33 @@ with log_path.open("wb") as log:
         assert '*' not in limited_me['permissions'], 'Ordinary roles must not receive superadmin permissions'
         assert request('/api/workproof/certificates/capabilities', token=limited_token)[0] == 403
         assert request('/api/workproof/certificates/inspect', proof, limited_token)[0] == 403
+        assert request('/api/workproof/certificates', proof, limited_token)[0] == 403
+        def catalog(path='', data=None, actor=token):
+            code, body, _ = request('/api/workproof/certificates'+path, data, actor)
+            parsed = json.loads(body)
+            assert code == 200 and parsed['code'] == 200, 'Catalog request failed: '+str(code)
+            return parsed['data']
+        saved = catalog(data=proof)['entry']
+        assert catalog(data=proof)['entry']['id'] == saved['id'], 'Duplicate must reuse entry'
+        partial_entry = catalog(data=selected.read_bytes())['entry']
+        assert partial_entry['id'] != saved['id'] and partial_entry['certificateId'] == saved['certificateId']
+        assert partial_entry['proofHash'] != saved['proofHash']
+        assert request('/api/workproof/certificates', bad_proof, token)[0] == 400
+        assert catalog()['total'] == 2
+        assert catalog('?scope=selective')['total'] == 1
+        assert catalog('?keyword=not-present')['total'] == 0
+        assert request('/api/workproof/certificates/export', token=token)[0] == 200
+        # Grant only catalog capabilities to the existing SELF fixture role, not inspection.
+        subprocess.run(mysql, input='INSERT INTO sys_role_menu(role_id,menu_id) VALUES (4,81000),(4,81001),(4,81002);', text=True, capture_output=True, check=True)
+        assert catalog(actor=limited_token)['total'] == 0
+        assert request('/api/workproof/certificates/'+str(saved['id']), token=limited_token)[0] == 400
+        own = catalog(data=proof, actor=limited_token)['entry']
+        assert own['ownerUserId'] == limited_me['userId'] and own['deptId'] == 6
+        assert catalog(actor=limited_token)['total'] == 1 and catalog()['total'] == 3
+        assert catalog('/'+str(own['id']), actor=limited_token)['id'] == own['id']
+        export_code, export_body, _ = request('/api/workproof/certificates/export', token=limited_token)
+        assert export_code == 200 and export_body.decode('utf-8').count(fingerprint) == 1
+        print('PASS: opt-in catalog, repeatable migration, original-byte deduplication, partial scope, failed-save rejection and SELF list/detail/export isolation')
         request('/api/auth/logout', {}, limited_token)
         audit = subprocess.run(mysql, input="SELECT request_params FROM sys_oper_log WHERE module='证书核验';", text=True, capture_output=True, check=True).stdout
         audit_lines = [line.strip() for line in audit.splitlines() if line.strip() and line.strip() != 'request_params']

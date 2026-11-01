@@ -19,4 +19,10 @@ public final class DataScopeContext {
     public static void clear() {
         HOLDER.remove();
     }
+
+    /** For sensitive new modules, an absent aspect context must never mean unrestricted access. */
+    public static DataScopeCriteria required() {
+        DataScopeCriteria criteria = HOLDER.get();
+        return criteria == null ? DataScopeCriteria.selfOnly(null) : criteria;
+    }
 }
