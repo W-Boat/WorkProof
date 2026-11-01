@@ -59,9 +59,8 @@ class CConnect;
 
 class CExtensibility : public IDispatch {
 public:
-    explicit CExtensibility(CConnect* owner) : m_owner(owner) {}
-    ~CExtensibility() { m_owner = nullptr; }
-    void Detach() { m_owner = nullptr; }
+    explicit CExtensibility(CConnect* owner) : m_owner(owner) { if (m_owner) m_owner->AddRef(); }
+    ~CExtensibility();
 
     STDMETHODIMP QueryInterface(REFIID iid, void** object) override;
     STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)InterlockedIncrement(&m_ref); }
@@ -90,8 +89,8 @@ private:
 
 class CRibbon : public IRibbonExtensibility {
 public:
-    explicit CRibbon(CConnect* owner) : m_owner(owner) {}
-    void Detach() { m_owner = nullptr; }
+    explicit CRibbon(CConnect* owner) : m_owner(owner) { if (m_owner) m_owner->AddRef(); }
+    ~CRibbon();
 
     STDMETHODIMP QueryInterface(REFIID iid, void** object) override;
     STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)InterlockedIncrement(&m_ref); }
@@ -111,11 +110,15 @@ class CConnect : public IDispatch {
 public:
     CConnect() : m_ref(1) { InterlockedIncrement(&g_objectCount); }
     ~CConnect() {
-        if (m_extensibility) { m_extensibility->Detach(); m_extensibility->Release(); }
-        if (m_ribbon) { m_ribbon->Detach(); m_ribbon->Release(); }
+        // Every helper holds a reference to this object, so they are already gone by now.
+        m_extensibility = nullptr;
+        m_ribbon = nullptr;
         if (m_word) m_word->Release();
         InterlockedDecrement(&g_objectCount);
     }
+
+    void ForgetExtensibility() { m_extensibility = nullptr; }
+    void ForgetRibbon() { m_ribbon = nullptr; }
 
     STDMETHODIMP QueryInterface(REFIID iid, void** object) override;
     STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)InterlockedIncrement(&m_ref); }
@@ -145,6 +148,11 @@ private:
 };
 
 // ------------------------------------------------------------------ extensibility
+
+CExtensibility::~CExtensibility() {
+    if (m_owner) { m_owner->ForgetExtensibility(); m_owner->Release(); }
+    m_owner = nullptr;
+}
 
 STDMETHODIMP CExtensibility::QueryInterface(REFIID iid, void** object) {
     TraceIid(L"Extensibility QueryInterface", iid);
@@ -224,6 +232,11 @@ HRESULT __stdcall CExtensibility::OnBeginShutdown(SAFEARRAY** custom) {
 
 // ------------------------------------------------------------------------ ribbon
 
+CRibbon::~CRibbon() {
+    if (m_owner) { m_owner->ForgetRibbon(); m_owner->Release(); }
+    m_owner = nullptr;
+}
+
 STDMETHODIMP CRibbon::QueryInterface(REFIID iid, void** object) {
     TraceIid(L"Ribbon QueryInterface", iid);
     if (!object) return E_POINTER;
@@ -257,16 +270,22 @@ STDMETHODIMP CConnect::QueryInterface(REFIID iid, void** object) {
         return S_OK;
     }
     if (iid == IID_IExtensibility2) {
-        if (!m_extensibility) m_extensibility = new (std::nothrow) CExtensibility(this);
-        if (!m_extensibility) return E_OUTOFMEMORY;
-        m_extensibility->AddRef();
+        if (m_extensibility) {
+            m_extensibility->AddRef();
+        } else {
+            m_extensibility = new (std::nothrow) CExtensibility(this);
+            if (!m_extensibility) return E_OUTOFMEMORY;
+        }
         *object = static_cast<IDispatch*>(m_extensibility);
         return S_OK;
     }
     if (iid == IID_IRibbon) {
-        if (!m_ribbon) m_ribbon = new (std::nothrow) CRibbon(this);
-        if (!m_ribbon) return E_OUTOFMEMORY;
-        m_ribbon->AddRef();
+        if (m_ribbon) {
+            m_ribbon->AddRef();
+        } else {
+            m_ribbon = new (std::nothrow) CRibbon(this);
+            if (!m_ribbon) return E_OUTOFMEMORY;
+        }
         *object = static_cast<IRibbonExtensibility*>(m_ribbon);
         return S_OK;
     }
