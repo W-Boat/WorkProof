@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   platform-tools:
-    name: C2PA CLI build and unit probes (${{ matrix.platform }})
+    name: C2PA native verification (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
@@ -57,6 +57,13 @@ jobs:
         run: cargo build --release --locked --manifest-path tools/c2pa/Cargo.toml
       - name: Run native parser and byte preservation unit probes
         run: cargo test --locked --manifest-path tools/c2pa/Cargo.toml
+      - name: Real native PNG and JPEG signing round trips
+        env:
+          BINARY_SUFFIX: ${{ matrix.suffix }}
+        run: |
+          python -m pip install Pillow==12.0.0
+          cargo build --release --locked --manifest-path tools/c2pa/Cargo.toml --example fixture
+          python scripts/test_c2pa.py "tools/c2pa/target/release/workproof-c2pa$BINARY_SUFFIX" "tools/c2pa/target/release/examples/fixture$BINARY_SUFFIX" --without-network-trace
       - name: Collect actual isolated dependency notices
         run: python scripts/c2pa_notices.py
       - name: Package development CLI and SHA256 manifest
@@ -74,11 +81,13 @@ jobs:
           shutil.copy2('LICENSE',package/'LICENSE')
           shutil.copy2('docs/C2PA.md',package/'C2PA.md')
           shutil.copy2('tools/c2pa/Cargo.lock',package/'Cargo.lock')
+          shutil.copy2('test-c2pa-results.json',package/'test-c2pa-results.json')
           shutil.copytree('.ci-c2pa-notices',package/'third-party')
           (package/'VALIDATION.json').write_text(json.dumps({
               'platform':os.environ['PLATFORM'],
-              'scope':'native release build and parser unit probes',
-              'real_signing_roundtrip_on_this_platform':False,
+              'scope':'native release build, parser probes and real PNG/JPEG signing round trips',
+              'real_signing_roundtrip_on_this_platform':True,
+              'network_calls_measured_on_this_platform':False,
               'public_c2pa_trust_certification':False,
               'signing_credentials_included':False,
               'distribution':'development CLI; macOS notarization and Windows signing not provided'
