@@ -12,4 +12,7 @@ public @interface OperLog {
     String module();
 
     String action();
+
+    /** 是否记录请求内容；证书等用户文件内容应关闭。 */
+    boolean recordParams() default true;
 }

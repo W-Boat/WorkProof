@@ -17,3 +17,7 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
     call-setters-on-nulls: true
+
+workproof:
+  verifier:
+    executable: "${WORKPROOF_VERIFIER_EXECUTABLE:}"

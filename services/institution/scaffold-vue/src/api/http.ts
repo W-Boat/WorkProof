@@ -14,6 +14,8 @@ export interface HttpClientOptions {
 export interface HttpClient {
   get<T>(path: string, query?: QueryParams): Promise<T>
   post<T>(path: string, body?: unknown): Promise<T>
+  /** 按原字节发送 JSON 文件，保留证书中的大整数与原始内容。 */
+  postRawJson<T>(path: string, body: Blob, signal?: AbortSignal): Promise<T>
   put<T>(path: string, body?: unknown): Promise<T>
   delete<T>(path: string): Promise<T>
   download(path: string, query?: QueryParams): Promise<Blob>
@@ -47,12 +49,16 @@ export function createHttpClient(options: HttpClientOptions = {}): HttpClient {
   const tokenProvider = options.tokenProvider ?? authSession.token
   const fetcher = options.fetcher ?? fetch
 
-  async function request<T>(method: string, path: string, body?: unknown, query?: QueryParams): Promise<T> {
+  async function request<T>(method: string, path: string, body?: unknown, query?: QueryParams, rawBody?: Blob, signal?: AbortSignal): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' }
     const token = tokenProvider()
     if (token) headers.Authorization = `Bearer ${token}`
     const init: RequestInit = { method, headers }
-    if (body !== undefined) {
+    if (signal) init.signal = signal
+    if (rawBody !== undefined) {
+      headers['Content-Type'] = 'application/json'
+      init.body = rawBody
+    } else if (body !== undefined) {
       headers['Content-Type'] = 'application/json'
       init.body = JSON.stringify(body)
     }
@@ -83,6 +89,7 @@ export function createHttpClient(options: HttpClientOptions = {}): HttpClient {
   return {
     get: (path, query) => request('GET', path, undefined, query),
     post: (path, body) => request('POST', path, body),
+    postRawJson: (path, body, signal) => request('POST', path, undefined, undefined, body, signal),
     put: (path, body) => request('PUT', path, body),
     delete: (path) => request('DELETE', path),
     download,

@@ -218,7 +218,7 @@ onBeforeUnmount(() => {
             <span class="hero-line">让创作过程，</span>
             <span class="hero-line">有据可查。</span>
           </h1>
-          <p class="login-lead hero-line">管理机构账号、授权范围与操作审计。作品和过程记录由本机核验，签名与身份分别判断。</p>
+          <p class="login-lead hero-line">管理机构账号、访问权限与操作记录。作品可在本机检查；证书仅在你同意后发送到机构服务器。</p>
         </div>
 
         <!-- 实时时钟：秒针对应的刻度点亮，逐秒推进（导 Conduct） -->

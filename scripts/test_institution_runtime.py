@@ -1,5 +1,6 @@
 """CI-only real JAR, MySQL and cache integration. Never target a user's DB."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -28,7 +29,7 @@ seed = (root / "services/institution/scaffold-system/sql/V2__seed_data.sql").rea
 seed = re.sub(r"\$2[aby]\$\d{2}\$[A-Za-z0-9./]{53}", lambda _: hashed, seed)
 mysql = ["docker", "exec", "-i", "-e", "MYSQL_PWD=" + os.environ["DB_PASSWORD"], os.environ["MYSQL_CONTAINER_ID"], "mysql", "--user=workproof_ci", "--default-character-set=utf8mb4", "workproof_ci"]
 subprocess.run(mysql, input=schema + "\n" + seed + "\nUPDATE sys_user SET status=0 WHERE username<>'admin';", text=True, capture_output=True, check=True)
-environment = dict(os.environ, JWT_SECRET=secrets.token_hex(32))
+environment = dict(os.environ, JWT_SECRET=secrets.token_hex(32), WORKPROOF_VERIFIER_EXECUTABLE=str(root / 'target/release/workproof-inspector'))
 port = 18089
 base = f"http://127.0.0.1:{port}"
 
@@ -37,7 +38,8 @@ def request(path, data=None, token=None):
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer " + token
-    req = urllib.request.Request(base + path, data=json.dumps(data).encode() if data is not None else None, headers=headers)
+    payload = data if isinstance(data, bytes) else json.dumps(data).encode() if data is not None else None
+    req = urllib.request.Request(base + path, data=payload, headers=headers)
     try:
         response = urllib.request.urlopen(req, timeout=10)
     except urllib.error.HTTPError as error:
@@ -79,6 +81,42 @@ with log_path.open("wb") as log:
         token = login["data"]["token"]
         assert request("/api/auth/me", token=token)[0] == 200
         assert request("/api/auth/routes", token=token)[0] == 200
+        assert request('/api/workproof/certificates/capabilities')[0] == 401
+        capability = json.loads(request('/api/workproof/certificates/capabilities', token=token)[1])['data']
+        assert capability['configured'] is True and capability['artifactChecked'] is False
+        proof = json.loads((root/'apps/verifier/public/demo/essay.md.wproof').read_text(encoding='utf-8'))
+        def inspect_certificate(certificate):
+            code, body, _ = request('/api/workproof/certificates/inspect', certificate, token)
+            assert code == 200, body[:200]
+            report = json.loads(body)['data']
+            assert report['artifact_checked'] is False and report['identity_verified'] is False and report['time_verified'] is False
+            assert 'file_match' not in report and 'records' not in report and 'signature' not in report
+            return report
+        report = inspect_certificate(proof)
+        fingerprint = hashlib.sha256(bytes.fromhex(proof['signature'])).hexdigest()
+        assert report['certificate_valid'] is True and report['certificateId'] == fingerprint
+        bad_proof = json.loads(json.dumps(proof)); bad_proof['records'][1]['event']['inserted'] += 1
+        assert inspect_certificate(bad_proof)['certificate_valid'] is False
+        selected = root/'test-institution-selected.wproof'
+        subprocess.run([str(root/'target/release/workproof-engine'), 'disclose', str(root/'apps/verifier/public/demo/essay.md.wproof'), str(selected), '5'], check=True, capture_output=True)
+        selected_report = inspect_certificate(json.loads(selected.read_text(encoding='utf-8')))
+        assert selected_report['scope'] == 'selective' and selected_report['chain_valid'] is False and selected_report['certificateId'] == fingerprint
+        assert inspect_certificate(b'not JSON')['certificate_valid'] is False
+        limited_username = 'inspect_' + secrets.token_hex(5)
+        limited_password = secrets.token_hex(16)
+        create_code, created, _ = request('/api/system/users', {'username': limited_username, 'nickname': '证书检查权限夹具', 'password': limited_password, 'phone':'', 'email':limited_username+'@example.com', 'deptId':6, 'status':1, 'roleIds':[4], 'postIds':[6]}, token)
+        assert create_code == 200 and json.loads(created)['code'] == 200
+        limited_captcha = json.loads(request('/api/auth/captcha')[1])['data']
+        limited_login = json.loads(request('/api/auth/login', {'username':limited_username,'password':limited_password,'captchaUuid':limited_captcha['uuid'],'captcha':limited_captcha['code']})[1])
+        limited_token = limited_login['data']['token']
+        assert request('/api/workproof/certificates/capabilities', token=limited_token)[0] == 403
+        assert request('/api/workproof/certificates/inspect', proof, limited_token)[0] == 403
+        request('/api/auth/logout', {}, limited_token)
+        audit = subprocess.run(mysql, input="SELECT request_params FROM sys_oper_log WHERE module='证书核验';", text=True, capture_output=True, check=True).stdout
+        audit_lines = [line.strip() for line in audit.splitlines() if line.strip() and line.strip() != 'request_params']
+        assert audit_lines and all(line == '[]' for line in audit_lines), 'Certificate contents must not be copied into audit records'
+        subprocess.run(['node', str(root/'scripts/test_institution_inspection_ui.cjs')], env=dict(os.environ, WORKPROOF_TEST_ORIGIN=base, WORKPROOF_TEST_TOKEN=token), check=True)
+        print('PASS: real Rust certificate inspection through authenticated Java, full/partial scope, tamper rejection, low-permission denial and content-free audit')
         assert request("/api/auth/logout", {}, token)[0] == 200
         assert request("/api/auth/me", token=token)[0] == 401, "Logout did not revoke cache token"
         print("PASS: real bundled Vue/deep links/assets, API authentication boundaries, generated admin login, cache-backed logout and Office bootstrap")
@@ -91,7 +129,7 @@ with log_path.open("wb") as log:
             process.wait()
         # CI fixture credentials/tokens do not enter retained logs.
         text = log_path.read_text(encoding="utf-8", errors="replace")
-        for value in (password, hashed, environment["JWT_SECRET"], locals().get("token", "")):
+        for value in (password, hashed, environment["JWT_SECRET"], locals().get("token", ""), locals().get("limited_password", ""), locals().get("limited_token", "")):
             if value:
                 text = text.replace(value, "[REDACTED]")
         log_path.write_text(text, encoding="utf-8")

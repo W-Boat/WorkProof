@@ -16,7 +16,10 @@
 - `scaffold-system/scaffold-system/.../controller/OfficeBootstrapController.java`：按服务器 `WORKPROOF_PUBLIC_ORIGIN`（机构 HTTPS 来源地址）生成 Word 安装清单，不包含令牌或作品。
 - `scaffold-framework/.../config/SecurityConfig.java`：Office 静态资源使用独立安全链，允许宿主嵌入；后台 API 继续使用原认证链。
 - `scaffold-admin/src/main/resources/static/office`：由 GitHub Actions 从仓库根 `apps/office` 构建，随机构 JAR 提供；源码与底座公共组件分开。
-- WorkProof 证书索引、批量核验和机构数据权限业务仍待开发，本次接入没有创建或修改数据库表。
+- `scaffold-system/.../controller/CertificateInspectionController.java` → `NativeCertificateInspector.java` → Rust `workproof-inspector`：机构证书内容预检；统一权限 `workproof:certificate:inspect`、返回和审计，不检查作品、不认证身份/时间。
+- `scaffold-vue/src/components/business/CertificateInspectionDialog.vue`、`src/api/certificates.ts`：工作台入口、明确同意后发送原证书字节、完整/部分范围与结果。复用 `FormDialog` 等既有控件；公共 HTTP 客户端增加原字节 JSON 上传，避免重编码签名数据。
+- `OperLog.recordParams=false`：敏感文件接口不将请求内容复制进审计日志；`ServiceException` 统一 429/503/504 临时服务状态，不改变既有业务异常行为。
+- 证书索引入库、批量核验和机构数据权限业务仍待开发；本阶段没有创建或修改数据库表。接口与字段中文说明见根仓库 `docs/INSTITUTION-CERTIFICATES.md`。
 
 > 2026-10-11 更新。用于后续业务开发和排障；“已确认”表示代码链路已核对，运行验证记录见 `changelog.md`。数据库映射已与本地 MySQL 5.7 的真实结构及两份初始化脚本核对。
 

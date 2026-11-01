@@ -50,7 +50,7 @@ public class OperationLogAspect {
                 operLog.action(),
                 request == null ? null : request.getMethod(),
                 request == null ? null : request.getRequestURI(),
-                truncate(params(joinPoint.getArgs()), MAX_PARAMS_LENGTH),
+                operLog.recordParams() ? truncate(params(joinPoint.getArgs()), MAX_PARAMS_LENGTH) : "[]",
                 currentUsername(),
                 request == null ? null : clientIp(request),
                 System.currentTimeMillis() - start,

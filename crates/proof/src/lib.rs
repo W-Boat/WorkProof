@@ -149,6 +149,54 @@ fn signature_valid(m:&Manifest,signature:&str)->bool{
 pub fn verify_evidence(p:&Evidence,artifact_hash:&str,artifact_bytes:u64)->Report{
     match p{Evidence::Full(p)=>verify(p,artifact_hash,artifact_bytes),Evidence::Selective(p)=>verify_disclosure(p,artifact_hash,artifact_bytes)}
 }
+/// Certificate-only inspection deliberately does not report an artifact/file match.
+#[derive(Debug,Serialize,Deserialize)]
+pub struct CertificateInspection{
+    pub protocol:String,pub certificate_valid:bool,pub artifact_checked:bool,
+    pub identity_verified:bool,pub time_verified:bool,
+    pub signature_valid:bool,pub chain_valid:bool,pub merkle_valid:Option<bool>,
+    pub scope:String,pub disclosed_events:u64,pub total_events:u64,pub errors:Vec<String>,
+    pub manifest:Option<Manifest>,pub signature:Option<String>,
+}
+impl CertificateInspection{
+    pub fn rejected(code:&str)->Self{Self{protocol:"workproof-inspection/1".into(),certificate_valid:false,artifact_checked:false,identity_verified:false,time_verified:false,signature_valid:false,chain_valid:false,merkle_valid:None,scope:"unknown".into(),disclosed_events:0,total_events:0,errors:vec![code.into()],manifest:None,signature:None}}
+}
+pub fn inspect_certificate(evidence:&Evidence)->CertificateInspection{
+    let (m,signature)=match evidence{Evidence::Full(p)=>(&p.manifest,&p.signature),Evidence::Selective(p)=>(&p.manifest,&p.signature)};
+    // Bound reflected metadata even on invalid inputs. No user-controlled megabyte fields in stdout.
+    if !supported_manifest(m)||!valid_hash(&m.chain_head)||m.public_key.len()!=64||signature.len()!=128
+        ||!m.public_key.bytes().all(|b|b.is_ascii_hexdigit())||!signature.bytes().all(|b|b.is_ascii_hexdigit()){
+        return CertificateInspection::rejected("INVALID_MANIFEST");
+    }
+    // The claimed hash checks internal consistency only. The result never exposes file_match.
+    let report=verify_evidence(evidence,&m.artifact_hash,m.artifact_bytes);
+    CertificateInspection{protocol:"workproof-inspection/1".into(),certificate_valid:report.valid,artifact_checked:false,identity_verified:false,time_verified:false,
+        signature_valid:report.signature_valid,chain_valid:report.chain_valid,merkle_valid:report.merkle_valid,
+        scope:report.scope,disclosed_events:report.disclosed_events,total_events:report.total_events,errors:report.errors,
+        manifest:Some(m.clone()),signature:report.signature_valid.then(||signature.clone())}
+}
+pub fn inspect_certificate_json(json:&[u8])->CertificateInspection{
+    if json.len()>32*1024*1024{return CertificateInspection::rejected("PROOF_TOO_LARGE");}
+    match serde_json::from_slice::<Evidence>(json){Ok(proof)=>inspect_certificate(&proof),Err(_)=>CertificateInspection::rejected("INVALID_PROOF")}
+}
+#[cfg(test)]mod inspection_tests{
+    use super::*;
+    #[test]fn certificate_inspection_does_not_claim_to_check_the_artifact(){
+        let full=tests::sample();let report=inspect_certificate(&Evidence::Full(full.clone()));
+        assert!(report.certificate_valid&&report.signature_valid&&report.chain_valid);
+        assert!(!report.artifact_checked&&!report.identity_verified&&!report.time_verified);
+        let json=serde_json::to_value(report).unwrap();assert!(json.get("file_match").is_none());
+        let partial=create_disclosure(&full,&[1]).unwrap();let report=inspect_certificate(&Evidence::Selective(partial));
+        assert!(report.certificate_valid&&report.signature_valid);assert!(!report.chain_valid&&!report.artifact_checked);assert_eq!(report.scope,"selective");
+    }
+    #[test]fn modified_records_and_oversize_metadata_are_not_accepted(){
+        let mut full=tests::sample();full.records[1].event.inserted+=1;
+        let report=inspect_certificate(&Evidence::Full(full.clone()));assert!(!report.certificate_valid);assert!(!report.chain_valid);assert!(report.signature_valid);
+        full.manifest.chain_head="private metadata".repeat(10000);
+        let report=inspect_certificate(&Evidence::Full(full));assert!(report.manifest.is_none());assert!(!report.certificate_valid);assert!(serde_json::to_vec(&report).unwrap().len()<2048);
+        assert!(!inspect_certificate_json(b"not JSON").certificate_valid);
+    }
+}
 #[wasm_bindgen]
 pub fn create_disclosure_json(json:&str,indices:&str)->Result<String,JsValue>{
     if json.len()>32*1024*1024||indices.len()>16*1024{return Err(JsValue::from_str("PROOF_TOO_LARGE"));}

@@ -119,6 +119,8 @@ if (-not (Port-IsListening 36379)) {
 }
 if (-not (Port-IsListening $backendPort)) {
     $environment=@{DB_HOST='127.0.0.1';DB_PORT='33307';DB_NAME='workproof_local';DB_USERNAME='workproof_local';DB_PASSWORD=$localConfig.dbPassword;REDIS_HOST='127.0.0.1';REDIS_PORT='36379';REDIS_PASSWORD=$localConfig.redisPassword;JWT_SECRET=$localConfig.jwtSecret}
+    $nativeInspector=Join-Path $root 'native/workproof-inspector.exe'
+    if (Test-Path -LiteralPath $nativeInspector -PathType Leaf) {$environment.WORKPROOF_VERIFIER_EXECUTABLE=(Resolve-Path -LiteralPath $nativeInspector).Path}
     $serverArgs=@(('-Djava.io.tmpdir='+(Join-Path $root 'temp')),'-Xms96m','-Xmx384m','-jar',$jar,'--server.address=127.0.0.1',"--server.port=$backendPort")
     if ($tlsEnabled) {
         $certUri=[System.Uri]::new((Join-Path $state 'tls/localhost.crt')).AbsoluteUri

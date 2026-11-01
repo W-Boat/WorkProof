@@ -2,6 +2,21 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createHttpClient, ApiError, setUnauthorizedHandler } from '../http.ts'
 
+test('raw JSON upload preserves signed bytes and shares authentication and cancellation', async () => {
+  const raw = new Blob(['{ "artifact_bytes":18446744073709551615, "signature":"fixture" }'])
+  const controller = new AbortController()
+  let sent: RequestInit | undefined
+  const client = createHttpClient({ tokenProvider: () => 'fixture-token', fetcher: async (_url, init) => {
+    sent = init
+    return new Response(JSON.stringify({code:200, message:'ok', data:{artifact_checked:false}}), {status:200})
+  } })
+  await client.postRawJson('/workproof/certificates/inspect', raw, controller.signal)
+  assert.equal(sent?.body, raw)
+  assert.equal(sent?.signal, controller.signal)
+  assert.equal((sent?.headers as Record<string, string>).Authorization, 'Bearer fixture-token')
+  assert.equal(await (sent?.body as Blob).text(), await raw.text())
+})
+
 test('http client sends bearer token and unwraps unified response data', async () => {
   const calls: Array<{ url: string; init: RequestInit }> = []
   const fetcher = async (url: string | URL | Request, init?: RequestInit) => {

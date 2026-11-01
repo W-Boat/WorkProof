@@ -9,6 +9,11 @@ fn read_proof(path:&str)->Result<Vec<u8>,Box<dyn std::error::Error>>{
 #[tokio::main(worker_threads = 2)]
 async fn main()->Result<(),Box<dyn std::error::Error>> {
     let args:Vec<String>=std::env::args().collect();
+    if args.get(1).map(String::as_str)==Some("inspect-stdin"){
+        if args.len()!=2{return Err("Usage: workproof-engine inspect-stdin < certificate.wproof".into());}
+        let mut bytes=vec![];std::io::stdin().take(32*1024*1024+1).read_to_end(&mut bytes)?;
+        println!("{}",serde_json::to_string(&workproof_protocol::inspect_certificate_json(&bytes))?);return Ok(());
+    }
     if args.get(1).map(String::as_str)==Some("serve-web") {
         let dir=args.get(2).ok_or("Usage: workproof-engine serve-web DIRECTORY")?;
         if !std::path::Path::new(dir).join("index.html").is_file(){return Err("Directory must contain the exported verifier index.html".into());}
@@ -39,5 +44,6 @@ async fn main()->Result<(),Box<dyn std::error::Error>> {
         let report=verify_evidence(&p,&hasher.finalize().to_hex().to_string(),length);
         println!("{}",serde_json::to_string_pretty(&report)?);if !report.valid{std::process::exit(2);}return Ok(());
     }
+    if args.len()!=1{return Err("Unknown WorkProof command".into());}
     workproof_engine::run(43127).await
 }

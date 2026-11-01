@@ -1,7 +1,7 @@
 name: Institution backend baseline
 on:
   push:
-    paths: ['services/institution/**', 'apps/office/**', 'scripts/local/**', 'scripts/test_institution_runtime.py', 'scripts/test_local_runtime.ps1', '.github/workflows/institution.yml']
+    paths: ['services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution_runtime.py', 'scripts/test_local_runtime.ps1', '.github/workflows/institution.yml']
   workflow_dispatch:
     inputs:
       windows_only:
@@ -45,6 +45,12 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: services/institution/scaffold-vue/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build shared native certificate verifier and signed fixture
+        run: |
+          cargo build --locked -p workproof-engine --release
+          cargo run --locked -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
       - name: Shared backend tests
         working-directory: services/institution/scaffold-system
         run: mvn -B -pl scaffold-system -am test
@@ -65,6 +71,8 @@ jobs:
       - name: Package institution service
         working-directory: services/institution/scaffold-system
         run: mvn -B -pl scaffold-admin -am package -DskipTests
+      - name: Install browser for the real institution certificate workflow
+        run: npx playwright install --with-deps chromium
       - name: Test the real bundled application, generated password and API boundaries
         env:
           DB_HOST: 127.0.0.1
@@ -82,6 +90,9 @@ jobs:
           path: |
             services/institution/scaffold-system/scaffold-admin/target/*.jar
             services/institution/scaffold-vue/dist/
+            target/release/workproof-engine
+            target/release/workproof-inspector
+            test-results/institution-certificate-inspection-*.png
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
