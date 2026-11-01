@@ -35,6 +35,19 @@ jobs:
       - name: Collect isolated dependency notices
         if: ${{ always() && steps.build.conclusion == 'success' }}
         run: python scripts/c2pa_notices.py
+      - name: Package optional Linux tool with actual notices
+        run: |
+          cargo build --release --locked --manifest-path tools/c2pa/Cargo.toml
+          mkdir -p .ci-c2pa-dist/package/third-party
+          cp tools/c2pa/target/release/workproof-c2pa .ci-c2pa-dist/package/
+          cp LICENSE docs/C2PA.md .ci-c2pa-dist/package/
+          cp -r .ci-c2pa-notices/. .ci-c2pa-dist/package/third-party/
+          tar -czf .ci-c2pa-dist/workproof-c2pa-linux-x64-dev.tar.gz -C .ci-c2pa-dist/package .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-c2pa-linux-x64-dev
+          path: .ci-c2pa-dist/workproof-c2pa-linux-x64-dev.tar.gz
+          include-hidden-files: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

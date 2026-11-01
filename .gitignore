@@ -9,6 +9,7 @@ test-results/
 playwright-report/
 test-timestamp-fixtures/
 .ci-c2pa-notices/
+.ci-c2pa-dist/
 test-c2pa-results.json
 apps/verifier/public/wasm/
 apps/desktop/src-tauri/resources/
