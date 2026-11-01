@@ -1,5 +1,7 @@
 # WorkProof 商业使用许可核验
 
+AI运行时新增[实际安装许可原文归档](AI-RUNTIME-NOTICES.md)，来源于具体CI环境的 distribution RECORD，逐文件保留原文与SHA并明列缺失。不覆盖二进制内嵌组件、系统库或模型训练数据，不能以归档存在宣称全部商业使用放行。中英文MPU卡片均只声明Apache-2.0，基础模型精确血缘未由配置相对路径证明。
+
 2026-11-01 C2PA独立工具增量：c2pa0.91.7精确锁定，独立Cargo.lock，不加入守护进程依赖图。[专项41288148673](https://github.com/W-Boat/WorkProof/actions/runs/41288148673)采集333个解析包（含开发与可选目标，比实际链接集合更广）的许可声明及正文。SDK自身发布包缺根LICENSE，已按归档VCS提交保留双许可证；其他缺失文本逐项补充，见 [证据说明](licenses/c2pa-supplemental/README.md)。三个上游仅在README授权Apache/MIT任选的包保留作者原授权、Cargo作者字段并选择Apache-2.0标准正文，未伪造上游文件；r-efi选择MIT分支。该依赖集合的声明包含MIT/Apache、BSD、Zlib、Unicode等不同条件，不能称为全MIT。模型权重和新增AI检测引擎尚未接入或商业放行，必须按[AI辅助阶段](AI-ASSESSMENT.md)分别审核代码、权重和数据条款。本增量不解除下面对整个产品分发的既有约束。
 
 2026-11-01 时间戳浏览器增量：新增固定版本PKI.js3.3.3、asn1js3.0.6、bytestreamjs2.0.1（BSD-3-Clause），以及@noble/hashes1.4.0、pvtsutils1.3.6、pvutils1.2.0（MIT）。已核对npm锁定包的SHA-512 integrity并提取实际包内许可，见 [证据记录](licenses/timestamp-npm-notices/evidence.json) 及同目录完整版权/许可文本。上述许可支持含商业场景的使用与分发，须遵守保留版权、许可及BSD不背书条件；这不改变下文对整个产品分发尚有约束的判断。此增量不把OpenSSL可执行程序打包进产品。

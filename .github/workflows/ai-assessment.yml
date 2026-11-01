@@ -35,7 +35,28 @@ jobs:
       - name: Document extraction and hostile OOXML boundaries
         run: python tools/ai-assessment/test_documents.py
       - name: Record installed runtime licenses
-        run: pip inspect > ai-runtime-inventory.json
+        run: |
+          pip inspect > ai-runtime-inventory.json
+          python tools/ai-assessment/test_collect_notices.py
+          python tools/ai-assessment/collect_notices.py --output ai-runtime-notices
+          python - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path('ai-runtime-notices')
+          manifest=json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['commercial_clearance'] is False
+          names={package['name'].lower() for package in manifest['packages']}
+          assert {'torch','transformers','safetensors','tokenizers'} <= names
+          count=0
+          for package in manifest['packages']:
+              for item in package['files']:
+                  source=pathlib.PurePosixPath(item['source'])
+                  assert not source.is_absolute() and '..' not in source.parts and ':' not in str(source)
+                  raw=(root/item['archive']).read_bytes()
+                  assert len(raw)==item['bytes'] and hashlib.sha256(raw).hexdigest()==item['sha256']
+                  count+=1
+          assert count>0
+          print('Verified installed notice hashes:',count,'; unresolved packages:',sum(bool(p['issues']) for p in manifest['packages']))
+          PY
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -57,5 +78,6 @@ jobs:
             ai-reference-results.json
             ai-document-results.json
             ai-runtime-inventory.json
+            ai-runtime-notices/
             services/institution/scaffold-system/scaffold-system/target/surefire-reports/*AiAnalysisServiceTest*.xml
             /tmp/workproof-ai-model/workproof-model.json

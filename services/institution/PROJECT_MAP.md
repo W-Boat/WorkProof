@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+AiAnalysisDialog 按文件→语言→同意组织，完成后需换文件或语言才再发送；所有按钮/浮层/下载均继续复用管理端底座。Python运行环境许可原文在独立模型CI归档，不进入常驻引擎。
+
 - AiAnalysisService 的固定引擎描述统一模型/语言/revision，校验实际报告版本；AiAnalysisDialog 使用已有 downloadBlob 保存独立辅助记录，不更改原证书。
 
 本轮 AI 引擎更新为 mpu-zh-v3 / mpu-en-v3，拒绝旧 GPT-2 ID；原始报告标签统一 Human/AI。共享 FilePicker 的外层分组与内部输入分别命名，避免无障碍名称歧义。真实模型专项新增英文生产网页路径。

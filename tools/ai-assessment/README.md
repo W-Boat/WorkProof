@@ -41,3 +41,5 @@ JSON 输入形如 `{"language":"en","text":"..."}`。prepare 明确联网下载�
 中英文固定 revision 模型卡均声明 Apache-2.0；[英文模型卡](https://huggingface.co/yuchuantian/AIGC_detector_env3/blob/3ceb1d1bb7b9ca11585ce3f4299950e1c465b6d8/README.md)仅有许可标签。英文配置指向 RoBERTa-base，中文指向 hfl/chinese-roberta-wwm-ext。代码、权重、基础模型及实际运行依赖的完整许可材料仍需分别核对，当前不作整套环境商业分发放行。
 
 专用 Actions 显式准备真实固定权重，检查离线推理、语言/短文状态、真实 DOCX 输入及 Java 服务调用；机构手动 `ai_models=true` 另验证生产网页中英文选择和结果。公开产物只保留结果、依赖清单及模型文件摘要，不含权重或作品正文。不同方法的引擎、现代样本误报评估、长期任务和安装向导仍待完成。
+
+实际安装环境的许可原文与缺失项归档见[运行时许可](../../docs/AI-RUNTIME-NOTICES.md)；不能将顶层依赖声明或模型卡标签当作整体商业分发放行。

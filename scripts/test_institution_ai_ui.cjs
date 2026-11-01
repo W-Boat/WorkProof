@@ -38,6 +38,7 @@ const {chromium,expect}=require('@playwright/test');
       await dialog.getByRole('combobox').click();await page.getByRole('option',{name:'英文 MPU v3',exact:true}).click();
       await expect(submit).toBeDisabled();await dialog.getByText('我同意将所选文档发送给机构服务器进行辅助分析',{exact:true}).click();await submit.click();
       await expect(dialog.getByText('仅供人工参考',{exact:true})).toBeVisible({timeout:150000});
+      await expect(dialog.getByRole('button',{name:'本次分析已结束',exact:true})).toBeDisabled();
       await expect(dialog.getByText('文档 SHA-256：'+crypto.createHash('sha256').update(english).digest('hex'),{exact:true})).toBeVisible();
       await expect(dialog.getByText('更接近生成样本的模型得分',{exact:true})).toBeVisible();
     }
