@@ -38,6 +38,7 @@ jobs:
       - name: Package optional Linux tool with actual notices
         run: |
           cargo build --release --locked --manifest-path tools/c2pa/Cargo.toml
+          python scripts/test_c2pa.py tools/c2pa/target/release/workproof-c2pa tools/c2pa/target/debug/examples/fixture
           mkdir -p .ci-c2pa-dist/package/third-party
           cp tools/c2pa/target/release/workproof-c2pa .ci-c2pa-dist/package/
           cp LICENSE docs/C2PA.md .ci-c2pa-dist/package/
