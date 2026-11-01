@@ -48,7 +48,7 @@ async function refresh(){
         const card=document.createElement('div'),title=document.createElement('strong'),origin=document.createElement('p');
         const native=request.channel==='native';
         title.textContent=`${adapterName(request.source)} 想连接 WorkProof`;origin.textContent=native?'插件称自己来自本机，尚未确认发布者。':request.origin;
-        const note=document.createElement('p');note.textContent=native?'请只允许你刚在 Photoshop 中发起的连接。这次允许只用于提交和导出它自己的记录，不允许通过 WorkProof 读取本机文件。':'请确认下面的网址属于你刚打开的加载项。这次允许只用于提交和导出它自己的记录，不允许通过 WorkProof 读取本机文件。';
+        const note=document.createElement('p');note.textContent=native?`请只允许你刚在 ${adapterName(request.source)} 中发起的连接。这次允许只用于提交和导出它自己的记录，不允许通过 WorkProof 读取本机文件。`:'请确认下面的网址属于你刚打开的加载项。这次允许只用于提交和导出它自己的记录，不允许通过 WorkProof 读取本机文件。';
         card.append(title,origin,note);
         for(const [text,approve] of [['允许连接',true],['拒绝',false]]){
           const button=document.createElement('button');button.textContent=text;
@@ -70,7 +70,7 @@ for(const [id,command] of [['install','install_vscode'],['verify','open_verifier
 }
 
 const guides={
-  word:{steps:['打开 Word 文档，在“加载项”中打开 WorkProof。','点击“开始记录当前文档”，回到这里核对网址并允许连接。','完成后导出作品和证书，将这两个文件一起交付。'],note:'还没有 WorkProof 加载项？请先按学校或团队提供的安装说明完成安装。当前桌面包不会自动安装 Word 加载项。'},
+  word:{steps:['打开已保存的 Word 文档，在功能区选择 WorkProof → 打开创作记录。','点击“开始记录”，回到这里核对来源为 Word 并允许连接。','完成后导出作品和证书，将这两个文件一起交付。'],note:'Windows Word 原生加载项需先运行安装包中的 install-native-word.ps1，再保存文档并重开 Word。网页版和 Mac 使用单独的网页加载项安装方式。'},
   wps:{steps:['打开 WPS 文档，在 WorkProof 标签中选择“打开记录工作台”。','点击开始记录，回到这里核对网址并允许连接。','完成后导出作品和证书，将这两个文件一起交付。'],note:'WPS 暂未提供面向普通用户的一键安装包，当前需按接入说明安装。没有安装入口时，请联系学校或团队。'},
   vscode:{steps:['先点击下方按钮，安装 WorkProof 插件。','打开文件，点击 VS Code 底部的 WorkProof，选择记录当前文件。','完成后导出证书，将它与这份作品一起交付。'],note:'需要先安装 VS Code。插件会自动连接本机的 WorkProof。'},
   photoshop:{steps:['先安装 WorkProof 插件，再从 Photoshop 的插件菜单打开它。','选择作品副本的位置，点击开始，并回到这里允许连接。','完成后导出 PSD 副本和证书，将这两个文件一起交付。'],note:'Photoshop 当前提供测试版插件文件，尚未提供正式的一键安装包。请交付本次导出的 PSD 副本。'},

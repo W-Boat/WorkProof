@@ -1,16 +1,16 @@
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 
-async function desktop(page:import('@playwright/test').Page,fail=false){
+async function desktop(page:import('@playwright/test').Page,fail=false,nativeWord=false){
   await page.route('**/desktop-status/**',route=>{
     const script=new URL(route.request().url()).pathname.endsWith('status.js');
     return route.fulfill({contentType:script?'application/javascript':'text/html',body:fs.readFileSync('apps/desktop/ui/'+(script?'status.js':'index.html'),'utf8')});
   });
-  await page.addInitScript(({fail})=>{
+  await page.addInitScript(({fail,nativeWord})=>{
     let connections=[{ticket:'word-ticket',origin:'https://school.example',source:'word',channel:'browser',expires_in_seconds:1800,sessions:2},{ticket:'wps-ticket',origin:'https://wps.example',source:'wps',channel:'browser',expires_in_seconds:3600,sessions:1}];
     (window as any).__TAURI__={core:{invoke:async(command:string,args?:{ticket:string})=>{
       if(command==='engine_status')return {ready:true,sessions:3,events:12};
-      if(command==='pending_adapters')return [];
+      if(command==='pending_adapters')return nativeWord?[{ticket:'native-word',origin:'',source:'word',channel:'native'}]:[];
       if(command==='adapter_connections')return connections;
       if(command==='revoke_adapter'){
         if(fail)throw new Error('撤销失败，请重试');
@@ -18,9 +18,17 @@ async function desktop(page:import('@playwright/test').Page,fail=false){
       }
       throw new Error('Unexpected IPC command '+command);
     }}};
-  },{fail});
+  },{fail,nativeWord});
   await page.goto('/desktop-status/index.html');
 }
+
+test('native Word approval names Word and discloses unverified publisher',async({page})=>{
+  await desktop(page,false,true);
+  await expect(page.getByText('Word 想连接 WorkProof',{exact:true})).toBeVisible();
+  await expect(page.getByText('插件称自己来自本机，尚未确认发布者。',{exact:true})).toBeVisible();
+  await expect(page.getByText(/请只允许你刚在 Word 中发起的连接/)).toBeVisible();
+  await expect(page.getByText(/请只允许你刚在 Photoshop 中发起的连接/)).toHaveCount(0);
+});
 
 test('desktop shows grant origins and revokes one connection while retaining the other',async({page})=>{
   await desktop(page);
