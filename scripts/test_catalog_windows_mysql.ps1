@@ -27,7 +27,7 @@ try {
     $schema=Get-Content (Join-Path $PSScriptRoot '../services/institution/scaffold-system/sql/V1__init_schema.sql') -Raw
     $seed=Get-Content (Join-Path $PSScriptRoot '../services/institution/scaffold-system/sql/V2__seed_data.sql') -Raw
     [void](RootQuery ("USE workproof_local;`n"+$schema+"`n"+$seed+"`nCREATE TABLE restore_probe(id INT PRIMARY KEY, payload BLOB, text_value VARCHAR(100)); INSERT INTO restore_probe VALUES(1,UNHEX('000AFF7F'),'中文证书,引号'),(2,NULL,'保留原数据');"))
-    $accounts=RootQuery "SELECT SHA2(GROUP_CONCAT(CONCAT(id,':',username,':',password) ORDER BY id SEPARATOR '|'),256) FROM workproof_local.sys_user;"
+    $accounts=RootQuery "SELECT id,username,password FROM workproof_local.sys_user ORDER BY id;"
     & (Join-Path $PSScriptRoot 'local/prepare-catalog.ps1') -RuntimeRoot $root
     if ((RootQuery "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='workproof_local' AND table_name='wp_certificate';") -ne '0') {throw 'Plan wrote database'}
     # A real missing executable must prevent migration, not just a mocked error.
@@ -42,14 +42,14 @@ try {
     & (Join-Path $PSScriptRoot 'local/prepare-catalog.ps1') -RuntimeRoot $root -Apply
     $receipt=Get-Content (Join-Path $root 'state/catalog.json') -Raw | ConvertFrom-Json
     if (-not $receipt.enabled -or $receipt.backupSha256 -ne (Get-FileHash -LiteralPath $receipt.backupFile).Hash.ToLowerInvariant()) {throw 'Invalid real backup receipt'}
-    if ($accounts -ne (RootQuery "SELECT SHA2(GROUP_CONCAT(CONCAT(id,':',username,':',password) ORDER BY id SEPARATOR '|'),256) FROM workproof_local.sys_user;")) {throw 'Existing accounts changed during migration'}
+    if ($accounts -ne (RootQuery "SELECT id,username,password FROM workproof_local.sys_user ORDER BY id;")) {throw 'Existing accounts changed during migration'}
     if ((RootQuery 'SELECT COUNT(*) FROM workproof_local.wp_certificate;') -ne '0') {throw 'Unexpected certificate rows'}
     $backups=@(Get-ChildItem (Join-Path $root 'state/backups') -Filter '*.sql').Count
     & (Join-Path $PSScriptRoot 'local/prepare-catalog.ps1') -RuntimeRoot $root -Apply
     if (@(Get-ChildItem (Join-Path $root 'state/backups') -Filter '*.sql').Count -ne $backups) {throw 'Repeat preparation created another backup'}
     # Restore into a second database, never overwrite the original even in CI.
     [void](RootQuery ("USE workproof_restore_ci;`n"+(Get-Content -LiteralPath $receipt.backupFile -Raw)))
-    if ($accounts -ne (RootQuery "SELECT SHA2(GROUP_CONCAT(CONCAT(id,':',username,':',password) ORDER BY id SEPARATOR '|'),256) FROM workproof_restore_ci.sys_user;")) {throw 'Restored accounts differ'}
+    if ($accounts -ne (RootQuery "SELECT id,username,password FROM workproof_restore_ci.sys_user ORDER BY id;")) {throw 'Restored accounts differ'}
     if ((RootQuery "SELECT COUNT(*) FROM workproof_restore_ci.restore_probe a JOIN workproof_local.restore_probe b ON a.id=b.id WHERE a.payload <=> b.payload AND BINARY a.text_value=BINARY b.text_value;") -ne '2') {throw 'Backup lost binary, NULL or Unicode data'}
     if ((RootQuery "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='workproof_restore_ci' AND table_name='wp_certificate';") -ne '0') {throw 'Backup unexpectedly includes post-migration table'}
     Write-Output 'PASS: real Windows MySQL plan, backup failure refusal, mysqldump, V3, original accounts, repeat preparation and isolated binary/NULL/Unicode restoration.'
