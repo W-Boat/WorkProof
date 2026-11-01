@@ -1,0 +1,56 @@
+[
+  {
+    "name": "asn1js",
+    "version": "3.0.6",
+    "license": "BSD-3-Clause",
+    "integrity": "sha512-UOCGPYbl0tv8+006qks/dTgV9ajs97X2p0FAbyS2iyCRrmLSRolDaHdp+v/CLgnzHc3fVB+CwYiUmei7ndFcgA==",
+    "license_files": [
+      "package/LICENSE"
+    ]
+  },
+  {
+    "name": "bytestreamjs",
+    "version": "2.0.1",
+    "license": "BSD-3-Clause",
+    "integrity": "sha512-U1Z/ob71V/bXfVABvNr/Kumf5VyeQRBEm6Txb0PQ6S7V5GpBM3w4Cbqz/xPDicR5tN0uvDifng8C+5qECeGwyQ==",
+    "license_files": [
+      "package/LICENSE"
+    ]
+  },
+  {
+    "name": "pkijs",
+    "version": "3.3.3",
+    "license": "BSD-3-Clause",
+    "integrity": "sha512-+KD8hJtqQMYoTuL1bbGOqxb4z+nZkTAwVdNtWwe8Tc2xNbEmdJYIYoc6Qt0uF55e6YW6KuTHw1DjQ18gMhzepw==",
+    "license_files": [
+      "package/LICENSE"
+    ]
+  },
+  {
+    "name": "@noble/hashes",
+    "version": "1.4.0",
+    "license": "MIT",
+    "integrity": "sha512-V1JJ1WTRUqHHrOSh597hURcMqVKVGL/ea3kv0gSnEdsEZ0/+VyPghM1lMNGc00z7CIQorSvbKpuJkxvuHbvdbg==",
+    "license_files": [
+      "package/LICENSE"
+    ]
+  },
+  {
+    "name": "pvtsutils",
+    "version": "1.3.6",
+    "license": "MIT",
+    "integrity": "sha512-PLgQXQ6H2FWCaeRak8vvk1GW462lMxB5s3Jm673N82zI4vqtVUPuZdffdZbPDFRoU8kAhItWFtPCWiPpp4/EDg==",
+    "license_files": [
+      "package/LICENSE"
+    ]
+  },
+  {
+    "name": "pvutils",
+    "version": "1.2.0",
+    "license": "MIT",
+    "integrity": "sha512-BbubeCEyTuQjVMakvJQ/Sxbc93F2pwmbsxONT/ZRrwU7Ua38d8unYTwXpTVLAKJ4BDuH9IGztCjQcd/N/39Dvg==",
+    "license_files": [
+      "package/LICENSE"
+    ]
+  }
+]

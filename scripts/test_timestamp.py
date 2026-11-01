@@ -70,4 +70,8 @@ ess_cert_id_alg=sha256
     verify(p=selected)  # same original signature, honest partial scope remains in .wproof
     corrupt=root/'corrupt.tsr';corrupt.write_bytes(response.read_bytes()[:-20]);verify(r=corrupt,ok=False)
     assert proof.read_bytes()==original, 'Timestamp exchange must not rewrite the signed proof'
+    fixtures=pathlib.Path('test-timestamp-fixtures');fixtures.mkdir(exist_ok=True)
+    for source,target in [(query,'request.tsq'),(response,'response.tsr'),(root/'ca.pem','ca.pem'),(wrong_ca,'wrong-ca.pem'),(other_query,'other.tsq'),(legacy_query,'legacy.tsq'),(legacy_response,'legacy.tsr')]:
+        shutil.copyfile(source,fixtures/target)
+    # Only public fixtures are retained for browser cross-verification; never copy TSA keys.
 print('PASS: real synthetic RFC3161 request/response, explicit CA trust, nonce/data binding, tamper/wrong-root/truncation rejection and no proof mutation; not a public TSA endorsement')

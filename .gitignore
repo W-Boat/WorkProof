@@ -7,6 +7,7 @@ dist/
 .runtime/
 test-results/
 playwright-report/
+test-timestamp-fixtures/
 apps/verifier/public/wasm/
 apps/desktop/src-tauri/resources/
 .ci-artifacts/

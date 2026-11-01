@@ -1,5 +1,9 @@
 # 外部时间凭据：RFC 3161 工具
 
+浏览器增量（待Actions）：作品与证书先通过原Rust核验后，展开“检查外部时间凭据”，选择原始tsq、tsr以及独立获得的CA PEM，明确确认信任来源后在本机检查。只支持SHA256、SigningCertificateV2的DER凭据，限制请求8KiB/响应128KiB/CA256KiB/根8张/嵌入证书10张；校验nonce、原签名字节摘要、CMS签名、ESS证书绑定、专用关键时间戳EKU及当前证书有效期，拒绝未来超过5分钟的时间。PKI.js的链验证使用TSTInfo时间，额外检查所选路径在当前时刻也有效；未实现撤销或长期历史核验。
+
+新增按需加载PKI.js3.3.3及asn1js3.0.6；依赖锁定并保留实际包内许可文本与integrity证据于 `docs/licenses/timestamp-npm-notices`。不新增守护进程依赖。页面仅展示单独检查的TSA时间和本次信任CA指纹，不改原证书的身份/实际创作时间声明。
+
 新增可选 Rust CLI `workproof-timestamp`，使用管理员显式指定的 OpenSSL 3 可执行文件生成标准请求和核验标准响应。它不进入后台守护进程，不新增 Rust 依赖，不更改 `.wproof` 或原签名，不连接网络。当前是原生互操作增量；浏览器核验、时间值展示、TSA服务配置和自动请求仍未实现。
 
 依据 [RFC 3161](https://www.rfc-editor.org/rfc/rfc3161.html) 与 [OpenSSL ts 官方文档](https://docs.openssl.org/3.5/man1/openssl-ts/)。时间戳绑定原证书已验证的64字节签名，使用SHA-256和随机nonce；完整/部分记录保留相同原签名，因此可使用同一时间凭据，但它不证明部分文件的生成时间。
