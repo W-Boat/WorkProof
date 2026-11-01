@@ -1,0 +1,286 @@
+{
+  "packages": [
+    {
+      "name": "alloc-stdlib",
+      "version": "0.2.4",
+      "archive_checksum": "0e76a019e91224d279006ff972f1e984179a6e9feb050adba6ce8274aef23195",
+      "source_commit": "ae42d22078b98549e987d2f03d12df7b984fde47",
+      "declared_license": "BSD-3-Clause",
+      "selected_option": null,
+      "folder": "alloc-stdlib-0.2.4",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "source": "https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/ae42d22078b98549e987d2f03d12df7b984fde47/LICENSE",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
+        }
+      ]
+    },
+    {
+      "name": "asn1-rs-impl",
+      "version": "0.2.0",
+      "archive_checksum": "7b18050c2cd6fe86c3a76584ef5e0baf286d038cda203eb6223df2cc413565f7",
+      "source_commit": "a20e5f7319c896737ad0f2557037817b91ad854f",
+      "declared_license": "MIT/Apache-2.0",
+      "selected_option": null,
+      "folder": "asn1-rs-impl-0.2.0",
+      "notices": [
+        {
+          "file": "LICENSE-APACHE",
+          "source": "https://raw.githubusercontent.com/rusticata/asn1-rs/a20e5f7319c896737ad0f2557037817b91ad854f/LICENSE-APACHE",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "file": "LICENSE-MIT",
+          "source": "https://raw.githubusercontent.com/rusticata/asn1-rs/a20e5f7319c896737ad0f2557037817b91ad854f/LICENSE-MIT",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "a5c61b93b6ee1d104af9920cf020ff3c7efe818e31fe562c72261847a728f513"
+        }
+      ]
+    },
+    {
+      "name": "btree-range-map",
+      "version": "0.7.2",
+      "archive_checksum": "1be5c9672446d3800bcbcaabaeba121fe22f1fb25700c4562b22faf76d377c33",
+      "source_commit": "ad2af35cd1fe34a3bee5a95a0db1537846368c23",
+      "declared_license": "MIT/Apache-2.0",
+      "selected_option": "Apache-2.0",
+      "folder": "btree-range-map-0.7.2",
+      "notices": [
+        {
+          "file": "UPSTREAM-README.md",
+          "source": "https://raw.githubusercontent.com/timothee-haudebourg/btree-range-map/ad2af35cd1fe34a3bee5a95a0db1537846368c23/README.md",
+          "kind": "actual-pinned-upstream-grant",
+          "sha256": "06e9b4ecd771507225f402fc98a6ee3fa34a9c7a428cabfd5de0b661e96a6b95"
+        },
+        {
+          "file": "LICENSE-APACHE-CANONICAL.txt",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "kind": "canonical-selected-license-text-not-upstream-file",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "delegate",
+      "version": "0.8.0",
+      "archive_checksum": "082a24a9967533dc5d743c602157637116fc1b52806d694a5a45e6f32567fcdd",
+      "source_commit": "e2880cf7b69684aaab86855aa128d9fb0321b0c9",
+      "declared_license": "MIT OR Apache-2.0",
+      "selected_option": null,
+      "folder": "delegate-0.8.0",
+      "notices": [
+        {
+          "file": "LICENSE-APACHE",
+          "source": "https://raw.githubusercontent.com/kobzol/rust-delegate/e2880cf7b69684aaab86855aa128d9fb0321b0c9/LICENSE-APACHE",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+        },
+        {
+          "file": "LICENSE-MIT",
+          "source": "https://raw.githubusercontent.com/kobzol/rust-delegate/e2880cf7b69684aaab86855aa128d9fb0321b0c9/LICENSE-MIT",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "be7ee8aa49dc586023669a0c600a0536fce6a9f61264a53a67cdd842564ed899"
+        }
+      ]
+    },
+    {
+      "name": "iref-core",
+      "version": "3.2.2",
+      "archive_checksum": "b10559a0d518effd4f2cee107f40f83acf8583dcd3e6760b9b60293b0d2c2a70",
+      "source_commit": "28add683f31d48caad073dcf6bd29fcc0ef90ee8",
+      "declared_license": "MIT/Apache-2.0",
+      "selected_option": null,
+      "folder": "iref-core-3.2.2",
+      "notices": [
+        {
+          "file": "LICENSE-APACHE",
+          "source": "https://raw.githubusercontent.com/timothee-haudebourg/iref/28add683f31d48caad073dcf6bd29fcc0ef90ee8/LICENSE-APACHE",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "file": "LICENSE-MIT",
+          "source": "https://raw.githubusercontent.com/timothee-haudebourg/iref/28add683f31d48caad073dcf6bd29fcc0ef90ee8/LICENSE-MIT",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "jfifdump",
+      "version": "0.6.0",
+      "archive_checksum": "68cf72bc7b75b6615ffd06bfe6840f3c57e7e4ea615558a2a452f458ebf5551e",
+      "source_commit": "013c03f3e5a7405974ddd1469d0ce4219c8b225b",
+      "declared_license": "MIT OR Apache-2.0",
+      "selected_option": null,
+      "folder": "jfifdump-0.6.0",
+      "notices": [
+        {
+          "file": "LICENSE-APACHE",
+          "source": "https://raw.githubusercontent.com/vstroebel/jfifdump/013c03f3e5a7405974ddd1469d0ce4219c8b225b/LICENSE-APACHE",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "85a884980abd6032fc6b5439ba918ab16db9ac9051b5cf18db9c27c587df07c0"
+        },
+        {
+          "file": "LICENSE-MIT",
+          "source": "https://raw.githubusercontent.com/vstroebel/jfifdump/013c03f3e5a7405974ddd1469d0ce4219c8b225b/LICENSE-MIT",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "4d022727ea392ebba2fe5e9a5f78c610a0eae506b491f3db29c78b6d430d6503"
+        }
+      ]
+    },
+    {
+      "name": "r-efi",
+      "version": "5.3.0",
+      "archive_checksum": "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f",
+      "source_commit": "97b55bed1c2c91dcbf787674849f05337ff80b33",
+      "declared_license": "MIT OR Apache-2.0 OR LGPL-2.1-or-later",
+      "selected_option": "MIT",
+      "folder": "r-efi-5.3.0",
+      "notices": [
+        {
+          "file": "AUTHORS",
+          "source": "https://static.crates.io/crates/r-efi/r-efi-5.3.0.crate",
+          "kind": "actual-package-license-and-authors",
+          "sha256": "ff92bed461f50338dd703a9ba9aee496a425957873df1d91192776e4bdf5dda7"
+        }
+      ]
+    },
+    {
+      "name": "r-efi",
+      "version": "6.0.0",
+      "archive_checksum": "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf",
+      "source_commit": "7e1b0322d31d625f81a5656096330934f9cd835d",
+      "declared_license": "MIT OR Apache-2.0 OR LGPL-2.1-or-later",
+      "selected_option": "MIT",
+      "folder": "r-efi-6.0.0",
+      "notices": [
+        {
+          "file": "AUTHORS",
+          "source": "https://static.crates.io/crates/r-efi/r-efi-6.0.0.crate",
+          "kind": "actual-package-license-and-authors",
+          "sha256": "d027e91dbc9cdbb2f1190068e498bd6b61cff022b6a032b191021ba658d96111"
+        }
+      ]
+    },
+    {
+      "name": "range-traits",
+      "version": "0.3.2",
+      "archive_checksum": "d20581732dd76fa913c7dff1a2412b714afe3573e94d41c34719de73337cc8ab",
+      "source_commit": "19926504c0387a590f87ddc20c70de03cd3df72d",
+      "declared_license": "MIT/Apache-2.0",
+      "selected_option": "Apache-2.0",
+      "folder": "range-traits-0.3.2",
+      "notices": [
+        {
+          "file": "UPSTREAM-README.md",
+          "source": "https://raw.githubusercontent.com/timothee-haudebourg/range-traits/19926504c0387a590f87ddc20c70de03cd3df72d/README.md",
+          "kind": "actual-pinned-upstream-grant",
+          "sha256": "a752f34d42f95d7640f6dccc718b1e2965575ad058b8557a8067e945ed5180cf"
+        },
+        {
+          "file": "LICENSE-APACHE-CANONICAL.txt",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "kind": "canonical-selected-license-text-not-upstream-file",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "rasn-cms",
+      "version": "0.28.15",
+      "archive_checksum": "2d11eca85a3699d3e52795874704ddd6d2f03bda3585be3e6655a0d9a166e84e",
+      "source_commit": "778e94887c7102329b6b4972974b2aad4f31d27b",
+      "declared_license": "MIT OR Apache-2.0",
+      "selected_option": null,
+      "folder": "rasn-cms-0.28.15",
+      "notices": [
+        {
+          "file": "LICENCE-APACHE",
+          "source": "https://raw.githubusercontent.com/librasn/rasn/778e94887c7102329b6b4972974b2aad4f31d27b/LICENCE-APACHE",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "ebd8153ef4d2d160d0bdc76a1821ac2a0eb1f57e8c056f3674032f8140c41745"
+        },
+        {
+          "file": "LICENCE-MIT",
+          "source": "https://raw.githubusercontent.com/librasn/rasn/778e94887c7102329b6b4972974b2aad4f31d27b/LICENCE-MIT",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "ee1201a73de9b44ad1ef02a2f9f82705b1350b878e2bab3c3fb6282daf038a73"
+        }
+      ]
+    },
+    {
+      "name": "rasn-ocsp",
+      "version": "0.28.15",
+      "archive_checksum": "697f4559002d12bc2172f916a398dc7b5ae5e1fb653ab097c629d4cf8e5f3579",
+      "source_commit": "778e94887c7102329b6b4972974b2aad4f31d27b",
+      "declared_license": "MIT OR Apache-2.0",
+      "selected_option": null,
+      "folder": "rasn-ocsp-0.28.15",
+      "notices": [
+        {
+          "file": "LICENCE-APACHE",
+          "source": "https://raw.githubusercontent.com/librasn/rasn/778e94887c7102329b6b4972974b2aad4f31d27b/LICENCE-APACHE",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "ebd8153ef4d2d160d0bdc76a1821ac2a0eb1f57e8c056f3674032f8140c41745"
+        },
+        {
+          "file": "LICENCE-MIT",
+          "source": "https://raw.githubusercontent.com/librasn/rasn/778e94887c7102329b6b4972974b2aad4f31d27b/LICENCE-MIT",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "ee1201a73de9b44ad1ef02a2f9f82705b1350b878e2bab3c3fb6282daf038a73"
+        }
+      ]
+    },
+    {
+      "name": "rasn-pkix",
+      "version": "0.28.15",
+      "archive_checksum": "773eb443e9c58d9d356c065bbfea2c04322277c44073b4e0716967d8ccd7ef58",
+      "source_commit": "778e94887c7102329b6b4972974b2aad4f31d27b",
+      "declared_license": "MIT OR Apache-2.0",
+      "selected_option": null,
+      "folder": "rasn-pkix-0.28.15",
+      "notices": [
+        {
+          "file": "LICENCE-APACHE",
+          "source": "https://raw.githubusercontent.com/librasn/rasn/778e94887c7102329b6b4972974b2aad4f31d27b/LICENCE-APACHE",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "ebd8153ef4d2d160d0bdc76a1821ac2a0eb1f57e8c056f3674032f8140c41745"
+        },
+        {
+          "file": "LICENCE-MIT",
+          "source": "https://raw.githubusercontent.com/librasn/rasn/778e94887c7102329b6b4972974b2aad4f31d27b/LICENCE-MIT",
+          "kind": "actual-pinned-upstream-license",
+          "sha256": "ee1201a73de9b44ad1ef02a2f9f82705b1350b878e2bab3c3fb6282daf038a73"
+        }
+      ]
+    },
+    {
+      "name": "static-regular-grammar",
+      "version": "2.0.2",
+      "archive_checksum": "4f4a6c40247579acfbb138c3cd7de3dab113ab4ac6227f1b7de7d626ee667957",
+      "source_commit": "31bcc76bb370f74c267eaef29562e87fb968c712",
+      "declared_license": "MIT/Apache-2.0",
+      "selected_option": "Apache-2.0",
+      "folder": "static-regular-grammar-2.0.2",
+      "notices": [
+        {
+          "file": "UPSTREAM-README.md",
+          "source": "https://raw.githubusercontent.com/timothee-haudebourg/static-regular-grammar/31bcc76bb370f74c267eaef29562e87fb968c712/README.md",
+          "kind": "actual-pinned-upstream-grant",
+          "sha256": "702d9da5b808f852bb4168064af1c0061630738d2c7596045f03d1b4daaefded"
+        },
+        {
+          "file": "LICENSE-APACHE-CANONICAL.txt",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "kind": "canonical-selected-license-text-not-upstream-file",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    }
+  ],
+  "scope": "supplements for exact lock versions; provenance and text collection, not legal release clearance"
+}
