@@ -1,5 +1,11 @@
 # 2026-11-01：协议 v3 与浏览器统一体验
 
+## AI辅助分析与DOCX元数据新增验证
+
+- 57d5aef：浏览器专项41298445736通过PNG/DOCX元数据、本机隐私与恶意容器边界；评估契约41298437016通过，只证明指标/输入约束。
+- 86012bd：模型专项41298806491中英文真实推理、服务桥接、实际许可原文归档全部通过；机构常规41298806534通过。真实模型网页41298827415仍在运行，继续同一handle。188份许可逐项SHA已复核，tokenizers缺项与补充来源边界见AI-RUNTIME-NOTICES。
+- 用户明确取消handoff，继续开发并授权多代理；未本机构建或装模型。最新只读本机状态18081未健康、MySQL/cache/Java均不在运行，未升级运行JAR。此前4173执行审查限制未绕过。
+
 ## 浏览器外部时间凭据
 
 源码 `245dddc` [专项Actions 41283260447](https://github.com/W-Boat/WorkProof/actions/runs/41283260447) 通过协议、原生TSA交换、Web构建和29项浏览器检查；专项仅运行共享协议/网页job，桌面打包明确skipped，同源码[完整四平台41283260007](https://github.com/W-Boat/WorkProof/actions/runs/41283260007)现已全部成功。原生TSA源码3dd2113的[完整41281504351](https://github.com/W-Boat/WorkProof/actions/runs/41281504351)五任务全部通过。

@@ -1,5 +1,7 @@
 # Python 运行环境许可原文归档
 
+86012bd 的真实模型专项 41298806491 已通过许可边界测试和实际环境归档；中英文两份证据各含35个distribution/188份许可文件，下载后已再次核对归档与每份原文SHA。唯一缺项是tokenizers0.23.3的实际wheel RECORD没有许可。另从PyPI固定sdist核对并补充版本级Apache原文（见docs/licenses/ai-runtime/tokenizers-0.23.3/source.json），不篡改原installed manifest的缺失事实，不证明wheel可复现血缘或静态依赖完整许可。
+
 `tools/ai-assessment/collect_notices.py --output 新目录`只读取当前 Python 的 purelib/platlib 中实际已安装 distribution 的 RECORD 文件清单，收集 LICENSE/LICENCE、NOTICE、COPYING、COPYRIGHT 及 `.dist-info/licenses` 内文件。不会联网、导入包或运行模型。输出目录必须不存在，且不能位于当前 site-packages 内；失败保留现场，不覆盖旧归档。
 
 原始字节保存在编号文件中，manifest.json 记录包名、实际版本、包内相对原路径、归档路径、大小和逐文件 SHA256，不记录本机绝对安装路径。候选文件最多一万项，单项4MiB、总计64MiB；拒绝越界及符号链接。缺少 RECORD、未找到许可、文件不可读或超过限制均明确列出，不用模型卡或 metadata 标签补造授权原文。

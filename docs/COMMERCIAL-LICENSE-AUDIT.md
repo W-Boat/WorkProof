@@ -1,5 +1,7 @@
 # WorkProof 商业使用许可核验
 
+实际CPU归档已验证35包/188许可原文，tokenizers0.23.3 wheel缺许可仍单列。已核PyPI发行源码的Apache原文作为版本级补充；源码发布tag与sdist的Cargo/pyproject不同，不能据此推定整个wheel血缘或二进制依赖授权已完整。requirements固定tokenizers0.23.3避免补充材料与版本漂移。
+
 AI运行时新增[实际安装许可原文归档](AI-RUNTIME-NOTICES.md)，来源于具体CI环境的 distribution RECORD，逐文件保留原文与SHA并明列缺失。不覆盖二进制内嵌组件、系统库或模型训练数据，不能以归档存在宣称全部商业使用放行。中英文MPU卡片均只声明Apache-2.0，基础模型精确血缘未由配置相对路径证明。
 
 2026-11-01 C2PA独立工具增量：c2pa0.91.7精确锁定，独立Cargo.lock，不加入守护进程依赖图。[专项41288148673](https://github.com/W-Boat/WorkProof/actions/runs/41288148673)采集333个解析包（含开发与可选目标，比实际链接集合更广）的许可声明及正文。SDK自身发布包缺根LICENSE，已按归档VCS提交保留双许可证；其他缺失文本逐项补充，见 [证据说明](licenses/c2pa-supplemental/README.md)。三个上游仅在README授权Apache/MIT任选的包保留作者原授权、Cargo作者字段并选择Apache-2.0标准正文，未伪造上游文件；r-efi选择MIT分支。该依赖集合的声明包含MIT/Apache、BSD、Zlib、Unicode等不同条件，不能称为全MIT。模型权重和新增AI检测引擎尚未接入或商业放行，必须按[AI辅助阶段](AI-ASSESSMENT.md)分别审核代码、权重和数据条款。本增量不解除下面对整个产品分发的既有约束。

@@ -46,6 +46,7 @@ jobs:
           assert manifest['commercial_clearance'] is False
           names={package['name'].lower() for package in manifest['packages']}
           assert {'torch','transformers','safetensors','tokenizers'} <= names
+          assert next(package['version'] for package in manifest['packages'] if package['name'].lower()=='tokenizers')=='0.23.3'
           count=0
           for package in manifest['packages']:
               for item in package['files']:
@@ -56,6 +57,10 @@ jobs:
                   count+=1
           assert count>0
           print('Verified installed notice hashes:',count,'; unresolved packages:',sum(bool(p['issues']) for p in manifest['packages']))
+          supplement=pathlib.Path('docs/licenses/ai-runtime/tokenizers-0.23.3')
+          evidence=json.loads((supplement/'source.json').read_text(encoding='utf-8'))
+          assert evidence['commercial_clearance'] is False and evidence['installed_wheel_notice_missing'] is True
+          assert hashlib.sha256((supplement/'LICENSE').read_bytes()).hexdigest()==evidence['license_sha256']
           PY
       - uses: actions/setup-java@v4
         with:
@@ -79,5 +84,6 @@ jobs:
             ai-document-results.json
             ai-runtime-inventory.json
             ai-runtime-notices/
+            docs/licenses/ai-runtime/
             services/institution/scaffold-system/scaffold-system/target/surefire-reports/*AiAnalysisServiceTest*.xml
             /tmp/workproof-ai-model/workproof-model.json
