@@ -20,7 +20,7 @@ async function api(route:string,body?:unknown,authenticated=true):Promise<any>{
   return data;
 }
 function event(kind:string,snapshot:Snapshot,inserted=0,deleted=0,checkpoint=''){
-  if(pending.length>=2048){paused=true;paint();throw new Error('离线事件队列已满，已暂停。连接恢复后点击继续。');}
+  if(pending.length>=2048){paused=true;paint();throw new Error('尚未保存的操作太多，已暂停。请恢复与 WorkProof 的连接后继续。');}
   pending.push({seq:next++,elapsed_ms:Math.floor(performance.now()-started),kind,inserted,deleted,chars:snapshot.characters,checkpoint,metrics:{characters:snapshot.characters,paragraphs:snapshot.paragraphs}});paint();
 }
 async function flush(){
@@ -33,7 +33,7 @@ async function sample(force=false){
   sampling=true;
   try{
     const current=await host.snapshot();
-    if(previous&&current.identity!==previous.identity){paused=true;throw new Error('活动文档已改变。请重新加载任务窗，为新文档开始记录。');}
+    if(previous&&current.identity!==previous.identity){paused=true;throw new Error('你已切换到另一份文档。请重新打开 WorkProof 面板，为新文档开始记录。');}
     if(lastSample&&performance.now()-lastSample>15000)event('gap',current);
     lastSample=performance.now();
     if(previous&&(current.contentHash!==previous.contentHash||current.paragraphs!==previous.paragraphs))event('edit',current,Math.max(0,current.characters-previous.characters),Math.max(0,previous.characters-current.characters));
@@ -52,23 +52,23 @@ async function connect(){
   throw new Error('连接请求已过期，请重试。');
 }
 async function start(){
-  if(session)throw new Error('当前已有会话。');
+  if(session)throw new Error('这份文档已经在记录中。');
   if(!token)await connect();
   previous=await host.snapshot();
   deliveryName=host.source==='word'?previous.name.replace(/\.[^.]*$/,'')+'.docx':previous.name;
   const result=await api('/v1/sessions',{file_name:deliveryName,started_at:new Date().toISOString(),source:host.source});
   session=result.session_id;next=0;started=performance.now();lastSample=started;paused=false;event('start',previous);await flush();
-  message('记录中。每秒采样文档统计；不记录物理按键时长或文字历史。');paint();
+  message('记录中。正在保存文字数量等变化，不保存文档正文。');paint();
 }
 async function pause(){
   if(!session)return;
   if(paused){
     await flush();const current=await host.snapshot();
-    if(previous&&current.identity!==previous.identity)throw new Error('活动文档已改变。请重新加载任务窗，为新文档开始记录。');
+    if(previous&&current.identity!==previous.identity)throw new Error('你已切换到另一份文档。请重新打开 WorkProof 面板，为新文档开始记录。');
     previous=current;event('gap',previous);event('resume',previous);paused=false;lastSample=performance.now();
   }
   else{await sample(true);event('pause',previous!);paused=true;}
-  await flush();message(paused?'已暂停；继续时会披露采集缺口。':'记录中。');paint();
+  await flush();message(paused?'已暂停。继续后会标明这段未记录的时间。':'记录中。');paint();
 }
 async function exportProof(){
   if(!session||paused)throw new Error('请先开始或继续记录。');
@@ -82,10 +82,10 @@ async function exportProof(){
     if(artifact.name!==deliveryName)throw new Error('导出文件名与记录不一致，请重新开始记录。');
     const digest=fingerprint(artifact.bytes);event('save',after,0,0,digest);await flush();
     const proof=await api(`/v1/sessions/${session}/export`,{artifact_hash:digest,artifact_bytes:artifact.bytes.length});
-    const latest=await host.snapshot();if(latest.contentHash!==after.contentHash||latest.identity!==after.identity)throw new Error('签发期间文档发生变化，请重试。');
+    const latest=await host.snapshot();if(latest.contentHash!==after.contentHash||latest.identity!==after.identity)throw new Error('生成证书时文档又被修改了。请停止编辑后重试。');
     save(new Blob([artifact.bytes.slice().buffer],{type:'application/octet-stream'}),artifact.name);
     save(new Blob([JSON.stringify(proof,null,2)],{type:'application/json'}),artifact.name+'.wproof');
-    message('已下载交付件和证书。请交付本次导出的文件，勿用其他另存版本替代。');
+    message('作品和证书已下载。请把这两个文件一起发送；另存的其他版本可能无法通过检查。');
   }finally{busy=false;paint();}
 }
 async function safe(fn:()=>Promise<void>){try{await fn();}catch(error){message(String(error instanceof Error?error.message:error));}}
@@ -104,4 +104,4 @@ for(const [id,fn] of [['start',start],['pause',pause],['export',exportProof]] as
 setInterval(()=>{if(session&&!paused&&!busy&&performance.now()-lastSample>(previous&&previous.characters>1_000_000?5000:900))void safe(async()=>{await sample();await flush();});},1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session&&!paused&&!busy)void safe(()=>sample(true));});
 window.addEventListener('beforeunload',event=>{if(session){event.preventDefault();event.returnValue='';}});
-void safe(async()=>{host=await detectHost();element('host').textContent=host.label;message('作品留在本机。首次连接需在桌面窗口确认当前网址。');paint();});
+void safe(async()=>{host=await detectHost();element('host').textContent=host.label;message('WorkProof 不会上传作品。第一次开始时，请回到 WorkProof 窗口核对网址并允许连接。');paint();});

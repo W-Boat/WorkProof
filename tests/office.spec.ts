@@ -45,12 +45,12 @@ for(const variant of ['word','wps','wps-alias','wps-factory'] as const){
     await page.evaluate(()=>{(window as any).hostFixture.text+=' additional private content';});
     await expect.poll(()=>requests.some(r=>r.route.endsWith('/events')&&r.body?.events.some((e:any)=>e.kind==='edit'))).toBe(true);
     const downloads:string[]=[];page.on('download',download=>downloads.push(download.suggestedFilename()));
-    await page.getByRole('button',{name:'导出交付件与证书'}).click();
+    await page.getByRole('button',{name:'导出作品和证书'}).click();
     await expect.poll(()=>requests.filter(request=>request.route.endsWith('/export')).length).toBe(1);
     await expect(page.getByRole('button',{name:'暂停记录'})).toBeDisabled();
     await page.evaluate(()=>document.getElementById('export')!.dispatchEvent(new MouseEvent('click',{bubbles:true})));
     expect(requests.filter(request=>request.route.endsWith('/export'))).toHaveLength(1);releaseExport();
-    await expect(page.locator('#status')).toContainText('已下载交付件和证书');
+    await expect(page.locator('#status')).toContainText('作品和证书已下载');
     await expect.poll(()=>downloads.length).toBe(2);expect(downloads).toEqual(['draft.docx','draft.docx.wproof']);
     const all=JSON.stringify(requests);expect(all).not.toContain('private draft text');expect(all).not.toContain('additional private content');
     expect(requests.find(r=>r.route==='/v1/sessions')?.body.source).toBe(host);
@@ -59,7 +59,7 @@ for(const variant of ['word','wps','wps-alias','wps-factory'] as const){
     await page.evaluate(()=>{(window as any).hostFixture.text+=' after revocation';});
     await expect(page.locator('#status')).toContainText('连接已撤销或过期');
     await expect(page.getByRole('button',{name:'继续记录'})).toBeDisabled();
-    await expect(page.getByRole('button',{name:'导出交付件与证书'})).toBeDisabled();
+    await expect(page.getByRole('button',{name:'导出作品和证书'})).toBeDisabled();
   });
 }
 
@@ -96,9 +96,9 @@ for(const failure of ['unsaved','save-denied','empty-bytes','unicode-bytes','ren
       await page.evaluate(()=>{(window as any).hostFixture.identity='C:\\private\\other.docx';});
       await page.getByRole('button',{name:'继续记录'}).click();
       await expect(page.locator('#status')).toContainText('活动文档已改变');
-      await expect(page.getByRole('button',{name:'导出交付件与证书'})).toBeDisabled();
+      await expect(page.getByRole('button',{name:'导出作品和证书'})).toBeDisabled();
     }else{
-      await page.getByRole('button',{name:'导出交付件与证书'}).click();
+      await page.getByRole('button',{name:'导出作品和证书'}).click();
       const messages={'unsaved':'请先保存','save-denied':'保存未完成','empty-bytes':'有效交付文件','unicode-bytes':'不是二进制字节','renamed':'路径发生变化'};
       await expect(page.locator('#status')).toContainText(messages[failure]);
     }
