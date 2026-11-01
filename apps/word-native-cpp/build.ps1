@@ -63,6 +63,14 @@ if (-not $SkipProbe -and -not $PowerPoint) {
     if ($LASTEXITCODE -ne 0) { throw 'controlled process limits failed' }
 }
 
+if (-not $SkipProbe -and $PowerPoint) {
+    $snapshotProbe = Join-Path $OutDir 'test_powerpoint_snapshot.exe'
+    & cl @common (Join-Path $source 'test_powerpoint_snapshot.cpp') "/Fo$probeDir\" "/Fe$snapshotProbe" @libraries
+    if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_powerpoint_snapshot.cpp' }
+    & $snapshotProbe
+    if ($LASTEXITCODE -ne 0) { throw 'PowerPoint snapshot guards failed' }
+}
+
 Get-ChildItem -LiteralPath $OutDir -File | ForEach-Object {
     $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     Write-Output ("{0}  {1}" -f $hash, $_.Name)
