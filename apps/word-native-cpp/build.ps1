@@ -26,7 +26,7 @@ $common = @(
 )
 $libraries = @('winhttp.lib', 'shell32.lib', 'ole32.lib', 'oleaut32.lib', 'user32.lib', 'gdi32.lib', 'comctl32.lib', 'advapi32.lib', 'uuid.lib')
 
-$sources = @('dllmain.cpp', 'connect.cpp', 'pane.cpp', 'engine.cpp', 'ribbon.cpp') |
+$sources = @('dllmain.cpp', 'connect.cpp', 'pane.cpp', 'engine.cpp', 'ribbon.cpp', 'trace.cpp') |
     ForEach-Object { Join-Path $source $_ }
 $dll = Join-Path $OutDir 'WorkProofWord.dll'
 foreach ($file in $sources) {

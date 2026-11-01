@@ -11,6 +11,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
         case DLL_PROCESS_ATTACH:
             workproof::g_module = module;
             DisableThreadLibraryCalls(module);
+            workproof::Trace(L"DllMain attach");
             break;
         case DLL_THREAD_ATTACH:
         case DLL_THREAD_DETACH:

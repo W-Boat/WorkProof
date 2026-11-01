@@ -140,11 +140,14 @@ STDMETHODIMP_(ULONG) CExtensibility::Release() {
 }
 
 STDMETHODIMP CExtensibility::OnConnection(IDispatch* application, int connectMode, IDispatch* addInInstance, SAFEARRAY** custom) {
+    Trace(L"OnConnection entered");
     if (m_owner) m_owner->AttachWord(application);
+    Trace(L"OnConnection completed");
     return S_OK;
 }
 
 STDMETHODIMP CExtensibility::OnDisconnection(int removeMode, SAFEARRAY** custom) {
+    Trace(L"OnDisconnection entered");
     PaneClose();
     if (m_owner) m_owner->AttachWord(nullptr);
     return S_OK;
@@ -169,8 +172,11 @@ STDMETHODIMP CRibbon::QueryInterface(REFIID iid, void** object) {
 }
 
 STDMETHODIMP CRibbon::GetCustomUI(BSTR ribbonId, BSTR* ribbonXml) {
+    Trace(L"GetCustomUI entered");
     if (!ribbonXml) return E_POINTER;
-    *ribbonXml = SysAllocString(RibbonXml().c_str());
+    std::wstring markup = RibbonXml();
+    *ribbonXml = SysAllocString(markup.c_str());
+    TraceHresult(L"GetCustomUI markup length", (long)markup.size());
     return *ribbonXml ? S_OK : E_OUTOFMEMORY;
 }
 
@@ -201,6 +207,7 @@ STDMETHODIMP CConnect::QueryInterface(REFIID iid, void** object) {
 
 STDMETHODIMP CConnect::GetIDsOfNames(REFIID, LPOLESTR* names, UINT count, LCID, DISPID* ids) {
     if (!names || !ids) return E_POINTER;
+    Trace(names[0] ? names[0] : L"GetIDsOfNames(null)");
     for (UINT index = 0; index < count; ++index) {
         ids[index] = DISPID_UNKNOWN;
         for (const NameEntry& entry : kNames) {
@@ -213,6 +220,7 @@ STDMETHODIMP CConnect::GetIDsOfNames(REFIID, LPOLESTR* names, UINT count, LCID, 
 
 STDMETHODIMP CConnect::Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPARAMS*, VARIANT* result,
                               EXCEPINFO*, UINT*) {
+    TraceHresult(L"Invoke dispid", (long)id);
     if (result) VariantInit(result);
     if (flags & DISPATCH_PROPERTYGET) return S_OK;
     switch (id) {

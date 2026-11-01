@@ -29,6 +29,9 @@ struct __declspec(uuid("000C0396-0000-0000-C000-000000000046")) IRibbonExtensibi
     virtual HRESULT __stdcall GetCustomUI(BSTR ribbonId, BSTR* ribbonXml) = 0;
 };
 
+void Trace(const wchar_t* message);
+void TraceHresult(const wchar_t* step, long result);
+
 std::wstring RibbonXml();
 std::wstring EnginePath();
 
