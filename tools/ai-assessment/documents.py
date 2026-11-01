@@ -1,6 +1,21 @@
 """Bounded local text extraction. Never executes Office, relationships or macros."""
 import hashlib,io,pathlib,zipfile,xml.etree.ElementTree as ET
 NAMESPACES={'http://schemas.openxmlformats.org/wordprocessingml/2006/main','http://purl.oclc.org/ooxml/wordprocessingml/main'}
+def preflight_zip(data):
+    # Bound actual central-directory entries before ZipFile allocates ZipInfo objects.
+    end=data.rfind(b'PK\x05\x06',max(0,len(data)-65557))
+    if end<0 or end+22>len(data):raise ValueError('INVALID_ZIP_END')
+    number=lambda start,width:int.from_bytes(data[end+start:end+start+width],'little')
+    if end+22+number(20,2)!=len(data) or number(4,2) or number(6,2):raise ValueError('UNSUPPORTED_ZIP_END')
+    count,size,offset=number(10,2),number(12,4),number(16,4)
+    if count>4096 or number(8,2)!=count or size>4*1024*1024 or offset+size>end:raise ValueError('EXCESS_ZIP_DIRECTORY')
+    position=offset;actual=0
+    while position<offset+size:
+        if position+46>offset+size or data[position:position+4]!=b'PK\x01\x02':raise ValueError('INVALID_ZIP_DIRECTORY')
+        extra=sum(int.from_bytes(data[position+i:position+i+2],'little') for i in (28,30,32))
+        position+=46+extra;actual+=1
+        if actual>4096 or position>offset+size:raise ValueError('EXCESS_ZIP_DIRECTORY')
+    if actual!=count:raise ValueError('ZIP_ENTRY_COUNT_MISMATCH')
 def extract(path):
     path=pathlib.Path(path)
     with path.open('rb') as stream:
@@ -12,6 +27,7 @@ def extract(path):
         if len(data)>32768:raise ValueError('TEXT_TOO_LARGE')
         text=data.decode('utf-8-sig');scope='utf8-plain-text'
     elif suffix=='.docx':
+        preflight_zip(data)
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             entries=archive.infolist();names=[e.filename for e in entries]
             if len(entries)>4096 or len(set(names))!=len(names):raise ValueError('EXCESS_OR_DUPLICATE_ZIP_ENTRIES')

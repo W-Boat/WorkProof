@@ -22,6 +22,9 @@ class Documents(unittest.TestCase):
             with self.subTest(duplicate=duplicate),self.assertRaises(ValueError):extract(self.package(xml,duplicate))
     def test_compression_bomb_rejected_before_parse(self):
         with self.assertRaises(ValueError):extract(self.package('A'*1000000))
+    def test_forged_central_directory_count(self):
+        path=self.package(f'<w:document xmlns:w="{NS}"/>');data=bytearray(path.read_bytes());end=data.rfind(b'PK\x05\x06');data[end+8:end+12]=b'\x01\x00\x01\x00';path.write_bytes(data)
+        with self.assertRaisesRegex(ValueError,'ZIP_ENTRY_COUNT_MISMATCH'):extract(path)
     def test_plain_utf8_and_unsupported_format(self):
         path=self.root/'plain.txt';path.write_text('你好，世界',encoding='utf-8');self.assertEqual(extract(path)[0],'你好，世界')
         path=self.root/'old.doc';path.write_bytes(b'unsupported')
