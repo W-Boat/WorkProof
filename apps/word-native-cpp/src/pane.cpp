@@ -484,10 +484,13 @@ void LayoutControls(){
     SCROLLINFO info={sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS};info.nMin=0;info.nMax=scale(656);info.nPage=(UINT)r.bottom;
     int limit=info.nMax-(int)info.nPage+1;if(limit<0)limit=0;if(g.scroll>limit)g.scroll=limit;
     info.nPos=g.scroll;SetScrollInfo(g.window,SB_VERT,&info,TRUE);
-    auto move=[&](HWND h,int y,int height){if(h)MoveWindow(h,margin,scale(y)-g.scroll,width,scale(height),TRUE);};
+    auto move=[&](HWND h,int y,int height){if(h)MoveWindow(h,margin,scale(y)-g.scroll,width,scale(height),FALSE);};
     move(g.heading,20,30);move(g.intro,58,52);move(g.status,124,92);move(g.counter,222,26);
     move(g.startButton,266,38);move(g.pauseButton,314,38);move(g.exportButton,362,38);
     move(g.cancelButton,410,32);move(g.verifierLink,454,34);move(g.privacy,510,128);
+    // Moving native child windows does not erase their former parent pixels.
+    // Paint the complete clipped canvas and controls after the whole layout moves.
+    RedrawWindow(g.window,nullptr,nullptr,RDW_INVALIDATE|RDW_ERASE|RDW_ALLCHILDREN|RDW_UPDATENOW);
 }
 void CreateControls(HWND window) {
     g.background=CreateSolidBrush(GetSysColor(COLOR_WINDOW));g.cardBrush=CreateSolidBrush(GetSysColor(COLOR_WINDOW));
@@ -539,6 +542,11 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
             CreateControls(window);
             PaintState();
             return 0;
+        case WM_PAINT: {
+            PAINTSTRUCT paint;HDC dc=BeginPaint(window,&paint);
+            FillRect(dc,&paint.rcPaint,g.background?g.background:GetSysColorBrush(COLOR_WINDOW));
+            EndPaint(window,&paint);return 0;
+        }
         case WM_ERASEBKGND: {
             RECT area;
             GetClientRect(window, &area);
@@ -548,7 +556,8 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
         case WM_CTLCOLORSTATIC: {
             HDC device = (HDC)wParam;
             HWND source = (HWND)lParam;
-            SetBkMode(device, TRANSPARENT);
+            SetBkMode(device, OPAQUE);
+            SetBkColor(device,GetSysColor(COLOR_WINDOW));
             SetTextColor(device, GetSysColor(COLOR_WINDOWTEXT));
             // The two labels sit on the white card; every other label uses the canvas colour.
             if (source == g.status || source == g.counter) return (LRESULT)g.cardBrush;
