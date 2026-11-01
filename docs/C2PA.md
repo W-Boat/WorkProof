@@ -4,7 +4,7 @@
 
 嵌入元数据会改变PNG的字节，因此不能直接用嵌入后的完整文件哈希冒充原作品哈希。本工具定义 `png-remove-cabx-v1`：只移除PNG中的C2PA `caBX` 块，其他字节（包括块顺序与CRC）全部保留，使用原WorkProof协议检查恢复后的原PNG。封装时先核对原PNG与证书，生成后再次检查恢复字节与原件逐字节一致，任意其他改动均拒绝写出；输入已经有C2PA的PNG暂时拒绝，避免悄悄抹掉旧来源历史。
 
-自定义断言 `org.workproof.process.v1` 中保存原证书JSON，保留完整或选择性披露范围；接收方必须同时通过C2PA资产签名与WorkProof原PNG绑定。明确传入 `--allow-public-process` 才会嵌入，表示同意让拿到PNG的人读取所选证书的过程信息。建议先做选择性披露，确认文件名、时间与事件可公开。原PNG和原wproof不改写，输出不覆盖已有文件。
+自定义断言 `org.workproof.process` 中保存原证书JSON，内部schema为 `workproof-c2pa/1`，保留完整或选择性披露范围；接收方必须同时通过C2PA资产签名与WorkProof原PNG绑定。明确传入 `--allow-public-process` 才会嵌入，表示同意让拿到PNG的人读取所选证书的过程信息。建议先做选择性披露，确认文件名、时间与事件可公开。原PNG和原wproof不改写，输出不覆盖已有文件。
 
 ```text
 workproof-c2pa embed original.png original.wproof signer-chain.pem signer-key.pem signed.png --allow-public-process

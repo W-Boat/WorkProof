@@ -33,7 +33,6 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
     assert not any(report[k] for k in ['identity_verified','creation_time_verified','revocation_checked','network_used'])
     signed_snapshot=signed.read_bytes();embed(ok=False);assert signed.read_bytes()==signed_snapshot
     embed(source=signed,destination=root/'nested.png',ok=False);assert not (root/'nested.png').exists()
-    wrong=pathlib.Path('test-timestamp-fixtures/wrong-ca.pem')
     # Independent wrong trust anchor; does not depend on any other workflow's fixture.
     run(openssl,'req','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'wrong.key','-out',root/'wrong.pem','-days','2','-subj','/CN=Wrong synthetic CA','-addext','basicConstraints=critical,CA:TRUE')
     run(tool,'verify',signed,root/'wrong.pem',ok=False)

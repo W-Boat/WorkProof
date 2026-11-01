@@ -7,7 +7,8 @@ use workproof_protocol::{Evidence,Report,digest,verify_evidence};
 use zeroize::Zeroizing;
 
 type Result<T> = std::result::Result<T,Box<dyn std::error::Error>>;
-const LABEL:&str="org.workproof.process.v1";
+// Keep the assertion base label unversioned; the SDK normalizes .vN suffixes.
+const LABEL:&str="org.workproof.process";
 const PNG:&[u8]=b"\x89PNG\r\n\x1a\n";
 const IMAGE_LIMIT:usize=96*1024*1024;
 const PROOF_LIMIT:usize=8*1024*1024;

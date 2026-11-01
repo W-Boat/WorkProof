@@ -20,9 +20,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: 'tools/c2pa -> target'
-      - name: Prepare isolated lock if first run
-        run: |
-          if [ ! -f tools/c2pa/Cargo.lock ]; then cargo generate-lockfile --manifest-path tools/c2pa/Cargo.toml; fi
+          cache-on-failure: true
+      - name: Require reviewed isolated lockfile
+        run: cargo metadata --locked --no-deps --format-version 1 --manifest-path tools/c2pa/Cargo.toml > /dev/null
       - name: Build separate SDK tool without recorder dependency changes
         run: cargo build --locked --manifest-path tools/c2pa/Cargo.toml --all-targets
       - name: PNG framing and byte preservation
