@@ -1,5 +1,7 @@
 # 机构持久批量任务（新增源码，待 Actions 验收）
 
+最新验收：43d2434 的机构 Actions [41328284766](https://github.com/W-Boat/WorkProof/actions/runs/41328284766) 已全部通过。该配置实际调用 `test_institution_runtime.py`（含默认关闭时的新任务页面）及 `test_institution_jobs.py`（隔离V4、真实JAR/Rust、浏览器原字节上传与关闭重开、进程终止重启、owner隔离、幂等、取消、权限撤销与清理、后台审计无正文）。首次审计查询编码失败已经修正为utf8mb4。下方“待CI”是早期实现记录，以本段为当前组件验收状态；本机用户数据库仍未迁移V4，Windows持久队列与全部故障矩阵未完成。
+
 原 `CertificateBatchDialog` 是页面内逐份发送，关闭页面会停止后续发送。本功能另建数据库持久任务和私有暂存目录，不能把原有浏览器队列的通过记录当作本功能验收。
 
 ## 准备

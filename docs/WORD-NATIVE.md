@@ -2,6 +2,8 @@
 
 ## 2026-11-02 本机实际验收
 
+受控进程修正版 c2a9fc6 已通过 [Windows COM及进程专项41328452618](https://github.com/W-Boat/WorkProof/actions/runs/41328452618)：构建实际DLL、COM接口probe及真实进程限制fixture；不是重新完成Word真实宿主操作。当前本机仍保留此前已实际导出成功的f06e01b DLL，避免打断正在运行的Word。
+
 后续源码新增原生受控进程：读取、退出共用60秒期限，1MiB输出限制，失败终止Job内子孙并关闭句柄，避免stdout不关闭导致无限阻塞；真实Windows进程fixture在Actions运行，结果以最新任务为准。同步调用在期限内仍会阻塞Word，不能称为已实现无阻塞导出。
 
 当前实际交付为 C++ 原生 x64 COM DLL（`apps/word-native-cpp`），旧 `apps/word-native` 托管实现保留但不打包，不能把下方较早的 AnyCPU 描述当作已验证的32位支持。
