@@ -1,5 +1,14 @@
 # 可选AI参考引擎（实验适配）
 
+新增 `--engine mpu-zh-v3`，选择固定中文MPU v3模型；未指定engine仍使用英文GPT-2参考模型。中文输入至少80个汉字，超过512token拒绝而不默默截断。类别顺序依照[固定官方演示代码](https://huggingface.co/spaces/yuchuantian/AIGC_text_detector/blob/191c98291f204cae3e52db965ab0f944c9005067/app.py)：0=Human，1=AI；配置中的LABEL_0/1按此明确映射，并保留原始softmax而不输出AI占比。
+
+```text
+python detector.py prepare --model-dir /absolute/path/to/chinese-model --engine mpu-zh-v3
+python detector.py infer --model-dir /absolute/path/to/chinese-model --engine mpu-zh-v3 < chinese-request.json
+```
+
+中文权重上游仅发布.bin，使用PyTorch2.15的显式weights_only=True受限加载、trust_remote_code=False，固定revision并逐文件流式核对SHA256。不会回退到weights_only=False或任意增加反序列化类白名单。受限加载不能代替内存沙箱或防止所有拒绝服务，见[PyTorch官方说明](https://docs.pytorch.org/docs/2.15/notes/serialization.html)。中文模型及配置所指向的hfl/chinese-roberta-wwm-ext模型卡均声明Apache-2.0；完整许可材料与生产校准仍待独立审查，不作整体商业分发放行。
+
 这是独立的Python按需工具，不进入Rust常驻记录进程。首个适配器固定为英文GPT-2参考分类器，不能当作中文、ChatGPT或所有现代生成器的通用检测器。它不是新增阶段全部完成，也尚未接入普通用户的网页/机构分析流程。
 
 ```text
