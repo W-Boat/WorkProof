@@ -1,5 +1,7 @@
 # WorkProof 商业使用许可核验
 
+2026-11-01 时间戳浏览器增量：新增固定版本PKI.js3.3.3、asn1js3.0.6、bytestreamjs2.0.1（BSD-3-Clause），以及@noble/hashes1.4.0、pvtsutils1.3.6、pvutils1.2.0（MIT）。已核对npm锁定包的SHA-512 integrity并提取实际包内许可，见 [证据记录](licenses/timestamp-npm-notices/evidence.json) 及同目录完整版权/许可文本。上述许可支持含商业场景的使用与分发，须遵守保留版权、许可及BSD不背书条件；这不改变下文对整个产品分发尚有约束的判断。此增量不把OpenSSL可执行程序打包进产品。
+
 核验日期：2026-10-31。源码基线：`0f8d08b7c6b52a4817ebc65cdabca58fe56ac939`；另包含工作区中尚未发布的 WPS 发布流程、本地启动脚本。后台二进制证据来自 [Actions 41181460797](https://github.com/W-Boat/WorkProof/actions/runs/41181460797)，对应 `a9365f7`。本文讨论软件版权许可；没有替权利人授予额外权利。
 
 **结论：WorkProof 可以走商业产品路线，公开 MIT 源码也可以收费。不能把全部依赖称为 MIT、无条件免费或任意闭源可分发。现有证据不足以给整个安装包作无条件商业分发放行。** WPS 工具条款冲突、Blender 插件分发条款、第三方许可随包交付，以及未来闭源后台的 JDBC 许可，需要按下文处理。

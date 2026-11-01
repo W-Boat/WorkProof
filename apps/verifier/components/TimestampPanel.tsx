@@ -22,8 +22,8 @@ export function TimestampPanel({signature}:{signature:string}){
   return <Panel title="检查外部时间凭据" className="timestamp-panel">
     <details><summary>有时间戳请求与响应？展开检查（可选）</summary>
     <p>如果提供者附上了时间戳请求和响应，可在这里单独检查。只选择你通过可信渠道取得并决定信任的 CA 证书；文件留在浏览器内。</p>
-    {['原始时间戳请求（.tsq）','时间戳响应（.tsr）','你信任的 CA 证书（.pem）'].map((label,index)=><label className="field" key={label}><span className="field-label">{label}</span><input type="file" disabled={busy} onChange={event=>{reset();const file=event.target.files?.[0]??null;setFiles(previous=>previous.map((value,i)=>i===index?file:value));}}/></label>)}
-    <label className="quiet-label"><input type="checkbox" checked={trusted} disabled={busy||!files[2]} onChange={event=>{generation.current++;setTrusted(event.target.checked);setResult(null);}}/>我已核对 CA 来源，并同意以这份 CA 作为本次信任依据</label>
+    {['原始时间戳请求（.tsq）','时间戳响应（.tsr）','你信任的 CA 证书（.pem）'].map((label,index)=><label className="field" key={label}><span className="field-label">{label}</span><input type="file" disabled={busy} onChange={event=>{if(busy)return;reset();const file=event.target.files?.[0]??null;setFiles(previous=>previous.map((value,i)=>i===index?file:value));}}/></label>)}
+    <label className="quiet-label"><input type="checkbox" checked={trusted} disabled={busy||!files[2]} onChange={event=>{if(busy)return;generation.current++;setTrusted(event.target.checked);setResult(null);}}/>我已核对 CA 来源，并同意以这份 CA 作为本次信任依据</label>
     <Button disabled={busy||!trusted||files.some(file=>!file)} onClick={verify}>{busy?'正在检查时间凭据…':'检查时间凭据'}</Button>
     {error&&<p role="alert">{error}</p>}
     {result&&<div role="status"><Tag tone="ok">时间凭据与签名一致</Tag><p>服务声明的时间：<strong>{result.time}</strong></p><p>在本次选择的 CA 信任范围内核验通过。它说明这份签名在该时间前已存在，不是实际创作起止时间。</p>{result.trustFingerprints.map(value=><p key={value}>信任证书 SHA-256：<code style={{overflowWrap:'anywhere'}}>{value}</code></p>)}</div>}
