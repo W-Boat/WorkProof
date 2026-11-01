@@ -6,6 +6,10 @@
 
 ## 运行方式
 
+证书管理准备入口（增量待 Actions 验收，当前本机尚未执行）：更新同一版本的 JAR、启动包及原生检查工具后，先正常启动本目录服务，打开 `Certificate catalog plan.cmd` 查看方案，再按需要打开 `Prepare certificate catalog.cmd`。后者只操作已核对归属的 `workproof_local`，停止自己的 Java 服务但保留数据库，先用 mysqldump 完整备份，再执行包内V3并生成 `state/catalog.json`。完成后点击 Start、重新登录。普通 Start 不会自动迁移；只有准备记录和包内迁移摘要匹配时才传入启用配置。
+
+备份在私有 `state/backups`，包含数据库敏感内容，不能上传公共仓库；`catalog-preparation.json` 表示未完成或需人工检查的操作。MySQL DDL不能整体回滚，失败时保留备份和记录，不自动删表或重放。已有不明证书表/菜单冲突会拒绝；恢复须先核对现场及备份，不能直接对已有数据重跑初始化SQL。此工具固定用于本地Windows运行目录，不是通用生产服务器迁移器。备份失败时可能已停止Java，可检查日志后恢复原版本；工具不会把停止误报为已启用。
+
 从 GitHub Actions 的 `Institution backend baseline` 下载：
 
 * `institution-baseline`：已构建 JAR（内含 Vue 界面、Office 资源），无需本机 Maven、Node、Python 或重新构建。

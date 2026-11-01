@@ -2,6 +2,8 @@
 
 ## WorkProof 接入
 
+- 根仓库 `scripts/local/prepare-catalog.ps1`：本地Windows目录的只读方案/显式备份后准备，`catalog.json`启用记录、`catalog-preparation.json`故障现场；start按迁移摘要启用。Actions启动包包含V3和两个cmd入口；无自动DDL。
+
 - `CertificateCatalogMapper.schemaReady`、`CertificateCatalogService.status`、`GET /api/workproof/certificates/status`：受列表权限保护的只读结构检查；未启用不触碰业务结构，接口操作前也检查。`Certificates.vue` 先取状态再加载列表，未就绪明确下一步。
 
 - `CertificateBatchDialog.vue`：页面内顺序队列，复用原始 Blob 保存接口，逐份结果、取消后续、结果 CSV；不新增服务器持久任务或后台队列。关闭网页后不会继续未发送项。

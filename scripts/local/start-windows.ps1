@@ -119,6 +119,13 @@ if (-not (Port-IsListening 36379)) {
 }
 if (-not (Port-IsListening $backendPort)) {
     $environment=@{DB_HOST='127.0.0.1';DB_PORT='33307';DB_NAME='workproof_local';DB_USERNAME='workproof_local';DB_PASSWORD=$localConfig.dbPassword;REDIS_HOST='127.0.0.1';REDIS_PORT='36379';REDIS_PASSWORD=$localConfig.redisPassword;JWT_SECRET=$localConfig.jwtSecret}
+    $catalogFile=Join-Path $state 'catalog.json'
+    if (Test-Path -LiteralPath $catalogFile) {
+        $catalog=Get-Content -LiteralPath $catalogFile -Raw | ConvertFrom-Json
+        $catalogSql=Join-Path $root 'sql/V3__workproof_certificate_catalog.sql'
+        if ($catalog.version -ne 1 -or $catalog.status -ne 'prepared' -or -not $catalog.enabled -or -not (Test-Path -LiteralPath $catalogSql) -or (Get-FileHash -LiteralPath $catalogSql).Hash.ToLowerInvariant() -ne $catalog.migrationSha256) {throw '证书管理准备记录不匹配，请核对启动包与迁移记录；未自动修复数据库。'}
+        $environment.WORKPROOF_CATALOG_ENABLED='true'
+    }
     $nativeInspector=Join-Path $root 'native/workproof-inspector.exe'
     if (Test-Path -LiteralPath $nativeInspector -PathType Leaf) {$environment.WORKPROOF_VERIFIER_EXECUTABLE=(Resolve-Path -LiteralPath $nativeInspector).Path}
     $serverArgs=@(('-Djava.io.tmpdir='+(Join-Path $root 'temp')),'-Xms96m','-Xmx384m','-jar',$jar,'--server.address=127.0.0.1',"--server.port=$backendPort")

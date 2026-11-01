@@ -9,6 +9,11 @@ if /I "%~1"=="start" set "SCRIPT=start-windows.ps1"
 if /I "%~1"=="stop" set "SCRIPT=stop-windows.ps1"
 if /I "%~1"=="status" set "SCRIPT=status-windows.ps1"
 if /I "%~1"=="account" set "SCRIPT=show-account.ps1"
+if /I "%~1"=="catalog-plan" set "SCRIPT=prepare-catalog.ps1"
+if /I "%~1"=="catalog-prepare" (
+  set "SCRIPT=prepare-catalog.ps1"
+  set "EXTRA=-Apply"
+)
 if /I "%~1"=="trust" set "SCRIPT=local-certificate-trust.ps1"
 if /I "%~1"=="word" set "SCRIPT=install-word.ps1"
 if /I "%~1"=="remove-word" (
@@ -34,3 +39,5 @@ if errorlevel 1 (
   exit /b 1
 )
 if /I "%~1"=="status" pause
+if /I "%~1"=="catalog-plan" pause
+if /I "%~1"=="catalog-prepare" pause
