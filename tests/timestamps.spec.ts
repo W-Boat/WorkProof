@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import fs from 'node:fs';
 const fixture='test-timestamp-fixtures/';
 test('real OpenSSL timestamp is verified locally with explicit trust and honest scope',async({page})=>{
   const external:string[]=[];
@@ -10,6 +11,8 @@ test('real OpenSSL timestamp is verified locally with explicit trust and honest 
   await expect(panel.getByText('时间凭据与签名一致',{exact:true})).toBeVisible();await expect(panel.getByText('服务声明的时间：',{exact:false})).toBeVisible();
   await panel.getByLabel('你信任的 CA 证书（.pem）').setInputFiles(fixture+'wrong-ca.pem');await expect(consent).not.toBeChecked();await expect(panel.getByRole('status')).toHaveCount(0);await consent.check();await submit.click();await expect(panel.getByRole('alert')).toBeVisible();
   await panel.getByLabel('你信任的 CA 证书（.pem）').setInputFiles(fixture+'ca.pem');await panel.getByLabel('原始时间戳请求（.tsq）').setInputFiles(fixture+'other.tsq');await consent.check();await submit.click();await expect(panel.getByRole('alert')).toBeVisible();
+  const changed=Buffer.from(fs.readFileSync(fixture+'response.tsr'));changed[changed.length-1]^=1;
+  await panel.getByLabel('原始时间戳请求（.tsq）').setInputFiles(fixture+'request.tsq');await panel.getByLabel('时间戳响应（.tsr）').setInputFiles({name:'changed.tsr',mimeType:'application/timestamp-reply',buffer:changed});await consent.check();await submit.click();await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('status')).toHaveCount(0);
   await panel.getByLabel('原始时间戳请求（.tsq）').setInputFiles(fixture+'legacy.tsq');await panel.getByLabel('时间戳响应（.tsr）').setInputFiles(fixture+'legacy.tsr');await consent.check();await submit.click();await expect(panel.getByRole('alert')).toBeVisible();
   await panel.getByLabel('原始时间戳请求（.tsq）').setInputFiles(fixture+'request.tsq');await panel.getByLabel('时间戳响应（.tsr）').setInputFiles(fixture+'response.tsr');await consent.check();await submit.click();await expect(panel.getByText('时间凭据与签名一致',{exact:true})).toBeVisible();
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'test-results/timestamp-mobile.png',fullPage:true});

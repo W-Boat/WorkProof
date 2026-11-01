@@ -19,7 +19,7 @@ export async function verifyTimestamp(signature:string,query:ArrayBuffer,respons
   const request=new TimeStampReq({schema:parse(query)}),reply=new TimeStampResp({schema:parse(response)});
   if(request.version!==1||request.messageImprint.hashAlgorithm.algorithmId!==SHA256||!equal(request.messageImprint.hashedMessage.valueBlock.valueHexView,digest)||![0,1].includes(reply.status.status)||!reply.timeStampToken||reply.timeStampToken.contentType!=='1.2.840.113549.1.7.2')fail();
   const signed=new SignedData({schema:reply.timeStampToken.content});
-  if(signed.signerInfos.length!==1||(signed.certificates?.length??0)>10||signed.encapContentInfo.eContentType!==TST)fail();
+  if(signed.version!==3||signed.signerInfos.length!==1||(signed.certificates?.length??0)>10||signed.encapContentInfo.eContentType!==TST)fail();
   const info=new TSTInfo({schema:parse(octets(signed.encapContentInfo.eContent).slice().buffer)});
   if(info.version!==1||info.messageImprint.hashAlgorithm.algorithmId!==SHA256||!equal(info.messageImprint.hashedMessage.valueBlock.valueHexView,digest)||!equal(nonce(request.nonce),nonce(info.nonce))||(request.reqPolicy&&request.reqPolicy!==info.policy)||!Number.isFinite(info.genTime.getTime())||info.genTime.getTime()>Date.now()+300000)fail();
   const blocks=[...pem.matchAll(/-----BEGIN CERTIFICATE-----\s*([A-Za-z0-9+/=\s]+?)\s*-----END CERTIFICATE-----/g)];
@@ -38,6 +38,8 @@ export async function verifyTimestamp(signature:string,query:ArrayBuffer,respons
   for(const oid of ['1.2.840.113549.1.9.3','1.2.840.113549.1.9.4']) {
     if(signed.signerInfos[0].signedAttrs?.attributes.filter(attr=>attr.type===oid).length!==1)fail();
   }
+  const contentType=signed.signerInfos[0].signedAttrs!.attributes.find(attr=>attr.type==='1.2.840.113549.1.9.3')!;
+  if(contentType.values.length!==1||!(contentType.values[0] instanceof asn1.ObjectIdentifier)||contentType.values[0].valueBlock.toString()!==TST)fail();
   // RFC3161 SigningCertificateV2 binds the selected signing certificate, not just its key.
   const attrs=signed.signerInfos[0].signedAttrs?.attributes.filter(attr=>attr.type==='1.2.840.113549.1.9.16.2.47');
   if(attrs?.length!==1||attrs[0].values.length!==1)fail();
