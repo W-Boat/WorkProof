@@ -8,9 +8,14 @@ permissions:
 jobs:
   real-model:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: ['roberta-gpt2-reference', 'mpu-zh-v3']
     timeout-minutes: 25
     env:
       HF_HUB_DISABLE_TELEMETRY: '1'
+      WORKPROOF_TEST_ENGINE: ${{ matrix.engine }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,7 +27,7 @@ jobs:
           pip install -r tools/ai-assessment/requirements.txt
           pip check
       - name: Explicitly prepare pinned public reference weights
-        run: python tools/ai-assessment/detector.py prepare --model-dir /tmp/workproof-ai-model
+        run: python tools/ai-assessment/detector.py prepare --model-dir /tmp/workproof-ai-model --engine "$WORKPROOF_TEST_ENGINE"
       - name: Real offline inference and unsupported-input handling
         run: python tools/ai-assessment/test_real.py
       - name: Record installed runtime licenses
@@ -30,7 +35,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ai-reference-validation
+          name: ai-reference-validation-${{ matrix.engine }}
           path: |
             ai-reference-results.json
             ai-runtime-inventory.json
