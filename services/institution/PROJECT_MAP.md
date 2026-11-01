@@ -2,6 +2,9 @@
 
 ## WorkProof 接入
 
+- `AiAnalysisController` → `AiAnalysisService` → 已准备的独立Python模型：工作台可选辅助分析，独立`workproof:analysis:run`权限、明确发送同意、每用户隔离任务、单并发/120秒/8MiB/64KiB结果、实际进程取消及临时文件删除。任务是有期限的内存任务，不是持久批量队列；默认关闭，无数据库迁移。
+- `AiAnalysisDialog.vue`/`api/analysis.ts`：复用FormDialog/Field/Checkbox/Select/Tag/PermissionButton与统一HTTP客户端，上传原字节、轮询状态、取消、未校准参考得分。后台Python路径、script与models由管理员配置，不接收用户命令或路径。
+
 - `.github/workflows/catalog-windows.yml`、根脚本 `test_catalog_windows_mysql.ps1`：固定官方便携MySQL摘要的Windows隔离原生备份/另库恢复验收；不上传私有fixture。准备工具的流程fixture保留，原生链路另行给出结果。
 
 - 根仓库 `scripts/local/prepare-catalog.ps1`：本地Windows目录的只读方案/显式备份后准备，`catalog.json`启用记录、`catalog-preparation.json`故障现场；start按迁移摘要启用。Actions启动包包含V3和两个cmd入口；无自动DDL。

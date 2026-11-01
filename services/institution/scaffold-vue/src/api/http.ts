@@ -16,6 +16,7 @@ export interface HttpClient {
   post<T>(path: string, body?: unknown): Promise<T>
   /** 按原字节发送 JSON 文件，保留证书中的大整数与原始内容。 */
   postRawJson<T>(path: string, body: Blob, signal?: AbortSignal): Promise<T>
+  postBinary<T>(path: string, body: Blob, signal?: AbortSignal): Promise<T>
   put<T>(path: string, body?: unknown): Promise<T>
   delete<T>(path: string): Promise<T>
   download(path: string, query?: QueryParams): Promise<Blob>
@@ -49,14 +50,14 @@ export function createHttpClient(options: HttpClientOptions = {}): HttpClient {
   const tokenProvider = options.tokenProvider ?? authSession.token
   const fetcher = options.fetcher ?? fetch
 
-  async function request<T>(method: string, path: string, body?: unknown, query?: QueryParams, rawBody?: Blob, signal?: AbortSignal): Promise<T> {
+  async function request<T>(method: string, path: string, body?: unknown, query?: QueryParams, rawBody?: Blob, signal?: AbortSignal, contentType='application/json'): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' }
     const token = tokenProvider()
     if (token) headers.Authorization = `Bearer ${token}`
     const init: RequestInit = { method, headers }
     if (signal) init.signal = signal
     if (rawBody !== undefined) {
-      headers['Content-Type'] = 'application/json'
+      headers['Content-Type'] = contentType
       init.body = rawBody
     } else if (body !== undefined) {
       headers['Content-Type'] = 'application/json'
@@ -90,6 +91,7 @@ export function createHttpClient(options: HttpClientOptions = {}): HttpClient {
     get: (path, query) => request('GET', path, undefined, query),
     post: (path, body) => request('POST', path, body),
     postRawJson: (path, body, signal) => request('POST', path, undefined, undefined, body, signal),
+    postBinary: (path, body, signal) => request('POST', path, undefined, undefined, body, signal, 'application/octet-stream'),
     put: (path, body) => request('PUT', path, body),
     delete: (path) => request('DELETE', path),
     download,

@@ -20,6 +20,7 @@ import { EASE, firstTimeInSession, gsap, motionSkipped, trackGlow } from '@/comp
 import { hasPermission } from '@/directives/permission'
 import PermissionButton from '@/components/business/PermissionButton.vue'
 import CertificateInspectionDialog from '@/components/business/CertificateInspectionDialog.vue'
+import AiAnalysisDialog from '@/components/business/AiAnalysisDialog.vue'
 
 /* ============================================================
    工作台 · 主次布局：8 列主卡（登录脉搏）+ 4 列侧块，
@@ -33,6 +34,7 @@ const summary = ref<DashboardSummary | null>(null)
 const timeline = ref<OperTimeline | null>(null)
 const loading = ref(true)
 const certificateOpen = ref(false)
+const analysisOpen = ref(false)
 
 const SCOPE_LABEL: Record<string, string> = {
   ALL: '全部数据', DEPT_AND_CHILD: '本部门及以下', DEPT: '本部门', SELF: '仅本人', CUSTOM: '自定义',
@@ -172,8 +174,10 @@ onMounted(() => {
         <p class="page-desc">系统运行概况、登录脉搏与今日操作轨迹。</p>
       </div>
       <PermissionButton perm="workproof:certificate:inspect" @click="certificateOpen = true">检查一份证书</PermissionButton>
+      <PermissionButton perm="workproof:analysis:run" @click="analysisOpen = true">AI 辅助分析</PermissionButton>
     </header>
     <CertificateInspectionDialog v-if="hasPermission('workproof:certificate:inspect')" :open="certificateOpen" @close="certificateOpen = false" />
+    <AiAnalysisDialog v-if="hasPermission('workproof:analysis:run')" :open="analysisOpen" @close="analysisOpen = false" />
 
     <div ref="grid" class="bento-grid">
       <!-- 01 主卡：登录脉搏 -->
