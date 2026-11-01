@@ -155,6 +155,8 @@ STDMETHODIMP CExtensibility::QueryInterface(REFIID iid, void** object) {
         AddRef();
         return S_OK;
     }
+    // Word asks this same object for the ribbon interface; the ribbon lives on the add-in object.
+    if (iid == IID_IRibbon && m_owner) return m_owner->QueryInterface(iid, object);
     return E_NOINTERFACE;
 }
 
