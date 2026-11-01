@@ -94,7 +94,7 @@ jobs:
           foreach ($entry in @('Install PowerPoint.cmd','Open PowerPoint WorkProof.cmd','Remove PowerPoint add-in.cmd','open-native-powerpoint.ps1')) {
             if (-not (Test-Path -LiteralPath (Join-Path "$env:RUNNER_TEMP/workproof-native-word" $entry) -PathType Leaf)) { throw "Missing PowerPoint entry: $entry" }
           }
-          $fixture = 'Software/WorkProofPowerPointCI/' + [Guid]::NewGuid().ToString()
+          $fixture = 'Software\WorkProofNativePowerPointCI\' + [Guid]::NewGuid().ToString()
           try {
             & ./scripts/local/install-native-powerpoint.ps1 -RuntimeRoot "$env:RUNNER_TEMP/workproof-native-word" -RegistryFixture $fixture
             if ($LASTEXITCODE) { throw 'PowerPoint fixture install failed' }

@@ -260,6 +260,36 @@ bool SaveDocument(IDispatch* application, std::wstring& error) {
         return false;
     }
     IDispatch* doc = document.pdispVal;
+#ifdef WORKPROOF_POWERPOINT
+    Variant path;
+    if(FAILED(GetProperty(doc,L"Path",path.get()))||path.value.vt!=VT_BSTR){error=L"无法读取保存位置，请在 PowerPoint 中手动保存后重试。";return false;}
+    if(!path.value.bstrVal||!path.value.bstrVal[0]){
+        // Let Office own the save UI and overwrite confirmation. Never invent
+        // a filename or silently save a new presentation to a default location.
+        LPOLESTR name=const_cast<LPOLESTR>(L"FileDialog");DISPID dialogId=0;
+        HRESULT hr=application->GetIDsOfNames(IID_NULL,&name,1,LOCALE_USER_DEFAULT,&dialogId);
+        Variant dialog;VARIANT type={};type.vt=VT_I4;type.lVal=2; // msoFileDialogSaveAs
+        DISPPARAMS parameters={&type,nullptr,1,0};
+        if(SUCCEEDED(hr))hr=application->Invoke(dialogId,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_PROPERTYGET,&parameters,dialog.get(),nullptr,nullptr);
+        if(FAILED(hr)||dialog.value.vt!=VT_DISPATCH||!dialog.value.pdispVal){error=L"无法打开另存为窗口，请在 PowerPoint 中手动保存后重试。";return false;}
+        auto invoke=[&](const wchar_t* key,VARIANT* result){
+            LPOLESTR member=const_cast<LPOLESTR>(key);DISPID id=0;
+            HRESULT found=dialog.value.pdispVal->GetIDsOfNames(IID_NULL,&member,1,LOCALE_USER_DEFAULT,&id);
+            if(FAILED(found))return found;
+            DISPPARAMS none={};return dialog.value.pdispVal->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_METHOD,&none,result,nullptr,nullptr);
+        };
+        Variant choice;hr=invoke(L"Show",choice.get());
+        if(FAILED(hr)){error=L"另存为窗口未能完成，请手动保存后重试。";return false;}
+        if((choice.value.vt!=VT_I4&&choice.value.vt!=VT_I2)||
+           (choice.value.vt==VT_I4?choice.value.lVal:choice.value.iVal)!=-1){error=L"已取消保存，尚未开始记录。";return false;}
+        hr=invoke(L"Execute",nullptr);
+        Variant savedPath;
+        if(FAILED(hr)||FAILED(GetProperty(doc,L"Path",savedPath.get()))||savedPath.value.vt!=VT_BSTR||!savedPath.value.bstrVal||!savedPath.value.bstrVal[0]){
+            error=L"演示文稿尚未保存到文件，请手动保存后重试。";return false;
+        }
+        return true;
+    }
+#endif
     DISPID id = 0;
     OLECHAR* name = const_cast<OLECHAR*>(L"Save");
     HRESULT hr = doc->GetIDsOfNames(IID_NULL, &name, 1, LOCALE_USER_DEFAULT, &id);

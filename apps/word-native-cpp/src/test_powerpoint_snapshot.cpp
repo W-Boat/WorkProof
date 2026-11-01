@@ -7,8 +7,8 @@
 #include <cwchar>
 namespace workproof { std::wstring EnginePath(){return L"unused.exe";} }
 namespace {
-enum Property {ActivePresentation=1,Path,Name,FullName,Slides,Count,Item,Shapes,ReadOnly,Saved,Save};
-enum Role {Application,Presentation,SlideList,Slide,ShapeList};
+enum Property {ActivePresentation=1,Path,Name,FullName,Slides,Count,Item,Shapes,ReadOnly,Saved,Save,FileDialog,Show,Execute};
+enum Role {Application,Presentation,SlideList,Slide,ShapeList,Dialog};
 struct Fixture;
 class Object final:public IDispatch {
 public:
@@ -24,24 +24,30 @@ public:
 };
 struct Fixture {
     Object application{this,Application},presentation{this,Presentation},slides{this,SlideList},slide{this,Slide},shapes{this,ShapeList};
+    Object dialog{this,Dialog};
+    bool unsaved=false,executeFailure=false,executeNoPath=false,showFailure=false,saveFailure=false;
+    long choice=-1;int showCalls=0,executeCalls=0;
     LONG slideCount=3,shapeCount=4;
     Role failRole=Application;DISPID failProperty=0;bool wrongType=false;
     int forbiddenAccess=0,itemCalls=0,saveCalls=0;
-    bool balanced(){return application.refs==1&&presentation.refs==1&&slides.refs==1&&slide.refs==1&&shapes.refs==1;}
+    bool balanced(){return application.refs==1&&presentation.refs==1&&slides.refs==1&&slide.refs==1&&shapes.refs==1&&dialog.refs==1;}
 };
 STDMETHODIMP Object::GetIDsOfNames(REFIID,LPOLESTR* names,UINT n,LCID,DISPID* ids){
-    const wchar_t* keys[]={L"",L"ActivePresentation",L"Path",L"Name",L"FullName",L"Slides",L"Count",L"Item",L"Shapes",L"ReadOnly",L"Saved",L"Save"};
+    const wchar_t* keys[]={L"",L"ActivePresentation",L"Path",L"Name",L"FullName",L"Slides",L"Count",L"Item",L"Shapes",L"ReadOnly",L"Saved",L"Save",L"FileDialog",L"Show",L"Execute"};
     if(!names||!ids)return E_POINTER;
-    for(UINT i=0;i<n;++i){ids[i]=DISPID_UNKNOWN;for(int k=1;k<=Save;++k)if(!wcscmp(names[i],keys[k])){ids[i]=k;break;}if(ids[i]==DISPID_UNKNOWN){++fixture->forbiddenAccess;return DISP_E_UNKNOWNNAME;}}
+    for(UINT i=0;i<n;++i){ids[i]=DISPID_UNKNOWN;for(int k=1;k<=Execute;++k)if(!wcscmp(names[i],keys[k])){ids[i]=k;break;}if(ids[i]==DISPID_UNKNOWN){++fixture->forbiddenAccess;return DISP_E_UNKNOWNNAME;}}
     return S_OK;
 }
 STDMETHODIMP Object::Invoke(DISPID id,REFIID,LCID,WORD flags,DISPPARAMS* params,VARIANT* out,EXCEPINFO*,UINT*){
     if(out)VariantInit(out);
-    if(role==Presentation&&id==Save){if(!(flags&DISPATCH_METHOD))return DISP_E_MEMBERNOTFOUND;++fixture->saveCalls;return S_OK;}
+    if(role==Presentation&&id==Save){if(!(flags&DISPATCH_METHOD))return DISP_E_MEMBERNOTFOUND;++fixture->saveCalls;return fixture->saveFailure?E_FAIL:S_OK;}
+    if(role==Dialog&&id==Execute){++fixture->executeCalls;if(fixture->executeFailure)return E_FAIL;if(!fixture->executeNoPath)fixture->unsaved=false;return S_OK;}
+    if(role==Dialog&&id==Show){++fixture->showCalls;if(fixture->showFailure)return E_FAIL;if(!out)return E_POINTER;out->vt=VT_I4;out->lVal=fixture->choice;return S_OK;}
     if(!out)return E_POINTER;
     if(role==fixture->failRole&&id==fixture->failProperty){if(!fixture->wrongType)return DISP_E_EXCEPTION;out->vt=VT_BOOL;return S_OK;}
     Object* object=nullptr;
     if(role==Application&&id==ActivePresentation)object=&fixture->presentation;
+    if(role==Application&&id==FileDialog){if(!params||params->cArgs!=1||params->rgvarg[0].vt!=VT_I4||params->rgvarg[0].lVal!=2)return DISP_E_TYPEMISMATCH;object=&fixture->dialog;}
     if(role==Presentation&&id==Slides)object=&fixture->slides;
     if(role==SlideList&&id==Item){
         if(!(flags&(DISPATCH_METHOD|DISPATCH_PROPERTYGET))||!params||params->cArgs!=1||params->rgvarg[0].vt!=VT_I4||params->rgvarg[0].lVal<1||params->rgvarg[0].lVal>fixture->slideCount)return DISP_E_BADINDEX;
@@ -49,7 +55,7 @@ STDMETHODIMP Object::Invoke(DISPID id,REFIID,LCID,WORD flags,DISPPARAMS* params,
     }
     if(role==Slide&&id==Shapes)object=&fixture->shapes;
     if(object){out->vt=VT_DISPATCH;out->pdispVal=object;object->AddRef();return S_OK;}
-    if(role==Presentation&&(id==Path||id==Name||id==FullName)){out->vt=VT_BSTR;out->bstrVal=SysAllocString(id==Path?L"C:\\fixture":id==Name?L"slides.pptx":L"C:\\fixture\\slides.pptx");return out->bstrVal?S_OK:E_OUTOFMEMORY;}
+    if(role==Presentation&&(id==Path||id==Name||id==FullName)){out->vt=VT_BSTR;out->bstrVal=SysAllocString(id==Path?(fixture->unsaved?L"":L"C:\\fixture"):id==Name?L"slides.pptx":L"C:\\fixture\\slides.pptx");return out->bstrVal?S_OK:E_OUTOFMEMORY;}
     if((role==SlideList||role==ShapeList)&&id==Count){out->vt=VT_I4;out->lVal=role==SlideList?fixture->slideCount:fixture->shapeCount;return S_OK;}
     if(role==Presentation&&(id==ReadOnly||id==Saved)){out->vt=VT_I4;out->lVal=id==Saved?-1:0;return S_OK;}
     ++fixture->forbiddenAccess;return DISP_E_MEMBERNOTFOUND;
@@ -77,5 +83,18 @@ int main(){
     for(int i=0;i<6;++i){f.failRole=roles[i];f.failProperty=ids[i];f.wrongType=false;if(!Check(f,false,"property failure"))return 1;f.wrongType=true;if(!Check(f,false,"property wrong type"))return 1;}
     f.failProperty=0;std::wstring error;
     if(!workproof::SaveDocument(&f.application,error)||f.saveCalls!=1||!f.balanced()){std::puts("FAIL: ActivePresentation.Save");return 1;}
+    f.saveFailure=true;
+    if(workproof::SaveDocument(&f.application,error)||!f.balanced()){std::puts("FAIL: save command failure");return 1;}
+    f.saveFailure=false;
+    Fixture blank;blank.unsaved=true;blank.choice=0;
+    if(workproof::SaveDocument(&blank.application,error)||blank.executeCalls||blank.saveCalls||!blank.balanced()){std::puts("FAIL: save dialog cancellation");return 1;}
+    blank.choice=-1;blank.executeFailure=true;
+    if(workproof::SaveDocument(&blank.application,error)||!blank.unsaved||!blank.balanced()){std::puts("FAIL: save dialog execute failure");return 1;}
+    blank.executeFailure=false;blank.executeNoPath=true;
+    if(workproof::SaveDocument(&blank.application,error)||!blank.balanced()){std::puts("FAIL: save dialog no saved path");return 1;}
+    blank.executeNoPath=false;blank.showFailure=true;
+    if(workproof::SaveDocument(&blank.application,error)||!blank.balanced()){std::puts("FAIL: save dialog show failure");return 1;}
+    blank.showFailure=false;
+    if(!workproof::SaveDocument(&blank.application,error)||blank.unsaved||blank.saveCalls||!blank.balanced()){std::puts("FAIL: save dialog success");return 1;}
     std::puts("PASS: PowerPoint structure snapshots, zero/limits/failures, no text access, COM ownership and presentation Save");return 0;
 }
