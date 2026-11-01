@@ -1,6 +1,7 @@
 {
   "name": "workproof",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "workspaces": ["apps/verifier", "apps/extension", "apps/desktop"],
   "scripts": {
