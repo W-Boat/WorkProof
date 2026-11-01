@@ -32,20 +32,27 @@ class TaskPaneControl final : public IOleObject, public IOleInPlaceObject,
         active_ = uiActive_ = false;
     }
     HRESULT Activate(LONG verb, HWND parent, LPCRECT bounds) {
+        TraceHresult(L"TaskPane Activate verb",verb);
+        TraceHresult(L"TaskPane Activate client site present",site_?1:0);
         if (!site_) return E_UNEXPECTED;
         if (!inplace_) {
             HRESULT hr=site_->QueryInterface(IID_IOleInPlaceSite,reinterpret_cast<void**>(&inplace_));
+            TraceHresult(L"TaskPane Query IOleInPlaceSite",hr);
             if (FAILED(hr)) return hr;
         }
         if (!active_) {
             HRESULT hr=inplace_->CanInPlaceActivate();
+            TraceHresult(L"TaskPane CanInPlaceActivate",hr);
             if (hr!=S_OK) return FAILED(hr)?hr:E_FAIL;
             hr=inplace_->OnInPlaceActivate();
+            TraceHresult(L"TaskPane OnInPlaceActivate",hr);
             if (FAILED(hr)) return hr;
             active_=true;
         }
         HWND host=nullptr;
-        inplace_->GetWindow(&host);
+        HRESULT hostResult=inplace_->GetWindow(&host);
+        TraceHresult(L"TaskPane site GetWindow",hostResult);
+        TraceHresult(L"TaskPane host window present",host?1:0);
         if (!host) host=parent;
         if (!host) return E_UNEXPECTED;
         IOleInPlaceFrame* frame=nullptr;
@@ -53,12 +60,14 @@ class TaskPaneControl final : public IOleObject, public IOleInPlaceObject,
         RECT position=rect_,clip=rect_;
         OLEINPLACEFRAMEINFO info={}; info.cb=sizeof(info);
         HRESULT context=inplace_->GetWindowContext(&frame,&document,&position,&clip,&info);
+        TraceHresult(L"TaskPane GetWindowContext",context);
         if (frame) frame->Release();
         if (document) document->Release();
         if (bounds) position=*bounds;
         else if (FAILED(context)) GetClientRect(host,&position);
         rect_=position;
         if (!window_) window_=PaneCreateChild(host,rect_);
+        TraceHresult(L"TaskPane child created",window_?1:0);
         if (!window_) return E_FAIL;
         PaneResizeChild(rect_);
         ShowWindow(window_,SW_SHOW);
@@ -74,6 +83,7 @@ public:
     TaskPaneControl() { InterlockedIncrement(&g_objectCount); }
     ~TaskPaneControl() { Deactivate(); if(site_) site_->Release(); if(viewSink_) viewSink_->Release(); InterlockedDecrement(&g_objectCount); }
     STDMETHODIMP QueryInterface(REFIID iid,void** object) override {
+        TraceIid(L"TaskPane QueryInterface",iid);
         if(!object) return E_POINTER;
         *object=nullptr;
         if(iid==IID_IUnknown || iid==IID_IOleObject) *object=static_cast<IOleObject*>(this);
@@ -89,6 +99,7 @@ public:
     STDMETHODIMP_(ULONG) AddRef() override { return InterlockedIncrement(&refs_); }
     STDMETHODIMP_(ULONG) Release() override { LONG count=InterlockedDecrement(&refs_); if(!count) delete this; return count; }
     STDMETHODIMP SetClientSite(IOleClientSite* site) override {
+        TraceHresult(L"TaskPane SetClientSite present",site?1:0);
         if(site==site_) return S_OK;
         Deactivate(); if(site) site->AddRef(); if(site_) site_->Release(); site_=site; return S_OK;
     }
@@ -100,6 +111,7 @@ public:
     STDMETHODIMP InitFromData(IDataObject*,BOOL,DWORD) override { return E_NOTIMPL; }
     STDMETHODIMP GetClipboardData(DWORD,IDataObject** value) override { if(value) *value=nullptr; return E_NOTIMPL; }
     STDMETHODIMP DoVerb(LONG verb,LPMSG,IOleClientSite*,LONG,HWND parent,LPCRECT rect) override {
+        TraceHresult(L"TaskPane DoVerb",verb);
         if(verb==OLEIVERB_HIDE) { if(window_) ShowWindow(window_,SW_HIDE); return S_OK; }
         if(verb==OLEIVERB_PRIMARY || verb==OLEIVERB_SHOW || verb==OLEIVERB_INPLACEACTIVATE || verb==OLEIVERB_UIACTIVATE) return Activate(verb,parent,rect);
         return OLEOBJ_S_INVALIDVERB;

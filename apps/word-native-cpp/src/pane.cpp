@@ -639,7 +639,7 @@ void PaneShow() {
         for(auto& value:args)VariantClear(&value);TraceHresult(L"CreateCTP",hr);
         if(SUCCEEDED(hr)&&result.vt==VT_DISPATCH){g.taskPane=result.pdispVal;g.taskPane->AddRef();}VariantClear(&result);
         if(!g.taskPane){MessageBoxW(nullptr,L"侧栏未能加载。请重新安装 WorkProof 的 Word 加载项后重试。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;}
-        VARIANT setting;VariantInit(&setting);setting.vt=VT_I4;setting.lVal=3;
+        VARIANT setting;VariantInit(&setting);setting.vt=VT_I4;setting.lVal=2;
         Dispatch(g.taskPane,L"DockPosition",DISPATCH_PROPERTYPUT,&setting,1);setting.lVal=360;Dispatch(g.taskPane,L"Width",DISPATCH_PROPERTYPUT,&setting,1);
     }
     VARIANT visible;VariantInit(&visible);visible.vt=VT_BOOL;visible.boolVal=VARIANT_TRUE;
