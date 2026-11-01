@@ -119,6 +119,7 @@ jobs:
           name: institution-runtime-diagnostics
           path: |
             institution-runtime.log
+            test-results/institution-ai-*.png
             institution-https.log
             test-results/institution-certificate-batch-mobile.png
             test-results/institution-certificate-catalog.png

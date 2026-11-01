@@ -42,7 +42,7 @@ const label=(key:string)=>['AI','Fake'].includes(key)?'更接近生成样本的�
 </script>
 <template>
   <FormDialog :open="open" title="AI 辅助分析" sub="选择文档、确认发送范围，再查看参考结果。" :saving="busy" :submit-disabled="!ready" submit-text="发送并分析" @submit="submit" @close="close">
-    <Field label="选择文档" span :error="error||undefined"><input type="file" accept=".docx,.txt,.md" :disabled="busy" @change="select"><span class="field-hint">最多 8 MB。只分析主文档源文字，不含页眉、脚注或图片；隐藏或修订文字可能包含在内。</span></Field>
+    <Field label="选择文档" span :error="error||undefined"><input aria-label="选择文档" type="file" accept=".docx,.txt,.md" :disabled="busy" @change="select"><span class="field-hint">最多 8 MB。只分析主文档源文字，不含页眉、脚注或图片；隐藏或修订文字可能包含在内。</span></Field>
     <Field label="选择参考模型" span><Select :model-value="engine" :options="options" :disabled="busy" @update:model-value="value=>{engine=String(value);resetResult()}"/><p class="field-hint">英文模型仅为 GPT-2 参考；两种模型都可能误判，不能单独用于认定作弊或原创性。</p></Field>
     <Field label="确认发送范围" group span><Checkbox v-model="consent" :disabled="busy||!file" label="我同意将所选文档发送给机构服务器进行辅助分析"/><p class="field-hint">分析后删除临时文档，不保存正文；参考结果最多保留十分钟，服务器重启后不保留。作品较长时会提示未分析，不会悄悄只分析开头。</p><p class="field-hint" role="status">{{ busy ? (cancelling?'正在请求停止，请等待服务器确认…':'正在分析；点击取消可请求停止实际分析进程。') : capability?.message||'正在读取模型准备状态…' }}</p></Field>
     <Field v-if="task?.state==='cancelled'" label="分析已取消" group span><p role="status">服务器已结束本次分析。</p></Field>

@@ -9,10 +9,11 @@ const {chromium,expect}=require('@playwright/test');
   const unauthorized=await fetch(origin+'/api/workproof/analysis/capabilities');assert.equal(unauthorized.status,401);
   const noConsent=await fetch(origin+'/api/workproof/analysis/tasks/mpu-zh-v3/txt',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/octet-stream'},body:'not uploaded for analysis'});assert.equal((await noConsent.json()).code,400);
   const browser=await chromium.launch({headless:true});
+  let page;
   try{
     const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'});
     await context.addInitScript(({origin,token,user})=>{if(location.origin===origin){localStorage.setItem('scaffold.token',token);localStorage.setItem('scaffold.user',JSON.stringify(user));localStorage.setItem('scaffold.expiresAt',String(Date.now()+3600000));}},{origin,token,user});
-    const page=await context.newPage();await page.goto(origin+'/');await page.getByRole('button',{name:'AI 辅助分析',exact:true}).click();
+    page=await context.newPage();await page.goto(origin+'/');await page.getByRole('button',{name:'AI 辅助分析',exact:true}).click();
     const dialog=page.getByRole('dialog',{name:'AI 辅助分析',exact:true}),submit=dialog.getByRole('button',{name:'发送并分析',exact:true});await expect(submit).toBeDisabled();
     const text='这是一段用于机构流程验收的合成文字，只检查真实模型和页面是否连通。分数不是创作比例，也不能单独证明作者身份或学术不端。临时文档不应出现在操作日志或模型报告中。'.repeat(2);
     await dialog.getByLabel('选择文档',{exact:true}).setInputFiles({name:'synthetic.txt',mimeType:'text/plain',buffer:Buffer.from(text)});await expect(submit).toBeDisabled();
@@ -28,5 +29,5 @@ const {chromium,expect}=require('@playwright/test');
       await dialog.getByLabel('选择文档',{exact:true}).setInputFiles({name:'cancel.txt',mimeType:'text/plain',buffer:Buffer.from(text)});await dialog.getByText('我同意将所选文档发送给机构服务器进行辅助分析',{exact:true}).click();await submit.click();await dialog.getByRole('button',{name:'取消',exact:true}).click();await expect(dialog.getByText('服务器已结束本次分析。',{exact:true})).toBeVisible({timeout:30000});
     }
     await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/institution-ai-mobile.png',fullPage:true});
-  }finally{await browser.close();}
+  }catch(error){fs.mkdirSync('test-results',{recursive:true});if(page)await page.screenshot({path:'test-results/institution-ai-failed.png',fullPage:true}).catch(()=>{});throw error;}finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1});
