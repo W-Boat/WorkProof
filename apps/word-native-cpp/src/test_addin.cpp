@@ -51,6 +51,24 @@ int wmain(int argc, wchar_t** argv) {
     if (FAILED(hr) || !markup) return Fail("GetCustomUI returned nothing");
     std::wstring xml(markup, SysStringLen(markup));
     SysFreeString(markup);
+    // Exercise the dual-interface layout, not an IUnknown-only imitation of Office's ABI.
+    if (FAILED(extensibility->OnAddInsUpdate(nullptr))) return Fail("dual extensibility vtable is invalid");
+    IDispatch* ribbonDispatch=nullptr;
+    if (FAILED(ribbon->QueryInterface(IID_IDispatch,(void**)&ribbonDispatch))) return Fail("ribbon dispatch missing");
+    OLECHAR* uiName=const_cast<OLECHAR*>(L"GetCustomUI");DISPID uiId=DISPID_UNKNOWN;
+    if (FAILED(ribbonDispatch->GetIDsOfNames(IID_NULL,&uiName,1,LOCALE_USER_DEFAULT,&uiId))) return Fail("ribbon GetCustomUI dispatch missing");
+    VARIANT argument;VariantInit(&argument);argument.vt=VT_BSTR;argument.bstrVal=SysAllocString(L"Microsoft.Word.Document");
+    DISPPARAMS parameters={&argument,nullptr,1,0};VARIANT output;VariantInit(&output);
+    hr=ribbonDispatch->Invoke(uiId,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_METHOD,&parameters,&output,nullptr,nullptr);
+    VariantClear(&argument);
+    if (FAILED(hr)||output.vt!=VT_BSTR||xml!=std::wstring(output.bstrVal,SysStringLen(output.bstrVal))) return Fail("dual ribbon dispatch returned different markup");
+    VariantClear(&output);
+    IUnknown *identity=nullptr,*ribbonIdentity=nullptr,*extensionIdentity=nullptr;
+    connect->QueryInterface(IID_IUnknown,(void**)&identity);
+    ribbon->QueryInterface(IID_IUnknown,(void**)&ribbonIdentity);
+    extensibility->QueryInterface(IID_IUnknown,(void**)&extensionIdentity);
+    if(identity!=ribbonIdentity||identity!=extensionIdentity) return Fail("COM interfaces disagree about object identity");
+    identity->Release();ribbonIdentity->Release();extensionIdentity->Release();ribbonDispatch->Release();
 
     for (const wchar_t* token : {L"customUI", L"id='workproofTab'", L"OpenRecorder", L"StartRecording",
                                  L"TogglePause", L"ExportRecord"}) {

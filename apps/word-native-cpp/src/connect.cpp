@@ -99,6 +99,10 @@ public:
         if (remaining == 0) delete this;
         return (ULONG)remaining;
     }
+    STDMETHODIMP GetTypeInfoCount(UINT* count) override { if (!count) return E_POINTER; *count=0; return S_OK; }
+    STDMETHODIMP GetTypeInfo(UINT, LCID, ITypeInfo** info) override { if (info) *info=nullptr; return DISP_E_BADINDEX; }
+    STDMETHODIMP GetIDsOfNames(REFIID iid, LPOLESTR* names, UINT count, LCID locale, DISPID* ids) override;
+    STDMETHODIMP Invoke(DISPID id, REFIID iid, LCID locale, WORD flags, DISPPARAMS* parameters, VARIANT* result, EXCEPINFO* exception, UINT* argumentError) override;
     STDMETHODIMP GetCustomUI(BSTR ribbonId, BSTR* ribbonXml) override;
 
 private:
@@ -162,7 +166,8 @@ STDMETHODIMP CExtensibility::QueryInterface(REFIID iid, void** object) {
     TraceIid(L"Extensibility QueryInterface", iid);
     if (!object) return E_POINTER;
     *object = nullptr;
-    if (iid == IID_IUnknown || iid == IID_IDispatch || iid == IID_IExtensibility2) {
+    if (iid == IID_IUnknown && m_owner) return m_owner->QueryInterface(iid, object);
+    if (iid == IID_IDispatch || iid == IID_IExtensibility2) {
         // A dual interface shares one vtable, so every accepted IID resolves to the same pointer.
         *object = static_cast<IDispatch*>(this);
         AddRef();
@@ -249,14 +254,31 @@ STDMETHODIMP CRibbon::QueryInterface(REFIID iid, void** object) {
     TraceIid(L"Ribbon QueryInterface", iid);
     if (!object) return E_POINTER;
     *object = nullptr;
-    if (iid == IID_IUnknown || iid == IID_IRibbon) {
+    if (iid == IID_IUnknown && m_owner) return m_owner->QueryInterface(iid, object);
+    if (iid == IID_IDispatch || iid == IID_IRibbon) {
         *object = static_cast<IRibbonExtensibility*>(this);
         AddRef();
         return S_OK;
     }
-    // Ribbon callbacks are looked up by name, so Word needs IDispatch as well.
-    if (iid == IID_IDispatch && m_owner) return m_owner->QueryInterface(iid, object);
+    if (m_owner) return m_owner->QueryInterface(iid, object);
     return E_NOINTERFACE;
+}
+
+STDMETHODIMP CRibbon::GetIDsOfNames(REFIID iid,LPOLESTR* names,UINT count,LCID locale,DISPID* ids) {
+    if (!names||!ids) return E_POINTER;
+    if (count==1&&names[0]&&_wcsicmp(names[0],L"GetCustomUI")==0) { ids[0]=1;return S_OK; }
+    return m_owner?m_owner->GetIDsOfNames(iid,names,count,locale,ids):E_UNEXPECTED;
+}
+
+STDMETHODIMP CRibbon::Invoke(DISPID id,REFIID iid,LCID locale,WORD flags,DISPPARAMS* parameters,VARIANT* result,EXCEPINFO* exception,UINT* argumentError) {
+    if (id!=1) return m_owner?m_owner->Invoke(id,iid,locale,flags,parameters,result,exception,argumentError):E_UNEXPECTED;
+    if (!parameters||parameters->cArgs!=1) return DISP_E_BADPARAMCOUNT;
+    if (!result) return E_POINTER;
+    VariantInit(result);
+    if (parameters->rgvarg[0].vt!=VT_BSTR) return DISP_E_TYPEMISMATCH;
+    HRESULT hr=GetCustomUI(parameters->rgvarg[0].bstrVal,&result->bstrVal);
+    if (SUCCEEDED(hr)) result->vt=VT_BSTR;
+    return hr;
 }
 
 STDMETHODIMP CRibbon::GetCustomUI(BSTR ribbonId, BSTR* ribbonXml) {

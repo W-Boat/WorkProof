@@ -17,7 +17,7 @@ extern const IID IID_IRibbon;
 extern HINSTANCE g_module;
 extern LONG g_objectCount;
 
-struct __declspec(uuid("B65AD801-ABAF-11D0-BB8B-00A0C90F2744")) IDTExtensibility2 : public IUnknown {
+struct __declspec(uuid("B65AD801-ABAF-11D0-BB8B-00A0C90F2744")) IDTExtensibility2 : public IDispatch {
     virtual HRESULT __stdcall OnConnection(IDispatch* application, int connectMode, IDispatch* addInInstance, SAFEARRAY** custom) = 0;
     virtual HRESULT __stdcall OnDisconnection(int removeMode, SAFEARRAY** custom) = 0;
     virtual HRESULT __stdcall OnAddInsUpdate(SAFEARRAY** custom) = 0;
@@ -25,7 +25,7 @@ struct __declspec(uuid("B65AD801-ABAF-11D0-BB8B-00A0C90F2744")) IDTExtensibility
     virtual HRESULT __stdcall OnBeginShutdown(SAFEARRAY** custom) = 0;
 };
 
-struct __declspec(uuid("000C0396-0000-0000-C000-000000000046")) IRibbonExtensibility : public IUnknown {
+struct __declspec(uuid("000C0396-0000-0000-C000-000000000046")) IRibbonExtensibility : public IDispatch {
     virtual HRESULT __stdcall GetCustomUI(BSTR ribbonId, BSTR* ribbonXml) = 0;
 };
 
