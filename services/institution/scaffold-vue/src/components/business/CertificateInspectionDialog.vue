@@ -42,25 +42,28 @@ async function inspect() {
   <FormDialog :open="open" title="检查一份证书" sub="选择证书、确认发送，再查看结果。作品文件不会发送到机构服务器。" :saving="busy" :submit-disabled="!ready" submit-text="检查证书内容" @close="emit('close')" @submit="inspect">
     <Field label="选择 .wproof 证书" span :error="error || undefined">
       <input type="file" accept=".wproof" :disabled="busy" @change="select">
+      <span class="field-hint">这是创作者导出的过程证书。请选择证书文件，不要选择作品或证书截图。</span>
     </Field>
-    <div class="span-2">
+    <Field label="确认发送范围" group span>
       <p class="field-hint">证书可能包含文件名、记录时间和操作数量。若只想分享部分过程，请先在本机检查页面导出部分记录。</p>
       <Checkbox v-model="consent" :disabled="busy || !file" label="我同意将所选证书发送给机构服务器检查" />
       <p v-if="loading" class="field-hint" role="status">正在检查服务是否就绪…</p>
       <p v-else-if="capability && !capability.configured" class="field-hint" role="status">{{ capability.message }}</p>
       <p v-if="busy" class="field-hint" role="status">正在检查证书内容，请稍等…</p>
-    </div>
-    <div v-if="result" class="span-2" aria-live="polite">
+      <p v-else-if="capability?.configured && !result" class="field-hint" role="status">{{ !file ? '下一步：选择一份证书。' : !consent ? '下一步：阅读上方说明，确认同意后勾选，再点击“检查证书内容”。' : '准备好了，点击“检查证书内容”查看结果。' }}</p>
+    </Field>
+    <Field v-if="result" label="查看检查结果" group span aria-live="polite">
       <Tag :tone="result.certificate_valid ? 'ok' : 'danger'">{{ result.certificate_valid ? '证书内容一致' : '证书内容未能确认' }}</Tag>
       <Tag v-if="result.manifest?.demo" tone="neutral">演示证书</Tag>
-      <p>{{ result.manifest?.file_name || '无法识别文件名' }}</p>
+      <p><strong>{{ result.manifest?.file_name || '无法识别文件名' }}</strong></p>
       <p v-if="result.certificate_valid">{{ result.scope === 'selective' ? '只检查本次分享的记录' : '已检查全部记录' }}；签名一致。</p>
       <p v-else>请向提供者索取原始 .wproof 文件，并确认它没有被修改。</p>
-      <p v-if="result.scope === 'selective'" class="field-hint">未检查完整记录链，不能据此判断未分享的过程。</p>
+      <p v-if="result.scope === 'selective'" class="field-hint">未检查全部过程记录，不能据此判断未分享的过程。</p>
       <p class="field-hint">作品仍需在本机单独检查。这里没有确认作者身份，也没有确认实际创作时间。</p>
       <Field v-if="result.certificateId" label="证书指纹" group>
         <code style="overflow-wrap:anywhere">{{ result.certificateId }}</code>
+        <span class="field-hint">这是识别同一张证书的编号。请与提供者通过可信渠道发来的完整编号核对；一致也不代表作者身份已确认。</span>
       </Field>
-    </div>
+    </Field>
   </FormDialog>
 </template>
