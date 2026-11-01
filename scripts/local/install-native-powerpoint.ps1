@@ -3,8 +3,7 @@
 .SYNOPSIS
     Registers the WorkProof PowerPoint add-in for the current user (no administrator rights).
 .DESCRIPTION
-    Accepts either the native add-in (WorkProofPowerPoint.dll, no runtime dependency) or the older
-    managed one (WorkProof.PowerPointNative.dll). Copies the payload to a stable per-user directory,
+    Accepts the native add-in (WorkProofPowerPoint.dll, no runtime dependency). Copies the payload to a stable per-user directory,
     clears the Mark-of-the-Web from the copied files, and writes only WorkProof's own HKCU COM
     and PowerPoint Add-ins entries. -Remove deletes exactly those entries again.
 #>
@@ -27,7 +26,7 @@ $TaskPaneProgId = 'WorkProof.PowerPointNative.TaskPane'
 $TaskPaneClsid = '{6EC055C4-2EB0-49EB-80C9-30C6DA38EB87}'
 $Marker = '.workproof-native'
 $AddInNames = @('WorkProofPowerPoint.dll')
-$OptionalFiles = @('workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'BUILD-INFO.json', 'README-WORD.md', 'install-native-powerpoint.ps1')
+$OptionalFiles = @('workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'BUILD-INFO.json', 'README-WORD.md', 'Install PowerPoint.cmd', 'Open PowerPoint WorkProof.cmd', 'Remove PowerPoint add-in.cmd', 'open-native-powerpoint.ps1', 'install-native-powerpoint.ps1')
 
 function Get-PeArchitecture([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)

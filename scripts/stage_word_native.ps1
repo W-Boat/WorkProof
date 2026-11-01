@@ -35,6 +35,10 @@ Copy-Required $Engine (Join-Path $Package 'workproof-engine.exe')
 if ($PowerPointAddIn) {
     Copy-Required $PowerPointAddIn (Join-Path $Package 'WorkProofPowerPoint.dll')
     Copy-Required (Join-Path $PSScriptRoot 'local/install-native-powerpoint.ps1') (Join-Path $Package 'install-native-powerpoint.ps1')
+    foreach ($entry in @('Install PowerPoint.cmd','Open PowerPoint WorkProof.cmd','Remove PowerPoint add-in.cmd','open-native-powerpoint.ps1')) {
+        Copy-Required (Join-Path $PSScriptRoot ('local/'+$entry)) (Join-Path $Package $entry)
+    }
+
 }
 
 if ($Desktop) { Copy-Required $Desktop (Join-Path $Package 'workproof-desktop.exe') }
