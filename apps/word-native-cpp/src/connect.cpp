@@ -1,5 +1,6 @@
 #include "addin.h"
 #include "pane.h"
+#include "taskpane_control.h"
 #include <new>
 
 namespace workproof {
@@ -7,6 +8,8 @@ namespace workproof {
 const CLSID CLSID_Connect = {0x5F628C20, 0x62BB, 0x4DA6, {0x94, 0xDF, 0x36, 0xBD, 0x59, 0x9A, 0x93, 0x01}};
 const IID IID_IExtensibility2 = {0xB65AD801, 0xABAF, 0x11D0, {0xBB, 0x8B, 0x00, 0xA0, 0xC9, 0x0F, 0x27, 0x44}};
 const IID IID_IRibbon = {0x000C0396, 0x0000, 0x0000, {0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+
+const IID IID_ITaskPaneConsumer = {0x000C033E,0,0,{0xC0,0,0,0,0,0,0,0x46}};
 
 extern HINSTANCE g_module;
 extern LONG g_objectCount;
@@ -20,7 +23,8 @@ enum Command : int {
     CommandPause = 103,
     CommandExport = 104,
     CommandRibbonLoad = 105,
-    CommandImage = 106
+    CommandImage = 106,
+    CommandLaunch = 107
 };
 
 // IDTExtensibility2 is a dual interface in Office: Word may use the vtable or IDispatch with
@@ -45,6 +49,7 @@ const NameEntry kCommandNames[] = {
     {L"ExportRecord", CommandExport},
     {L"RibbonLoad", CommandRibbonLoad},
     {L"GetRibbonImage", CommandImage},
+    {L"LaunchRecording", CommandLaunch},
 };
 
 const NameEntry kExtensibilityNames[] = {
@@ -56,6 +61,31 @@ const NameEntry kExtensibilityNames[] = {
 };
 
 class CConnect;
+class CTaskConsumer : public ITaskPaneConsumer {
+public:
+    explicit CTaskConsumer(CConnect* owner);
+    ~CTaskConsumer();
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,void** object) override;
+    ULONG STDMETHODCALLTYPE AddRef() override {return InterlockedIncrement(&refs);}
+    ULONG STDMETHODCALLTYPE Release() override {ULONG n=InterlockedDecrement(&refs);if(!n)delete this;return n;}
+    HRESULT STDMETHODCALLTYPE GetTypeInfoCount(UINT* count) override {if(!count)return E_POINTER;*count=0;return S_OK;}
+    HRESULT STDMETHODCALLTYPE GetTypeInfo(UINT,LCID,ITypeInfo** out) override {if(out)*out=nullptr;return DISP_E_BADINDEX;}
+    HRESULT STDMETHODCALLTYPE GetIDsOfNames(REFIID,LPOLESTR* names,UINT count,LCID,DISPID* ids) override {
+        if(!names||!ids)return E_POINTER;
+        if(count!=1||!names[0]||_wcsicmp(names[0],L"CTPFactoryAvailable"))return DISP_E_UNKNOWNNAME;
+        ids[0]=1;return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE Invoke(DISPID id,REFIID,LCID,WORD,DISPPARAMS* p,VARIANT* result,EXCEPINFO*,UINT*) override {
+        if(result)VariantInit(result);
+        if(id!=1)return DISP_E_MEMBERNOTFOUND;
+        if(!p||p->cArgs!=1)return DISP_E_BADPARAMCOUNT;
+        if(p->rgvarg[0].vt!=VT_DISPATCH)return DISP_E_TYPEMISMATCH;
+        return CTPFactoryAvailable(p->rgvarg[0].pdispVal);
+    }
+    HRESULT STDMETHODCALLTYPE CTPFactoryAvailable(IDispatch* factory) override {PaneSetFactory(factory);return S_OK;}
+private: LONG refs=1;CConnect* owner;
+};
+
 
 class CExtensibility : public IDispatch {
 public:
@@ -123,6 +153,7 @@ public:
 
     void ForgetExtensibility() { m_extensibility = nullptr; }
     void ForgetRibbon() { m_ribbon = nullptr; }
+    void ForgetConsumer() { m_consumer = nullptr; }
 
     STDMETHODIMP QueryInterface(REFIID iid, void** object) override;
     STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)InterlockedIncrement(&m_ref); }
@@ -149,7 +180,16 @@ private:
     IDispatch* m_word = nullptr;
     CExtensibility* m_extensibility = nullptr;
     CRibbon* m_ribbon = nullptr;
+    CTaskConsumer* m_consumer = nullptr;
 };
+
+CTaskConsumer::CTaskConsumer(CConnect* value):owner(value){owner->AddRef();}
+CTaskConsumer::~CTaskConsumer(){owner->ForgetConsumer();owner->Release();}
+HRESULT CTaskConsumer::QueryInterface(REFIID iid,void** object){
+    if(!object)return E_POINTER;*object=nullptr;
+    if(iid==IID_IDispatch||iid==IID_ITaskPaneConsumer){*object=static_cast<ITaskPaneConsumer*>(this);AddRef();return S_OK;}
+    return owner->QueryInterface(iid,object);
+}
 
 // ------------------------------------------------------------------ extensibility
 
@@ -174,7 +214,7 @@ STDMETHODIMP CExtensibility::QueryInterface(REFIID iid, void** object) {
         return S_OK;
     }
     // Word asks this same object for the ribbon interface; the ribbon lives on the add-in object.
-    if (iid == IID_IRibbon && m_owner) return m_owner->QueryInterface(iid, object);
+    if ((iid == IID_IRibbon || iid == IID_ITaskPaneConsumer) && m_owner) return m_owner->QueryInterface(iid, object);
     return E_NOINTERFACE;
 }
 
@@ -220,6 +260,14 @@ HRESULT __stdcall CExtensibility::OnConnection(IDispatch* application, int conne
     Trace(L"OnConnection entered");
     TraceHresult(L"OnConnection application present", application ? 1 : 0);
     if (m_owner) m_owner->AttachWord(application);
+    if(addInInstance && m_owner){
+        OLECHAR* name=const_cast<OLECHAR*>(L"Object");DISPID id;
+        if(SUCCEEDED(addInInstance->GetIDsOfNames(IID_NULL,&name,1,LOCALE_USER_DEFAULT,&id))){
+            VARIANT value;VariantInit(&value);value.vt=VT_DISPATCH;value.pdispVal=static_cast<IDispatch*>(m_owner);
+            DISPID put=DISPID_PROPERTYPUT;DISPPARAMS args={&value,&put,1,1};
+            TraceHresult(L"Publish automation Object",addInInstance->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_PROPERTYPUT,&args,nullptr,nullptr,nullptr));
+        }
+    }
     Trace(L"OnConnection completed");
     return S_OK;
 }
@@ -311,6 +359,11 @@ STDMETHODIMP CConnect::QueryInterface(REFIID iid, void** object) {
         *object = static_cast<IDispatch*>(m_extensibility);
         return S_OK;
     }
+    if(iid==IID_ITaskPaneConsumer){
+        if(m_consumer)m_consumer->AddRef();else m_consumer=new(std::nothrow) CTaskConsumer(this);
+        if(!m_consumer)return E_OUTOFMEMORY;
+        *object=static_cast<ITaskPaneConsumer*>(m_consumer);return S_OK;
+    }
     if (iid == IID_IRibbon) {
         if (m_ribbon) {
             m_ribbon->AddRef();
@@ -346,6 +399,9 @@ STDMETHODIMP CConnect::Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPARAMS*, 
         case CommandOpen:
             PaneShow();
             return S_OK;
+        case CommandLaunch:
+            PaneLaunchRecording();
+            return S_OK;
         case CommandStart:
             PaneStart();
             return S_OK;
@@ -365,6 +421,7 @@ STDMETHODIMP CConnect::Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPARAMS*, 
 
 class CFactory : public IClassFactory {
 public:
+    explicit CFactory(bool control=false):m_control(control){}
     STDMETHODIMP QueryInterface(REFIID iid, void** object) override {
         if (!object) return E_POINTER;
         *object = nullptr;
@@ -387,6 +444,7 @@ public:
         if (!object) return E_POINTER;
         *object = nullptr;
         if (outer) return CLASS_E_NOAGGREGATION;
+        if(m_control)return CreateTaskPaneControl(iid,object);
         CConnect* connect = new (std::nothrow) CConnect();
         if (!connect) return E_OUTOFMEMORY;
         HRESULT hr = connect->QueryInterface(iid, object);
@@ -399,6 +457,7 @@ public:
     }
 
 private:
+    bool m_control;
     LONG m_ref = 1;
 };
 
@@ -409,8 +468,8 @@ HRESULT CreateClassFactory(REFCLSID clsid, REFIID iid, void** object) {
     TraceIid(L"CreateClassFactory iid", iid);
     if (!object) return E_POINTER;
     *object = nullptr;
-    if (clsid != CLSID_Connect) return CLASS_E_CLASSNOTAVAILABLE;
-    CFactory* factory = new (std::nothrow) CFactory();
+    if (clsid != CLSID_Connect && clsid != CLSID_TaskPane) return CLASS_E_CLASSNOTAVAILABLE;
+    CFactory* factory = new (std::nothrow) CFactory(clsid==CLSID_TaskPane);
     if (!factory) return E_OUTOFMEMORY;
     HRESULT hr = factory->QueryInterface(iid, object);
     factory->Release();

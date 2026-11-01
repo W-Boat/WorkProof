@@ -6,6 +6,7 @@
 #include <string>
 #include <chrono>
 #include <thread>
+#include <atomic>
 
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
@@ -17,6 +18,7 @@ namespace {
 const wchar_t kClassName[] = L"WorkProofWordPane";
 const UINT kSampleTimer = 1;
 const UINT WM_APP_PAIRED = WM_APP + 1;
+const UINT WM_APP_LAUNCH = WM_APP + 2;
 const int kSampleIntervalMs = 1500;
 const int kMaxCharacters = 8000000;
 
@@ -28,6 +30,10 @@ struct PairResult {
 struct State {
     HWND window = nullptr;
     IDispatch* word = nullptr;
+    IDispatch* factory = nullptr;
+    IDispatch* taskPane = nullptr;
+    bool launchFeedback = false;
+    HWND heading=nullptr, intro=nullptr, privacy=nullptr;
     HWND status = nullptr;
     HWND counter = nullptr;
     HWND startButton = nullptr;
@@ -51,7 +57,8 @@ struct State {
     bool paused = true;
     bool pairing = false;
     bool writing = false;
-    bool cancelPairing = false;
+    std::atomic_bool cancelPairing{false};
+    std::atomic_ullong pairingGeneration{0};
     std::chrono::steady_clock::time_point started;
 } g;
 
@@ -178,28 +185,32 @@ bool SendEvent(const char* kind, const DocSnapshot& snapshot, long long inserted
     return true;
 }
 
-void PairingThread() {
+void PairingThread(HWND target,unsigned long long generation) {
+    struct WorkerLifetime {~WorkerLifetime(){InterlockedDecrement(&g_objectCount);}} lifetime;
+    auto post=[&](PairResult* result,bool success){
+        if(g.pairingGeneration.load()!=generation||!PostMessageW(target,WM_APP_PAIRED,success,(LPARAM)result))delete result;
+    };
     std::string response;
     std::wstring error;
     long status = 0;
     if (!HttpJson(L"POST", L"/v1/native-pairing", "{\"source\":\"word\"}", std::wstring(), response, status) || status != 200) {
         PairResult* failure = new PairResult();
         failure->error = L"桌面端拒绝了连接请求。请确认 WorkProof 正在运行并更新到最新版本。";
-        PostMessageW(g.window, WM_APP_PAIRED, 0, (LPARAM)failure);
+        post(failure,false);
         return;
     }
     std::wstring ticket = Utf8ToWide(JsonField(response, "ticket"));
     if (ticket.empty()) {
         PairResult* failure = new PairResult();
         failure->error = L"桌面端没有返回连接编号，请稍后重试。";
-        PostMessageW(g.window, WM_APP_PAIRED, 0, (LPARAM)failure);
+        post(failure,false);
         return;
     }
     for (int attempt = 0; attempt < 120; ++attempt) {
-        if (g.cancelPairing) {
+        if (g.cancelPairing || g.pairingGeneration.load()!=generation) {
             PairResult* cancelled = new PairResult();
             cancelled->error = L"已取消连接。桌面端未批准的请求会自动过期。";
-            PostMessageW(g.window, WM_APP_PAIRED, 0, (LPARAM)cancelled);
+            post(cancelled,false);
             return;
         }
         Sleep(1000);
@@ -210,13 +221,13 @@ void PairingThread() {
         if (JsonField(poll, "approved") == "true") {
             PairResult* success = new PairResult();
             success->token = Utf8ToWide(JsonField(poll, "token"));
-            PostMessageW(g.window, WM_APP_PAIRED, 1, (LPARAM)success);
+            post(success,true);
             return;
         }
     }
     PairResult* timeout = new PairResult();
     timeout->error = L"连接请求已失效。请重新点击开始，并在桌面窗口允许连接。";
-    PostMessageW(g.window, WM_APP_PAIRED, 0, (LPARAM)timeout);
+    post(timeout,false);
 }
 
 void ClosePane() {
@@ -236,8 +247,11 @@ void BeginPairing() {
     g.identity = snapshot.identity;
     SetStatus(L"请在桌面端 WorkProof 核对来源“word”，再点击允许连接。");
     PaintState();
-    std::thread(PairingThread).detach();
+    InterlockedIncrement(&g_objectCount);
+    std::thread(PairingThread,g.window,++g.pairingGeneration).detach();
 }
+
+void ShowLaunchFeedback();
 
 void FinishPairing(PairResult* result) {
     g.pairing = false;
@@ -272,6 +286,7 @@ void FinishPairing(PairResult* result) {
     SetTimer(g.window, kSampleTimer, kSampleIntervalMs, nullptr);
     SetStatus(L"记录中。只发送数量与摘要，不发送正文。");
     PaintState();
+    if(g.launchFeedback){g.launchFeedback=false;ShowLaunchFeedback();}
 }
 
 void Sample() {
@@ -452,45 +467,62 @@ void Export() {
     PaintState();
 }
 
+HRESULT Dispatch(IDispatch* object,const wchar_t* name,WORD flags,VARIANT* args,UINT count,VARIANT* result=nullptr){
+    if(!object)return E_POINTER;
+    LPOLESTR key=const_cast<LPOLESTR>(name);DISPID id;HRESULT hr=object->GetIDsOfNames(IID_NULL,&key,1,LOCALE_USER_DEFAULT,&id);
+    if(FAILED(hr))return hr;
+    DISPID put=DISPID_PROPERTYPUT;DISPPARAMS parameters={args,(flags&DISPATCH_PROPERTYPUT)?&put:nullptr,count,(flags&DISPATCH_PROPERTYPUT)?1u:0u};
+    if(result)VariantInit(result);
+    return object->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,flags,&parameters,result,nullptr,nullptr);
+}
+void LayoutControls(){
+    if(!g.window)return;
+    RECT r;GetClientRect(g.window,&r);int width=r.right>40?r.right-32:8;
+    auto move=[&](HWND h,int y,int height){if(h)MoveWindow(h,16,y,width,height,TRUE);};
+    move(g.heading,20,30);move(g.intro,58,52);move(g.status,124,92);move(g.counter,222,26);
+    move(g.startButton,266,38);move(g.pauseButton,314,38);move(g.exportButton,362,38);
+    move(g.cancelButton,410,32);move(g.verifierLink,454,34);move(g.privacy,510,128);
+}
 void CreateControls(HWND window) {
-    g.background = CreateSolidBrush(RGB(246, 248, 247));
-    g.cardBrush = CreateSolidBrush(RGB(255, 255, 255));
-    g.titleFont = CreateFontW(-30, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                              CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
-    g.statusFont = CreateFontW(-21, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
-    g.bodyFont = CreateFontW(-18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                             CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
-
-    auto create = [&](const wchar_t* type, const wchar_t* text, DWORD style, int x, int y, int width, int height) {
-        HWND control = CreateWindowExW(0, type, text, WS_CHILD | WS_VISIBLE | style, x, y, width, height,
-                                       window, nullptr, nullptr, nullptr);
-        SendMessageW(control, WM_SETFONT, (WPARAM)g.bodyFont, TRUE);
-        return control;
+    g.background=CreateSolidBrush(GetSysColor(COLOR_WINDOW));g.cardBrush=CreateSolidBrush(GetSysColor(COLOR_WINDOW));
+    auto font=[](int size,int weight){return CreateFontW(size,0,0,0,weight,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");};
+    g.titleFont=font(-22,FW_SEMIBOLD);g.statusFont=font(-17,FW_SEMIBOLD);g.bodyFont=font(-15,FW_NORMAL);
+    auto create=[&](const wchar_t* type,const wchar_t* text,DWORD style){
+        HWND h=CreateWindowExW(0,type,text,WS_CHILD|WS_VISIBLE|style,0,0,10,10,window,nullptr,g_module,nullptr);
+        SendMessageW(h,WM_SETFONT,(WPARAM)g.bodyFont,TRUE);return h;
     };
-
-    create(L"STATIC", L"Word 创作记录", SS_LEFT, 22, 18, 400, 34);
-    SendMessageW(GetWindow(window, GW_CHILD), WM_SETFONT, (WPARAM)g.titleFont, TRUE);
-    create(L"STATIC", L"在 Word 里记录这份文档的创作过程，导出后与作品一起交付。", SS_LEFT, 22, 54, 410, 24);
-
-    HWND card = CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE | SS_WHITERECT, 22, 88, 410, 96, window, nullptr, nullptr, nullptr);
-    (void)card;
-    g.status = create(L"STATIC", L"请先保存文档，再点击开始。", SS_LEFT, 36, 100, 384, 60);
-    SendMessageW(g.status, WM_SETFONT, (WPARAM)g.statusFont, TRUE);
-    g.counter = create(L"STATIC", L"尚未开始", SS_LEFT, 36, 160, 384, 22);
-
-    g.startButton = create(L"BUTTON", L"开始记录", BS_PUSHBUTTON | BS_FLAT, 22, 200, 104, 36);
-    g.pauseButton = create(L"BUTTON", L"暂停记录", BS_PUSHBUTTON | BS_FLAT, 132, 200, 104, 36);
-    g.exportButton = create(L"BUTTON", L"导出作品和证书", BS_PUSHBUTTON | BS_FLAT, 242, 200, 140, 36);
-    g.cancelButton = create(L"BUTTON", L"取消连接", BS_PUSHBUTTON | BS_FLAT, 388, 200, 44, 36);
-    ShowWindow(g.cancelButton, SW_HIDE);
-
-    g.verifierLink = create(L"BUTTON", L"打开本地核验页", BS_PUSHBUTTON | BS_FLAT, 22, 248, 140, 30);
-
-    create(L"STATIC",
-           L"只发送编辑数量、段落数、时间与保存摘要，不发送正文、剪贴板或路径。采样可能合并或遗漏修改，"
-           L"不能证明作者身份或原创性；关闭窗口即停止记录。",
-           SS_LEFT, 22, 292, 410, 66);
+    g.heading=create(L"STATIC",L"创作记录",SS_LEFT);SendMessageW(g.heading,WM_SETFONT,(WPARAM)g.titleFont,TRUE);
+    g.intro=create(L"STATIC",L"1 保存文档并开始记录\n2 完成后导出作品与证书",SS_LEFT);
+    g.status=create(L"STATIC",L"请先保存文档，再点击开始记录。",SS_LEFT);SendMessageW(g.status,WM_SETFONT,(WPARAM)g.statusFont,TRUE);
+    g.counter=create(L"STATIC",L"尚未开始",SS_LEFT);
+    g.startButton=create(L"BUTTON",L"开始记录",BS_PUSHBUTTON|WS_TABSTOP);
+    g.pauseButton=create(L"BUTTON",L"暂停记录",BS_PUSHBUTTON|WS_TABSTOP);
+    g.exportButton=create(L"BUTTON",L"导出作品和证书",BS_PUSHBUTTON|WS_TABSTOP);
+    g.cancelButton=create(L"BUTTON",L"取消连接",BS_PUSHBUTTON|WS_TABSTOP);
+    g.verifierLink=create(L"BUTTON",L"核验已有证书",BS_PUSHBUTTON|WS_TABSTOP);
+    g.privacy=create(L"STATIC",L"不采集正文。只记录编辑数量、段落数、时间与文件摘要。\n\n记录可能遗漏修改，不能单独证明作者身份或原创性。关闭侧栏后仍可通过 WorkProof 菜单暂停记录。",SS_LEFT);
+    LayoutControls();
+}
+LRESULT CALLBACK FeedbackProc(HWND window,UINT message,WPARAM w,LPARAM l){
+    if(message==WM_CREATE){SetTimer(window,1,1600,nullptr);return 0;}
+    if(message==WM_TIMER||message==WM_LBUTTONDOWN||message==WM_KEYDOWN){DestroyWindow(window);return 0;}
+    if(message==WM_PAINT){
+        PAINTSTRUCT paint;HDC dc=BeginPaint(window,&paint);RECT r;GetClientRect(window,&r);
+        HBRUSH brush=CreateSolidBrush(RGB(20,42,36));FillRect(dc,&r,brush);DeleteObject(brush);
+        SetBkMode(dc,TRANSPARENT);SetTextColor(dc,RGB(245,250,247));
+        HFONT font=CreateFontW(-38,0,0,0,FW_SEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Microsoft YaHei UI");
+        HGDIOBJ old=SelectObject(dc,font);r.top=(r.bottom-120)/2;
+        DrawTextW(dc,L"WorkProof 已加载\n创作记录已开始",-1,&r,DT_CENTER|DT_TOP|DT_NOPREFIX);
+        SelectObject(dc,old);DeleteObject(font);EndPaint(window,&paint);return 0;
+    }
+    return DefWindowProcW(window,message,w,l);
+}
+void ShowLaunchFeedback(){
+    WNDCLASSEXW cls={sizeof(cls)};cls.lpfnWndProc=FeedbackProc;cls.hInstance=g_module;cls.lpszClassName=L"WorkProofWordFeedback";cls.hCursor=LoadCursorW(nullptr,IDC_ARROW);
+    RegisterClassExW(&cls);
+    HWND owner=GetAncestor(g.window,GA_ROOT);MONITORINFO info={sizeof(info)};GetMonitorInfoW(MonitorFromWindow(owner,MONITOR_DEFAULTTONEAREST),&info);RECT r=info.rcMonitor;
+    HWND feedback=CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE,cls.lpszClassName,L"WorkProof 已开始记录",WS_POPUP,r.left,r.top,r.right-r.left,r.bottom-r.top,owner,nullptr,g_module,nullptr);
+    if(feedback)ShowWindow(feedback,SW_SHOWNOACTIVATE);
 }
 
 LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -510,11 +542,13 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
             HDC device = (HDC)wParam;
             HWND source = (HWND)lParam;
             SetBkMode(device, TRANSPARENT);
-            SetTextColor(device, RGB(26, 36, 33));
+            SetTextColor(device, GetSysColor(COLOR_WINDOWTEXT));
             // The two labels sit on the white card; every other label uses the canvas colour.
             if (source == g.status || source == g.counter) return (LRESULT)g.cardBrush;
             return (LRESULT)g.background;
         }
+        case WM_SIZE:
+            LayoutControls();return 0;
         case WM_TIMER:
             if (wParam == kSampleTimer) Sample();
             return 0;
@@ -529,14 +563,24 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
             }
             return 0;
         }
+        case WM_APP_LAUNCH: {
+            if(g.pairing||!g.session.empty())return 0;
+            DocSnapshot snapshot;std::wstring error;
+            if(!ReadDocument(g.word,snapshot,error)){
+                SetStatus(L"请在 Word 中保存文档，保存后将自动连接记录。");
+                if(!SaveDocument(g.word,error)){SetStatus(L"尚未开始记录。请保存文档后点击开始记录。");g.launchFeedback=false;return 0;}
+            }
+            BeginPairing();return 0;
+        }
         case WM_APP_PAIRED:
             FinishPairing((PairResult*)lParam);
             return 0;
         case WM_CLOSE:
-            KillTimer(window, kSampleTimer);
             ShowWindow(window, SW_HIDE);
             return 0;
         case WM_DESTROY:
+            KillTimer(window,kSampleTimer);g.paused=true;g.cancelPairing=true;++g.pairingGeneration;g.pairing=false;
+            MSG pending;while(PeekMessageW(&pending,window,WM_APP_PAIRED,WM_APP_PAIRED,PM_REMOVE))delete (PairResult*)pending.lParam;
             if (g.background) DeleteObject(g.background);
             if (g.cardBrush) DeleteObject(g.cardBrush);
             if (g.titleFont) DeleteObject(g.titleFont);
@@ -581,21 +625,42 @@ void PaneAttachWord(IDispatch* application) {
 
 bool PaneCreated() { return g.window != nullptr; }
 
-void PaneShow() {
-    if (!EnsureClass()) return;
-    if (!g.window) {
-        g.window = CreateWindowExW(WS_EX_TOOLWINDOW, kClassName, L"WorkProof · Word 创作记录",
-                                   WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-                                   CW_USEDEFAULT, CW_USEDEFAULT, 470, 420, nullptr, nullptr, nullptr, nullptr);
-        if (!g.window) return;
-    }
-    ShowWindow(g.window, SW_SHOW);
-    SetForegroundWindow(g.window);
+void PaneSetFactory(IDispatch* factory){
+    if(factory)factory->AddRef();if(g.factory)g.factory->Release();g.factory=factory;
 }
-
-void PaneStart() { PaneShow(); BeginPairing(); }
-void PaneTogglePause() { PaneShow(); TogglePause(); }
-void PaneExport() { PaneShow(); Export(); }
-void PaneClose() { ClosePane(); }
+void PaneShow() {
+    if(!g.taskPane){
+        if(!g.factory){MessageBoxW(nullptr,L"Word 尚未提供侧栏接口。请重启 Word 后重试。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;}
+        VARIANT args[3];for(auto& value:args)VariantInit(&value);
+        args[0].vt=VT_ERROR;args[0].scode=DISP_E_PARAMNOTFOUND;
+        args[1].vt=VT_BSTR;args[1].bstrVal=SysAllocString(L"WorkProof · 创作记录");
+        args[2].vt=VT_BSTR;args[2].bstrVal=SysAllocString(L"WorkProof.WordNative.TaskPane");
+        VARIANT result;VariantInit(&result);HRESULT hr=Dispatch(g.factory,L"CreateCTP",DISPATCH_METHOD,args,3,&result);
+        for(auto& value:args)VariantClear(&value);TraceHresult(L"CreateCTP",hr);
+        if(SUCCEEDED(hr)&&result.vt==VT_DISPATCH){g.taskPane=result.pdispVal;g.taskPane->AddRef();}VariantClear(&result);
+        if(!g.taskPane){MessageBoxW(nullptr,L"侧栏未能加载。请重新安装 WorkProof 的 Word 加载项后重试。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;}
+        VARIANT setting;VariantInit(&setting);setting.vt=VT_I4;setting.lVal=3;
+        Dispatch(g.taskPane,L"DockPosition",DISPATCH_PROPERTYPUT,&setting,1);setting.lVal=360;Dispatch(g.taskPane,L"Width",DISPATCH_PROPERTYPUT,&setting,1);
+    }
+    VARIANT visible;VariantInit(&visible);visible.vt=VT_BOOL;visible.boolVal=VARIANT_TRUE;
+    TraceHresult(L"Show task pane",Dispatch(g.taskPane,L"Visible",DISPATCH_PROPERTYPUT,&visible,1));
+}
+HWND PaneCreateChild(HWND parent,const RECT& rect){
+    if(!parent||!EnsureClass())return nullptr;
+    if(g.window)return GetParent(g.window)==parent?g.window:nullptr;
+    return CreateWindowExW(WS_EX_CONTROLPARENT,kClassName,L"WorkProof 创作记录",WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN,
+        rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,parent,nullptr,g_module,nullptr);
+}
+void PaneResizeChild(const RECT& rect){if(g.window)MoveWindow(g.window,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,TRUE);}
+void PaneDestroyChild(){ClosePane();}
+void PaneStart() { PaneShow(); if(g.window&&!g.pairing&&g.session.empty())BeginPairing(); }
+void PaneLaunchRecording(){PaneShow();if(g.window){g.launchFeedback=true;PostMessageW(g.window,WM_APP_LAUNCH,0,0);}}
+void PaneTogglePause() { PaneShow(); if(g.window)TogglePause(); }
+void PaneExport() { PaneShow(); if(g.window)Export(); }
+void PaneClose() {
+    ClosePane();
+    if(g.taskPane){Dispatch(g.taskPane,L"Delete",DISPATCH_METHOD,nullptr,0);g.taskPane->Release();g.taskPane=nullptr;}
+    PaneSetFactory(nullptr);
+}
 
 } // namespace workproof

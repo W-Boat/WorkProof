@@ -23,6 +23,8 @@ $ErrorActionPreference = 'Stop'
 
 $ProgId = 'WorkProof.WordNative.Connect'
 $Clsid = '{5F628C20-62BB-4DA6-94DF-36BD599A9301}'
+$TaskPaneProgId = 'WorkProof.WordNative.TaskPane'
+$TaskPaneClsid = '{41D77603-57A1-43C8-839E-BB5375A9D843}'
 $Marker = '.workproof-native'
 $AddInNames = @('WorkProofWord.dll', 'WorkProof.WordNative.dll')
 $OptionalFiles = @('workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'README-WORD.md', 'install-native-word.ps1', 'Install Word.cmd', 'Open WorkProof.cmd', 'Remove Word add-in.cmd', 'open-native-word.ps1')
@@ -144,12 +146,14 @@ $registry = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.Registry
 $classKey = $prefix + 'Software\Classes\CLSID\' + $Clsid
 $progKey = $prefix + 'Software\Classes\' + $ProgId
 $addinKey = $prefix + 'Software\Microsoft\Office\Word\Addins\' + $ProgId
+$taskPaneClassKey = $prefix + 'Software\Classes\CLSID\' + $TaskPaneClsid
+$taskPaneProgKey = $prefix + 'Software\Classes\' + $TaskPaneProgId
 $shortcutPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'WorkProof.lnk'
 
 try {
     if ($Remove) {
         # Only WorkProof's own identifiers; files, documents and other add-ins are untouched here.
-        foreach ($key in @($addinKey, $progKey, $classKey)) {
+        foreach ($key in @($addinKey, $progKey, $classKey, $taskPaneProgKey, $taskPaneClassKey)) {
             $registry.DeleteSubKeyTree($key, $false)
         }
         if (-not $RegistryFixture -and (Test-Path -LiteralPath $shortcutPath -PathType Leaf)) {
@@ -240,6 +244,18 @@ try {
         $codeBase = $dll
         Set-Values $registry ($classKey + '\InprocServer32') @{ '' = $dll; 'ThreadingModel' = 'Apartment' }
     }
+    # Only the native DLL implements the Office-hosted ActiveX task pane.
+    if (-not $managed) {
+        Set-Values $registry $taskPaneClassKey @{ '' = 'WorkProof Word task pane' }
+        Set-Values $registry ($taskPaneClassKey + '\InprocServer32') @{ '' = $dll; 'ThreadingModel' = 'Apartment' }
+        Set-Values $registry ($taskPaneClassKey + '\ProgId') @{ '' = $TaskPaneProgId }
+        Set-Values $registry ($taskPaneClassKey + '\Control') @{}
+        Set-Values $registry $taskPaneProgKey @{ '' = 'WorkProof Word task pane' }
+        Set-Values $registry ($taskPaneProgKey + '\CLSID') @{ '' = $TaskPaneClsid }
+    } else {
+        # Avoid retaining a native control registration after switching to a managed package.
+        foreach ($key in @($taskPaneProgKey, $taskPaneClassKey)) { $registry.DeleteSubKeyTree($key, $false) }
+    }
     Set-Values $registry ($classKey + '\ProgId') @{ '' = $ProgId }
     Set-Values $registry $progKey @{ '' = 'WorkProof Word add-in' }
     Set-Values $registry ($progKey + '\CLSID') @{ '' = $Clsid }
@@ -259,6 +275,16 @@ try {
         if ($checkInproc.GetValue('ThreadingModel') -ne 'Apartment') { throw '注册写入失败：ThreadingModel 不是 Apartment。' }
         if ($managed -and $checkInproc.GetValue('CodeBase') -ne $codeBase) { throw '注册写入失败：CodeBase 与实际 DLL 路径不一致。' }
     } finally { $checkInproc.Dispose() }
+
+    if (-not $managed) {
+        $checkPane = $registry.OpenSubKey($taskPaneClassKey + '\InprocServer32')
+        if (-not $checkPane) { throw 'Task pane registration is missing.' }
+        try {
+            if ($checkPane.GetValue('') -ne $dll -or $checkPane.GetValue('ThreadingModel') -ne 'Apartment') {
+                throw 'Task pane registration does not match the installed native DLL.'
+            }
+        } finally { $checkPane.Dispose() }
+    }
 
     # ------------------------------------------------------------- shortcut
     if (-not $RegistryFixture) {

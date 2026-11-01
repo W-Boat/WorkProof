@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Builds the native Word add-in (no common language runtime involved) and its COM probe.
@@ -26,7 +26,7 @@ $common = @(
 )
 $libraries = @('winhttp.lib', 'shell32.lib', 'ole32.lib', 'oleaut32.lib', 'user32.lib', 'gdi32.lib', 'comctl32.lib', 'advapi32.lib', 'uuid.lib')
 
-$sources = @('dllmain.cpp', 'connect.cpp', 'pane.cpp', 'engine.cpp', 'ribbon.cpp', 'trace.cpp') |
+$sources = @('dllmain.cpp', 'connect.cpp', 'taskpane_control.cpp', 'pane.cpp', 'engine.cpp', 'ribbon.cpp', 'trace.cpp') |
     ForEach-Object { Join-Path $source $_ }
 $dll = Join-Path $OutDir 'WorkProofWord.dll'
 foreach ($file in $sources) {
@@ -40,7 +40,7 @@ Write-Output "Built $dll"
 
 if (-not $SkipProbe) {
     $probe = Join-Path $OutDir 'test_addin.exe'
-    & cl @common (Join-Path $source 'test_addin.cpp') "/Fo$probeDir\" "/Fe$probe" 'oleaut32.lib' 'ole32.lib' 'user32.lib'
+    & cl @common (Join-Path $source 'test_addin.cpp') "/Fo$probeDir\" "/Fe$probe" 'oleaut32.lib' 'ole32.lib' 'user32.lib' 'uuid.lib'
     if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_addin.cpp' }
     & $probe $dll
     if ($LASTEXITCODE -ne 0) { throw 'the COM probe rejected the built add-in' }

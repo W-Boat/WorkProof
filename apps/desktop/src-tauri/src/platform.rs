@@ -4,6 +4,61 @@ fn quiet(command:&mut Command){
     command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     #[cfg(windows)]{use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
 }
+// This fixed script is only invoked by the user's explicit desktop button. No
+// document path, document metadata or web input is interpolated as PowerShell.
+#[cfg(windows)]
+const WORD_LAUNCH_SCRIPT:&str=r#"
+$ErrorActionPreference='Stop'
+try {
+  try {$word=[Runtime.InteropServices.Marshal]::GetActiveObject('Word.Application')}
+  catch {$word=New-Object -ComObject Word.Application}
+  $word.Visible=$true
+  if ($word.Documents.Count -eq 0) {[void]$word.Documents.Add()}
+  $word.Activate()
+  try {$addin=$word.COMAddIns.Item('WorkProof.WordNative.Connect'); $addin.Connect=$true}
+  catch {exit 20}
+  $until=[DateTime]::UtcNow.AddSeconds(20)
+  do {
+    try {$bridge=$addin.Object} catch {$bridge=$null}
+    if ($null -ne $bridge) {break}
+    Start-Sleep -Milliseconds 200
+  } while ([DateTime]::UtcNow -lt $until)
+  if ($null -eq $bridge) {exit 21}
+  try {[void]$bridge.LaunchRecording()} catch {exit 22}
+  exit 0
+} catch {exit 23}
+"#;
+
+pub fn open_word()->Result<(),String>{
+    #[cfg(not(windows))]
+    {Err("直接打开 Word 目前支持 Windows 桌面版。其他系统请在 Word 中打开 WorkProof 加载项。".into())}
+    #[cfg(windows)]
+    {
+        let root=std::env::var_os("SystemRoot").ok_or("无法定位 Windows 系统目录。")?;
+        let mut command=Command::new(PathBuf::from(root).join("System32/WindowsPowerShell/v1.0/powershell.exe"));
+        command.args(["-NoLogo","-NoProfile","-NonInteractive","-STA","-Command",WORD_LAUNCH_SCRIPT]);
+        quiet(&mut command);
+        let mut child=command.spawn().map_err(|_|"无法打开 Word，请确认 Windows PowerShell 可用。")?;
+        let deadline=Instant::now()+Duration::from_secs(45);
+        loop {
+            match child.try_wait(){
+                Ok(Some(status))=>return match status.code(){
+                    Some(0)=>Ok(()),
+                    Some(20)|Some(21)=>Err("Word 已打开，但没有加载 WorkProof。请先运行安装包中的 Install Word.cmd，再保存文档并重新打开 Word。".into()),
+                    Some(22)=>Err("Word 中的 WorkProof 版本不支持直接开始，请更新完整安装包。".into()),
+                    _=>Err("Word 未能接受请求。请关闭 Word 中的对话框，再重试；也请确认已安装桌面版 Word。".into())
+                },
+                Err(_)=>return Err("无法确认 Word 的启动结果，请在 Word 中查看 WorkProof 侧栏。".into()),
+                _ if Instant::now()>=deadline=>{
+                    // Kill only the automation helper: never close the user's Word.
+                    let _=child.kill();let _=child.wait();
+                    return Err("Word 响应较慢。请关闭 Word 中的对话框，并查看 WorkProof 侧栏是否已开始记录。".into());
+                },
+                _=>std::thread::sleep(Duration::from_millis(100))
+            }
+        }
+    }
+}
 fn browser_command(port:u16)->Result<Command,String>{
     if port==0{return Err("核验页面尚未就绪，请稍后重试。".into());}
     let url=format!("http://127.0.0.1:{port}/");

@@ -1,5 +1,6 @@
 #include "addin.h"
 #include <cstdio>
+#include <ocidl.h>
 #include <initializer_list>
 #include <string>
 
@@ -94,6 +95,40 @@ int wmain(int argc, wchar_t** argv) {
     extensibility->Release();
     connect->Release();
 
+    // Office creates this separate control through ICTPFactory; probe its real OLE
+    // interfaces and lifecycle without pretending a windowless probe is an Office host.
+    const CLSID paneClass={0x41D77603,0x57A1,0x43C8,{0x83,0x9E,0xBB,0x53,0x75,0xA9,0xD8,0x43}};
+    IClassFactory* paneFactory=nullptr;
+    if(FAILED(getClassObject(paneClass,IID_IClassFactory,(void**)&paneFactory))||!paneFactory)
+        return Fail("task pane class factory missing");
+    IOleObject* pane=nullptr;
+    hr=paneFactory->CreateInstance(nullptr,IID_IOleObject,(void**)&pane);
+    paneFactory->Release();
+    if(FAILED(hr)||!pane) return Fail("task pane IOleObject creation failed");
+    IUnknown* paneIdentity=nullptr;
+    pane->QueryInterface(IID_IUnknown,(void**)&paneIdentity);
+    for(const IID* iid : {&IID_IDispatch,&IID_IOleInPlaceObject,&IID_IOleInPlaceActiveObject,
+                          &IID_IOleControl,&IID_IPersistStreamInit}) {
+        IUnknown* queried=nullptr; IUnknown* identityCheck=nullptr;
+        if(FAILED(pane->QueryInterface(*iid,(void**)&queried))||!queried)
+            return Fail("task pane OLE interface missing");
+        queried->QueryInterface(IID_IUnknown,(void**)&identityCheck);
+        if(identityCheck!=paneIdentity) return Fail("task pane COM identity mismatch");
+        identityCheck->Release(); queried->Release();
+    }
+    paneIdentity->Release();
+    IPersistStreamInit* persistence=nullptr;
+    pane->QueryInterface(IID_IPersistStreamInit,(void**)&persistence);
+    CLSID actualClass={};
+    if(FAILED(persistence->GetClassID(&actualClass))||actualClass!=paneClass||FAILED(persistence->InitNew()))
+        return Fail("task pane persistence initialization failed");
+    persistence->Release();
+    RECT bounds={0,0,360,600};
+    if(SUCCEEDED(pane->DoVerb(OLEIVERB_INPLACEACTIVATE,nullptr,nullptr,0,nullptr,&bounds)))
+        return Fail("task pane accepted activation without an Office client site");
+    if(FAILED(pane->SetClientSite(nullptr))||FAILED(pane->Close(OLECLOSE_NOSAVE)))
+        return Fail("task pane cleanup failed");
+    pane->Release();
     if (canUnload() != S_OK) return Fail("DllCanUnloadNow still reports live objects");
     std::printf("PASS: native add-in exposes the fixed COM class, ribbon markup and every dispatch callback\n");
     return 0;

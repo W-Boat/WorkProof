@@ -14,6 +14,7 @@ namespace workproof {
 extern const CLSID CLSID_Connect;
 extern const IID IID_IExtensibility2;
 extern const IID IID_IRibbon;
+extern const IID IID_ITaskPaneConsumer;
 extern HINSTANCE g_module;
 extern LONG g_objectCount;
 
@@ -27,6 +28,10 @@ struct __declspec(uuid("B65AD801-ABAF-11D0-BB8B-00A0C90F2744")) IDTExtensibility
 
 struct __declspec(uuid("000C0396-0000-0000-C000-000000000046")) IRibbonExtensibility : public IDispatch {
     virtual HRESULT __stdcall GetCustomUI(BSTR ribbonId, BSTR* ribbonXml) = 0;
+};
+
+struct __declspec(uuid("000C033E-0000-0000-C000-000000000046")) ITaskPaneConsumer : public IDispatch {
+    virtual HRESULT __stdcall CTPFactoryAvailable(IDispatch* factory) = 0;
 };
 
 void Trace(const wchar_t* message);

@@ -2,6 +2,11 @@
 use tauri::{menu::{Menu,MenuItem},tray::TrayIconBuilder,Manager};
 mod platform;
 #[tauri::command]
+async fn open_word()->Result<String,String>{
+    tauri::async_runtime::spawn_blocking(platform::open_word).await.map_err(|e|e.to_string())??;
+    Ok("已向 Word 发出开始请求。首次连接请在此允许 Word；记录成功后，Word 会显示确认提示。".into())
+}
+#[tauri::command]
 fn engine_status()->Result<workproof_engine::EngineSnapshot,String>{workproof_engine::snapshot()}
 #[tauri::command]
 fn pending_adapters()->Vec<workproof_engine::pairing::Pending>{workproof_engine::pairing::pending()}
@@ -34,7 +39,7 @@ async fn install_vscode(app:tauri::AppHandle)->Result<String,String>{
     Ok("插件安装完成。在 VS Code 状态栏点击 WorkProof 即可开始记录。".into())
 }
 fn main(){
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,install_vscode]).setup(|app|{
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,install_vscode,open_word]).setup(|app|{
         let open=MenuItem::with_id(app,"open","WorkProof · 状态与帮助",true,None::<&str>)?;
         let quit=MenuItem::with_id(app,"quit","退出 WorkProof",true,None::<&str>)?;
         let menu=Menu::with_items(app,&[&open,&quit])?;
