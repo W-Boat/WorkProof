@@ -1,0 +1,26 @@
+{
+  "name": "@next/swc-win32-x64-msvc",
+  "version": "16.4.3",
+  "registry_url": "https://registry.npmjs.org/@next/swc-win32-x64-msvc/16.4.3",
+  "tarball_url": "https://registry.npmjs.org/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-16.4.3.tgz",
+  "tarball_integrity": "sha512-NmQC9RkJdnPXRaMxtkCzobB3teVjqF33oSOnwDfi+XYGWWYpt+xlGK3mtktSKLbdjwaWbJu2OkkMiRFGUUncKg==",
+  "tarball_sha256": "7314e84676d65fb6790aa5917e7f03582954be2db4e4fc352730a304dc621d9a",
+  "metadata_license": "MIT",
+  "repository": {
+    "url": "git+https://github.com/vercel/next.js.git",
+    "type": "git",
+    "directory": "crates/next-napi-bindings/npm/win32-x64-msvc"
+  },
+  "gitHead": null,
+  "tarball_license_files": [],
+  "supplemental_license_files": [
+    {
+      "file": "next__swc-win32-x64-msvc__license.md",
+      "url": "https://raw.githubusercontent.com/vercel/next.js/29bbeab09981148ade186e8599ecdede15abc281/license.md",
+      "sha256": "ee765244e2d59f5234d474f62e0766fa0c8b99af967fdd4c0cb8dcb0c76ea224",
+      "source_commit": "29bbeab09981148ade186e8599ecdede15abc281",
+      "version_link_basis": "official v16.4.3 tag resolved through GitHub refs API"
+    }
+  ],
+  "status": "upstream_version_license_supplemented"
+}

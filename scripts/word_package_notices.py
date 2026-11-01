@@ -58,6 +58,54 @@ def notices(source: Path, destination: Path, extra: list[Path]) -> tuple[list[di
     return evidence, issues
 
 
+def load_supplements(folder: str) -> dict:
+    base = ROOT / "docs" / "licenses" / folder
+    manifest = base / "evidence.json"
+    if not manifest.is_file():
+        return {}
+    entries = {}
+    for package in json.loads(manifest.read_bytes())["packages"]:
+        key = (package["name"], package["version"])
+        if key in entries:
+            raise RuntimeError("Duplicate supplemental evidence package")
+        entries[key] = (base, package)
+    return entries
+
+
+def supplemental_notices(record: dict, supplements: dict, destination: Path) -> tuple[list[dict], dict | None]:
+    found = supplements.get((record["name"], record["version"]))
+    if found is None:
+        return [], None
+    base, package = found
+    binding = "archive_checksum" if record["ecosystem"] == "cargo" else "integrity"
+    if not record.get(binding) or package.get(binding) != record[binding]:
+        raise RuntimeError(f"Supplemental evidence does not match locked {binding}: {record['name']}")
+    source = (base / package["folder"]).resolve()
+    if not inside(source, base):
+        raise RuntimeError("Supplemental package folder escapes evidence root")
+    evidence = []
+    for index, entry in enumerate(package["notices"]):
+        path = source / entry["file"]
+        if not inside(path, source) or path.is_symlink() or not path.is_file():
+            raise RuntimeError("Supplemental notice is missing, unsafe or a symlink")
+        data = path.read_bytes()
+        if digest(data) != entry["sha256"]:
+            raise RuntimeError(f"Supplemental notice checksum mismatch: {record['name']}")
+        # Numeric prefix avoids case-insensitive Windows filename collisions while
+        # preserving the exact upstream path in the machine-readable inventory.
+        relative = Path("supplemental") / f"{index:03d}" / Path(entry["file"])
+        if relative.is_absolute() or ".." in relative.parts:
+            raise RuntimeError("Unsafe supplemental notice filename")
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        evidence.append({"original_relative_path": entry.get("upstream_path", entry["file"]),
+                         "file": target.relative_to(destination.parent.parent).as_posix(),
+                         "sha256": digest(data), "bytes": len(data), "url": entry["url"],
+                         "kind": entry.get("kind", "upstream_license"), "supplemental": True})
+    return evidence, package
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
@@ -79,19 +127,30 @@ def main() -> None:
     if lock.get("lockfileVersion") != 3:
         raise RuntimeError("Expected npm lockfile version 3")
     inventory, missing = [], []
+    supplements = {"cargo": load_supplements("office-supplemental"),
+                   "npm": load_supplements("office-npm-supplemental")}
 
     def append(record: dict, source: Path | None, extras: list[Path] | None = None) -> None:
         slot = f"{len(inventory):05d}-" + re.sub(r"[^a-zA-Z0-9_.-]", "_", record["name"])
         record["evidence_directory"] = "packages/" + slot
         evidence, issues = ([], []) if source is None else notices(source, output / "packages" / slot, extras or [])
+        additions, supplement = supplemental_notices(record, supplements[record["ecosystem"]], output / "packages" / slot)
+        evidence.extend(additions)
+        if supplement is not None:
+            record["supplemental_provenance"] = {key: value for key, value in supplement.items() if key != "notices"}
+            issues.extend(supplement.get("unresolved", []))
+        full_text = any(item.get("kind") != "source_header_evidence_only" for item in evidence)
         record["notices"] = evidence
         record["installed_evidence_available"] = source is not None
         if source is None:
             issues.append("locked package is not installed on this runner; optional/platform inventory absence does not establish a missing runtime dependency")
         if not record.get("declared_license"):
             issues.append("no license declaration")
-        if not evidence:
-            issues.append("no actual license/notice text located")
+        if not full_text:
+            issues.append("no actual full license/notice text located; source headers alone do not resolve this gap")
+        record["evidence_complete"] = bool(record.get("declared_license") and full_text and
+                                           (supplement is None or supplement.get("evidence_complete", True)) and
+                                           not (supplement or {}).get("unresolved"))
         record["evidence_issues"] = issues
         if issues:
             missing.append({"ecosystem": record["ecosystem"], "name": record["name"],

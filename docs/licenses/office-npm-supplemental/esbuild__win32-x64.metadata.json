@@ -1,0 +1,25 @@
+{
+  "name": "@esbuild/win32-x64",
+  "version": "0.25.12",
+  "registry_url": "https://registry.npmjs.org/@esbuild/win32-x64/0.25.12",
+  "tarball_url": "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.25.12.tgz",
+  "tarball_integrity": "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA==",
+  "tarball_sha256": "c77076b48f96323cae6257bd515e5ea96ecf38ab8f7fa34364d4fc4ae5905b74",
+  "metadata_license": "MIT",
+  "repository": {
+    "url": "git+https://github.com/evanw/esbuild.git",
+    "type": "git"
+  },
+  "gitHead": "208f539945b145e7c9d6d844290f81c3fe5af320",
+  "tarball_license_files": [],
+  "supplemental_license_files": [
+    {
+      "file": "esbuild__win32-x64__LICENSE.md",
+      "url": "https://raw.githubusercontent.com/evanw/esbuild/208f539945b145e7c9d6d844290f81c3fe5af320/LICENSE.md",
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681",
+      "source_commit": "208f539945b145e7c9d6d844290f81c3fe5af320",
+      "version_link_basis": "npm gitHead"
+    }
+  ],
+  "status": "upstream_version_license_supplemented"
+}

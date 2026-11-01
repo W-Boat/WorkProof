@@ -1,0 +1,17 @@
+{
+  "name": "react-remove-scroll-bar",
+  "version": "2.3.8",
+  "registry_url": "https://registry.npmjs.org/react-remove-scroll-bar/2.3.8",
+  "tarball_url": "https://registry.npmjs.org/react-remove-scroll-bar/-/react-remove-scroll-bar-2.3.8.tgz",
+  "tarball_integrity": "sha512-9r+yi9+mgU33AKcj6IbT9oRCO78WriSj6t/cF8DWBZJ9aOGPOTEDvdUDz1FwKim7QXWwmHqtdHnRJfhAxEG46Q==",
+  "tarball_sha256": "ccc872d7a2dc007cbf9d755f30d56b8d80eabdbe22c44c95a709129bfdc46f01",
+  "metadata_license": "MIT",
+  "repository": {
+    "url": "git+https://github.com/theKashey/react-remove-scroll-bar.git",
+    "type": "git"
+  },
+  "gitHead": "b3b1287aad81def2e2ae707274b74531b61ddbaf",
+  "tarball_license_files": [],
+  "status": "unresolved",
+  "gap": "Published metadata says MIT. npm gitHead b3b1287aad81def2e2ae707274b74531b61ddbaf returned GitHub tree422 and raw LICENSE404. Official tag list has v2.3.7 but no v2.3.8. No exact-version license/copyright retrieved; do not substitute older or latest license silently."
+}

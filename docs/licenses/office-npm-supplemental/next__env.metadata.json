@@ -1,0 +1,26 @@
+{
+  "name": "@next/env",
+  "version": "16.4.3",
+  "registry_url": "https://registry.npmjs.org/@next/env/16.4.3",
+  "tarball_url": "https://registry.npmjs.org/@next/env/-/env-16.4.3.tgz",
+  "tarball_integrity": "sha512-a7tz1QCcWWkwC/rPJcPMJk/UNRu9CFhDd3OHYE5hddbJrs8BqRTalxI6GlKCWEGzRLHN+S/B7a4PAHCtm25aBQ==",
+  "tarball_sha256": "eb5678b1392a76555766a8b03fb23ea7e05d095190e6d2e3517112eb42edc7c0",
+  "metadata_license": "MIT",
+  "repository": {
+    "url": "git+https://github.com/vercel/next.js.git",
+    "type": "git",
+    "directory": "packages/next-env"
+  },
+  "gitHead": null,
+  "tarball_license_files": [],
+  "supplemental_license_files": [
+    {
+      "file": "next__env__license.md",
+      "url": "https://raw.githubusercontent.com/vercel/next.js/29bbeab09981148ade186e8599ecdede15abc281/license.md",
+      "sha256": "ee765244e2d59f5234d474f62e0766fa0c8b99af967fdd4c0cb8dcb0c76ea224",
+      "source_commit": "29bbeab09981148ade186e8599ecdede15abc281",
+      "version_link_basis": "official v16.4.3 tag resolved through GitHub refs API"
+    }
+  ],
+  "status": "upstream_version_license_supplemented"
+}

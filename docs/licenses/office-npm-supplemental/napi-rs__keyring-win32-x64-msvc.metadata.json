@@ -1,0 +1,25 @@
+{
+  "name": "@napi-rs/keyring-win32-x64-msvc",
+  "version": "1.3.0",
+  "registry_url": "https://registry.npmjs.org/@napi-rs/keyring-win32-x64-msvc/1.3.0",
+  "tarball_url": "https://registry.npmjs.org/@napi-rs/keyring-win32-x64-msvc/-/keyring-win32-x64-msvc-1.3.0.tgz",
+  "tarball_integrity": "sha512-4DnCWXwDc0HRKwyRlG5y0VhKZW2tNRQfKKfyj6IX/KWfDNyq9hn4n+GL1auyDcOO/v8PwnhmYo2+rOOqCkvvOg==",
+  "tarball_sha256": "a775ca1dda8f344a4d92fd2efb46f8c0ae6214ff30f8a066262788f34e43b184",
+  "metadata_license": "MIT",
+  "repository": {
+    "url": "git+https://github.com/Brooooooklyn/keyring-node.git",
+    "type": "git"
+  },
+  "gitHead": "e46be75c3ba8d5fde6b88a17c6153b87ffe4b946",
+  "tarball_license_files": [],
+  "supplemental_license_files": [
+    {
+      "file": "napi-rs__keyring-win32-x64-msvc__LICENSE",
+      "url": "https://raw.githubusercontent.com/Brooooooklyn/keyring-node/e46be75c3ba8d5fde6b88a17c6153b87ffe4b946/LICENSE",
+      "sha256": "02965ed67e29f871a53f7a7afa593a0ddc8020f86ccce0faaf1aa59215b5269e",
+      "source_commit": "e46be75c3ba8d5fde6b88a17c6153b87ffe4b946",
+      "version_link_basis": "npm gitHead"
+    }
+  ],
+  "status": "upstream_version_license_supplemented"
+}

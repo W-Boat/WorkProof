@@ -1,0 +1,167 @@
+[
+  {
+    "name": "@esbuild/win32-x64",
+    "version": "0.25.12",
+    "registry_url": "https://registry.npmjs.org/@esbuild/win32-x64/0.25.12",
+    "tarball_url": "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.25.12.tgz",
+    "tarball_integrity": "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA==",
+    "tarball_sha256": "c77076b48f96323cae6257bd515e5ea96ecf38ab8f7fa34364d4fc4ae5905b74",
+    "metadata_license": "MIT",
+    "repository": {
+      "url": "git+https://github.com/evanw/esbuild.git",
+      "type": "git"
+    },
+    "gitHead": "208f539945b145e7c9d6d844290f81c3fe5af320",
+    "tarball_license_files": [],
+    "supplemental_license_files": [
+      {
+        "file": "esbuild__win32-x64__LICENSE.md",
+        "url": "https://raw.githubusercontent.com/evanw/esbuild/208f539945b145e7c9d6d844290f81c3fe5af320/LICENSE.md",
+        "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681",
+        "source_commit": "208f539945b145e7c9d6d844290f81c3fe5af320",
+        "version_link_basis": "npm gitHead"
+      }
+    ],
+    "status": "upstream_version_license_supplemented"
+  },
+  {
+    "name": "@napi-rs/keyring-win32-x64-msvc",
+    "version": "1.3.0",
+    "registry_url": "https://registry.npmjs.org/@napi-rs/keyring-win32-x64-msvc/1.3.0",
+    "tarball_url": "https://registry.npmjs.org/@napi-rs/keyring-win32-x64-msvc/-/keyring-win32-x64-msvc-1.3.0.tgz",
+    "tarball_integrity": "sha512-4DnCWXwDc0HRKwyRlG5y0VhKZW2tNRQfKKfyj6IX/KWfDNyq9hn4n+GL1auyDcOO/v8PwnhmYo2+rOOqCkvvOg==",
+    "tarball_sha256": "a775ca1dda8f344a4d92fd2efb46f8c0ae6214ff30f8a066262788f34e43b184",
+    "metadata_license": "MIT",
+    "repository": {
+      "url": "git+https://github.com/Brooooooklyn/keyring-node.git",
+      "type": "git"
+    },
+    "gitHead": "e46be75c3ba8d5fde6b88a17c6153b87ffe4b946",
+    "tarball_license_files": [],
+    "supplemental_license_files": [
+      {
+        "file": "napi-rs__keyring-win32-x64-msvc__LICENSE",
+        "url": "https://raw.githubusercontent.com/Brooooooklyn/keyring-node/e46be75c3ba8d5fde6b88a17c6153b87ffe4b946/LICENSE",
+        "sha256": "02965ed67e29f871a53f7a7afa593a0ddc8020f86ccce0faaf1aa59215b5269e",
+        "source_commit": "e46be75c3ba8d5fde6b88a17c6153b87ffe4b946",
+        "version_link_basis": "npm gitHead"
+      }
+    ],
+    "status": "upstream_version_license_supplemented"
+  },
+  {
+    "name": "@next/env",
+    "version": "16.4.3",
+    "registry_url": "https://registry.npmjs.org/@next/env/16.4.3",
+    "tarball_url": "https://registry.npmjs.org/@next/env/-/env-16.4.3.tgz",
+    "tarball_integrity": "sha512-a7tz1QCcWWkwC/rPJcPMJk/UNRu9CFhDd3OHYE5hddbJrs8BqRTalxI6GlKCWEGzRLHN+S/B7a4PAHCtm25aBQ==",
+    "tarball_sha256": "eb5678b1392a76555766a8b03fb23ea7e05d095190e6d2e3517112eb42edc7c0",
+    "metadata_license": "MIT",
+    "repository": {
+      "url": "git+https://github.com/vercel/next.js.git",
+      "type": "git",
+      "directory": "packages/next-env"
+    },
+    "gitHead": null,
+    "tarball_license_files": [],
+    "supplemental_license_files": [
+      {
+        "file": "next__env__license.md",
+        "url": "https://raw.githubusercontent.com/vercel/next.js/29bbeab09981148ade186e8599ecdede15abc281/license.md",
+        "sha256": "ee765244e2d59f5234d474f62e0766fa0c8b99af967fdd4c0cb8dcb0c76ea224",
+        "source_commit": "29bbeab09981148ade186e8599ecdede15abc281",
+        "version_link_basis": "official v16.4.3 tag resolved through GitHub refs API"
+      }
+    ],
+    "status": "upstream_version_license_supplemented"
+  },
+  {
+    "name": "@next/swc-win32-x64-msvc",
+    "version": "16.4.3",
+    "registry_url": "https://registry.npmjs.org/@next/swc-win32-x64-msvc/16.4.3",
+    "tarball_url": "https://registry.npmjs.org/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-16.4.3.tgz",
+    "tarball_integrity": "sha512-NmQC9RkJdnPXRaMxtkCzobB3teVjqF33oSOnwDfi+XYGWWYpt+xlGK3mtktSKLbdjwaWbJu2OkkMiRFGUUncKg==",
+    "tarball_sha256": "7314e84676d65fb6790aa5917e7f03582954be2db4e4fc352730a304dc621d9a",
+    "metadata_license": "MIT",
+    "repository": {
+      "url": "git+https://github.com/vercel/next.js.git",
+      "type": "git",
+      "directory": "crates/next-napi-bindings/npm/win32-x64-msvc"
+    },
+    "gitHead": null,
+    "tarball_license_files": [],
+    "supplemental_license_files": [
+      {
+        "file": "next__swc-win32-x64-msvc__license.md",
+        "url": "https://raw.githubusercontent.com/vercel/next.js/29bbeab09981148ade186e8599ecdede15abc281/license.md",
+        "sha256": "ee765244e2d59f5234d474f62e0766fa0c8b99af967fdd4c0cb8dcb0c76ea224",
+        "source_commit": "29bbeab09981148ade186e8599ecdede15abc281",
+        "version_link_basis": "official v16.4.3 tag resolved through GitHub refs API"
+      }
+    ],
+    "status": "upstream_version_license_supplemented"
+  },
+  {
+    "name": "@tauri-apps/cli-win32-x64-msvc",
+    "version": "2.12.4",
+    "registry_url": "https://registry.npmjs.org/@tauri-apps/cli-win32-x64-msvc/2.12.4",
+    "tarball_url": "https://registry.npmjs.org/@tauri-apps/cli-win32-x64-msvc/-/cli-win32-x64-msvc-2.12.4.tgz",
+    "tarball_integrity": "sha512-DJhDeCqjLDNMWYFy7ZS8cfeAHX2RK0RbQMLiA3bMVVkXRDJ4NBYiHriGqsUhsr9iG41aTb+dJGkFPmPw1gWwVw==",
+    "tarball_sha256": "01c37f9e8e7b5dfeb69a9759f68fe4fd7a53a300c812bc104c3bd77c247e8bea",
+    "metadata_license": "Apache-2.0 OR MIT",
+    "repository": {
+      "url": "git+https://github.com/tauri-apps/tauri.git",
+      "type": "git"
+    },
+    "gitHead": null,
+    "tarball_license_files": [],
+    "supplemental_license_files": [
+      {
+        "file": "tauri-apps__cli-win32-x64-msvc__LICENSE-MIT",
+        "url": "https://raw.githubusercontent.com/tauri-apps/tauri/993038c49185307dfc895ab7657d77ca0d5ed7c7/packages/cli/LICENSE-MIT",
+        "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+        "source_commit": "993038c49185307dfc895ab7657d77ca0d5ed7c7",
+        "version_link_basis": "official tauri-cli-v2.12.4 tag tree resolved through GitHub API"
+      },
+      {
+        "file": "tauri-apps__cli-win32-x64-msvc__LICENSE-APACHE-2.0",
+        "url": "https://raw.githubusercontent.com/tauri-apps/tauri/993038c49185307dfc895ab7657d77ca0d5ed7c7/packages/cli/LICENSE-APACHE-2.0",
+        "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+        "source_commit": "993038c49185307dfc895ab7657d77ca0d5ed7c7",
+        "version_link_basis": "official tauri-cli-v2.12.4 tag tree resolved through GitHub API"
+      }
+    ],
+    "status": "upstream_version_license_supplemented"
+  },
+  {
+    "name": "client-only",
+    "version": "0.0.1",
+    "registry_url": "https://registry.npmjs.org/client-only/0.0.1",
+    "tarball_url": "https://registry.npmjs.org/client-only/-/client-only-0.0.1.tgz",
+    "tarball_integrity": "sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==",
+    "tarball_sha256": "dcd7bc3868e2d3518d08944559952e4a68f581d89a84b6892de9fd8f40860b19",
+    "metadata_license": "MIT",
+    "repository": null,
+    "gitHead": null,
+    "tarball_license_files": [],
+    "status": "unresolved",
+    "gap": "Published metadata says MIT, but tarball lacks license/copyright and repository/gitHead. React homepage and issue URL do not establish exact package copyright or version source. Do not synthesize MIT copyright."
+  },
+  {
+    "name": "react-remove-scroll-bar",
+    "version": "2.3.8",
+    "registry_url": "https://registry.npmjs.org/react-remove-scroll-bar/2.3.8",
+    "tarball_url": "https://registry.npmjs.org/react-remove-scroll-bar/-/react-remove-scroll-bar-2.3.8.tgz",
+    "tarball_integrity": "sha512-9r+yi9+mgU33AKcj6IbT9oRCO78WriSj6t/cF8DWBZJ9aOGPOTEDvdUDz1FwKim7QXWwmHqtdHnRJfhAxEG46Q==",
+    "tarball_sha256": "ccc872d7a2dc007cbf9d755f30d56b8d80eabdbe22c44c95a709129bfdc46f01",
+    "metadata_license": "MIT",
+    "repository": {
+      "url": "git+https://github.com/theKashey/react-remove-scroll-bar.git",
+      "type": "git"
+    },
+    "gitHead": "b3b1287aad81def2e2ae707274b74531b61ddbaf",
+    "tarball_license_files": [],
+    "status": "unresolved",
+    "gap": "Published metadata says MIT. npm gitHead b3b1287aad81def2e2ae707274b74531b61ddbaf returned GitHub tree422 and raw LICENSE404. Official tag list has v2.3.7 but no v2.3.8. No exact-version license/copyright retrieved; do not substitute older or latest license silently."
+  }
+]

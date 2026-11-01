@@ -1,0 +1,14 @@
+{
+  "name": "client-only",
+  "version": "0.0.1",
+  "registry_url": "https://registry.npmjs.org/client-only/0.0.1",
+  "tarball_url": "https://registry.npmjs.org/client-only/-/client-only-0.0.1.tgz",
+  "tarball_integrity": "sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==",
+  "tarball_sha256": "dcd7bc3868e2d3518d08944559952e4a68f581d89a84b6892de9fd8f40860b19",
+  "metadata_license": "MIT",
+  "repository": null,
+  "gitHead": null,
+  "tarball_license_files": [],
+  "status": "unresolved",
+  "gap": "Published metadata says MIT, but tarball lacks license/copyright and repository/gitHead. React homepage and issue URL do not establish exact package copyright or version source. Do not synthesize MIT copyright."
+}

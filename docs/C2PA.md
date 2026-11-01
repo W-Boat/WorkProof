@@ -23,7 +23,7 @@ workproof-c2pa verify signed.png independently-trusted-roots.pem
 
 `8cdf211` 在独立工具内新增 `image/jpeg` 与 `jpeg-remove-c2pa-app11-v1` 归一化。仅移除带 C2PA JUMBF UUID、标签及合法分片序号的 APP11；其他 APP11、EXIF、XMP、压缩数据及顺序保留。SDK 签署后的恢复结果必须与原 JPEG 逐字节相同，否则拒绝输出，不重编码图片。已有 C2PA 的输入暂时拒绝重新封装。
 
-[专项 41335157249](https://github.com/W-Boat/WorkProof/actions/runs/41335157249) 的真实签署步骤已通过：使用实际基线/渐进 JPEG、1500 条签名事件、多片 APP11、独立合成 CA、完整及选择性证据，并检查元数据保留、像素/元数据修改及错误 CA 拒绝。发布模式再验证与开发包上传仍以该任务最终结果为准。JPEG 只在一次性工具中解析，不加入轻量守护进程依赖图。
+[专项 41335157249](https://github.com/W-Boat/WorkProof/actions/runs/41335157249) 的真实签署步骤已通过：使用实际基线/渐进 JPEG、1500 条签名事件、多片 APP11、独立合成 CA、完整及选择性证据，并检查元数据保留、像素/元数据修改及错误 CA 拒绝。该专项发布模式复验和 Linux 开发包上传也已成功；基线与渐进 JPEG 均实际产生7个 APP11 分片。后续增加 JPEG 专用 strace 网络调用检查，结果以新增任务为准。JPEG 只在一次性工具中解析，不加入轻量守护进程依赖图。
 
 报告新增 `original_asset_checked`、`original_jpeg_checked` 与 `media_type`；PNG 的 `original_png_checked` 保留，仅在实际 PNG 检查时为 true。所有格式仍不认证作者身份、原创性或人类创作比例，不进行撤销查询。原图最多64MiB、封装图96MiB；JPEG 最多16384个标记并拒绝尾随数据和无序分片。
 

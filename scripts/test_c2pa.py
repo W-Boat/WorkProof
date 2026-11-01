@@ -128,6 +128,11 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
         partial_report=json.loads(run(tool,'verify',partial_output,root/'ca.pem').stdout)
         assert partial_report['workproof']['scope']=='selective' and partial_report['workproof']['disclosed_events']==3 and partial_report['workproof']['total_events']==1500
         run(tool,'verify',destination,root/'wrong.pem',ok=False)
+        jpeg_trace=folder/'network.trace'
+        run('strace','-f','-e','trace=network','-o',jpeg_trace,tool,'verify',destination,root/'ca.pem')
+        jpeg_calls=jpeg_trace.read_text()
+        assert 'connect(' not in jpeg_calls and 'sendto(' not in jpeg_calls
+
         assert source.read_bytes()==original_jpeg and (folder/'full.wproof').read_bytes()==proof_bytes
         jpeg_results.append({'progressive':progressive,'segmented_app11_packets':len(packets),'metadata_preserved':True,'full_and_selective':True})
 
