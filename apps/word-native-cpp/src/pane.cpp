@@ -528,8 +528,8 @@ void ShowLaunchFeedback(){
     WNDCLASSEXW cls={sizeof(cls)};cls.lpfnWndProc=FeedbackProc;cls.hInstance=g_module;cls.lpszClassName=L"WorkProofWordFeedback";cls.hCursor=LoadCursorW(nullptr,IDC_ARROW);
     RegisterClassExW(&cls);
     HWND owner=GetAncestor(g.window,GA_ROOT);MONITORINFO info={sizeof(info)};GetMonitorInfoW(MonitorFromWindow(owner,MONITOR_DEFAULTTONEAREST),&info);RECT r=info.rcMonitor;
-    HWND feedback=CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE,cls.lpszClassName,L"WorkProof 已开始记录",WS_POPUP,r.left,r.top,r.right-r.left,r.bottom-r.top,owner,nullptr,g_module,nullptr);
-    if(feedback)ShowWindow(feedback,SW_SHOWNOACTIVATE);
+    HWND feedback=CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE|WS_EX_TOPMOST,cls.lpszClassName,L"WorkProof 已开始记录",WS_POPUP,r.left,r.top,r.right-r.left,r.bottom-r.top,owner,nullptr,g_module,nullptr);
+    if(feedback){ShowWindow(feedback,SW_SHOWNOACTIVATE);Trace(L"Recording success overlay shown");}
 }
 
 LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
