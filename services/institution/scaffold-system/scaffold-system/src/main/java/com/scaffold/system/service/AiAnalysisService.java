@@ -84,7 +84,15 @@ public class AiAnalysisService {
                 if(exit!=0||!"workproof-ai-assessment/1".equals(value.path("protocol").asText())||!engine.equals(value.path("engine_id").asText())||value.path("network_used").asBoolean(true)
                     ||!hash.equals(value.path("artifact_hash").asText())||value.path("artifact_bytes").asInt(-1)!=bytes)throw new IOException("INVALID_REPORT");
                 String result=value.path("status").asText();if(!Set.of("completed","unsupported","insufficient_input","not_configured").contains(result))throw new IOException("INVALID_STATUS");
-                ObjectNode safe=mapper.createObjectNode();safe.put("status",result);safe.put("artifact_hash",hash);safe.put("scope","仅主文档源文字；不代表排版后的可见全文");
+                ObjectNode safe=mapper.createObjectNode();safe.put("status",result);safe.put("artifact_hash",hash);safe.put("engine_id",engine);
+                safe.put("scope",file.toString().endsWith(".docx")?"仅主文档源文字；不代表排版后的可见全文":"仅所选 UTF-8 文字");
+                String reason=value.path("reason").asText();
+                safe.put("message",switch(reason){
+                    case "AT_LEAST_80_WORDS_OR_CHINESE_CHARACTERS_REQUIRED" -> "文字过短：中文至少需要 80 个汉字，英文至少需要 80 个单词。";
+                    case "TEXT_EXCEEDS_512_TOKENS_NO_SILENT_TRUNCATION" -> "文字超过模型的单次处理长度，本次没有分析。请将要复核的段落另存为文本后重试，并保留完整作品。";
+                    case "LANGUAGE_NOT_SUPPORTED_BY_SELECTED_ENGINE" -> "文档语言与所选模型不符，请更换模型。";
+                    default -> result.equals("completed")?"模型已返回参考分数；没有确认作者身份或 AI 使用比例。":"本次没有完成分析，请核对模型准备状态、文档语言和长度。";
+                });
                 if(result.equals("completed")){
                     if(!"uncalibrated_class_softmax".equals(value.path("score_kind").asText())||!value.path("calibration").isNull())throw new IOException("INVALID_SCORE_KIND");
                     List<String> labels=engine.equals("mpu-zh-v3")?List.of("Human","AI"):List.of("Fake","Real");ObjectNode scores=safe.putObject("raw_scores");double sum=0;

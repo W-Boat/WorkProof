@@ -30,7 +30,7 @@ async function submit(){
   try{
     const value=await analysisApi.submit(file.value,engine.value,file.value.name.split('.').pop()!.toLowerCase(),request.signal)
     if(current!==generation){void analysisApi.cancel(value.id).catch(()=>{});return}
-    task.value=value;if(cancelling.value)task.value=await analysisApi.cancel(value.id)
+      task.value=value;if(cancelling.value)task.value=await analysisApi.cancel(value.id)
     while(current===generation&&['queued','running','cancelling'].includes(task.value.state)){
       await new Promise(resolve=>setTimeout(resolve,1000));if(current!==generation)return;task.value=await analysisApi.status(value.id)
     }
@@ -46,6 +46,7 @@ const label=(key:string)=>['AI','Fake'].includes(key)?'更接近生成样本的�
     <Field label="选择参考模型" span><Select :model-value="engine" :options="options" :disabled="busy" @update:model-value="value=>{engine=String(value);resetResult()}"/><p class="field-hint">英文模型仅为 GPT-2 参考；两种模型都可能误判，不能单独用于认定作弊或原创性。</p></Field>
     <Field label="确认发送范围" group span><Checkbox v-model="consent" :disabled="busy||!file" label="我同意将所选文档发送给机构服务器进行辅助分析"/><p class="field-hint">分析后删除临时文档，不保存正文；参考结果最多保留十分钟，服务器重启后不保留。作品较长时会提示未分析，不会悄悄只分析开头。</p><p class="field-hint" role="status">{{ busy ? (cancelling?'正在请求停止，请等待服务器确认…':'正在分析；点击取消可请求停止实际分析进程。') : capability?.message||'正在读取模型准备状态…' }}</p></Field>
     <Field v-if="task?.state==='cancelled'" label="分析已取消" group span><p role="status">服务器已结束本次分析。</p></Field>
+    <Field v-if="task?.report&&task.report.status!=='completed'" label="下一步" span><p>{{ task.report.message }}</p></Field>
     <Field v-if="task?.report" label="辅助结果" group span aria-live="polite"><Tag tone="info">{{ task.report.status==='completed'?'仅供人工参考':'本次未完成模型分析' }}</Tag><p>模型得分不是 AI 内容比例，也没有确认作者身份。</p><dl v-if="task.report.raw_scores"><template v-for="(value,key) in task.report.raw_scores" :key="key"><dt>{{ label(String(key)) }}</dt><dd>{{ value.toFixed(4) }}（未校准）</dd></template></dl><p class="field-hint">{{ task.report.scope }}</p><code style="overflow-wrap:anywhere">文档 SHA-256：{{ task.report.artifact_hash }}</code></Field>
   </FormDialog>
 </template>
