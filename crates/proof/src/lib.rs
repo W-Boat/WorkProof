@@ -101,7 +101,7 @@ pub fn validate_event(e: &Event) -> bool {
     && e.seq < MAX_EVENTS as u64 && e.elapsed_ms <= 31_536_000_000
     && e.inserted <= 100_000_000 && e.deleted <= 100_000_000 && e.chars <= 100_000_000
     && (e.checkpoint.is_empty() || valid_hash(&e.checkpoint))
-    && e.metrics.len()<=16 && e.metrics.iter().all(|(k,v)|matches!(k.as_str(),"vertices"|"edges"|"faces"|"objects"|"modifiers"|"layers"|"groups"|"visible_layers"|"paragraphs"|"characters"|"viewport_changes")&&*v<=1_000_000_000)
+    && e.metrics.len()<=16 && e.metrics.iter().all(|(k,v)|matches!(k.as_str(),"vertices"|"edges"|"faces"|"objects"|"modifiers"|"layers"|"groups"|"visible_layers"|"paragraphs"|"characters"|"viewport_changes"|"slides"|"shapes")&&*v<=1_000_000_000)
 }
 pub fn verify(p: &Proof, artifact_hash: &str, artifact_bytes: u64) -> Report {
     let m = &p.manifest;
@@ -258,6 +258,21 @@ mod tests {
     #[test] fn legacy_v1_still_verifies(){
         let mut p=sample();p.manifest.protocol="workproof/1".into();p.manifest.merkle_root.clear();
         p=sign(p.manifest,p.records,&SigningKey::from_bytes(&[7;32]));assert!(verify(&p,&digest(b"hello"),5).valid);
+    }
+    #[test] fn powerpoint_counts_are_signed_and_bounded(){
+        let mut p=sample();p.manifest.source="powerpoint".into();
+        p.records[1].event.metrics.insert("slides".into(),3);
+        p.records[1].event.metrics.insert("shapes".into(),12);
+        assert!(validate_event(&p.records[1].event));
+        let mut head=genesis(&p.manifest.session_id);
+        for record in &mut p.records{head=event_hash(&head,&record.event);record.hash=head.clone();}
+        p.manifest.chain_head=head;
+        p=sign(p.manifest,p.records,&SigningKey::from_bytes(&[7;32]));
+        assert!(verify(&p,&digest(b"hello"),5).valid);
+        p.records[1].event.metrics.insert("shapes".into(),13);
+        assert!(!verify(&p,&digest(b"hello"),5).chain_valid);
+        p.records[1].event.metrics.insert("slides".into(),1_000_000_001);
+        assert!(!validate_event(&p.records[1].event));
     }
     #[test] fn unknown_metrics_are_rejected(){let mut p=sample();p.records[1].event.metrics.insert("raw_content".into(),1);assert!(!verify(&p,&digest(b"hello"),5).valid);}
     #[test] fn legacy_v2_still_verifies_without_merkle_claims(){

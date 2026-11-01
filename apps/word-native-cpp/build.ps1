@@ -9,7 +9,8 @@
 [CmdletBinding()]
 param(
     [string]$OutDir = (Join-Path $PSScriptRoot 'out'),
-    [switch]$SkipProbe
+    [switch]$SkipProbe,
+    [switch]$PowerPoint
 )
 $ErrorActionPreference = 'Stop'
 $source = Join-Path $PSScriptRoot 'src'
@@ -24,11 +25,12 @@ $common = @(
     '/nologo', '/std:c++17', '/EHsc', '/W4', '/O2', '/guard:cf', '/utf-8',
     '/DUNICODE', '/D_UNICODE', '/DWIN32_LEAN_AND_MEAN', '/MT', "/I$source"
 )
+if ($PowerPoint) { $common += '/DWORKPROOF_POWERPOINT' }
 $libraries = @('winhttp.lib', 'shell32.lib', 'ole32.lib', 'oleaut32.lib', 'user32.lib', 'gdi32.lib', 'comctl32.lib', 'advapi32.lib', 'uuid.lib')
 
 $sources = @('dllmain.cpp', 'connect.cpp', 'taskpane_control.cpp', 'pane.cpp', 'engine.cpp', 'ribbon.cpp', 'trace.cpp') |
     ForEach-Object { Join-Path $source $_ }
-$dll = Join-Path $OutDir 'WorkProofWord.dll'
+$dll = Join-Path $OutDir $(if ($PowerPoint) { 'WorkProofPowerPoint.dll' } else { 'WorkProofWord.dll' })
 foreach ($file in $sources) {
     & cl @common "/Fo$objectDir\" /c $file
     if ($LASTEXITCODE -ne 0) { throw "compile failed: $file" }
@@ -38,7 +40,7 @@ $objects = $sources | ForEach-Object { Join-Path $objectDir ((Split-Path $_ -Lea
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $dll)) { throw 'link failed for WorkProofWord.dll' }
 Write-Output "Built $dll"
 
-if (-not $SkipProbe) {
+if (-not $SkipProbe -and -not $PowerPoint) {
     $probe = Join-Path $OutDir 'test_addin.exe'
     & cl @common (Join-Path $source 'test_addin.cpp') "/Fo$probeDir\" "/Fe$probe" 'oleaut32.lib' 'ole32.lib' 'user32.lib' 'uuid.lib'
     if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_addin.cpp' }

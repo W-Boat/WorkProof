@@ -60,6 +60,9 @@ jobs:
       - name: Build the native COM add-in and probe it without Word
         shell: pwsh
         run: ./apps/word-native-cpp/build.ps1 -OutDir apps/word-native-cpp/out
+      - name: Build native PowerPoint adapter
+        shell: pwsh
+        run: ./apps/word-native-cpp/build.ps1 -PowerPoint -OutDir apps/word-native-cpp/out-powerpoint
       - name: Build the desktop that accepts the native word grant
         working-directory: apps/desktop
         run: npx tauri build --no-bundle
@@ -82,6 +85,11 @@ jobs:
             -Docs docs `
             -Notices .ci-word-notices `
             -Zip dist/workproof-native-word-windows-dev.zip
+      - name: Include PowerPoint adapter and installer
+        shell: pwsh
+        run: |
+          Copy-Item apps/word-native-cpp/out-powerpoint/WorkProofPowerPoint.dll "$env:RUNNER_TEMP/workproof-native-word/WorkProofPowerPoint.dll"
+          Copy-Item scripts/local/install-native-powerpoint.ps1 "$env:RUNNER_TEMP/workproof-native-word/install-native-powerpoint.ps1"
       - name: Register and unregister the staged kit in an isolated registry fixture
         shell: pwsh
         run: |

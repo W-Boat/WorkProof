@@ -6,9 +6,9 @@ button,select{width:100%;margin:7px 0;padding:12px;background:#b7dfc0;color:#193
 </style></head><body>
 <small>WORKPROOF · 开源证人</small><h1>记录你的创作过程</h1>
 <div id="status" class="badge" role="status">正在准备记录服务…</div><p id="message" role="status">选择你使用的软件，按下面三步开始。</p>
-<label for="creation-tool">你用什么软件创作？</label><select id="creation-tool"><option value="word">Microsoft Word</option><option value="wps">WPS 文字</option><option value="vscode">VS Code</option><option value="photoshop">Photoshop</option><option value="blender">Blender</option></select>
+<label for="creation-tool">你用什么软件创作？</label><select id="creation-tool"><option value="word">Microsoft Word</option><option value="powerpoint">Microsoft PowerPoint</option><option value="wps">WPS 文字</option><option value="vscode">VS Code</option><option value="photoshop">Photoshop</option><option value="blender">Blender</option></select>
 <ol id="creation-steps" aria-label="开始记录的三个步骤"></ol><p id="installation-note"></p>
-<button id="open-word">打开 Word 并开始记录</button><button id="install" hidden>安装 / 更新 VS Code 插件</button><button id="verify">检查作品和证书</button>
+<button id="open-word">打开 Word 并开始记录</button><button id="open-powerpoint" hidden>打开 PowerPoint 并开始记录</button><button id="install" hidden>安装 / 更新 VS Code 插件</button><button id="verify">检查作品和证书</button>
 <p>只在你点击开始后记录。不录屏，不保存文档正文。关闭这个窗口，已开始的记录仍会继续。</p>
 <section id="adapter-connections" aria-label="允许连接的软件"><h2>允许连接的软件</h2><p id="no-connections">还没有允许任何加载项连接。Word、WPS 或 Photoshop 请求连接时，请在这里核对并允许。</p></section>
 <details><summary>查看本机记录数量</summary><div class="stats"><div><strong id="sessions">—</strong><span>已开始的记录</span></div><div><strong id="events">—</strong><span>已保存的操作</span></div></div><div class="trace" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></details>

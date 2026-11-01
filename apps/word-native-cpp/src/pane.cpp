@@ -14,6 +14,13 @@
 
 namespace workproof {
 namespace {
+#ifdef WORKPROOF_POWERPOINT
+const char* kSource="powerpoint";
+const wchar_t* kTaskPaneProgId=L"WorkProof.PowerPointNative.TaskPane";
+#else
+const char* kSource="word";
+const wchar_t* kTaskPaneProgId=L"WorkProof.WordNative.TaskPane";
+#endif
 
 const wchar_t kClassName[] = L"WorkProofWordPane";
 const UINT kSampleTimer = 1;
@@ -56,6 +63,7 @@ struct State {
     long long lastSampleMs = 0;
     long long lastCharacters = -1;
     long lastParagraphs = -1;
+    long lastSlides=-1;long long lastShapes=-1;
     bool paused = true;
     bool pairing = false;
     bool writing = false;
@@ -150,10 +158,14 @@ void PaintState() {
 std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long inserted, long long deleted,
                       const std::string& checkpoint) {
     wchar_t buffer[512];
+#ifdef WORKPROOF_POWERPOINT
+    swprintf_s(buffer,L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":0,\"deleted\":0,\"chars\":0,\"checkpoint\":\"%S\",\"metrics\":{\"slides\":%ld,\"shapes\":%lld}}",g.sequence,ElapsedMs(),kind,checkpoint.c_str(),snapshot.slides,snapshot.shapes);
+#else
     swprintf_s(buffer, L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":%lld,\"deleted\":%lld,"
                        L"\"chars\":%lld,\"checkpoint\":\"%S\",\"metrics\":{\"characters\":%lld,\"paragraphs\":%ld}}",
                g.sequence, ElapsedMs(), kind, inserted, deleted, snapshot.characters, checkpoint.c_str(),
                snapshot.characters, snapshot.paragraphs);
+#endif
     // The buffer above is assembled with wide characters only so numbers stay locale independent.
     std::wstring wide(buffer);
     return WideToUtf8(wide);
@@ -201,7 +213,7 @@ void PairingThread(HWND target,unsigned long long generation) {
     std::string response;
     std::wstring error;
     long status = 0;
-    if (!HttpJson(L"POST", L"/v1/native-pairing", "{\"source\":\"word\"}", std::wstring(), response, status) || status != 200) {
+    if (!HttpJson(L"POST", L"/v1/native-pairing", std::string("{\"source\":\"")+kSource+"\"}", std::wstring(), response, status) || status != 200) {
         PairResult* failure = new PairResult();
         failure->error = L"桌面端拒绝了连接请求。请确认 WorkProof 正在运行并更新到最新版本。";
         post(failure,false);
@@ -253,7 +265,7 @@ void BeginPairing() {
     g.cancelPairing = false;
     g.documentName = snapshot.name;
     g.identity = snapshot.identity;
-    SetStatus(L"请在桌面端 WorkProof 核对来源“word”，再点击允许连接。");
+    SetStatus(L"请在桌面端 WorkProof 核对当前软件来源，再点击允许连接。");
     PaintState();
     InterlockedIncrement(&g_objectCount);
     std::thread(PairingThread,g.window,++g.pairingGeneration).detach();
@@ -281,7 +293,7 @@ void FinishPairing(PairResult* result) {
         g.launchFeedback=false;PaintState();return;
     }
     std::string body = "{\"file_name\":\"" + JsonEscape(WideToUtf8(snapshot.name)) +
-                       "\",\"started_at\":\"" + JsonEscape(WideToUtf8(IsoUtcNow())) + "\",\"source\":\"word\"}";
+                       "\",\"started_at\":\"" + JsonEscape(WideToUtf8(IsoUtcNow())) + "\",\"source\":\""+kSource+"\"}";
     std::string response;
     if (!Call(L"POST", L"/v1/sessions", body, true, response, error)) { SetStatus(error); PaintState(); return; }
     g.session = Utf8ToWide(JsonField(response, "session_id"));
@@ -290,6 +302,7 @@ void FinishPairing(PairResult* result) {
     g.documentName = snapshot.name;
     g.lastCharacters = snapshot.characters;
     g.lastParagraphs = snapshot.paragraphs;
+    g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
     g.sequence = 0;
     g.started = std::chrono::steady_clock::now();
     g.lastSampleMs = 0;
@@ -324,7 +337,7 @@ void Sample() {
         SendEvent("gap", snapshot, 0, 0, std::string(), error);
     }
     g.lastSampleMs = now;
-    bool changed = snapshot.characters != g.lastCharacters || snapshot.paragraphs != g.lastParagraphs;
+    bool changed = snapshot.characters != g.lastCharacters || snapshot.paragraphs != g.lastParagraphs || snapshot.slides!=g.lastSlides || snapshot.shapes!=g.lastShapes;
     if (changed && g.lastCharacters >= 0) {
         long long inserted = snapshot.characters > g.lastCharacters ? snapshot.characters - g.lastCharacters : 0;
         long long deleted = g.lastCharacters > snapshot.characters ? g.lastCharacters - snapshot.characters : 0;
@@ -336,6 +349,7 @@ void Sample() {
     }
     g.lastCharacters = snapshot.characters;
     g.lastParagraphs = snapshot.paragraphs;
+    g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
     PaintState();
 }
 
@@ -365,6 +379,7 @@ void TogglePause() {
     if (!SendEvent("resume", snapshot, 0, 0, std::string(), error)) { SetStatus(error); return; }
     g.lastCharacters = snapshot.characters;
     g.lastParagraphs = snapshot.paragraphs;
+    g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
     g.paused = false;
     g.lastSampleMs = ElapsedMs();
     SetTimer(g.window, kSampleTimer, kSampleIntervalMs, nullptr);
@@ -427,7 +442,7 @@ void Export() {
     if (!SaveDocument(g.word, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
     DocSnapshot saved;
     if (!ReadDocument(g.word, saved, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
-    if (saved.identity != before.identity || saved.characters != before.characters || saved.paragraphs != before.paragraphs) {
+    if (saved.identity != before.identity || saved.characters != before.characters || saved.paragraphs != before.paragraphs || saved.slides!=before.slides || saved.shapes!=before.shapes) {
         SetStatus(L"保存后内容仍在变化，已停止导出。请再次保存并重试。");
         g.writing = false;
         PaintState();
@@ -451,7 +466,7 @@ void Export() {
         return;
     }
     DocSnapshot check;
-    if (!ReadDocument(g.word, check, error) || check.identity != g.identity || check.characters != saved.characters || check.paragraphs != saved.paragraphs) {
+    if (!ReadDocument(g.word, check, error) || check.identity != g.identity || check.characters != saved.characters || check.paragraphs != saved.paragraphs || check.slides!=saved.slides || check.shapes!=saved.shapes) {
         SetStatus(L"生成摘要期间文档发生变化，已停止导出。请重新导出。");
         g.writing = false;
         PaintState();
@@ -546,7 +561,11 @@ void CreateControls(HWND window) {
     g.exportButton=create(L"BUTTON",L"导出作品和证书",BS_PUSHBUTTON|WS_TABSTOP);
     g.cancelButton=create(L"BUTTON",L"取消连接",BS_PUSHBUTTON|WS_TABSTOP);
     g.verifierLink=create(L"BUTTON",L"核验已有证书",BS_PUSHBUTTON|WS_TABSTOP);
+#ifdef WORKPROOF_POWERPOINT
+    g.privacy=create(L"STATIC",L"只记录幻灯片数、对象数、时间与保存摘要，不发送文字或图片。\n\n数量不变的文字、图片和样式修改可能无法识别。记录不能单独证明作者身份或原创性。",SS_LEFT);
+#else
     g.privacy=create(L"STATIC",L"不采集正文。只记录编辑数量、段落数、时间与文件摘要。\n\n记录可能遗漏修改，不能单独证明作者身份或原创性。关闭侧栏后仍可通过 WorkProof 菜单暂停记录。",SS_LEFT);
+#endif
     LayoutControls();
 }
 LRESULT CALLBACK FeedbackProc(HWND window,UINT message,WPARAM w,LPARAM l){
@@ -631,7 +650,7 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
             if(g.pairing||!g.session.empty())return 0;
             DocSnapshot snapshot;std::wstring error;
             if(!ReadDocument(g.word,snapshot,error)){
-                SetStatus(L"请在 Word 中保存文档，保存后将自动连接记录。");
+                SetStatus(L"请在当前软件中保存作品，保存后将自动连接记录。");
                 if(!SaveDocument(g.word,error)){SetStatus(L"尚未开始记录。请保存文档后点击开始记录。");g.launchFeedback=false;return 0;}
             }
             BeginPairing();return 0;
@@ -704,7 +723,7 @@ void PaneShow() {
             MessageBoxW(nullptr,L"请先在 Word 中打开或新建一份文档，再打开创作记录。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;
         }
         args[1].vt=VT_BSTR;args[1].bstrVal=SysAllocString(L"WorkProof · 创作记录");
-        args[2].vt=VT_BSTR;args[2].bstrVal=SysAllocString(L"WorkProof.WordNative.TaskPane");
+        args[2].vt=VT_BSTR;args[2].bstrVal=SysAllocString(kTaskPaneProgId);
         VARIANT result;VariantInit(&result);HRESULT hr=Dispatch(g.factory,L"CreateCTP",DISPATCH_METHOD,args,3,&result);
         for(auto& value:args)VariantClear(&value);TraceHresult(L"CreateCTP",hr);
         if(SUCCEEDED(hr)&&result.vt==VT_DISPATCH){g.taskPane=result.pdispVal;g.taskPane->AddRef();}VariantClear(&result);

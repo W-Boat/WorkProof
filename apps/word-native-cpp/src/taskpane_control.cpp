@@ -5,7 +5,11 @@
 #include <new>
 
 namespace workproof {
+#ifdef WORKPROOF_POWERPOINT
+const CLSID CLSID_TaskPane = {0x6EC055C4,0x2EB0,0x49EB,{0x80,0xC9,0x30,0xC6,0xDA,0x38,0xEB,0x87}};
+#else
 const CLSID CLSID_TaskPane = {0x41D77603,0x57A1,0x43C8,{0x83,0x9E,0xBB,0x53,0x75,0xA9,0xD8,0x43}};
+#endif
 namespace {
 // A windowed OLE control hosted by Office's CustomTaskPane. Office owns the
 // surrounding dock frame; this object creates only its in-place child window.

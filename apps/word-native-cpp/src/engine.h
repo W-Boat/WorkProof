@@ -16,6 +16,8 @@ struct DocSnapshot {
     long paragraphs;
     bool readOnly;
     bool saved;
+    long slides = 0;
+    long long shapes = 0;
 };
 
 // Late-bound access to the running Word instance. Everything stays on the caller's (Word UI) thread.

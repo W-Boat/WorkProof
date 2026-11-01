@@ -11,6 +11,14 @@ namespace workproof {
 
 namespace {
 
+#ifdef WORKPROOF_POWERPOINT
+const wchar_t kActiveDocument[]=L"ActivePresentation";
+const wchar_t kHostName[]=L"PowerPoint";
+#else
+const wchar_t kActiveDocument[]=L"ActiveDocument";
+const wchar_t kHostName[]=L"Word";
+#endif
+
 std::wstring EnginePort() {
     wchar_t buffer[16] = {0};
     DWORD length = GetEnvironmentVariableW(L"WORKPROOF_ENGINE_PORT", buffer, 16);
@@ -133,10 +141,10 @@ bool RunEngine(const std::wstring& arguments, std::string& output, std::wstring&
 }
 
 bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& error) {
-    if (!application) { error = L"Word 还没有完成加载。请保存文档后重新打开 Word 再试。"; return false; }
+    if (!application) { error = std::wstring(kHostName)+L" 尚未完成加载，请稍后重试。"; return false; }
     Variant documentOwner;
     VARIANT& document=documentOwner.value;
-    if (FAILED(GetProperty(application, L"ActiveDocument", &document)) || document.vt != VT_DISPATCH || !document.pdispVal) {
+    if (FAILED(GetProperty(application, kActiveDocument, &document)) || document.vt != VT_DISPATCH || !document.pdispVal) {
         error = L"请先打开一份文档。";
         return false;
     }
@@ -165,6 +173,36 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
     VariantClear(&nameValue);
     VariantClear(&fullValue);
 
+#ifdef WORKPROOF_POWERPOINT
+    snapshot.characters=0;snapshot.paragraphs=0;snapshot.slides=0;snapshot.shapes=0;
+    Variant slidesOwner,slideCountOwner;
+    if(FAILED(GetProperty(doc,L"Slides",slidesOwner.get())) || slidesOwner.value.vt!=VT_DISPATCH || !slidesOwner.value.pdispVal ||
+       FAILED(GetProperty(slidesOwner.value.pdispVal,L"Count",slideCountOwner.get())) ||
+       (slideCountOwner.value.vt!=VT_I4 && slideCountOwner.value.vt!=VT_I2)) {
+        error=L"暂时读不到幻灯片数量，已停止本次采样。请关闭 PowerPoint 中的对话框后重试。";return false;
+    }
+    snapshot.slides=slideCountOwner.value.vt==VT_I4?slideCountOwner.value.lVal:slideCountOwner.value.iVal;
+    if(snapshot.slides<0 || snapshot.slides>2000){error=L"幻灯片数量无效或超过本版 2000 页记录范围。";return false;}
+    // Only structure counts are sampled: no slide text, images or notes are read.
+    if(snapshot.slides>0){
+        LPOLESTR itemName=const_cast<LPOLESTR>(L"Item");DISPID itemId=0;
+        if(FAILED(slidesOwner.value.pdispVal->GetIDsOfNames(IID_NULL,&itemName,1,LOCALE_USER_DEFAULT,&itemId))){error=L"暂时无法读取幻灯片结构，已停止本次采样。";return false;}
+        for(long index=1;index<=snapshot.slides;++index){
+            Variant slide,shapes,count;
+            VARIANT argument={};argument.vt=VT_I4;argument.lVal=index;
+            DISPPARAMS parameters={&argument,nullptr,1,0};
+            HRESULT hr=slidesOwner.value.pdispVal->Invoke(itemId,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_METHOD|DISPATCH_PROPERTYGET,&parameters,slide.get(),nullptr,nullptr);
+            if(FAILED(hr)||slide.value.vt!=VT_DISPATCH||!slide.value.pdispVal ||
+               FAILED(GetProperty(slide.value.pdispVal,L"Shapes",shapes.get()))||shapes.value.vt!=VT_DISPATCH||!shapes.value.pdispVal ||
+               FAILED(GetProperty(shapes.value.pdispVal,L"Count",count.get()))||(count.value.vt!=VT_I4&&count.value.vt!=VT_I2)){
+                error=L"暂时无法读取页面对象数量，已停止本次采样。";return false;
+            }
+            long value=count.value.vt==VT_I4?count.value.lVal:count.value.iVal;
+            if(value<0){error=L"页面对象数量无效，已停止本次采样。";return false;}
+            snapshot.shapes+=value;
+        }
+    }
+#else
     Variant contentOwner, endOwner;
     VARIANT& content=contentOwner.value;
     VARIANT& endValue=endOwner.value;
@@ -195,13 +233,16 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
         error = L"Word 返回的文档数量无效，已停止本次采样。请重新打开文档后重试。";
         return false;
     }
+#endif
 
     VariantInit(&readOnlyValue);
     VariantInit(&savedValue);
     snapshot.readOnly = SUCCEEDED(GetProperty(doc, L"ReadOnly", &readOnlyValue)) &&
-                        (readOnlyValue.vt == VT_BOOL) && readOnlyValue.boolVal == VARIANT_TRUE;
+                        ((readOnlyValue.vt == VT_BOOL && readOnlyValue.boolVal == VARIANT_TRUE) ||
+                         (readOnlyValue.vt == VT_I4 && readOnlyValue.lVal == -1));
     snapshot.saved = !(SUCCEEDED(GetProperty(doc, L"Saved", &savedValue)) &&
-                       (savedValue.vt == VT_BOOL) && savedValue.boolVal == VARIANT_FALSE);
+                       ((savedValue.vt == VT_BOOL && savedValue.boolVal == VARIANT_FALSE) ||
+                        (savedValue.vt == VT_I4 && savedValue.lVal == 0)));
     VariantClear(&readOnlyValue);
     VariantClear(&savedValue);
 
@@ -211,10 +252,10 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
 }
 
 bool SaveDocument(IDispatch* application, std::wstring& error) {
-    if (!application) { error = L"Word 还没有完成加载。"; return false; }
+    if (!application) { error = std::wstring(kHostName)+L" 尚未完成加载。"; return false; }
     Variant documentOwner;
     VARIANT& document=documentOwner.value;
-    if (FAILED(GetProperty(application, L"ActiveDocument", &document)) || document.vt != VT_DISPATCH || !document.pdispVal) {
+    if (FAILED(GetProperty(application, kActiveDocument, &document)) || document.vt != VT_DISPATCH || !document.pdispVal) {
         error = L"请先打开一份文档。";
         return false;
     }

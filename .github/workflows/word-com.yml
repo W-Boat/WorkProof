@@ -17,11 +17,15 @@ jobs:
       - name: Build and exercise actual COM vtables and dispatch
         shell: pwsh
         run: ./apps/word-native-cpp/build.ps1 -OutDir apps/word-native-cpp/out
+      - name: Build native PowerPoint adapter
+        shell: pwsh
+        run: ./apps/word-native-cpp/build.ps1 -PowerPoint -OutDir apps/word-native-cpp/out-powerpoint
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-word-com-x64
           path: |
             apps/word-native-cpp/out/WorkProofWord.dll
+            apps/word-native-cpp/out-powerpoint/WorkProofPowerPoint.dll
             apps/word-native-cpp/out/test_addin.exe
             apps/word-native-cpp/out/test_process.exe
           if-no-files-found: error
