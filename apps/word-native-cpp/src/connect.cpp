@@ -69,8 +69,8 @@ public:
         if (remaining == 0) delete this;
         return (ULONG)remaining;
     }
-    STDMETHODIMP GetTypeInfoCount(UINT* count) override { if (count) *count = 0; return S_OK; }
-    STDMETHODIMP GetTypeInfo(UINT, LCID, ITypeInfo** info) override { if (info) *info = nullptr; return E_NOTIMPL; }
+    STDMETHODIMP GetTypeInfoCount(UINT* count) override { Trace(L"GetTypeInfoCount"); if (count) *count = 0; return S_OK; }
+    STDMETHODIMP GetTypeInfo(UINT, LCID, ITypeInfo** info) override { Trace(L"GetTypeInfo"); if (info) *info = nullptr; return E_NOTIMPL; }
     STDMETHODIMP GetIDsOfNames(REFIID, LPOLESTR* names, UINT count, LCID, DISPID* ids) override;
     STDMETHODIMP Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPARAMS* parameters, VARIANT* result,
                         EXCEPINFO* exception, UINT* argumentError) override;
@@ -127,8 +127,8 @@ public:
         if (remaining == 0) delete this;
         return (ULONG)remaining;
     }
-    STDMETHODIMP GetTypeInfoCount(UINT* count) override { if (count) *count = 0; return S_OK; }
-    STDMETHODIMP GetTypeInfo(UINT, LCID, ITypeInfo** info) override { if (info) *info = nullptr; return E_NOTIMPL; }
+    STDMETHODIMP GetTypeInfoCount(UINT* count) override { Trace(L"GetTypeInfoCount"); if (count) *count = 0; return S_OK; }
+    STDMETHODIMP GetTypeInfo(UINT, LCID, ITypeInfo** info) override { Trace(L"GetTypeInfo"); if (info) *info = nullptr; return E_NOTIMPL; }
     STDMETHODIMP GetIDsOfNames(REFIID, LPOLESTR* names, UINT count, LCID, DISPID* ids) override;
     STDMETHODIMP Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPARAMS* parameters, VARIANT* result,
                         EXCEPINFO* exception, UINT* argumentError) override;
