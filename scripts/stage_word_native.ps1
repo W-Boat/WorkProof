@@ -43,6 +43,9 @@ if ($Docs) {
     }
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'local/install-native-word.ps1') -Destination $Package -Force
+foreach ($entry in @('Install Word.cmd','Open WorkProof.cmd','Remove Word add-in.cmd','open-native-word.ps1')) {
+    Copy-Required (Join-Path $PSScriptRoot ('local/'+$entry)) (Join-Path $Package $entry)
+}
 $licence = Join-Path (Split-Path -Parent $PSScriptRoot) 'LICENSE'
 if (Test-Path -LiteralPath $licence -PathType Leaf) { Copy-Item -LiteralPath $licence -Destination $Package -Force }
 

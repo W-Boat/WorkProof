@@ -25,7 +25,7 @@ $ProgId = 'WorkProof.WordNative.Connect'
 $Clsid = '{5F628C20-62BB-4DA6-94DF-36BD599A9301}'
 $Marker = '.workproof-native'
 $AddInNames = @('WorkProofWord.dll', 'WorkProof.WordNative.dll')
-$OptionalFiles = @('workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'README-WORD.md', 'install-native-word.ps1')
+$OptionalFiles = @('workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'README-WORD.md', 'install-native-word.ps1', 'Install Word.cmd', 'Open WorkProof.cmd', 'Remove Word add-in.cmd', 'open-native-word.ps1')
 
 function Get-PeArchitecture([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)

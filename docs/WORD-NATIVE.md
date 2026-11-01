@@ -22,6 +22,8 @@
 
 ## 安装与使用
 
+便捷入口：解压完整包后双击 **Install Word.cmd** 安装；随后双击 **Open WorkProof.cmd** 打开已安装的桌面程序，再保存并重开 Word。**Remove Word add-in.cmd** 仅撤销插件注册，保留文件和记录。入口仍使用当前用户注册，不更改系统执行策略、不要求管理员权限；若机构策略禁止脚本，会显示失败，不静默绕过策略。桌面入口按已注册 DLL 的位置启动对应版本，不因解压目录移动而指向另一份便携程序。
+
 1. 解压提供的 `workproof-native-word-windows-dev.zip`。
 2. 右键“使用 PowerShell 运行” `install-native-word.ps1`，或执行：
 
