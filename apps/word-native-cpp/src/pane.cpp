@@ -138,9 +138,9 @@ void PaintState() {
     ShowWindow(g.cancelButton, g.pairing ? SW_SHOW : SW_HIDE);
     wchar_t text[192];
     if (g.session.empty()) {
-        swprintf_s(text, L"尚未开始 · 采样间隔 1.5 秒");
+        swprintf_s(text, L"尚未开始");
     } else {
-        swprintf_s(text, L"已保存 %lld 条操作 · 采样间隔 1.5 秒", g.sequence);
+        swprintf_s(text, L"已保存 %lld 条记录", g.sequence);
     }
     SetWindowTextW(g.counter, text);
     InvalidateRect(g.window, nullptr, FALSE);
