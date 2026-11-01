@@ -16,6 +16,7 @@ on:
       - 'scripts/local/*.cmd'
       - 'scripts/stage_word_native.ps1'
       - 'scripts/word_package_notices.py'
+      - '.gitattributes'
       - 'docs/licenses/office-supplemental/**'
       - 'docs/licenses/office-npm-supplemental/**'
       - 'scripts/test_native_fingerprint.py'
