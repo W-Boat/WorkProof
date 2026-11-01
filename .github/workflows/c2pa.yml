@@ -11,6 +11,100 @@ concurrency:
   group: c2pa-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  platform-tools:
+    name: C2PA CLI build and unit probes (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            platform: windows-x64
+            host: x86_64-pc-windows-msvc
+            suffix: .exe
+          - runner: macos-15
+            platform: macos-arm64
+            host: aarch64-apple-darwin
+            suffix: ''
+          - runner: macos-15-intel
+            platform: macos-x64
+            host: x86_64-apple-darwin
+            suffix: ''
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'tools/c2pa -> target'
+          key: c2pa-${{ matrix.platform }}
+          cache-on-failure: true
+      - name: Verify native host architecture and fetch reviewed lockfile
+        env:
+          EXPECTED_HOST: ${{ matrix.host }}
+        run: |
+          rustc -vV
+          python -c 'import os,subprocess; actual=subprocess.check_output(["rustc","-vV"],text=True); assert "host: "+os.environ["EXPECTED_HOST"] in actual, actual'
+          cargo fetch --locked --manifest-path tools/c2pa/Cargo.toml
+      - name: Build optional CLI without recorder dependency changes
+        id: build
+        run: cargo build --release --locked --manifest-path tools/c2pa/Cargo.toml
+      - name: Run native parser and byte preservation unit probes
+        run: cargo test --locked --manifest-path tools/c2pa/Cargo.toml
+      - name: Collect actual isolated dependency notices
+        run: python scripts/c2pa_notices.py
+      - name: Package development CLI and SHA256 manifest
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          BINARY_SUFFIX: ${{ matrix.suffix }}
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,pathlib,shutil
+          root=pathlib.Path('.ci-c2pa-dist')
+          package=root/'package'
+          package.mkdir(parents=True,exist_ok=True)
+          binary='workproof-c2pa'+os.environ['BINARY_SUFFIX']
+          shutil.copy2(pathlib.Path('tools/c2pa/target/release')/binary,package/binary)
+          shutil.copy2('LICENSE',package/'LICENSE')
+          shutil.copy2('docs/C2PA.md',package/'C2PA.md')
+          shutil.copy2('tools/c2pa/Cargo.lock',package/'Cargo.lock')
+          shutil.copytree('.ci-c2pa-notices',package/'third-party')
+          (package/'VALIDATION.json').write_text(json.dumps({
+              'platform':os.environ['PLATFORM'],
+              'scope':'native release build and parser unit probes',
+              'real_signing_roundtrip_on_this_platform':False,
+              'public_c2pa_trust_certification':False,
+              'signing_credentials_included':False,
+              'distribution':'development CLI; macOS notarization and Windows signing not provided'
+          },indent=2),encoding='utf-8')
+          manifest=''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(package).as_posix()+'\n' for p in sorted(package.rglob('*')) if p.is_file())
+          (package/'SHA256SUMS').write_text(manifest,encoding='utf-8')
+          label='workproof-c2pa-'+os.environ['PLATFORM']+'-dev'
+          archive=shutil.make_archive(str(root/label),'zip',package)
+          archive_path=pathlib.Path(archive)
+          archive_path.with_suffix('.zip.sha256').write_text(hashlib.sha256(archive_path.read_bytes()).hexdigest()+'  '+archive_path.name+'\n',encoding='utf-8')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-c2pa-${{ matrix.platform }}-dev
+          path: |
+            .ci-c2pa-dist/workproof-c2pa-${{ matrix.platform }}-dev.zip
+            .ci-c2pa-dist/workproof-c2pa-${{ matrix.platform }}-dev.zip.sha256
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && steps.build.conclusion == 'success' }}
+        with:
+          name: c2pa-${{ matrix.platform }}-lock-and-notices
+          include-hidden-files: true
+          path: |
+            tools/c2pa/Cargo.lock
+            .ci-c2pa-notices/
   png-native:
     runs-on: ubuntu-latest
     timeout-minutes: 40
