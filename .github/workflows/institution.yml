@@ -4,6 +4,10 @@ on:
     paths: ['services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution_runtime.py', 'scripts/test_institution_inspection_ui.cjs', 'scripts/test_institution_catalog_readiness.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml']
   workflow_dispatch:
     inputs:
+      ai_models:
+        description: 'Prepare real public models for authenticated AI workbench acceptance'
+        type: boolean
+        default: false
       windows_only:
         description: 'Only validate/package Windows controls; use when JAR source is unchanged'
         type: boolean
@@ -73,7 +77,19 @@ jobs:
         run: mvn -B -pl scaffold-admin -am package -DskipTests
       - name: Install browser for the real institution certificate workflow
         run: npx playwright install --with-deps chromium
+      - uses: actions/setup-python@v5
+        if: ${{ inputs.ai_models }}
+        with:
+          python-version: '3.12'
+      - name: Explicit real AI model preparation
+        if: ${{ inputs.ai_models }}
+        run: |
+          pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r tools/ai-assessment/requirements.txt
+          python tools/ai-assessment/detector.py prepare --engine mpu-zh-v3 --model-dir .ci-institution-ai/mpu-zh-v3
+          python tools/ai-assessment/detector.py prepare --engine roberta-gpt2-reference --model-dir .ci-institution-ai/roberta-gpt2-reference
       - name: Test the real bundled application, generated password and API boundaries
+        # Model preparation is opt-in and never part of the recorder runtime.
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: '3306'
@@ -83,6 +99,7 @@ jobs:
           REDIS_HOST: 127.0.0.1
           REDIS_PORT: '6379'
           MYSQL_CONTAINER_ID: ${{ job.services.mysql.id }}
+          WORKPROOF_TEST_REAL_AI: ${{ inputs.ai_models && '1' || '0' }}
         run: python scripts/test_institution_runtime.py
       - uses: actions/upload-artifact@v4
         with:
@@ -95,6 +112,7 @@ jobs:
             test-results/institution-certificate-inspection-*.png
             test-results/institution-certificate-catalog.png
             test-results/institution-certificate-batch-mobile.png
+            test-results/institution-ai-*.png
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
