@@ -48,6 +48,8 @@ jobs:
         run: node scripts/test_disclosure.cjs target/debug/workproof-engine
       - name: Certificate-only inspection without artifact access
         run: node scripts/test_certificate_inspection.cjs target/debug/workproof-engine target/debug/workproof-inspector
+      - name: Real RFC 3161 exchange with a synthetic test authority
+        run: python scripts/test_timestamp.py target/debug/workproof-timestamp
       - run: npm run typecheck
       - run: npm run build:extension
       - name: Typecheck and bundle Word/WPS add-in
@@ -158,6 +160,7 @@ jobs:
             target/release/workproof-desktop.exe
             target/release/workproof-engine.exe
             target/release/workproof-inspector.exe
+            target/release/workproof-timestamp.exe
             target/release/bundle/nsis/*.exe
             test-tray-results.json
             performance-windows.json
@@ -244,5 +247,6 @@ jobs:
             WorkProof-*.app.tar.gz
             target/release/workproof-engine
             target/release/workproof-inspector
+            target/release/workproof-timestamp
             test-tray-results.json
             docs/DESKTOP-PLATFORMS.md

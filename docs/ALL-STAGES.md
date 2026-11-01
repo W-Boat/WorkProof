@@ -16,6 +16,8 @@ VS Code 单文件记录、签名导出、独立 CLI/Wasm 核验、证书图像�
 
 ## 当前进行中
 
+外部时间戳增加可选Rust/OpenSSL RFC3161请求与核验工具，绑定原签名字节且不改证书；尚待当前Actions。浏览器时间戳核验、信任策略产品化、TSA自动请求与C2PA仍未完成，详见[时间凭据](TIMESTAMPS.md)。
+
 机构摘要索引、分页、详情、CSV、页面内批量处理与部门范围已通过真实集成：[列表与查询 41276900621](https://github.com/W-Boat/WorkProof/actions/runs/41276900621)、[批量与部门 41278566617](https://github.com/W-Boat/WorkProof/actions/runs/41278566617)、[取消与重开 41278937068](https://github.com/W-Boat/WorkProof/actions/runs/41278937068)。须显式执行V3并开启配置，本机尚未迁移；页面关闭后继续运行的服务器持久任务仍未实现。以下较早阶段描述保留为历史上下文，以此段与机构证书说明为最新业务状态。
 
 机构工作台已增加“检查一份证书”：明确同意后发送证书原字节，Java 受控调用共享 Rust 一次性检查器；作品、身份和实际时间不在检查范围内。真实权限、审计、鼠标/键盘确认、完整/部分/修改后结果与手机布局已通过[机构 Actions 41274810400](https://github.com/W-Boat/WorkProof/actions/runs/41274810400)。简明步骤与按实际结果说明失败原因通过[完整 Actions 41274280942](https://github.com/W-Boat/WorkProof/actions/runs/41274280942) 五任务；证书索引与批量业务仍未完成，详见[内容预检](INSTITUTION-CERTIFICATES.md)。
