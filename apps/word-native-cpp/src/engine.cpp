@@ -36,6 +36,8 @@ struct Internet {
 };
 
 HRESULT GetProperty(IDispatch* object, const wchar_t* name, VARIANT* result) {
+    if (!result) return E_POINTER;
+    VariantInit(result);
     if (!object) return E_POINTER;
     DISPID id = 0;
     OLECHAR* names[1] = { const_cast<OLECHAR*>(name) };
@@ -162,7 +164,8 @@ bool RunEngine(const std::wstring& arguments, std::string& output, std::wstring&
 
 bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& error) {
     if (!application) { error = L"Word 还没有完成加载。请保存文档后重新打开 Word 再试。"; return false; }
-    VARIANT document;
+    Variant documentOwner;
+    VARIANT& document=documentOwner.value;
     if (FAILED(GetProperty(application, L"ActiveDocument", &document)) || document.vt != VT_DISPATCH || !document.pdispVal) {
         error = L"请先打开一份文档。";
         return false;
@@ -192,8 +195,8 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
     VariantClear(&nameValue);
     VariantClear(&fullValue);
 
-    VARIANT content;
-    VARIANT endValue;
+    VARIANT content={};
+    VARIANT endValue={};
     if (SUCCEEDED(GetProperty(doc, L"Content", &content)) && content.vt == VT_DISPATCH && content.pdispVal &&
         SUCCEEDED(GetProperty(content.pdispVal, L"End", &endValue)) && (endValue.vt == VT_I4 || endValue.vt == VT_I2)) {
         snapshot.characters = (endValue.vt == VT_I4) ? endValue.lVal : endValue.iVal;
@@ -230,7 +233,8 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
 
 bool SaveDocument(IDispatch* application, std::wstring& error) {
     if (!application) { error = L"Word 还没有完成加载。"; return false; }
-    VARIANT document;
+    Variant documentOwner;
+    VARIANT& document=documentOwner.value;
     if (FAILED(GetProperty(application, L"ActiveDocument", &document)) || document.vt != VT_DISPATCH || !document.pdispVal) {
         error = L"请先打开一份文档。";
         return false;

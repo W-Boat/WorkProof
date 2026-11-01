@@ -573,7 +573,10 @@ bool EnsureClass() {
 } // namespace
 
 void PaneAttachWord(IDispatch* application) {
-    if (application) g.word = application;
+    if (application) application->AddRef();
+    IDispatch* previous=g.word;
+    g.word=application;
+    if (previous) previous->Release();
 }
 
 bool PaneCreated() { return g.window != nullptr; }
