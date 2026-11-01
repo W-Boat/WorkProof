@@ -1,5 +1,17 @@
 # Windows Word 原生入口
 
+## 2026-11-02 本机实际验收
+
+当前实际交付为 C++ 原生 x64 COM DLL（`apps/word-native-cpp`），旧 `apps/word-native` 托管实现保留但不打包，不能把下方较早的 AnyCPU 描述当作已验证的32位支持。
+
+其他 agent 的提交已继续接入。`086a073` 修复 Ribbon 双接口 vtable 与 COM identity，专项 [41326697194](https://github.com/W-Boat/WorkProof/actions/runs/41326697194) 通过；本机 Word 2021 功能区实际出现 WorkProof，开始/桌面批准/暂停/继续实际可用。第一次导出在旧目录选择器期间导致诊断 Word 异常退出，不能忽略该失败；随后改现代文件夹对话框，修复未初始化 VARIANT、宿主引用以及拒绝文件覆盖。
+
+最终产品 `f06e01b` 的 DLL [专项41327458414](https://github.com/W-Boat/WorkProof/actions/runs/41327458414) 通过，下载归档 SHA256 `0573bffcacb54d03d2282691e4d3c217d877d58d1dedc966afe0556f4d41750c` 已核。本机稳定目录 `%LOCALAPPDATA%/WorkProof/word-native-086` 已安装此 DLL；旧默认目录的 DLL 也更新以避免 Office 缓存旧路径。只重开已保存的 `E:/work/wp-word-test.docx` 诊断文档，未关闭任意用户未保存作品。
+
+真实 Word 再次开始记录、桌面批准并导出，生成 `E:/work/workproof-word-acceptance/WorkProof-20261102-004335/wp-word-test.docx` 与同名 `.wproof`；插件独立调用 Rust verify 成功，另外读取同一对文件核验也返回 valid/file_match/chain_valid/signature_valid/merkle_valid 全部 true、errors 为空。此证据覆盖这台 Word 2021 x64 的原生菜单和导出流程，不代表全部版本、WPS 或压力场景通过。没有本机构建。
+
+仍需后续完善：原生子进程输出读取的硬期限、不同宿主状态/长文档/窗口关闭竞态与32位支持，桌面原生授权说明仍有旧 Photoshop 文案。CI完整包与本机DLL专项结果分别记录，不互相冒充。
+
 安装后在 Word 功能区直接出现 **WorkProof** 选项卡，用户不再查找网页侧载目录、共享文件夹目录或本机 HTTPS 证书。原 Office.js 入口保留用于网页版与跨平台场景；WPS 使用自己的适配，不把 COM 实现称为跨平台。
 
 本机核对目标：Office Professional Plus 2021、Word 64 位、.NET Framework 4.8（32 位 Word 同一份 AnyCPU DLL 也可加载）。原生加载项是薄适配层：Word 对象留在宿主 UI 线程，记录与签名仍由 Rust 引擎完成。
