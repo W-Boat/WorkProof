@@ -1,5 +1,13 @@
 # 可选AI参考引擎（实验适配）
 
+新增本机文件入口（源码47a255a真实中英文模型专项41290405320通过，ZIP目录预检增强d0c95fc另行验证）：
+
+```text
+python detector.py infer-file --input-file /absolute/path/work.docx --language zh --engine mpu-zh-v3 --model-dir /absolute/path/chinese-model
+```
+
+支持Word/WPS保存的UTF-8 XML DOCX及UTF-8 `.txt`/`.md`。报告同时标明原文件SHA256、提取文本SHA256和提取范围，不保存正文或改写作品/证书。只取主文档w:t源文字，不代表Office排版后的可见全文，可能含隐藏/修订文字；不读取页眉、脚注、批注，不做OCR，不执行宏、外部关系或链接。原文件64MiB、ZIP4096项/4MiB中心目录、声明展开128MiB、主XML4MiB/200倍压缩比/10万节点/128层、提取文本32KiB；模型512token上限不默默截断。拒绝DTD、UTF16 XML、重复ZIP路径、宏包或异常目录。测试使用合成OOXML包和真实模型权重，不等于已在真实Word/WPS宿主里完成安装或交互验收。
+
 新增 `--engine mpu-zh-v3`，选择固定中文MPU v3模型；未指定engine仍使用英文GPT-2参考模型。中文输入至少80个汉字，超过512token拒绝而不默默截断。类别顺序依照[固定官方演示代码](https://huggingface.co/spaces/yuchuantian/AIGC_text_detector/blob/191c98291f204cae3e52db965ab0f944c9005067/app.py)：0=Human，1=AI；配置中的LABEL_0/1按此明确映射，并保留原始softmax而不输出AI占比。
 
 ```text
