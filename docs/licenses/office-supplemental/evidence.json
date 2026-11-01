@@ -45,12 +45,23 @@
           "sha256": "d54c6e13e9e952dac17d209171df8657e3cae93beaddace4906150cdec8d02e9",
           "bytes": 643,
           "kind": "source_header_evidence_only"
+        },
+        {
+          "file": "MPL-2.0-linked-canonical.txt",
+          "url": "https://www.mozilla.org/MPL/2.0/index.txt",
+          "resolved_url": "https://www.mozilla.org/media/MPL/2.0/index.txt",
+          "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04",
+          "bytes": 16726,
+          "kind": "linked_license_text",
+          "provenance": "Canonical MPL version 2.0 text downloaded from Mozilla, the license steward explicitly referenced in the exact published selectors source header. This file was not shipped in the crate or exact upstream VCS tree.",
+          "source_header_file": "selectors-lib.rs.source-evidence.txt",
+          "source_header_sha256": "d54c6e13e9e952dac17d209171df8657e3cae93beaddace4906150cdec8d02e9",
+          "source_header_license_url": "https://mozilla.org/MPL/2.0/"
         }
       ],
-      "evidence_complete": false,
-      "unresolved": [
-        "Exact VCS tree and published crate contain no full MPL text; this exact source header establishes the declaration only, not complete redistribution evidence."
-      ]
+      "evidence_complete": true,
+      "unresolved": [],
+      "evidence_scope": "Source license declaration plus its explicitly linked canonical full text only; not commercial clearance or proof of meeting distribution/source availability obligations."
     },
     {
       "name": "webview2-com",
