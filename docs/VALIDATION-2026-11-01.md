@@ -70,3 +70,23 @@ Windows 产物已提取至 `E:/work/workproof-delivery-0a53020`，未运行安�
 本机 4173 已指向 `E:/work/workproof-browser-0a53020/verifier`，HTTP 首页与新版核验 Worker 均正常。只读静态服务继续复用已验证 `6c59057` 二进制，进程记录与日志仍位于 `E:/work/workproof-browser-6c59057`。切换时仅停止该记录验证归属的进程；机构 Java/MySQL/Garnet 未重启、账号未更改。未运行本地构建或自动化测试，未启动采集器、安装器或修改信任。
 
 Photoshop 最终控制器代码 `d07f971` 的 [完整 Actions 41222699360](https://github.com/W-Boat/WorkProof/actions/runs/41222699360) 两平台均通过；其中 Adobe API 为模拟，真实宿主、正式 CCX 与 macOS 传输仍待验证。
+
+## 插件授权连接管理与 Office 恢复
+
+代码 `15f7342` 的 [完整 Actions 41225883860](https://github.com/W-Boat/WorkProof/actions/runs/41225883860) Linux/Windows 均通过，[机构 Actions 41225883861](https://github.com/W-Boat/WorkProof/actions/runs/41225883861) 的 scaffold 与 windows-launchers 均通过。27 项浏览器测试成功。被新 Office 修复替代的 `4886166` 主流程 `41225446513` 已取消，不计完整通过；其机构 `41225446343` 成功。
+
+真实 Rust/Axum/SQLite 集成检查撤销后的 Word 旧令牌无法创建、追加和导出，其他 WPS 授权继续有效，Photoshop 原生令牌撤销后被拒，SQLite 事件数量不减少、原有证书仍可由 CLI 核验。桌面控件测试模拟 Tauri IPC，Office 测试模拟宿主 API；不能作为实际桌面 WebView 或真实 Word/WPS/Photoshop 验收。Windows 另外验证了二进制构建、真实无窗口托盘启动和 NSIS 构建。
+
+本轮采样：无状态窗工作集 16.38 MB、3 秒空闲 CPU 为单核 0%、128 事件持久化 HTTP 批次 p95 20.259 ms。仅根及直接子进程与合成负载，包含客户端开销，不代表宿主回调。
+
+| 已下载校验产物 | SHA-256 |
+|---|---|
+| `workproof-windows-x64` | `2c745055d7b97c7c25e85757f8de83b7e2bb25eb49fae54e05b39491e2623f7e` |
+| `workproof-web-and-extension` | `9a8d512398b7c96f54c15818fd516ea7ff9e9944d5f32ec9b7a488ba6e5941b1` |
+| `verification-report` | `335ae8b5dd98dc742a1fca73eb510617e2020c1358aa757781f782227571c618` |
+| `institution-baseline` | `bbe669cefed1eeaccc2174e5b30a3d659cdef95a17d656b529c8057c59ec1635` |
+| 提取的 NSIS 安装器 | `a4799f472caab87ef431ebff7ddb8d8119f2c96a7ab4f4c9d77ad95a330db3d2` |
+
+交付目录 `E:/work/workproof-delivery-15f7342`。本机机构 JAR 已通过运行锁、进程归属校验与文件替换升级，旧 JAR 保留在私有 `state/previous/scaffold-admin-pre-15f7342.jar`。只重启 Java，MySQL/Garnet 保持运行；账号文件 SHA-256 未变，原密码登录、权限路由、登出失效已复核，服务器提供的 Office JS 包含新的授权失效处理。
+
+独立核验站也已切换至 `E:/work/workproof-browser-15f7342` 的本轮预构建 CLI 和静态资源，HTTP 200，指纹 Worker 正常；旧静态进程停止，新归属记录与日志在新目录。没有本地构建，没有执行安装器、启动采集器、修改系统信任或 Office 注册项。长期目标继续保留未完成阶段。

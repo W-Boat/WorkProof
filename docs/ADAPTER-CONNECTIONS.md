@@ -11,3 +11,5 @@ Word/WPS 加载项下一次收到 `PAIRING_REQUIRED` 时暂停采样并清除内
 连接列表与撤销仅通过 Tauri IPC 提供，没有新增 HTTP 审批、连接枚举或撤销端点。CI 专用 stdin harness 调用同一撤销函数用于验证，不随产品作为远程审批服务分发。
 
 验证范围：Rust 单测核对元数据不含令牌/会话编号、仅撤销目标、过期清理；真实 Rust/Axum/SQLite 集成验证 Word 旧令牌被拒、WPS 不受影响、Photoshop 原生撤销与记录数量保留；浏览器用模拟 Tauri IPC 检查桌面控件、断开失败与键盘焦点。后者不称为真实桌面窗口或真实 Office/WPS 宿主验收，Windows 二进制仍需单独构建和托盘启动检查。
+
+最终代码 `15f7342` 已通过 [完整 Linux/Windows Actions 41225883860](https://github.com/W-Boat/WorkProof/actions/runs/41225883860) 与 [机构 Actions 41225883861](https://github.com/W-Boat/WorkProof/actions/runs/41225883861)。27 项浏览器测试通过；Office 的四种宿主接口模拟均检查授权失效后暂停与禁用导出。新桌面安装器已构建并校验，尚未运行安装器或进行真实宿主验收。
