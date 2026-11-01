@@ -143,6 +143,28 @@ with log_path.open("wb") as log:
         assert catalog('/'+str(own['id']), actor=limited_token)['id'] == own['id']
         export_code, export_body, _ = request('/api/workproof/certificates/export', token=limited_token)
         assert export_code == 200 and export_body.decode('utf-8').count(fingerprint) == 1
+        # Synthetic index rows exercise department visibility; no original certificate is rewritten.
+        def fixture_sql(sql):
+            return subprocess.run(mysql, input=sql, text=True, capture_output=True, check=True).stdout
+        columns='owner_user_id,dept_id,certificate_id,proof_hash,file_name,artifact_hash,record_scope,disclosed_events,total_events,demo,create_by,update_by'
+        for department, marker in [(6,'a'),(7,'b')]:
+            fixture_sql(f"INSERT INTO wp_certificate ({columns}) SELECT owner_user_id,{department},certificate_id,REPEAT('{marker}',64),file_name,artifact_hash,record_scope,disclosed_events,total_events,demo,create_by,update_by FROM wp_certificate WHERE id={int(saved['id'])};")
+        def visible(expected):
+            result=catalog(actor=limited_token)
+            assert result['total']==expected and len(result['rows'])==expected, 'Department scope count/list mismatch'
+            code, body, _=request('/api/workproof/certificates/export',token=limited_token)
+            assert code==200 and body.decode('utf-8').count(fingerprint)==expected, 'Export scope mismatch'
+        fixture_sql("UPDATE sys_role SET data_scope='DEPT' WHERE id=4;")
+        visible(2)
+        fixture_sql(f"UPDATE sys_role SET data_scope='DEPT_AND_CHILD' WHERE id=4; UPDATE sys_user SET dept_id=2 WHERE id={int(limited_me['userId'])};")
+        visible(3)
+        fixture_sql("UPDATE sys_role SET data_scope='CUSTOM' WHERE id=4; DELETE FROM sys_role_dept WHERE role_id=4; INSERT INTO sys_role_dept(role_id,dept_id) VALUES(4,7);")
+        visible(2)
+        fixture_sql("DELETE FROM sys_role_dept WHERE role_id=4;")
+        visible(1)
+        assert request('/api/workproof/certificates/'+str(saved['id']),token=limited_token)[0]==400
+        fixture_sql(f"UPDATE sys_role SET data_scope='SELF' WHERE id=4; UPDATE sys_user SET dept_id=6 WHERE id={int(limited_me['userId'])}; DELETE FROM wp_certificate WHERE proof_hash IN (REPEAT('a',64),REPEAT('b',64));")
+        print('PASS: real DEPT, DEPT_AND_CHILD, CUSTOM and empty-custom list/export isolation with live role changes')
         print('PASS: opt-in catalog, repeatable migration, original-byte deduplication, partial scope, failed-save rejection and SELF list/detail/export isolation')
         request('/api/auth/logout', {}, limited_token)
         audit = subprocess.run(mysql, input="SELECT request_params FROM sys_oper_log WHERE module='证书核验';", text=True, capture_output=True, check=True).stdout

@@ -2,6 +2,8 @@
 
 ## WorkProof 接入
 
+- `CertificateBatchDialog.vue`：页面内顺序队列，复用原始 Blob 保存接口，逐份结果、取消后续、结果 CSV；不新增服务器持久任务或后台队列。关闭网页后不会继续未发送项。
+
 - `CertificateCatalogController` → `CertificateCatalogService` → `CertificateCatalogMapper.xml`：检查后保存最小摘要，分页/详情/CSV 一律复用数据范围；缺失范围上下文默认拒绝。`V3__workproof_certificate_catalog.sql` 为显式迁移，`WORKPROOF_CATALOG_ENABLED` 默认 false；未迁移本机用户数据库。
 - `scaffold-vue/src/views/Certificates.vue`：复用 ListPage、useListPage、权限按钮、检查弹窗和 Modal；注册后端组件标识 `workproof/certificates/index`。完整/部分范围区分，证书指纹与本次原字节摘要分开。
 - `CsvExport`：共享 CSV 编码及公式文本防护，系统原导出与证书导出统一复用。

@@ -22,7 +22,8 @@ export function downloadCsv<T>(filename: string, columns: CsvColumn<T>[], rows: 
 
 function escapeCell(value: unknown) {
   if (value == null) return ''
-  const text = String(value)
+  let text = String(value)
+  if (typeof value === 'string' && (/^[\s]*[=+\-@]/.test(text) || /^[\t\r]/.test(text))) text = "'" + text
   if (/[",\r\n]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`
   }

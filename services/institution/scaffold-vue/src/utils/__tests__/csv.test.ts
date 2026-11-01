@@ -2,6 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { toCsv } from '../csv.ts'
 
+test('untrusted filename formulas remain text while numeric values remain numeric', () => {
+  assert.equal(toCsv([{title:'文件',key:'name'},{title:'数量',key:'count'}],[{name:' =1+1',count:-2}]),"文件,数量\n' =1+1,-2")
+})
+
 test('toCsv serializes headers, rows and escaped cell values', () => {
   const csv = toCsv(
     [

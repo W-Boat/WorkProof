@@ -59,6 +59,24 @@ const {chromium,expect}=require('@playwright/test');
     const csv=page.waitForEvent('download');await page.getByRole('button',{name:'导出当前查询结果',exact:true}).click();
     assert((await csv).suggestedFilename().endsWith('.csv'));
     await page.screenshot({path:'test-results/institution-certificate-catalog.png',fullPage:true});
+    await page.getByRole('button',{name:'批量检查',exact:true}).click();
+    const batch=page.getByRole('dialog',{name:'批量检查并保存摘要',exact:true});
+    const batchStart=batch.getByRole('button',{name:'开始批量检查',exact:true});
+    await batch.getByLabel('选择多份 .wproof 证书').setInputFiles([
+      {name:'valid.wproof',mimeType:'application/json',buffer:bytes},
+      {name:'changed.wproof',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(proof))},
+      {name:'valid-again.wproof',mimeType:'application/json',buffer:bytes},
+    ]);
+    await expect(batchStart).toBeDisabled();
+    await batch.getByText('我同意发送这一批证书，并保存检查通过的摘要',{exact:true}).click();await batchStart.click();
+    await expect(batch.getByRole('status')).toContainText('已处理 3 / 3');
+    await expect(batch.getByText('已保存',{exact:true})).toHaveCount(2);await expect(batch.getByText('未完成',{exact:true})).toHaveCount(1);
+    await expect(batchStart).toBeDisabled();
+    const batchDownload=page.waitForEvent('download');await batch.getByRole('button',{name:'下载本批结果',exact:true}).click();
+    assert((await batchDownload).suggestedFilename().endsWith('.csv'));
+    await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({path:'test-results/institution-certificate-batch-mobile.png',fullPage:true});
+    console.log('PASS: real sequential batch, consent gating, failure isolation, deduplication, results download and mobile layout');
     console.log('PASS: real Vue inspection and catalog navigation, scoped list, details, search/reset and CSV download');
   }catch(error){if(page){fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/institution-certificate-inspection-failure.png',fullPage:true}).catch(()=>{});}throw error;}
   finally{await browser.close();}
