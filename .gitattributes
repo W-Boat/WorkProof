@@ -11,3 +11,4 @@
 
 # Preserve upstream license/notice evidence byte for byte, including line ends.
 docs/licenses/maven-notices/** -text -whitespace
+docs/licenses/ai-runtime/** -text -whitespace
