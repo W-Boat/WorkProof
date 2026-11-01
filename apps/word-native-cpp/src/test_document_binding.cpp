@@ -98,6 +98,28 @@ int main(){
     current.identity=g.identity;current.name=L"A.docx";g.paused=false;
     Export();
     if(folderCalls!=1||saveCalls||copyCalls||g.writing){std::puts("FAIL: matching export did not reach chooser safely");return 1;}
+    // Reset is guarded while recording, busy or pairing, and cannot drop unacknowledged bytes.
+    const std::wstring oldSession=g.session;
+    if(ResetPausedRecording()||g.session!=oldSession){std::puts("FAIL: active recording reset");return 1;}
+    g.paused=true;g.writing=true;
+    if(ResetPausedRecording()){std::puts("FAIL: export busy reset");return 1;}
+    g.writing=false;g.pairing=true;
+    if(ResetPausedRecording()){std::puts("FAIL: approval busy reset");return 1;}
+    g.pairing=false;
+    current.identity=g.identity;
+    loseNextEventResponse=true;
+    SendEvent("pause",current,0,0,"",retryError);
+    const std::string unacknowledged=g.pendingEvent;const long long resetSequence=g.sequence;
+    loseNextEventResponse=true;
+    if(ResetPausedRecording()||g.session!=oldSession||g.pendingEvent!=unacknowledged||g.sequence!=resetSequence){
+        std::puts("FAIL: reset discarded unacknowledged old record");return 1;
+    }
+    const size_t beforeReset=eventBodies.size();
+    if(!ResetPausedRecording()||!g.session.empty()||!g.token.empty()||!g.identity.empty()||!g.documentName.empty()||
+       !g.pendingEvent.empty()||g.sequence||g.lastCharacters!=-1||g.lastParagraphs!=-1||g.lastSlides!=-1||g.lastShapes!=-1||
+       eventBodies.size()!=beforeReset+1||eventBodies.back()!=unacknowledged){
+        std::puts("FAIL: confirmed reset failed to flush old bytes and clear local binding");return 1;
+    }
     PaneDestroyChild();DestroyWindow(host);
     std::puts("PASS: pending approval and immediate export remain bound to their original document");
     return 0;

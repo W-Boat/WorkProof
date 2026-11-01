@@ -48,6 +48,7 @@ struct State {
     HWND pauseButton = nullptr;
     HWND exportButton = nullptr;
     HWND cancelButton = nullptr;
+    HWND newButton = nullptr;
     HWND verifierLink = nullptr;
     HFONT titleFont = nullptr;
     HFONT bodyFont = nullptr;
@@ -143,6 +144,7 @@ void PaintState() {
     EnableWindow(g.pauseButton, !g.pairing && !g.writing && !g.session.empty());
     SetWindowTextW(g.pauseButton, g.paused ? L"继续记录" : L"暂停记录");
     EnableWindow(g.exportButton, !g.pairing && !g.writing && recording);
+    EnableWindow(g.newButton, !g.session.empty() && g.paused && !g.pairing && !g.writing);
     EnableWindow(g.cancelButton, g.pairing);
     ShowWindow(g.cancelButton, g.pairing ? SW_SHOW : SW_HIDE);
     wchar_t text[192];
@@ -387,6 +389,24 @@ void TogglePause() {
     PaintState();
 }
 
+// Called only after explicit user confirmation. A failed acknowledgement must
+// retain the previous session and its exact pending bytes so it remains retryable.
+bool ResetPausedRecording(){
+    if(g.session.empty()||!g.paused||g.pairing||g.writing)return false;
+    std::wstring error;
+    if(!FlushPending(error)){SetStatus(L"旧记录还有操作未保存，暂时不能开始另一份。"+error);PaintState();return false;}
+    KillTimer(g.window,kSampleTimer);
+    g.token.clear();g.session.clear();g.pendingEvent.clear();g.identity.clear();g.documentName.clear();
+    g.sequence=0;g.lastSampleMs=0;g.lastCharacters=-1;g.lastParagraphs=-1;g.lastSlides=-1;g.lastShapes=-1;
+    g.started={};g.launchFeedback=false;g.cancelPairing=false;++g.pairingGeneration;
+    SetStatus(L"已结束本地记录。旧记录仍保留在 WorkProof 中。");PaintState();return true;
+}
+void NewRecording(){
+    if(g.session.empty()||!g.paused||g.pairing||g.writing)return;
+    if(MessageBoxW(g.window,L"开始另一份记录后，旧记录仍保留在 WorkProof 中，但此侧栏会切换到新记录。\n\n如果还没导出旧作品和证书，请先取消，继续旧记录并导出。\n\n现在开始记录当前文档吗？",L"开始另一份记录",MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
+    if(ResetPausedRecording())BeginPairing();
+}
+
 std::wstring ChooseFolder(HWND owner) {
     IFileOpenDialog* dialog=nullptr;
     if(FAILED(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)))) return {};
@@ -532,13 +552,13 @@ void LayoutControls(){
     RECT r;GetClientRect(g.window,&r);int dpi=(int)GetDpiForWindow(g.window);
     auto scale=[&](int value){return MulDiv(value,dpi?dpi:96,96);};
     int margin=scale(16),width=r.right>margin*2?r.right-margin*2:8;
-    SCROLLINFO info={sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS};info.nMin=0;info.nMax=scale(656);info.nPage=(UINT)r.bottom;
+    SCROLLINFO info={sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS};info.nMin=0;info.nMax=scale(710);info.nPage=(UINT)r.bottom;
     int limit=info.nMax-(int)info.nPage+1;if(limit<0)limit=0;if(g.scroll>limit)g.scroll=limit;
     info.nPos=g.scroll;SetScrollInfo(g.window,SB_VERT,&info,TRUE);
     auto move=[&](HWND h,int y,int height){if(h)MoveWindow(h,margin,scale(y)-g.scroll,width,scale(height),FALSE);};
     move(g.heading,20,30);move(g.intro,58,52);move(g.status,124,92);move(g.counter,222,26);
     move(g.startButton,266,38);move(g.pauseButton,314,38);move(g.exportButton,362,38);
-    move(g.cancelButton,410,32);move(g.verifierLink,454,34);move(g.privacy,510,128);
+    move(g.cancelButton,410,32);move(g.newButton,454,38);move(g.verifierLink,506,34);move(g.privacy,562,128);
     // Moving native child windows does not erase their former parent pixels.
     // Paint the complete clipped canvas and controls after the whole layout moves.
     RedrawWindow(g.window,nullptr,nullptr,RDW_INVALIDATE|RDW_ERASE|RDW_ALLCHILDREN|RDW_UPDATENOW);
@@ -559,6 +579,7 @@ void CreateControls(HWND window) {
     g.startButton=create(L"BUTTON",L"开始记录",BS_PUSHBUTTON|WS_TABSTOP);
     g.pauseButton=create(L"BUTTON",L"暂停记录",BS_PUSHBUTTON|WS_TABSTOP);
     g.exportButton=create(L"BUTTON",L"导出作品和证书",BS_PUSHBUTTON|WS_TABSTOP);
+    g.newButton=create(L"BUTTON",L"开始另一份记录",BS_PUSHBUTTON|WS_TABSTOP);
     g.cancelButton=create(L"BUTTON",L"取消连接",BS_PUSHBUTTON|WS_TABSTOP);
     g.verifierLink=create(L"BUTTON",L"核验已有证书",BS_PUSHBUTTON|WS_TABSTOP);
 #ifdef WORKPROOF_POWERPOINT
@@ -640,6 +661,7 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
             if (source == g.startButton) BeginPairing();
             else if (source == g.pauseButton) TogglePause();
             else if (source == g.exportButton) Export();
+            else if (source == g.newButton) NewRecording();
             else if (source == g.cancelButton) { g.cancelPairing = true; SetStatus(L"正在取消连接…"); }
             else if (source == g.verifierLink) {
                 ShellExecuteW(nullptr, L"open", L"http://127.0.0.1:4173/", nullptr, nullptr, SW_SHOWNORMAL);
@@ -675,7 +697,7 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
             g.statusFont = nullptr;
             g.bodyFont = nullptr;
             g.window = nullptr;
-            g.status = g.counter = g.startButton = g.pauseButton = g.exportButton = g.cancelButton = g.verifierLink = nullptr;
+            g.status = g.counter = g.startButton = g.pauseButton = g.exportButton = g.cancelButton = g.newButton = g.verifierLink = nullptr;
             return 0;
         default:
             break;
