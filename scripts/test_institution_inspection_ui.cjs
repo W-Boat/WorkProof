@@ -9,9 +9,23 @@ const {chromium,expect}=require('@playwright/test');
   const browser=await chromium.launch({headless:true});let page;
   try{
     const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'});
-    await context.addInitScript(({token,user,origin})=>{if(location.origin!==origin)return;localStorage.setItem('scaffold.token',token);localStorage.setItem('scaffold.user',JSON.stringify(user));localStorage.setItem('scaffold.expiresAt',String(Date.now()+3600000));},{token,user,origin});
-    page=await context.newPage();let inspections=0,uploaded;
-    page.on('request',request=>{if(new URL(request.url()).pathname==='/api/workproof/certificates/inspect'&&request.method()==='POST'){inspections++;uploaded=request.postDataBuffer();}});
+    await context.addInitScript(({token,user,origin})=>{
+      if(location.origin!==origin)return;
+      localStorage.setItem('scaffold.token',token);localStorage.setItem('scaffold.user',JSON.stringify(user));localStorage.setItem('scaffold.expiresAt',String(Date.now()+3600000));
+      // Chromium omits file-backed Blob bytes from Playwright's request.postDataBuffer().
+      // Observe the actual fetch body without replacing it or mocking the real service.
+      const originalFetch=window.fetch.bind(window);
+      window.fetch=async(input,options)=>{
+        if(new URL(String(input),location.href).pathname==='/api/workproof/certificates/inspect'&&options?.method==='POST'){
+          if(!(options.body instanceof Blob))throw new Error('Certificate upload must preserve the original Blob');
+          const bytes=await options.body.arrayBuffer(),digest=await crypto.subtle.digest('SHA-256',bytes);
+          window.__workproofTestUpload={bytes:bytes.byteLength,sha256:Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')};
+        }
+        return originalFetch(input,options);
+      };
+    },{token,user,origin});
+    page=await context.newPage();let inspections=0;
+    page.on('request',request=>{if(new URL(request.url()).pathname==='/api/workproof/certificates/inspect'&&request.method()==='POST')inspections++;});
     await page.goto(origin+'/');await page.getByRole('button',{name:'检查一份证书',exact:true}).click();
     const dialog=page.getByRole('dialog',{name:'检查一份证书',exact:true});await expect(dialog).toBeVisible();
     const submit=dialog.getByRole('button',{name:'检查证书内容',exact:true}),consent=dialog.getByRole('checkbox',{name:'我同意将所选证书发送给机构服务器检查'});
@@ -20,7 +34,9 @@ const {chromium,expect}=require('@playwright/test');
     const fixture=path.resolve('apps/verifier/public/demo/essay.md.wproof'),bytes=fs.readFileSync(fixture),proof=JSON.parse(bytes);
     await dialog.getByLabel('选择 .wproof 证书').setInputFiles(fixture);await expect(submit).toBeDisabled();await expect(dialog.getByText('下一步：阅读上方说明，确认同意后勾选，再点击“检查证书内容”。',{exact:true})).toBeVisible();assert.equal(inspections,0);
     await dialog.getByText('我同意将所选证书发送给机构服务器检查', {exact:true}).click();await expect(consent).toBeChecked();await expect(submit).toBeEnabled();await consent.focus();await page.keyboard.press('Space');await expect(consent).not.toBeChecked();await expect(submit).toBeDisabled();await page.keyboard.press('Space');await expect(consent).toBeChecked();await submit.click();
-    await expect(dialog.getByText('证书内容一致',{exact:true})).toBeVisible();assert.deepEqual(uploaded,bytes,'Send the original certificate bytes');
+    await expect(dialog.getByText('证书内容一致',{exact:true})).toBeVisible();assert.equal(inspections,1);
+    const uploaded=await page.evaluate(()=>window.__workproofTestUpload);
+    assert.deepEqual(uploaded,{bytes:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')},'Fetch must send the original certificate Blob');
     const fingerprint=crypto.createHash('sha256').update(Buffer.from(proof.signature,'hex')).digest('hex');
     await expect(dialog.getByText(fingerprint,{exact:true})).toBeVisible();await expect(dialog.getByText('作品仍需在本机单独检查。这里没有确认作者身份，也没有确认实际创作时间。',{exact:true})).toBeVisible();
     fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/institution-certificate-inspection-full.png',fullPage:true});
