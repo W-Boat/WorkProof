@@ -100,6 +100,7 @@ jobs:
           path: |
             institution-runtime.log
             institution-https.log
+            test-results/institution-certificate-inspection-*.png
   windows-launchers:
     runs-on: windows-latest
     timeout-minutes: 10

@@ -220,6 +220,8 @@ jobs:
           rustc --test apps/desktop/src-tauri/src/platform.rs -o "$RUNNER_TEMP/workproof-platform-tests"
           "$RUNNER_TEMP/workproof-platform-tests"
       - run: cargo build --locked -p workproof-engine --release
+      - name: Generate native inspection fixture
+        run: cargo run --locked -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
       - name: Native certificate-only inspection
         run: node scripts/test_certificate_inspection.cjs target/release/workproof-engine target/release/workproof-inspector
       - run: npm run ${{ matrix.build }} -w @workproof/desktop

@@ -68,6 +68,12 @@ public class AuthService {
     public CurrentUserResponse currentUser() {
         AuthUserRow user = currentUserRow();
         List<String> roleCodes = authMapper.selectRoleCodes(user.getId());
+        List<String> permissions = new ArrayList<>(roleCodes.contains(SUPER_ADMIN)
+                ? authMapper.selectAllPermissions() : authMapper.selectPermissions(user.getId()));
+        // Match the backend permission resolver while retaining registered permission codes.
+        if (roleCodes.contains(SUPER_ADMIN) && !permissions.contains("*")) {
+            permissions.add("*");
+        }
         return new CurrentUserResponse(
                 user.getId(),
                 user.getUsername(),
@@ -75,7 +81,7 @@ public class AuthService {
                 user.getDeptId(),
                 user.getDeptName(),
                 roleCodes,
-                roleCodes.contains(SUPER_ADMIN) ? authMapper.selectAllPermissions() : authMapper.selectPermissions(user.getId())
+                permissions
         );
     }
 

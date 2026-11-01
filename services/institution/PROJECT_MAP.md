@@ -19,6 +19,7 @@
 - `scaffold-system/.../controller/CertificateInspectionController.java` → `NativeCertificateInspector.java` → Rust `workproof-inspector`：机构证书内容预检；统一权限 `workproof:certificate:inspect`、返回和审计，不检查作品、不认证身份/时间。
 - `scaffold-vue/src/components/business/CertificateInspectionDialog.vue`、`src/api/certificates.ts`：工作台入口、明确同意后发送原证书字节、完整/部分范围与结果。复用 `FormDialog` 等既有控件；公共 HTTP 客户端增加原字节 JSON 上传，避免重编码签名数据。
 - `OperLog.recordParams=false`：敏感文件接口不将请求内容复制进审计日志；`ServiceException` 统一 429/503/504 临时服务状态，不改变既有业务异常行为。
+- `AuthService.currentUser`：仅超级管理员在已登记权限之外获得 `*`，与后端权限解析器一致；普通角色继续使用各自已授权的权限。
 - 证书索引入库、批量核验和机构数据权限业务仍待开发；本阶段没有创建或修改数据库表。接口与字段中文说明见根仓库 `docs/INSTITUTION-CERTIFICATES.md`。
 
 > 2026-10-11 更新。用于后续业务开发和排障；“已确认”表示代码链路已核对，运行验证记录见 `changelog.md`。数据库映射已与本地 MySQL 5.7 的真实结构及两份初始化脚本核对。

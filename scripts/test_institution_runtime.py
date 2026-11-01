@@ -79,7 +79,8 @@ with log_path.open("wb") as log:
         login = json.loads(login_body)
         assert login_status == 200 and login["code"] == 200, "Generated password failed real MySQL/BCrypt login"
         token = login["data"]["token"]
-        assert request("/api/auth/me", token=token)[0] == 200
+        me_status, me_body, _ = request("/api/auth/me", token=token)
+        assert me_status == 200 and '*' in json.loads(me_body)['data']['permissions'], 'Superadmin frontend permissions must match backend access'
         assert request("/api/auth/routes", token=token)[0] == 200
         assert request('/api/workproof/certificates/capabilities')[0] == 401
         capability = json.loads(request('/api/workproof/certificates/capabilities', token=token)[1])['data']
@@ -109,6 +110,8 @@ with log_path.open("wb") as log:
         limited_captcha = json.loads(request('/api/auth/captcha')[1])['data']
         limited_login = json.loads(request('/api/auth/login', {'username':limited_username,'password':limited_password,'captchaUuid':limited_captcha['uuid'],'captcha':limited_captcha['code']})[1])
         limited_token = limited_login['data']['token']
+        limited_me = json.loads(request('/api/auth/me', token=limited_token)[1])['data']
+        assert '*' not in limited_me['permissions'], 'Ordinary roles must not receive superadmin permissions'
         assert request('/api/workproof/certificates/capabilities', token=limited_token)[0] == 403
         assert request('/api/workproof/certificates/inspect', proof, limited_token)[0] == 403
         request('/api/auth/logout', {}, limited_token)
