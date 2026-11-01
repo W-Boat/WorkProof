@@ -1,4 +1,6 @@
-"""Real, offline C2PA PNG round trips with synthetic image, process records and CA."""
+"""Real, offline C2PA PNG/JPEG round trips with synthetic image, process records and CA."""
+import io
+from PIL import Image
 import json, os, pathlib, shutil, struct, subprocess, sys, tempfile, zlib
 assert os.environ.get('GITHUB_ACTIONS') == 'true'
 tool, fixture = map(lambda p: str(pathlib.Path(p).resolve()), sys.argv[1:3])
@@ -58,5 +60,76 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
     trace=root/'network.trace';run('strace','-f','-e','trace=network','-o',trace,tool,'verify',signed,root/'ca.pem')
     calls=trace.read_text();assert 'connect(' not in calls and 'sendto(' not in calls
     assert original.read_bytes()==snapshot and (root/'full.wproof').read_bytes()==proof_snapshot
-pathlib.Path('test-c2pa-results.json').write_text(json.dumps({'real_c2pa_png':True,'explicit_ca':True,'full_and_selective':True,'tamper_rejected':True,'original_bytes_unchanged':True,'verification_network_calls':False,'synthetic_authority_only':True},indent=2))
-print('PASS: real C2PA PNG packaging, exact original-byte binding, explicit CA trust, full/partial scope, tamper/wrong-root/overwrite rejection and offline verification')
+
+    def app(marker, body):
+        assert len(body) <= 65533
+        return b'\xff'+bytes([marker])+struct.pack('>H',len(body)+2)+body
+
+    def header_segments(data):
+        assert data[:2] == b'\xff\xd8'
+        pos=2
+        while pos<len(data):
+            assert data[pos]==255
+            begin=pos
+            while data[pos]==255:pos+=1
+            marker=data[pos];pos+=1
+            if marker==0xda:return  # Entropy is opaque; do not misread stuffed FF00 or restart markers.
+            assert marker not in (0,0xd8,0xd9)
+            length=int.from_bytes(data[pos:pos+2],'big');assert length>=2
+            end=pos+length;assert end<=len(data)
+            yield marker,begin,end,data[pos+2:end]
+            pos=end
+
+    jpeg_results=[]
+    for progressive in (False,True):
+        folder=root/('progressive' if progressive else 'baseline');folder.mkdir()
+        source=folder/'original.jpg';destination=folder/'signed.jpg'
+        pixels=Image.new('RGB',(24,16));pixels.putdata([(x*9%256,y*13%256,(x+y)*7%256) for y in range(16) for x in range(24)])
+        buffer=io.BytesIO();pixels.save(buffer,format='JPEG',quality=91,progressive=progressive)
+        # Keep unrelated APP11, EXIF and XMP outside the C2PA store; all must survive byte-for-byte.
+        metadata=[app(0xeb,b'WorkProof-unrelated-APP11-keep'),
+                  app(0xe1,b'Exif\0\0II*\0\x08\0\0\0\0\0\0\0\0\0'),
+                  app(0xe1,b'http://ns.adobe.com/xap/1.0/\0<x:xmpmeta xmlns:x="adobe:ns:meta/">fixture</x:xmpmeta>')]
+        original_jpeg=buffer.getvalue()[:2]+b''.join(metadata)+buffer.getvalue()[2:]
+        source.write_bytes(original_jpeg)
+        with Image.open(source) as decoded: decoded.load();assert decoded.size==(24,16)
+        # A larger genuine process proof exercises JPEG C2PA APP11 packet segmentation.
+        run(fixture,source,folder,1500)
+        proof_bytes=(folder/'full.wproof').read_bytes()
+        args=[tool,'embed',source,folder/'full.wproof',root/'chain.pem',root/'signer.key',destination,'--allow-public-process']
+        embedded=json.loads(run(*args).stdout)
+        assert embedded['original_jpeg_checked'] and embedded['original_asset_checked']
+        assert not embedded['original_png_checked'] and embedded['media_type']=='image/jpeg'
+        signed_bytes=destination.read_bytes()
+        for segment in metadata:assert signed_bytes.count(segment)==1,'JPEG metadata was lost or rewritten'
+        with Image.open(destination) as decoded:decoded.load();assert decoded.size==(24,16)
+        checked=json.loads(run(tool,'verify',destination,root/'ca.pem').stdout)
+        assert checked['original_jpeg_checked'] and checked['original_asset_checked'] and checked['c2pa_trusted']
+        assert checked['workproof']['valid'] and checked['workproof']['scope']=='full'
+        assert not any(checked[k] for k in ['identity_verified','creation_time_verified','revocation_checked','network_used'])
+        packets=[s for s in header_segments(signed_bytes) if s[0]==0xeb and s[3].startswith(b'JP')]
+        assert len(packets)>1,'Large proof did not produce segmented APP11 C2PA store'
+        # Tamper pixels through valid JPEG quantization data, keeping framing structurally valid.
+        quant=next(s for s in header_segments(signed_bytes) if s[0]==0xdb)
+        changed=bytearray(signed_bytes);index=quant[1]+5;changed[index]=changed[index]^1 or 2
+        image_tamper=folder/'image-changed.jpg';image_tamper.write_bytes(changed)
+        with Image.open(image_tamper) as decoded:decoded.load()
+        run(tool,'verify',image_tamper,root/'ca.pem',ok=False)
+        metadata_tamper=folder/'metadata-changed.jpg'
+        metadata_tamper.write_bytes(signed_bytes.replace(b'WorkProof-unrelated-APP11-keep',b'WorkProof-unrelated-APP11-fake',1))
+        run(tool,'verify',metadata_tamper,root/'ca.pem',ok=False)
+        # Existing embedded C2PA cannot be wrapped again, even when a new proof binds its bytes.
+        nested=folder/'nested';nested.mkdir();run(fixture,destination,nested)
+        nested_output=nested/'nested.jpg'
+        run(tool,'embed',destination,nested/'full.wproof',root/'chain.pem',root/'signer.key',nested_output,'--allow-public-process',ok=False)
+        assert not nested_output.exists()
+        partial_output=folder/'selected.jpg'
+        run(tool,'embed',source,folder/'selected.wproof',root/'chain.pem',root/'signer.key',partial_output,'--allow-public-process')
+        partial_report=json.loads(run(tool,'verify',partial_output,root/'ca.pem').stdout)
+        assert partial_report['workproof']['scope']=='selective' and partial_report['workproof']['disclosed_events']==3 and partial_report['workproof']['total_events']==1500
+        run(tool,'verify',destination,root/'wrong.pem',ok=False)
+        assert source.read_bytes()==original_jpeg and (folder/'full.wproof').read_bytes()==proof_bytes
+        jpeg_results.append({'progressive':progressive,'segmented_app11_packets':len(packets),'metadata_preserved':True,'full_and_selective':True})
+
+pathlib.Path('test-c2pa-results.json').write_text(json.dumps({'real_c2pa_png':True,'real_c2pa_jpeg':jpeg_results,'explicit_ca':True,'full_and_selective':True,'tamper_rejected':True,'original_bytes_unchanged':True,'verification_network_calls':False,'synthetic_authority_only':True},indent=2))
+print('PASS: real C2PA PNG and baseline/progressive JPEG packaging, exact original-byte binding, explicit CA trust, full/partial scope, tamper/wrong-root/overwrite rejection and offline verification')

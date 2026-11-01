@@ -1,4 +1,4 @@
-name: C2PA PNG interoperability
+name: C2PA PNG and JPEG interoperability
 on:
   push:
     paths: ['tools/c2pa/**', 'crates/proof/**', 'scripts/test_c2pa.py', 'scripts/c2pa_notices.py', 'docs/licenses/c2pa-*/**', '.github/workflows/c2pa.yml']
@@ -26,11 +26,12 @@ jobs:
       - name: Build separate SDK tool without recorder dependency changes
         id: build
         run: cargo build --locked --manifest-path tools/c2pa/Cargo.toml --all-targets
-      - name: PNG framing and byte preservation
+      - name: PNG and JPEG framing and byte preservation
         run: cargo test --locked --manifest-path tools/c2pa/Cargo.toml
       - name: Real C2PA signing and verification
         run: |
           sudo apt-get update && sudo apt-get install -y strace
+          python -m pip install Pillow==12.0.0
           python scripts/test_c2pa.py tools/c2pa/target/debug/workproof-c2pa tools/c2pa/target/debug/examples/fixture
       - name: Collect isolated dependency notices
         if: ${{ always() && steps.build.conclusion == 'success' }}
