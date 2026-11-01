@@ -269,6 +269,10 @@ void FinishPairing(PairResult* result) {
     DocSnapshot snapshot;
     std::wstring error;
     if (!ReadDocument(g.word, snapshot, error)) { SetStatus(error); PaintState(); return; }
+    if(snapshot.identity!=g.identity){
+        SetStatus(L"等待连接期间切换了文档，尚未开始记录。请切回原文档后重新开始。");
+        g.launchFeedback=false;PaintState();return;
+    }
     std::string body = "{\"file_name\":\"" + JsonEscape(WideToUtf8(snapshot.name)) +
                        "\",\"started_at\":\"" + JsonEscape(WideToUtf8(IsoUtcNow())) + "\",\"source\":\"word\"}";
     std::string response;
@@ -387,6 +391,11 @@ void Export() {
     std::wstring error;
     DocSnapshot before;
     if (!ReadDocument(g.word, before, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
+    if(before.identity!=g.identity){
+        g.paused=true;KillTimer(g.window,kSampleTimer);
+        SetStatus(L"当前不是开始记录的文档，已暂停。请切回原文档，继续记录后再导出。");
+        g.writing=false;PaintState();return;
+    }
 
     std::wstring parent = ChooseFolder(g.window);
     if (parent.empty()) { SetStatus(L"已取消导出。记录仍在继续。"); g.writing = false; PaintState(); return; }
@@ -398,6 +407,11 @@ void Export() {
     std::wstring folder = parent + L"\\" + suffix;
     if(!CreateDirectoryW(folder.c_str(), nullptr)){SetStatus(L"交付目录未能新建，请稍后重试或选择其他目录；没有覆盖文件。");g.writing=false;PaintState();return;}
 
+    DocSnapshot selected;
+    if(!ReadDocument(g.word,selected,error)||selected.identity!=g.identity){
+        SetStatus(L"选择目录期间切换了文档，已停止导出。请切回开始记录的文档后重试。");
+        g.writing=false;PaintState();return;
+    }
     if (!SaveDocument(g.word, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
     DocSnapshot saved;
     if (!ReadDocument(g.word, saved, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
@@ -425,7 +439,7 @@ void Export() {
         return;
     }
     DocSnapshot check;
-    if (!ReadDocument(g.word, check, error) || check.characters != saved.characters || check.paragraphs != saved.paragraphs) {
+    if (!ReadDocument(g.word, check, error) || check.identity != g.identity || check.characters != saved.characters || check.paragraphs != saved.paragraphs) {
         SetStatus(L"生成摘要期间文档发生变化，已停止导出。请重新导出。");
         g.writing = false;
         PaintState();
