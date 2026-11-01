@@ -45,7 +45,21 @@ const {chromium,expect}=require('@playwright/test');
     proof.records[1].event.inserted++;
     await dialog.getByLabel('选择 .wproof 证书').setInputFiles({name:'changed.wproof',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(proof))});await dialog.getByText('我同意将所选证书发送给机构服务器检查', {exact:true}).click();await expect(consent).toBeChecked();await submit.click();await expect(dialog.getByText('证书内容未能确认',{exact:true})).toBeVisible();
     await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile modal must not overflow');await page.screenshot({path:'test-results/institution-certificate-inspection-mobile.png',fullPage:true});
-    console.log('PASS: real Vue certificate dialog, explicit consent, original bytes, full/selective scope, shared fingerprint, tamper failure and mobile layout');
+    await dialog.getByRole('button',{name:'关闭',exact:true}).click();
+    await page.setViewportSize({width:1280,height:900});await page.goto(origin+'/workproof/certificates');
+    await expect(page.getByRole('heading',{name:'证书管理',exact:true})).toBeVisible();
+    await expect(page.getByText('essay.md',{exact:true}).first()).toBeVisible();
+    await page.getByRole('button',{name:'查看详情',exact:true}).first().click();
+    const details=page.getByRole('dialog',{name:'证书摘要详情',exact:true});await expect(details).toBeVisible();
+    await expect(details.getByText(fingerprint,{exact:true})).toBeVisible();
+    await details.getByRole('button',{name:'关闭',exact:true}).click();
+    await page.getByLabel('文件名或证书指纹').fill('not-present');await page.getByRole('button',{name:'查询',exact:true}).click();
+    await expect(page.getByText('essay.md',{exact:true})).toHaveCount(0);
+    await page.getByRole('button',{name:'重置',exact:true}).click();await expect(page.getByText('essay.md',{exact:true}).first()).toBeVisible();
+    const csv=page.waitForEvent('download');await page.getByRole('button',{name:'导出当前查询结果',exact:true}).click();
+    assert((await csv).suggestedFilename().endsWith('.csv'));
+    await page.screenshot({path:'test-results/institution-certificate-catalog.png',fullPage:true});
+    console.log('PASS: real Vue inspection and catalog navigation, scoped list, details, search/reset and CSV download');
   }catch(error){if(page){fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/institution-certificate-inspection-failure.png',fullPage:true}).catch(()=>{});}throw error;}
   finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

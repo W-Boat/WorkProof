@@ -93,6 +93,7 @@ jobs:
             target/release/workproof-engine
             target/release/workproof-inspector
             test-results/institution-certificate-inspection-*.png
+            test-results/institution-certificate-catalog.png
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -100,6 +101,7 @@ jobs:
           path: |
             institution-runtime.log
             institution-https.log
+            test-results/institution-certificate-catalog.png
             test-results/institution-certificate-inspection-*.png
   windows-launchers:
     runs-on: windows-latest
