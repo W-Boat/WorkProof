@@ -7,12 +7,17 @@ assert openssl
 proof = pathlib.Path('apps/verifier/public/demo/essay.md.wproof').resolve()
 original = proof.read_bytes()
 def run(*args, ok=True):
-    result = subprocess.run([str(a) for a in args], capture_output=True, timeout=30)
+    environment=None
+    if str(args[0])==engine:
+        environment=dict(os.environ,TMPDIR=str(root/'scratch'))
+    result = subprocess.run([str(a) for a in args], capture_output=True, timeout=30,env=environment)
+    if str(args[0])==engine: assert list((root/'scratch').iterdir())==[], 'Timestamp tool leaked temporary evidence files'
     if ok: assert result.returncode == 0, result.stderr.decode(errors='replace')[:300]
     else: assert result.returncode != 0
     return result
 with tempfile.TemporaryDirectory(prefix='workproof-rfc3161-') as name:
     root=pathlib.Path(name)
+    (root/'scratch').mkdir()
     run(openssl,'req','-x509','-newkey','rsa:2048','-nodes','-keyout',root/'ca.key','-out',root/'ca.pem','-days','2','-subj','/CN=WorkProof synthetic test CA','-addext','basicConstraints=critical,CA:TRUE','-addext','keyUsage=critical,keyCertSign,cRLSign')
     run(openssl,'req','-new','-newkey','rsa:2048','-nodes','-keyout',root/'tsa.key','-out',root/'tsa.csr','-subj','/CN=WorkProof synthetic TSA')
     (root/'extensions.cnf').write_text('basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=critical,timeStamping\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n')
