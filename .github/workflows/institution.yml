@@ -1,7 +1,7 @@
 name: Institution backend baseline
 on:
   push:
-    paths: ['services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution_runtime.py', 'scripts/test_institution_inspection_ui.cjs', 'scripts/test_institution_catalog_readiness.cjs', 'scripts/test_local_runtime.ps1', '.github/workflows/institution.yml']
+    paths: ['services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution_runtime.py', 'scripts/test_institution_inspection_ui.cjs', 'scripts/test_institution_catalog_readiness.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml']
   workflow_dispatch:
     inputs:
       windows_only:

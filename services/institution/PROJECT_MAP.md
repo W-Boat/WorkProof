@@ -2,6 +2,8 @@
 
 ## WorkProof 接入
 
+- `.github/workflows/catalog-windows.yml`、根脚本 `test_catalog_windows_mysql.ps1`：固定官方便携MySQL摘要的Windows隔离原生备份/另库恢复验收；不上传私有fixture。准备工具的流程fixture保留，原生链路另行给出结果。
+
 - 根仓库 `scripts/local/prepare-catalog.ps1`：本地Windows目录的只读方案/显式备份后准备，`catalog.json`启用记录、`catalog-preparation.json`故障现场；start按迁移摘要启用。Actions启动包包含V3和两个cmd入口；无自动DDL。
 
 - `CertificateCatalogMapper.schemaReady`、`CertificateCatalogService.status`、`GET /api/workproof/certificates/status`：受列表权限保护的只读结构检查；未启用不触碰业务结构，接口操作前也检查。`Certificates.vue` 先取状态再加载列表，未就绪明确下一步。

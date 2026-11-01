@@ -1,0 +1,23 @@
+name: Windows catalog backup and restore
+on:
+  workflow_dispatch:
+  push:
+    paths: ['scripts/local/**', 'scripts/test_catalog_windows_mysql.ps1', 'services/institution/scaffold-system/sql/**', '.github/workflows/catalog-windows.yml']
+permissions:
+  contents: read
+jobs:
+  native-mysql:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify pinned MySQL Windows archive
+        shell: pwsh
+        run: |
+          $archive=Join-Path $env:RUNNER_TEMP 'workproof-mysql.zip'
+          Invoke-WebRequest 'https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.13-winx64.zip' -OutFile $archive
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne 'E9CD98B1D23F122987B1AFCA26AD942EFEC5891481103D48AE3CDE237FA3EA54') {throw 'MySQL archive digest mismatch'}
+          Expand-Archive -LiteralPath $archive -DestinationPath (Join-Path $env:RUNNER_TEMP 'workproof-mysql-package')
+      - name: Real native preparation, backup failure and restoration
+        shell: pwsh
+        run: ./scripts/test_catalog_windows_mysql.ps1 -MysqlDirectory (Join-Path $env:RUNNER_TEMP 'workproof-mysql-package/mysql-8.4.13-winx64')

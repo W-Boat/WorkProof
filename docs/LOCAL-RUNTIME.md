@@ -10,6 +10,8 @@
 
 [机构 Actions 41279970799](https://github.com/W-Boat/WorkProof/actions/runs/41279970799) 已通过Windows准备流程fixture和真实MySQL业务回归，下载的启动包SHA-256为 `2491b966f2b335f10e82c801c782f1c90e6a6f53f99883d8e798992b47059c8d`，两个入口/准备脚本/V3均已只读核对。流程fixture模拟了原生命令边界，尚不能证明完整Windows原生MySQL备份/恢复链路已验收。
 
+原生验收增量使用独立 `Windows catalog backup and restore` Actions，下载[MySQL官方 Windows 8.4.13 ZIP](https://dev.mysql.com/downloads/mysql/8.4.html)，固定 SHA-256 `e9cd98b1d23f122987b1afca26ad942efec5891481103d48ae3cde237fa3ea54`。隔离CI运行真实服务、mysqldump、迁移及另库恢复，覆盖二进制/NULL/中文和原账号；该轮尚待通过，不在本机执行。
+
 备份在私有 `state/backups`，包含数据库敏感内容，不能上传公共仓库；`catalog-preparation.json` 表示未完成或需人工检查的操作。MySQL DDL不能整体回滚，失败时保留备份和记录，不自动删表或重放。已有不明证书表/菜单冲突会拒绝；恢复须先核对现场及备份，不能直接对已有数据重跑初始化SQL。此工具固定用于本地Windows运行目录，不是通用生产服务器迁移器。备份失败时可能已停止Java，可检查日志后恢复原版本；工具不会把停止误报为已启用。
 
 从 GitHub Actions 的 `Institution backend baseline` 下载：
