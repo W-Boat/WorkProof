@@ -1,0 +1,291 @@
+#include "addin.h"
+#include "pane.h"
+#include <new>
+
+namespace workproof {
+
+const CLSID CLSID_Connect = {0x5F628C20, 0x62BB, 0x4DA6, {0x94, 0xDF, 0x36, 0xBD, 0x59, 0x9A, 0x93, 0x01}};
+const IID IID_IExtensibility2 = {0xB65AD801, 0xABAF, 0x11D0, {0xBB, 0x8B, 0x00, 0xA0, 0xC9, 0x0F, 0x27, 0x44}};
+const IID IID_IRibbon = {0x000C0396, 0x0000, 0x0000, {0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+
+extern HINSTANCE g_module;
+extern LONG g_objectCount;
+
+namespace {
+
+enum Command : int {
+    CommandOpen = 1,
+    CommandStart = 2,
+    CommandPause = 3,
+    CommandExport = 4,
+    CommandRibbonLoad = 5,
+    CommandImage = 6
+};
+
+struct NameEntry {
+    const wchar_t* name;
+    DISPID id;
+};
+
+const NameEntry kNames[] = {
+    {L"OpenRecorder", CommandOpen},
+    {L"StartRecording", CommandStart},
+    {L"TogglePause", CommandPause},
+    {L"ExportRecord", CommandExport},
+    {L"RibbonLoad", CommandRibbonLoad},
+    {L"GetRibbonImage", CommandImage},
+};
+
+class CConnect;
+
+class CExtensibility : public IDTExtensibility2 {
+public:
+    explicit CExtensibility(CConnect* owner);
+    ~CExtensibility();
+    void Detach() { m_owner = nullptr; }
+
+    STDMETHODIMP QueryInterface(REFIID iid, void** object) override;
+    STDMETHODIMP_(ULONG) AddRef() override;
+    STDMETHODIMP_(ULONG) Release() override;
+    STDMETHODIMP OnConnection(IDispatch* application, int connectMode, IDispatch* addInInstance, SAFEARRAY** custom) override;
+    STDMETHODIMP OnDisconnection(int removeMode, SAFEARRAY** custom) override;
+    STDMETHODIMP OnAddInsUpdate(SAFEARRAY** custom) override;
+    STDMETHODIMP OnStartupComplete(SAFEARRAY** custom) override;
+    STDMETHODIMP OnBeginShutdown(SAFEARRAY** custom) override;
+
+private:
+    LONG m_ref = 1;
+    CConnect* m_owner = nullptr;
+};
+
+class CRibbon : public IRibbonExtensibility {
+public:
+    explicit CRibbon(CConnect* owner) : m_owner(owner) {}
+    void Detach() { m_owner = nullptr; }
+
+    STDMETHODIMP QueryInterface(REFIID iid, void** object) override;
+    STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)InterlockedIncrement(&m_ref); }
+    STDMETHODIMP_(ULONG) Release() override {
+        LONG remaining = InterlockedDecrement(&m_ref);
+        if (remaining == 0) delete this;
+        return (ULONG)remaining;
+    }
+    STDMETHODIMP GetCustomUI(BSTR ribbonId, BSTR* ribbonXml) override;
+
+private:
+    LONG m_ref = 1;
+    CConnect* m_owner = nullptr;
+};
+
+class CConnect : public IDispatch {
+public:
+    CConnect() : m_ref(1) { InterlockedIncrement(&g_objectCount); }
+    ~CConnect() {
+        if (m_extensibility) { m_extensibility->Detach(); m_extensibility->Release(); }
+        if (m_ribbon) { m_ribbon->Detach(); m_ribbon->Release(); }
+        if (m_word) m_word->Release();
+        InterlockedDecrement(&g_objectCount);
+    }
+
+    STDMETHODIMP QueryInterface(REFIID iid, void** object) override;
+    STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)InterlockedIncrement(&m_ref); }
+    STDMETHODIMP_(ULONG) Release() override {
+        LONG remaining = InterlockedDecrement(&m_ref);
+        if (remaining == 0) delete this;
+        return (ULONG)remaining;
+    }
+    STDMETHODIMP GetTypeInfoCount(UINT* count) override { if (count) *count = 0; return S_OK; }
+    STDMETHODIMP GetTypeInfo(UINT, LCID, ITypeInfo** info) override { if (info) *info = nullptr; return E_NOTIMPL; }
+    STDMETHODIMP GetIDsOfNames(REFIID, LPOLESTR* names, UINT count, LCID, DISPID* ids) override;
+    STDMETHODIMP Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPARAMS* parameters, VARIANT* result,
+                        EXCEPINFO* exception, UINT* argumentError) override;
+
+    void AttachWord(IDispatch* application) {
+        if (m_word) m_word->Release();
+        m_word = application;
+        if (m_word) m_word->AddRef();
+        PaneAttachWord(m_word);
+    }
+    IDispatch* Word() const { return m_word; }
+
+private:
+    LONG m_ref;
+    IDispatch* m_word = nullptr;
+    CExtensibility* m_extensibility = nullptr;
+    CRibbon* m_ribbon = nullptr;
+};
+
+CExtensibility::CExtensibility(CConnect* owner) : m_owner(owner) {
+    if (m_owner) m_owner->AddRef();
+}
+CExtensibility::~CExtensibility() {
+    if (m_owner) m_owner->Release();
+}
+
+STDMETHODIMP CExtensibility::QueryInterface(REFIID iid, void** object) {
+    if (!object) return E_POINTER;
+    *object = nullptr;
+    if (iid == IID_IUnknown || iid == IID_IExtensibility2) {
+        *object = static_cast<IDTExtensibility2*>(this);
+        AddRef();
+        return S_OK;
+    }
+    return E_NOINTERFACE;
+}
+
+STDMETHODIMP_(ULONG) CExtensibility::AddRef() { return (ULONG)InterlockedIncrement(&m_ref); }
+
+STDMETHODIMP_(ULONG) CExtensibility::Release() {
+    LONG remaining = InterlockedDecrement(&m_ref);
+    if (remaining == 0) delete this;
+    return (ULONG)remaining;
+}
+
+STDMETHODIMP CExtensibility::OnConnection(IDispatch* application, int connectMode, IDispatch* addInInstance, SAFEARRAY** custom) {
+    if (m_owner) m_owner->AttachWord(application);
+    return S_OK;
+}
+
+STDMETHODIMP CExtensibility::OnDisconnection(int removeMode, SAFEARRAY** custom) {
+    PaneClose();
+    if (m_owner) m_owner->AttachWord(nullptr);
+    return S_OK;
+}
+
+STDMETHODIMP CExtensibility::OnAddInsUpdate(SAFEARRAY** custom) { return S_OK; }
+STDMETHODIMP CExtensibility::OnStartupComplete(SAFEARRAY** custom) { return S_OK; }
+STDMETHODIMP CExtensibility::OnBeginShutdown(SAFEARRAY** custom) {
+    PaneClose();
+    return S_OK;
+}
+
+STDMETHODIMP CRibbon::QueryInterface(REFIID iid, void** object) {
+    if (!object) return E_POINTER;
+    *object = nullptr;
+    if (iid == IID_IUnknown || iid == IID_IRibbon) {
+        *object = static_cast<IRibbonExtensibility*>(this);
+        AddRef();
+        return S_OK;
+    }
+    return E_NOINTERFACE;
+}
+
+STDMETHODIMP CRibbon::GetCustomUI(BSTR ribbonId, BSTR* ribbonXml) {
+    if (!ribbonXml) return E_POINTER;
+    *ribbonXml = SysAllocString(RibbonXml().c_str());
+    return *ribbonXml ? S_OK : E_OUTOFMEMORY;
+}
+
+STDMETHODIMP CConnect::QueryInterface(REFIID iid, void** object) {
+    if (!object) return E_POINTER;
+    *object = nullptr;
+    if (iid == IID_IUnknown || iid == IID_IDispatch) {
+        *object = static_cast<IDispatch*>(this);
+        AddRef();
+        return S_OK;
+    }
+    if (iid == IID_IExtensibility2) {
+        if (!m_extensibility) m_extensibility = new (std::nothrow) CExtensibility(this);
+        if (!m_extensibility) return E_OUTOFMEMORY;
+        m_extensibility->AddRef();
+        *object = static_cast<IDTExtensibility2*>(m_extensibility);
+        return S_OK;
+    }
+    if (iid == IID_IRibbon) {
+        if (!m_ribbon) m_ribbon = new (std::nothrow) CRibbon(this);
+        if (!m_ribbon) return E_OUTOFMEMORY;
+        m_ribbon->AddRef();
+        *object = static_cast<IRibbonExtensibility*>(m_ribbon);
+        return S_OK;
+    }
+    return E_NOINTERFACE;
+}
+
+STDMETHODIMP CConnect::GetIDsOfNames(REFIID, LPOLESTR* names, UINT count, LCID, DISPID* ids) {
+    if (!names || !ids) return E_POINTER;
+    for (UINT index = 0; index < count; ++index) {
+        ids[index] = DISPID_UNKNOWN;
+        for (const NameEntry& entry : kNames) {
+            if (wcscmp(names[index], entry.name) == 0) { ids[index] = entry.id; break; }
+        }
+        if (ids[index] == DISPID_UNKNOWN) return DISP_E_UNKNOWNNAME;
+    }
+    return S_OK;
+}
+
+STDMETHODIMP CConnect::Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPARAMS*, VARIANT* result,
+                              EXCEPINFO*, UINT*) {
+    if (result) VariantInit(result);
+    if (flags & DISPATCH_PROPERTYGET) return S_OK;
+    switch (id) {
+        case CommandOpen:
+            PaneShow();
+            return S_OK;
+        case CommandStart:
+            PaneStart();
+            return S_OK;
+        case CommandPause:
+            PaneTogglePause();
+            return S_OK;
+        case CommandExport:
+            PaneExport();
+            return S_OK;
+        case CommandRibbonLoad:
+        case CommandImage:
+            return S_OK;
+        default:
+            return DISP_E_MEMBERNOTFOUND;
+    }
+}
+
+class CFactory : public IClassFactory {
+public:
+    STDMETHODIMP QueryInterface(REFIID iid, void** object) override {
+        if (!object) return E_POINTER;
+        *object = nullptr;
+        if (iid == IID_IUnknown || iid == IID_IClassFactory) {
+            *object = static_cast<IClassFactory*>(this);
+            AddRef();
+            return S_OK;
+        }
+        return E_NOINTERFACE;
+    }
+    STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)InterlockedIncrement(&m_ref); }
+    STDMETHODIMP_(ULONG) Release() override {
+        LONG remaining = InterlockedDecrement(&m_ref);
+        if (remaining == 0) delete this;
+        return (ULONG)remaining;
+    }
+    STDMETHODIMP CreateInstance(IUnknown* outer, REFIID iid, void** object) override {
+        if (!object) return E_POINTER;
+        *object = nullptr;
+        if (outer) return CLASS_E_NOAGGREGATION;
+        CConnect* connect = new (std::nothrow) CConnect();
+        if (!connect) return E_OUTOFMEMORY;
+        HRESULT hr = connect->QueryInterface(iid, object);
+        connect->Release();
+        return hr;
+    }
+    STDMETHODIMP LockServer(BOOL lock) override {
+        if (lock) InterlockedIncrement(&g_objectCount); else InterlockedDecrement(&g_objectCount);
+        return S_OK;
+    }
+
+private:
+    LONG m_ref = 1;
+};
+
+} // namespace
+
+HRESULT CreateClassFactory(REFCLSID clsid, REFIID iid, void** object) {
+    if (!object) return E_POINTER;
+    *object = nullptr;
+    if (clsid != CLSID_Connect) return CLASS_E_CLASSNOTAVAILABLE;
+    CFactory* factory = new (std::nothrow) CFactory();
+    if (!factory) return E_OUTOFMEMORY;
+    HRESULT hr = factory->QueryInterface(iid, object);
+    factory->Release();
+    return hr;
+}
+
+} // namespace workproof

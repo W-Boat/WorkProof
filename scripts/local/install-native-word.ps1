@@ -1,11 +1,12 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Registers the WorkProof native Word add-in for the current user (no administrator rights).
+    Registers the WorkProof Word add-in for the current user (no administrator rights).
 .DESCRIPTION
-    Copies the payload to a stable per-user directory, removes the Mark-of-the-Web from the
-    copied files (a flagged assembly will not load into Office), and writes only WorkProof's
-    own HKCU COM and Word Add-ins entries. -Remove deletes exactly those entries again.
+    Accepts either the native add-in (WorkProofWord.dll, no runtime dependency) or the older
+    managed one (WorkProof.WordNative.dll). Copies the payload to a stable per-user directory,
+    clears the Mark-of-the-Web from the copied files, and writes only WorkProof's own HKCU COM
+    and Word Add-ins entries. -Remove deletes exactly those entries again.
 #>
 [CmdletBinding()]
 param(
@@ -23,7 +24,7 @@ $ErrorActionPreference = 'Stop'
 $ProgId = 'WorkProof.WordNative.Connect'
 $Clsid = '{5F628C20-62BB-4DA6-94DF-36BD599A9301}'
 $Marker = '.workproof-native'
-$RequiredFiles = @('WorkProof.WordNative.dll', 'workproof-engine.exe')
+$AddInNames = @('WorkProofWord.dll', 'WorkProof.WordNative.dll')
 $OptionalFiles = @('workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'README-WORD.md', 'install-native-word.ps1')
 
 function Get-PeArchitecture([string]$Path) {
@@ -42,6 +43,32 @@ function Get-PeArchitecture([string]$Path) {
             default { throw '本加载项只支持 x86 或 x64 的 Word。' }
         }
     } finally { $stream.Dispose() }
+}
+
+function Get-AddInArchitecture([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $reader = New-Object IO.BinaryReader($stream)
+        if ($reader.ReadUInt16() -ne 0x5A4D) { throw '加载项 DLL 缺少 DOS 签名。' }
+        $stream.Position = 0x3C
+        $offset = $reader.ReadInt32()
+        $stream.Position = $offset
+        if ($reader.ReadUInt32() -ne 0x4550) { throw '加载项 DLL 的 PE 签名无效。' }
+        switch ($reader.ReadUInt16()) {
+            0x14C { return [Microsoft.Win32.RegistryView]::Registry32 }
+            0x8664 { return [Microsoft.Win32.RegistryView]::Registry64 }
+            default { throw '加载项 DLL 的架构无法识别。' }
+        }
+    } finally { $stream.Dispose() }
+}
+
+function Test-ManagedAssembly([string]$Path) {
+    try {
+        $null = [Reflection.AssemblyName]::GetAssemblyName($Path)
+        return $true
+    } catch {
+        return $false
+    }
 }
 
 function Find-Word {
@@ -72,15 +99,18 @@ if (-not $RuntimeRoot) {
     if ($PSScriptRoot -and (Test-Path -LiteralPath $PSScriptRoot -PathType Container)) {
         $RuntimeRoot = $PSScriptRoot
     } else {
-        throw '请把 -RuntimeRoot 指向解压后的工作包目录（其中包含 WorkProof.WordNative.dll）。'
+        throw '请把 -RuntimeRoot 指向解压后的工作包目录。'
     }
 }
 $source = [IO.Path]::GetFullPath($RuntimeRoot)
+$addInName = $null
+foreach ($name in $AddInNames) {
+    if (Test-Path -LiteralPath (Join-Path $source $name) -PathType Leaf) { $addInName = $name; break }
+}
 if (-not $Remove) {
-    foreach ($name in $RequiredFiles) {
-        if (-not (Test-Path -LiteralPath (Join-Path $source $name) -PathType Leaf)) {
-            throw "工作包缺少 $name，请重新解压完整压缩包。"
-        }
+    if (-not $addInName) { throw '工作包缺少 WorkProofWord.dll（或旧的 WorkProof.WordNative.dll），请重新解压完整压缩包。' }
+    if (-not (Test-Path -LiteralPath (Join-Path $source 'workproof-engine.exe') -PathType Leaf)) {
+        throw '工作包缺少 workproof-engine.exe；没有记录引擎无法导出证书。'
     }
 }
 
@@ -146,8 +176,23 @@ try {
         if ($installDir.TrimEnd('\') -ieq $source.TrimEnd('\')) {
             Write-Output '已在安装目录内运行，跳过复制。'
         } else {
+            # Only our own binaries from a previous install are stopped; Word and other apps are untouched.
+            foreach ($name in @('workproof-desktop.exe', 'workproof-engine.exe')) {
+                Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($name)) -ErrorAction SilentlyContinue | ForEach-Object {
+                    $path = $null
+                    try { $path = $_.Path } catch { }
+                    if ($path -and $path.StartsWith($installDir, [StringComparison]::OrdinalIgnoreCase)) {
+                        try {
+                            $_.Kill()
+                            $null = $_.WaitForExit(5000)
+                            Write-Output ('已停止旧版 ' + $name + '（PID ' + $_.Id + '），安装后请重新打开 WorkProof 桌面程序。')
+                        } catch { }
+                    }
+                }
+            }
+            Start-Sleep -Milliseconds 400
             New-Item -ItemType Directory -Force -Path $installDir | Out-Null
-            foreach ($name in ($RequiredFiles + $OptionalFiles)) {
+            foreach ($name in ($AddInNames + @('workproof-engine.exe') + $OptionalFiles)) {
                 $from = Join-Path $source $name
                 if (Test-Path -LiteralPath $from -PathType Leaf) {
                     Copy-Item -LiteralPath $from -Destination (Join-Path $installDir $name) -Force
@@ -159,29 +204,44 @@ try {
                     Copy-Item -LiteralPath $from -Destination $installDir -Recurse -Force
                 }
             }
-            Set-Content -LiteralPath (Join-Path $installDir $Marker) -Value ('WorkProof native Word add-in ' + (Get-Date).ToUniversalTime().ToString('o')) -Encoding ASCII
-            # A file carrying the zone identifier is not loadable as a .NET Framework assembly.
+            Set-Content -LiteralPath (Join-Path $installDir $Marker) -Value ('WorkProof Word add-in ' + (Get-Date).ToUniversalTime().ToString('o')) -Encoding ASCII
+            # Files carrying the zone identifier are blocked from loading by Windows code integrity.
             Get-ChildItem -LiteralPath $installDir -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
             $copied = $true
         }
     }
 
-    $dll = Join-Path $installDir 'WorkProof.WordNative.dll'
+    $dll = $null
+    foreach ($name in $AddInNames) {
+        $candidate = Join-Path $installDir $name
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { $dll = $candidate; break }
+    }
+    if (-not $dll) { throw '安装目录中缺少加载项 DLL。' }
     $engine = Join-Path $installDir 'workproof-engine.exe'
-    if (-not (Test-Path -LiteralPath $dll -PathType Leaf)) { throw '安装目录中缺少 WorkProof.WordNative.dll。' }
-    if (-not (Test-Path -LiteralPath $engine -PathType Leaf)) { throw '安装目录中缺少 workproof-engine.exe；没有记录引擎无法导出证书。' }
+    if (-not (Test-Path -LiteralPath $engine -PathType Leaf)) { throw '安装目录中缺少 workproof-engine.exe。' }
+    $addInView = Get-AddInArchitecture $dll
+    if ($addInView -ne $view) {
+        throw ('加载项 DLL 的架构（' + $addInView + '）与 Word（' + $view + '）不一致，请使用对应版本的工作包。')
+    }
 
-    $assembly = [Reflection.AssemblyName]::GetAssemblyName($dll)
-    if ($assembly.Name -ne 'WorkProof.WordNative') { throw 'DLL 程序集标识不是 WorkProof.WordNative。' }
-    $version = $assembly.Version.ToString()
-    $codeBase = (New-Object Uri($dll)).AbsoluteUri
-    $server = @{ 'Class' = $ProgId; 'Assembly' = $assembly.FullName; 'RuntimeVersion' = 'v4.0.30319'; 'CodeBase' = $codeBase }
-
+    # Native first: it has no runtime dependency at all. The managed build is still accepted.
+    $managed = Test-ManagedAssembly $dll
     Set-Values $registry $classKey @{ '' = $ProgId }
-    Set-Values $registry ($classKey + '\InprocServer32') (@{ '' = 'mscoree.dll'; 'ThreadingModel' = 'Both' } + $server)
-    Set-Values $registry ($classKey + '\InprocServer32\' + $version) $server
+    if ($managed) {
+        $assembly = [Reflection.AssemblyName]::GetAssemblyName($dll)
+        if ($assembly.Name -ne 'WorkProof.WordNative') { throw 'DLL 程序集标识不是 WorkProof.WordNative。' }
+        $version = $assembly.Version.ToString()
+        $codeBase = (New-Object Uri($dll)).AbsoluteUri
+        $server = @{ 'Class' = $ProgId; 'Assembly' = $assembly.FullName; 'RuntimeVersion' = 'v4.0.30319'; 'CodeBase' = $codeBase }
+        # Apartment keeps Office on the caller's STA; Both was observed to crash the CLR inside Word 2021.
+        Set-Values $registry ($classKey + '\InprocServer32') (@{ '' = 'mscoree.dll'; 'ThreadingModel' = 'Apartment' } + $server)
+        Set-Values $registry ($classKey + '\InprocServer32\' + $version) $server
+    } else {
+        $codeBase = $dll
+        Set-Values $registry ($classKey + '\InprocServer32') @{ '' = $dll; 'ThreadingModel' = 'Apartment' }
+    }
     Set-Values $registry ($classKey + '\ProgId') @{ '' = $ProgId }
-    Set-Values $registry $progKey @{ '' = 'WorkProof native Word add-in' }
+    Set-Values $registry $progKey @{ '' = 'WorkProof Word add-in' }
     Set-Values $registry ($progKey + '\CLSID') @{ '' = $Clsid }
     Set-Values $registry $addinKey @{ 'FriendlyName' = 'WorkProof 开源证人'; 'Description' = '在 Word 内记录创作过程，导出作品与 .wproof 证书'; 'CommandLineSafe' = '0' }
     $entry = $registry.CreateSubKey($addinKey)
@@ -194,8 +254,10 @@ try {
     $checkInproc = $registry.OpenSubKey($classKey + '\InprocServer32')
     if (-not $checkInproc) { throw '注册写入失败：InprocServer32 项不存在。' }
     try {
-        if ($checkInproc.GetValue('') -ne 'mscoree.dll') { throw '注册写入失败：InprocServer32 默认值不是 mscoree.dll。' }
-        if ($checkInproc.GetValue('CodeBase') -ne $codeBase) { throw '注册写入失败：CodeBase 与实际 DLL 路径不一致。' }
+        $expectedServer = if ($managed) { 'mscoree.dll' } else { $dll }
+        if ($checkInproc.GetValue('') -ne $expectedServer) { throw '注册写入失败：InprocServer32 指向不正确。' }
+        if ($checkInproc.GetValue('ThreadingModel') -ne 'Apartment') { throw '注册写入失败：ThreadingModel 不是 Apartment。' }
+        if ($managed -and $checkInproc.GetValue('CodeBase') -ne $codeBase) { throw '注册写入失败：CodeBase 与实际 DLL 路径不一致。' }
     } finally { $checkInproc.Dispose() }
 
     # ------------------------------------------------------------- shortcut
@@ -216,11 +278,11 @@ try {
         }
     }
 
+    $kind = if ($managed) { '托管（.NET Framework）' } else { '原生（无运行时依赖）' }
     $lines = @(
-        ('已为当前用户注册 WorkProof Word 加载项（' + $view + '）。'),
+        ('已为当前用户注册 WorkProof Word 加载项（' + $view + '，' + $kind + '）。'),
         ('安装目录：' + $installDir),
-        ('程序集：' + $assembly.FullName),
-        ('CodeBase：' + $codeBase),
+        ('加载项：' + $dll),
         '下一步：',
         '1. 打开 WorkProof 桌面程序（开始菜单里的 WorkProof，或安装目录里的 workproof-desktop.exe）。',
         '2. 保存 Word 文档后重新打开 Word；功能区会多出“WorkProof”选项卡。',

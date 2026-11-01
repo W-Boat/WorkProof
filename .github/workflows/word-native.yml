@@ -2,6 +2,7 @@ name: Native Word add-in and matching Windows collector
 on:
   push:
     paths:
+      - 'apps/word-native-cpp/**'
       - 'apps/word-native/**'
       - 'apps/desktop/**'
       - 'apps/verifier/**'
@@ -19,7 +20,8 @@ on:
 permissions:
   contents: read
 jobs:
-  native-word:
+  # Native in-proc COM add-in: no CLR, no Office.js sideload, no local HTTPS.
+  native-addin:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -30,7 +32,9 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: microsoft/setup-msbuild@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
       - run: npm ci
       - name: Build the offline verifier and the VS Code extension for the same desktop
         run: |
@@ -50,14 +54,12 @@ jobs:
         run: cargo build --locked --release -p workproof-engine --bin workproof-engine
       - name: Native fingerprint matches the published BLAKE3 vector
         run: python scripts/test_native_fingerprint.py target/release/workproof-engine.exe
+      - name: Build the native COM add-in and probe it without Word
+        shell: pwsh
+        run: ./apps/word-native-cpp/build.ps1 -OutDir apps/word-native-cpp/out
       - name: Build the desktop that accepts the native word grant
         working-directory: apps/desktop
         run: npx tauri build --no-bundle
-      - name: Build the Framework COM add-in without Office or NuGet
-        run: msbuild apps/word-native/WorkProof.WordNative.csproj /p:Configuration=Release /p:Platform=AnyCPU /p:RegisterForComInterop=false /verbosity:minimal
-      - name: Inspect the real COM type, ribbon markup and embedded picture
-        shell: pwsh
-        run: ./scripts/test_word_native_dll.ps1 -Assembly apps/word-native/bin/Release/WorkProof.WordNative.dll
       - name: Native word grant, session, export and isolation against the real collector
         run: |
           cargo build --locked -p workproof-engine --example native_adapter_harness
@@ -67,7 +69,7 @@ jobs:
         run: |
           $vsix = Get-ChildItem apps/extension/*.vsix | Select-Object -First 1
           ./scripts/stage_word_native.ps1 -Package "$env:RUNNER_TEMP/workproof-native-word" `
-            -AddIn apps/word-native/bin/Release/WorkProof.WordNative.dll `
+            -AddIn apps/word-native-cpp/out/WorkProofWord.dll `
             -Engine target/release/workproof-engine.exe `
             -Desktop target/release/workproof-desktop.exe `
             -Verifier apps/verifier/out `
@@ -94,10 +96,10 @@ jobs:
               $entry.Dispose()
               $inproc = $registry.OpenSubKey($fixture + '\Software\Classes\CLSID\' + $clsid + '\InprocServer32')
               if (-not $inproc) { throw 'InprocServer32 registration is missing' }
-              if ($inproc.GetValue('') -ne 'mscoree.dll') { throw 'InprocServer32 default value is not mscoree.dll' }
-              if ($inproc.GetValue('RuntimeVersion') -ne 'v4.0.30319') { throw 'RuntimeVersion is not v4.0.30319' }
-              if ([string]$inproc.GetValue('Assembly') -notlike 'WorkProof.WordNative,*') { throw 'Assembly value does not name the add-in' }
-              if (-not ([string]$inproc.GetValue('CodeBase')).StartsWith('file:///')) { throw 'CodeBase is not a file URL' }
+              $server = [string]$inproc.GetValue('')
+              if (-not $server.EndsWith('WorkProofWord.dll')) { throw "InprocServer32 does not point at the native add-in: $server" }
+              if ($inproc.GetValue('ThreadingModel') -ne 'Apartment') { throw 'ThreadingModel is not Apartment' }
+              if ($null -ne $inproc.GetValue('Assembly')) { throw 'A native add-in must not register a managed Assembly value' }
               $inproc.Dispose()
             } finally { $registry.Dispose() }
             & ./scripts/local/install-native-word.ps1 -RuntimeRoot $package -RegistryFixture $fixture -Remove
@@ -107,7 +109,7 @@ jobs:
               if ($registry.OpenSubKey($fixture + '\Software\Classes\CLSID\' + $clsid)) { throw 'CLSID registration survived removal' }
               if ($registry.OpenSubKey($fixture + '\Software\Classes\WorkProof.WordNative.Connect')) { throw 'ProgId survived removal' }
             } finally { $registry.Dispose() }
-            Write-Output 'PASS: isolated registration install, inspection and removal'
+            Write-Output 'PASS: isolated install, inspection and removal of the native add-in'
           } finally {
             Remove-Item -LiteralPath ('HKCU:\' + $fixture) -Recurse -Force -ErrorAction SilentlyContinue
           }
@@ -119,3 +121,20 @@ jobs:
             dist/workproof-native-word-windows-dev.zip
             test-word-native-results.json
           if-no-files-found: error
+
+  # The earlier managed add-in stays in the repository and keeps its own probe, but it is not shipped.
+  managed-addin:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/setup-msbuild@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Build the Framework COM add-in without Office or NuGet
+        run: msbuild apps/word-native/WorkProof.WordNative.csproj /p:Configuration=Release /p:Platform=AnyCPU /p:RegisterForComInterop=false /verbosity:minimal
+      - name: Inspect the real COM type, ribbon markup and embedded picture
+        shell: pwsh
+        run: ./scripts/test_word_native_dll.ps1 -Assembly apps/word-native/bin/Release/WorkProof.WordNative.dll

@@ -28,7 +28,7 @@ function Copy-Optional([string]$Source, [string]$Destination) {
 New-Item -ItemType Directory -Force -Path $Package | Out-Null
 $Package = (Resolve-Path -LiteralPath $Package).Path
 
-Copy-Required $AddIn (Join-Path $Package 'WorkProof.WordNative.dll')
+Copy-Required $AddIn (Join-Path $Package (Split-Path -Leaf $AddIn))
 Copy-Required $Engine (Join-Path $Package 'workproof-engine.exe')
 if ($Desktop) { Copy-Required $Desktop (Join-Path $Package 'workproof-desktop.exe') }
 if ($Vsix) { Copy-Required $Vsix (Join-Path $Package 'workproof.vsix') }

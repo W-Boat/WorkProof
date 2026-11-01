@@ -1,0 +1,4 @@
+LIBRARY WorkProofWord
+EXPORTS
+    DllGetClassObject
+    DllCanUnloadNow
