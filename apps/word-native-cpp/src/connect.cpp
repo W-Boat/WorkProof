@@ -115,12 +115,10 @@ private:
     CRibbon* m_ribbon = nullptr;
 };
 
-CExtensibility::CExtensibility(CConnect* owner) : m_owner(owner) {
-    if (m_owner) m_owner->AddRef();
-}
-CExtensibility::~CExtensibility() {
-    if (m_owner) m_owner->Release();
-}
+// The add-in object owns both sub-interfaces and detaches them before it dies; a helper must not
+// take its own reference on the parent or the pair would never reach zero again.
+CExtensibility::CExtensibility(CConnect* owner) : m_owner(owner) {}
+CExtensibility::~CExtensibility() { m_owner = nullptr; }
 
 STDMETHODIMP CExtensibility::QueryInterface(REFIID iid, void** object) {
     if (!object) return E_POINTER;
