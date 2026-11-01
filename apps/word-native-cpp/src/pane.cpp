@@ -1,5 +1,6 @@
 #include "pane.h"
 #include "engine.h"
+#include "addin.h"
 #include <shlobj.h>
 #include <shellapi.h>
 #include <string>
@@ -139,7 +140,7 @@ void PaintState() {
 
 std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long inserted, long long deleted,
                       const std::string& checkpoint) {
-    char buffer[512];
+    wchar_t buffer[512];
     swprintf_s(buffer, L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":%lld,\"deleted\":%lld,"
                        L"\"chars\":%lld,\"checkpoint\":\"%S\",\"metrics\":{\"characters\":%lld,\"paragraphs\":%ld}}",
                g.sequence++, ElapsedMs(), kind, inserted, deleted, snapshot.characters, checkpoint.c_str(),
@@ -452,11 +453,11 @@ void Export() {
 void CreateControls(HWND window) {
     g.background = CreateSolidBrush(RGB(246, 248, 247));
     g.cardBrush = CreateSolidBrush(RGB(255, 255, 255));
-    g.titleFont = CreateFontW(-30, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+    g.titleFont = CreateFontW(-30, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
-    g.statusFont = CreateFontW(-21, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+    g.statusFont = CreateFontW(-21, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
-    g.bodyFont = CreateFontW(-18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+    g.bodyFont = CreateFontW(-18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                              CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
 
     auto create = [&](const wchar_t* type, const wchar_t* text, DWORD style, int x, int y, int width, int height) {
@@ -559,7 +560,7 @@ bool EnsureClass() {
     WNDCLASSEXW description = { sizeof(WNDCLASSEXW) };
     description.style = CS_HREDRAW | CS_VREDRAW;
     description.lpfnWndProc = PaneProc;
-    description.hInstance = GetModuleHandleW(nullptr);
+    description.hInstance = g_module ? g_module : GetModuleHandleW(nullptr);
     description.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     description.hbrBackground = nullptr;
     description.lpszClassName = kClassName;
