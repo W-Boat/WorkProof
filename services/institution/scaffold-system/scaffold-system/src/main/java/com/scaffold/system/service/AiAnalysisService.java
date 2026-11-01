@@ -18,6 +18,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 public class AiAnalysisService {
     public static final int MAX_BYTES=8*1024*1024;
+    private record Engine(String label,String language,String model,String revision){}
+    private static final Map<String,Engine> ENGINES=Map.of(
+        "mpu-zh-v3",new Engine("中文 MPU v3","zh","yuchuantian/AIGC_detector_zhv3","47695ff451b32c225dd938f4f478f7fdc6aa6bb0"),
+        "mpu-en-v3",new Engine("英文 MPU v3","en","yuchuantian/AIGC_detector_env3","3ceb1d1bb7b9ca11585ce3f4299950e1c465b6d8"));
     private final String python,script,models;
     private final boolean enabled;
     private final ObjectMapper mapper;
@@ -39,12 +43,11 @@ public class AiAnalysisService {
             &&s.getFileName().toString().equals("detector.py")&&m!=null&&Files.isRegularFile(m.resolve(engine).resolve("workproof-model.json"));
     }
     public Map<String,Object> capabilities(){return Map.of("maxBytes",MAX_BYTES,"maxConcurrent",1,"retentionMinutes",10,
-        "engines",List.of(Map.of("id","mpu-zh-v3","label","中文 MPU v3","configured",ready("mpu-zh-v3")),
-                          Map.of("id","mpu-en-v3","label","英文 MPU v3","configured",ready("mpu-en-v3"))),
+        "engines",List.of("mpu-zh-v3","mpu-en-v3").stream().map(id->{Engine e=ENGINES.get(id);return Map.of("id",id,"label",e.label(),"language",e.language(),"model",e.model(),"model_revision",e.revision(),"configured",ready(id));}).toList(),
         "message","仅作辅助参考。需要发送所选文档；分析后删除临时文件，不保存正文。模型准备状态不代表准确率或许可审查已完成。");}
     private void cleanExpired(){long cutoff=System.currentTimeMillis()-600000;jobs.entrySet().removeIf(e->e.getValue().finished&&e.getValue().created<cutoff);}
     public Map<String,Object> submit(long owner,String engine,String format,InputStream input)throws IOException{
-        if(!Set.of("mpu-zh-v3","mpu-en-v3").contains(engine)||!Set.of("docx","txt","md").contains(format))throw new BusinessException("请选择支持的模型和 DOCX、TXT 或 Markdown 文件。");
+        if(!ENGINES.containsKey(engine)||!Set.of("docx","txt","md").contains(format))throw new BusinessException("请选择支持的模型和 DOCX、TXT 或 Markdown 文件。");
         if(!ready(engine))throw new ServiceException(503,"所选模型尚未准备好，请联系管理员。");
         cleanExpired();if(jobs.size()>=16||!slot.tryAcquire())throw new ServiceException(429,"正在分析其他文档，请稍后重试。");
         Path file=null;
@@ -72,7 +75,7 @@ public class AiAnalysisService {
             try{
                 synchronized(this){
                     if(cancelled.get())return;
-                    ProcessBuilder command=new ProcessBuilder(python,script,"infer-file","--input-file",file.toString(),"--language",engine.equals("mpu-zh-v3")?"zh":"en","--engine",engine,"--model-dir",Path.of(models).resolve(engine).toString()).redirectError(ProcessBuilder.Redirect.DISCARD);
+                    ProcessBuilder command=new ProcessBuilder(python,script,"infer-file","--input-file",file.toString(),"--language",ENGINES.get(engine).language(),"--engine",engine,"--model-dir",Path.of(models).resolve(engine).toString()).redirectError(ProcessBuilder.Redirect.DISCARD);
                     command.environment().clear();command.environment().put("PATH","/usr/bin:/bin");
                     for(String key:List.of("SystemRoot","WINDIR")){String v=System.getenv(key);if(v!=null)command.environment().put(key,v);}
                     command.environment().put("HF_HUB_OFFLINE","1");command.environment().put("HF_HUB_DISABLE_TELEMETRY","1");
@@ -83,8 +86,11 @@ public class AiAnalysisService {
                 int exit=child.waitFor();JsonNode value=mapper.readTree(output);
                 if(exit!=0||!"workproof-ai-assessment/1".equals(value.path("protocol").asText())||!engine.equals(value.path("engine_id").asText())||value.path("network_used").asBoolean(true)
                     ||!hash.equals(value.path("artifact_hash").asText())||value.path("artifact_bytes").asInt(-1)!=bytes)throw new IOException("INVALID_REPORT");
+                Engine specification=ENGINES.get(engine);
+                if(!specification.model().equals(value.path("model").asText())||!specification.revision().equals(value.path("model_revision").asText()))throw new IOException("UNEXPECTED_MODEL_VERSION");
                 String result=value.path("status").asText();if(!Set.of("completed","unsupported","insufficient_input","not_configured").contains(result))throw new IOException("INVALID_STATUS");
                 ObjectNode safe=mapper.createObjectNode();safe.put("status",result);safe.put("artifact_hash",hash);safe.put("engine_id",engine);
+                safe.put("protocol","workproof-ai-assessment/1");safe.put("model",specification.model());safe.put("model_revision",specification.revision());safe.put("network_used",false);
                 safe.put("scope",file.toString().endsWith(".docx")?"仅主文档源文字；不代表排版后的可见全文":"仅所选 UTF-8 文字");
                 String reason=value.path("reason").asText();
                 safe.put("message",switch(reason){
@@ -95,6 +101,7 @@ public class AiAnalysisService {
                 });
                 if(result.equals("completed")){
                     if(!"uncalibrated_class_softmax".equals(value.path("score_kind").asText())||!value.path("calibration").isNull())throw new IOException("INVALID_SCORE_KIND");
+                    safe.put("score_kind","uncalibrated_class_softmax");safe.putNull("calibration");
                     List<String> labels=List.of("Human","AI");ObjectNode scores=safe.putObject("raw_scores");double sum=0;
                     for(String label:labels){JsonNode v=value.path("raw_scores").path(label);double number=v.asDouble(Double.NaN);if(!v.isNumber()||!Double.isFinite(number)||number<0||number>1)throw new IOException("INVALID_SCORE");scores.put(label,number);sum+=number;}
                     if(Math.abs(sum-1)>0.0001)throw new IOException("INVALID_SCORE_SUM");

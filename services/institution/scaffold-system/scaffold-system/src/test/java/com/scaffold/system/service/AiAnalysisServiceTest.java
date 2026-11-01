@@ -28,13 +28,19 @@ class AiAnalysisServiceTest{
     }
     @Test void validWhitelistedReportAndOwnerIsolation()throws Exception{
         byte[] data="sample".getBytes();String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
-        String output="{\"protocol\":\"workproof-ai-assessment/1\",\"engine_id\":\"mpu-zh-v3\",\"network_used\":false,\"artifact_hash\":\""+hash+"\",\"artifact_bytes\":6,\"status\":\"completed\",\"score_kind\":\"uncalibrated_class_softmax\",\"calibration\":null,\"raw_scores\":{\"Human\":0.4,\"AI\":0.6},\"text\":\"MUST_NOT_RETURN\"}";
+        String output="{\"protocol\":\"workproof-ai-assessment/1\",\"engine_id\":\"mpu-zh-v3\",\"model\":\"yuchuantian/AIGC_detector_zhv3\",\"model_revision\":\"47695ff451b32c225dd938f4f478f7fdc6aa6bb0\",\"network_used\":false,\"artifact_hash\":\""+hash+"\",\"artifact_bytes\":6,\"status\":\"completed\",\"score_kind\":\"uncalibrated_class_softmax\",\"calibration\":null,\"raw_scores\":{\"Human\":0.4,\"AI\":0.6},\"text\":\"MUST_NOT_RETURN\"}";
         var service=service("printf '%s' '"+output+"'\n");
         try{String id=(String)service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(data)).get("id");assertEquals(404,assertThrows(BusinessException.class,()->service.status(2,id)).code());assertEquals("done",done(service,id).get("state"));assertFalse(new ObjectMapper().writeValueAsString(service.status(1,id)).contains("MUST_NOT_RETURN"));}finally{service.close();}
     }
     @Test void cancellationStopsJobAndReleasesCapacity()throws Exception{
         var service=service("exec sleep 30\n");
         try{String id=(String)service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0])).get("id");assertEquals(429,assertThrows(ServiceException.class,()->service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0]))).code());service.cancel(1,id);assertEquals("cancelled",done(service,id).get("state"));String second=(String)service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0])).get("id");service.cancel(1,second);assertEquals("cancelled",done(service,second).get("state"));}finally{service.close();}
+    }
+    @Test void unexpectedModelRevisionDoesNotPublishReport()throws Exception{
+        byte[] data="sample".getBytes();String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
+        var value=new ObjectMapper().createObjectNode();value.put("protocol","workproof-ai-assessment/1");value.put("engine_id","mpu-zh-v3");value.put("network_used",false);value.put("artifact_hash",hash);value.put("artifact_bytes",data.length);value.put("status","insufficient_input");value.put("model","yuchuantian/AIGC_detector_zhv3");value.put("model_revision","wrong");
+        var service=service("printf '%s' '"+value+"'\n");
+        try{String id=(String)service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(data)).get("id");var result=done(service,id);assertEquals("failed",result.get("state"));assertFalse(result.containsKey("report"));}finally{service.close();}
     }
     @Test @EnabledIfEnvironmentVariable(named="WORKPROOF_REAL_AI_ENGINE",matches=".+")
     void realConfiguredPythonModelRoundTrip()throws Exception{
