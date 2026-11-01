@@ -44,6 +44,16 @@ if (-not $SkipProbe) {
     if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_addin.cpp' }
     & $probe $dll
     if ($LASTEXITCODE -ne 0) { throw 'the COM probe rejected the built add-in' }
+    $bindingProbe = Join-Path $OutDir 'test_document_binding.exe'
+    & cl @common (Join-Path $source 'test_document_binding.cpp') "/Fo$probeDir\" "/Fe$bindingProbe" @libraries
+    if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_document_binding.cpp' }
+    & $bindingProbe
+    if ($LASTEXITCODE -ne 0) { throw 'document binding guards failed' }
+    $snapshotProbe = Join-Path $OutDir 'test_snapshot.exe'
+    & cl @common (Join-Path $source 'test_snapshot.cpp') "/Fo$probeDir\" "/Fe$snapshotProbe" @libraries
+    if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_snapshot.cpp' }
+    & $snapshotProbe
+    if ($LASTEXITCODE -ne 0) { throw 'document snapshot guards failed' }
     $processProbe = Join-Path $OutDir 'test_process.exe'
     & cl @common (Join-Path $source 'test_process.cpp') "/Fo$probeDir\" "/Fe$processProbe"
     if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_process.cpp' }

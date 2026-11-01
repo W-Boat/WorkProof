@@ -49,6 +49,7 @@ struct State {
     HBRUSH cardBrush = nullptr;
     std::wstring token;
     std::wstring session;
+    std::string pendingEvent;
     std::wstring identity;
     std::wstring documentName;
     long long sequence = 0;
@@ -151,7 +152,7 @@ std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long i
     wchar_t buffer[512];
     swprintf_s(buffer, L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":%lld,\"deleted\":%lld,"
                        L"\"chars\":%lld,\"checkpoint\":\"%S\",\"metrics\":{\"characters\":%lld,\"paragraphs\":%ld}}",
-               g.sequence++, ElapsedMs(), kind, inserted, deleted, snapshot.characters, checkpoint.c_str(),
+               g.sequence, ElapsedMs(), kind, inserted, deleted, snapshot.characters, checkpoint.c_str(),
                snapshot.characters, snapshot.paragraphs);
     // The buffer above is assembled with wide characters only so numbers stay locale independent.
     std::wstring wide(buffer);
@@ -177,13 +178,19 @@ bool Call(const std::wstring& method, const std::wstring& path, const std::strin
     return true;
 }
 
+bool FlushPending(std::wstring& error){
+    if(g.pendingEvent.empty())return true;
+    std::string response;
+    if(!Call(L"POST",L"/v1/sessions/"+g.session+L"/events",g.pendingEvent,true,response,error))return false;
+    // Keep identical bytes until acknowledged: the collector accepts exact retries
+    // even if the prior response was lost after committing the event.
+    g.pendingEvent.clear();++g.sequence;PaintState();return true;
+}
 bool SendEvent(const char* kind, const DocSnapshot& snapshot, long long inserted, long long deleted,
                const std::string& checkpoint, std::wstring& error) {
-    std::string body = "{\"events\":[" + EventJson(kind, snapshot, inserted, deleted, checkpoint) + "]}";
-    std::string response;
-    if (!Call(L"POST", L"/v1/sessions/" + g.session + L"/events", body, true, response, error)) return false;
-    PaintState();
-    return true;
+    if(!FlushPending(error))return false;
+    g.pendingEvent="{\"events\":["+EventJson(kind,snapshot,inserted,deleted,checkpoint)+"]}";
+    return FlushPending(error);
 }
 
 void PairingThread(HWND target,unsigned long long generation) {
@@ -341,7 +348,12 @@ void TogglePause() {
         SetStatus(L"已暂停本机采样，正在保存已有操作。");
         PaintState();
         DocSnapshot snapshot;
-        if (ReadDocument(g.word, snapshot, error)) SendEvent("pause", snapshot, 0, 0, std::string(), error);
+        if (!ReadDocument(g.word, snapshot, error)) { SetStatus(error);PaintState();return; }
+        if(snapshot.identity!=g.identity){
+            SetStatus(L"已暂停。当前是另一份文档，没有把它的内容计入记录。请切回原文档后继续。");
+            PaintState();return;
+        }
+        if(!SendEvent("pause",snapshot,0,0,std::string(),error)){SetStatus(error);PaintState();return;}
         SetStatus(L"已暂停。继续记录时会标明未记录的时间。");
         PaintState();
         return;

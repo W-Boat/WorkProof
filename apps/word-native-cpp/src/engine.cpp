@@ -165,27 +165,36 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
     VariantClear(&nameValue);
     VariantClear(&fullValue);
 
-    VARIANT content={};
-    VARIANT endValue={};
+    Variant contentOwner, endOwner;
+    VARIANT& content=contentOwner.value;
+    VARIANT& endValue=endOwner.value;
     if (SUCCEEDED(GetProperty(doc, L"Content", &content)) && content.vt == VT_DISPATCH && content.pdispVal &&
         SUCCEEDED(GetProperty(content.pdispVal, L"End", &endValue)) && (endValue.vt == VT_I4 || endValue.vt == VT_I2)) {
         snapshot.characters = (endValue.vt == VT_I4) ? endValue.lVal : endValue.iVal;
     } else {
-        snapshot.characters = 0;
+        error = L"暂时读不到文档字符数量，已停止本次采样。请关闭 Word 中的对话框后重试。";
+        return false;
     }
     VariantClear(&endValue);
     VariantClear(&content);
 
-    VARIANT paragraphs, countValue;
-    VariantInit(&paragraphs); VariantInit(&countValue);
+    Variant paragraphsOwner, countOwner;
+    VARIANT& paragraphs=paragraphsOwner.value;
+    VARIANT& countValue=countOwner.value;
     if (SUCCEEDED(GetProperty(doc, L"Paragraphs", &paragraphs)) && paragraphs.vt == VT_DISPATCH && paragraphs.pdispVal &&
         SUCCEEDED(GetProperty(paragraphs.pdispVal, L"Count", &countValue)) && (countValue.vt == VT_I4 || countValue.vt == VT_I2)) {
         snapshot.paragraphs = (countValue.vt == VT_I4) ? countValue.lVal : countValue.iVal;
     } else {
-        snapshot.paragraphs = 0;
+        error = L"暂时读不到文档段落数量，已停止本次采样。请关闭 Word 中的对话框后重试。";
+        return false;
     }
     VariantClear(&countValue);
     VariantClear(&paragraphs);
+
+    if(snapshot.characters < 0 || snapshot.paragraphs < 0) {
+        error = L"Word 返回的文档数量无效，已停止本次采样。请重新打开文档后重试。";
+        return false;
+    }
 
     VariantInit(&readOnlyValue);
     VariantInit(&savedValue);
