@@ -59,7 +59,7 @@ class CConnect;
 
 class CExtensibility : public IDispatch {
 public:
-    explicit CExtensibility(CConnect* owner) : m_owner(owner) { if (m_owner) m_owner->AddRef(); }
+    explicit CExtensibility(CConnect* owner);
     ~CExtensibility();
 
     STDMETHODIMP QueryInterface(REFIID iid, void** object) override;
@@ -89,7 +89,7 @@ private:
 
 class CRibbon : public IRibbonExtensibility {
 public:
-    explicit CRibbon(CConnect* owner) : m_owner(owner) { if (m_owner) m_owner->AddRef(); }
+    explicit CRibbon(CConnect* owner);
     ~CRibbon();
 
     STDMETHODIMP QueryInterface(REFIID iid, void** object) override;
@@ -148,6 +148,10 @@ private:
 };
 
 // ------------------------------------------------------------------ extensibility
+
+CExtensibility::CExtensibility(CConnect* owner) : m_owner(owner) {
+    if (m_owner) m_owner->AddRef();
+}
 
 CExtensibility::~CExtensibility() {
     if (m_owner) { m_owner->ForgetExtensibility(); m_owner->Release(); }
@@ -231,6 +235,10 @@ HRESULT __stdcall CExtensibility::OnBeginShutdown(SAFEARRAY** custom) {
 }
 
 // ------------------------------------------------------------------------ ribbon
+
+CRibbon::CRibbon(CConnect* owner) : m_owner(owner) {
+    if (m_owner) m_owner->AddRef();
+}
 
 CRibbon::~CRibbon() {
     if (m_owner) { m_owner->ForgetRibbon(); m_owner->Release(); }
