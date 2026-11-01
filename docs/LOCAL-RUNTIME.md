@@ -2,7 +2,7 @@
 
 本机入口：[http://127.0.0.1:18081/login](http://127.0.0.1:18081/login)。这是机构后台，不是桌面记录引擎；本地记录引擎的端口仍为 43127，停止机构后台不会停止记录。
 
-2026-11-01 最新本机资源：机构 JAR 为 `bcbaa4f`，内含简明 Word/WPS 面板、重复点击保护和授权失效恢复，原账号已复核；独立核验入口 [http://127.0.0.1:4173/](http://127.0.0.1:4173/) 使用 `E:/work/workproof-browser-c5a830a` 的预构建 CLI 和静态资源，其进程记录与日志均在该目录。`c5a830a` 与 `bcbaa4f` 的产品代码相同，仅修正一条界面测试断言。旧的 `15f7342` 静态服务已停止。桌面新安装包尚未执行，当前未启动 43127 采集器；localhost Root 信任仍未变更。
+2026-11-01 最新本机资源：机构 JAR 来自 `7d3ed37` 的成功 Actions，增加简明证书检查弹窗、共享 Rust 内容预检、权限与隐私审计；Windows 检查工具来自 `3bc7511` 的成功构建，放在运行目录 `native/workproof-inspector.exe`。原账号文件保持不变，已复核登录、登出、真实内容检查和修改后拒绝。独立核验入口 [http://127.0.0.1:4173/](http://127.0.0.1:4173/) 使用 `E:/work/workproof-browser-3bc7511` 的预构建 CLI 和静态资源，其进程记录与日志均在该目录；旧 `c5a830a` 静态服务已停止。桌面新安装包尚未执行，当前未启动 43127 采集器；localhost Root 信任仍未变更。
 
 ## 运行方式
 
@@ -43,6 +43,7 @@ java/bin/java.exe               # 可选，优先于系统 Java
 powershell/pwsh.exe             # 可选，优先于系统 PowerShell 7
 sql/V1__init_schema.sql
 sql/V2__seed_data.sql
+native/workproof-inspector.exe  # 可选，机构证书内容检查工具
 scripts/local/
 state/                         # 当前用户私有账号、进程记录、启动锁
 mysql-data/                    # 保留的本地数据，停止时不删除

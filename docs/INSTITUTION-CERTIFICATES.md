@@ -52,4 +52,4 @@ Java 使用受控进程参数而非 shell，不向子进程继承数据库密码
 
 复用 `@OperLog`，新增可复用 `recordParams=false` 开关。此接口只记录谁、何时、执行了哪项操作及操作是否完成，不复制证书字段或正文到操作日志；操作完成不等于证书一致。业务索引的入库和复核结论需要后续单独记录。
 
-Actions 将运行：Rust 内容预检/旧版/部分证据/篡改/大小边界；Java 误配置、结果契约、大小与超时；真实 JAR/MySQL/原生 Rust 链路、低权限拒绝、无证书内容审计；真实 Vue 弹窗的同意发送、原字节、部分范围、错误状态与手机布局。MySQL 技能当前不可用，测试只使用原已知 SQL 初始化的隔离 `workproof_ci`，不操作用户现有库。以最终 Actions 为准，当前尚未验收。
+已通过 [完整验证 41274280942](https://github.com/W-Boat/WorkProof/actions/runs/41274280942) 与 [机构验证 41274810400](https://github.com/W-Boat/WorkProof/actions/runs/41274810400)：Rust 内容预检/旧版/部分证据/篡改/大小边界；Java 误配置、结果契约、大小与超时；真实 JAR/MySQL/原生 Rust 链路、低权限拒绝、无证书内容审计；真实 Vue 弹窗的鼠标/键盘同意发送、原 Blob 摘要与长度、部分范围、错误状态与手机布局。MySQL 技能当前不可用，测试只使用原已知 SQL 初始化的隔离 `workproof_ci`，不操作用户现有库。
