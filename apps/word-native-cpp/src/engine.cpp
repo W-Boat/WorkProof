@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "addin.h"
 #include <winhttp.h>
 #include <cstdlib>
 #include <vector>
