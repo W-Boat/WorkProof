@@ -1,4 +1,4 @@
-//! Optional offline C2PA PNG packaging, separate from the lightweight recording engine.
+//! Optional offline C2PA asset packaging, separate from the lightweight recording engine.
 use std::{env,fs::{File,OpenOptions},io::{Cursor,Read,Write},path::Path,process::ExitCode};
 use c2pa::{Builder,Context,Reader,SigningAlg,validation_results::ValidationState};
 use serde::{Deserialize,Serialize};
@@ -6,6 +6,7 @@ use serde_json::json;
 use workproof_protocol::{Evidence,Report,digest,verify_evidence};
 use zeroize::Zeroizing;
 mod jpeg;
+mod pdf;
 
 type Result<T> = std::result::Result<T,Box<dyn std::error::Error>>;
 // Keep the assertion base label unversioned; the SDK normalizes .vN suffixes.
@@ -16,15 +17,17 @@ const PROOF_LIMIT:usize=8*1024*1024;
 fn format(data:&[u8])->Result<(&'static str,&'static str)>{
     if data.starts_with(PNG){Ok(("image/png","png-remove-cabx-v1"))}
     else if data.starts_with(&[0xff,0xd8]){Ok(("image/jpeg","jpeg-remove-c2pa-app11-v1"))}
+    else if data.starts_with(b"%PDF-"){Ok(("application/pdf","pdf-strict-incremental-v1"))}
     else{Err("UNSUPPORTED_IMAGE_FORMAT".into())}
 }
 fn original_image(data:&[u8])->Result<(Vec<u8>,usize)>{
-    match format(data)?.0{"image/png"=>original_png(data),_=>jpeg::original_jpeg(data)}
+    match format(data)?.0{"image/png"=>original_png(data),"image/jpeg"=>jpeg::original_jpeg(data),_=>Err("PDF_REQUIRES_SIGNED_ORIGINAL_LENGTH".into())}
 }
 
 #[derive(Serialize,Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Binding{schema:String,normalization:String,certificate_json:String}
+struct Binding{schema:String,normalization:String,certificate_json:String,
+    #[serde(default,skip_serializing_if="Option::is_none")] original_length:Option<u64>}
 
 fn read(path:&str,limit:usize)->Result<Vec<u8>>{
     let file=File::open(path)?;
@@ -80,8 +83,11 @@ fn proof_report(certificate:&str,original:&[u8])->Result<Report>{
 
 fn inspect(data:&[u8],roots:Option<&str>)->Result<(Report,bool)>{
     let (mime,normalization)=format(data)?;
-    let (original,count)=original_image(data)?;
-    if count==0{return Err("C2PA_MANIFEST_REQUIRED".into());}
+    if mime=="application/pdf"{pdf::preflight(data)?;}
+    let image_original=if mime!="application/pdf"{
+        let (original,count)=original_image(data)?;
+        if count==0{return Err("C2PA_MANIFEST_REQUIRED".into());}Some(original)
+    }else{None};
     let reader=Reader::from_context(context(roots)?).with_stream(mime,Cursor::new(data))
         .map_err(|_|"C2PA_READ_FAILED")?;
     let state=reader.validation_state();
@@ -99,41 +105,65 @@ fn inspect(data:&[u8],roots:Option<&str>)->Result<(Report,bool)>{
     let assertions:Vec<_>=manifest.assertions().iter().filter(|a|a.label()==LABEL).collect();
     if assertions.len()!=1{return Err("EXACTLY_ONE_WORKPROOF_ASSERTION_REQUIRED".into());}
     let binding:Binding=assertions[0].to_assertion().map_err(|_|"INVALID_WORKPROOF_ASSERTION")?;
-    if binding.schema!="workproof-c2pa/1"||binding.normalization!=normalization{return Err("UNSUPPORTED_WORKPROOF_BINDING".into());}
+    if binding.normalization!=normalization{return Err("UNSUPPORTED_WORKPROOF_BINDING".into());}
+    let original=if mime=="application/pdf"{
+        if binding.schema!="workproof-c2pa/2"{return Err("UNSUPPORTED_WORKPROOF_BINDING".into());}
+        pdf::original(data,binding.original_length.ok_or("PDF_ORIGINAL_LENGTH_REQUIRED")?)?
+    }else{
+        if binding.schema!="workproof-c2pa/1"||binding.original_length.is_some(){return Err("UNSUPPORTED_WORKPROOF_BINDING".into());}
+        image_original.ok_or("ORIGINAL_IMAGE_REQUIRED")?
+    };
     Ok((proof_report(&binding.certificate_json,&original)?,trusted))
 }
 
 fn output(report:Report,trusted:bool,mime:&str){
     println!("{}",json!({"protocol":"workproof-c2pa-report/1","c2pa_integrity_valid":true,"c2pa_trusted":trusted,
         "trust_policy":if trusted{"explicit-ca-file"}else{"not-verified"},"original_png_checked":mime=="image/png",
-        "original_jpeg_checked":mime=="image/jpeg","original_asset_checked":true,"media_type":mime,
+        "original_jpeg_checked":mime=="image/jpeg","original_pdf_checked":mime=="application/pdf","original_asset_checked":true,"media_type":mime,
         "workproof":report,"identity_verified":false,"creation_time_verified":false,"revocation_checked":false,"network_used":false}));
 }
 
 fn embed(args:&[String])->Result<()>{
-    if args.len()!=7||args[6]!="--allow-public-process"{return Err("Usage: workproof-c2pa embed ORIGINAL.png|jpg CERTIFICATE.wproof CHAIN.pem KEY.pem OUTPUT.png|jpg --allow-public-process".into());}
+    if args.len()!=7||args[6]!="--allow-public-process"{return Err("Usage: workproof-c2pa embed ORIGINAL.png|jpg|pdf CERTIFICATE.wproof CHAIN.pem KEY.pem OUTPUT.png|jpg|pdf --allow-public-process".into());}
     if Path::new(&args[5]).exists(){return Err("OUTPUT_ALREADY_EXISTS".into());}
     let original=read(&args[1],64*1024*1024)?;
     let (mime,normalization)=format(&original)?;
-    if original_image(&original)?.1!=0{return Err("SOURCE_ALREADY_HAS_C2PA_UNSUPPORTED".into());}
+    if mime!="application/pdf" && original_image(&original)?.1!=0{return Err("SOURCE_ALREADY_HAS_C2PA_UNSUPPORTED".into());}
+    if mime=="application/pdf" {pdf::append(&original,b"preflight")?;}
     let certificate=String::from_utf8(read(&args[2],PROOF_LIMIT)?)?;
     proof_report(&certificate,&original)?;
     let certs=read(&args[3],256*1024)?;
     let key=Zeroizing::new(read(&args[4],64*1024)?);
     let signer=c2pa::create_signer::from_keys(&certs,&key,SigningAlg::Es256,None).map_err(|_|"C2PA_SIGNER_FAILED")?;
-    let mut builder=Builder::from_context(context(None)?).with_definition(json!({
-        "title":"WorkProof image package","format":mime,
+    let builder_context=if mime=="application/pdf"{
+        context(None)?.with_signer(c2pa::create_signer::from_keys(&certs,&key,SigningAlg::Es256,None).map_err(|_|"C2PA_SIGNER_FAILED")?)
+    }else{context(None)?};
+    let mut builder=Builder::from_context(builder_context).with_definition(json!({
+        "title":"WorkProof asset package","format":mime,
         "claim_generator_info":[{"name":"WorkProof","version":env!("CARGO_PKG_VERSION")}]
     }).to_string()).map_err(|_|"C2PA_BUILDER_FAILED")?;
-    builder.add_assertion(LABEL,&Binding{schema:"workproof-c2pa/1".into(),normalization:normalization.into(),certificate_json:certificate})
+    builder.add_assertion(LABEL,&Binding{schema:if mime=="application/pdf"{"workproof-c2pa/2"}else{"workproof-c2pa/1"}.into(),normalization:normalization.into(),certificate_json:certificate,
+        original_length:if mime=="application/pdf"{Some(original.len() as u64)}else{None}})
         .map_err(|_|"C2PA_ASSERTION_FAILED")?;
-    builder.add_ingredient_from_stream(json!({"title":"Original image","relationship":"parentOf","label":"workproof_source"}).to_string(),mime,&mut Cursor::new(&original))
+    builder.add_ingredient_from_stream(json!({"title":"Original asset","relationship":"parentOf","label":"workproof_source"}).to_string(),mime,&mut Cursor::new(&original))
         .map_err(|_|"C2PA_INGREDIENT_FAILED")?;
     builder.add_action(json!({"action":"c2pa.opened","parameters":{"ingredientIds":["workproof_source"]}})).map_err(|_|"C2PA_ACTION_FAILED")?;
-    let mut destination=Cursor::new(Vec::new());
-    builder.sign(signer.as_ref(),mime,&mut Cursor::new(&original),&mut destination).map_err(|_|"C2PA_SIGN_FAILED")?;
-    let signed=destination.into_inner();
-    if original_image(&signed)?.0!=original{return Err("SDK_CHANGED_ORIGINAL_IMAGE_BYTES".into());}
+    let signed=if mime=="application/pdf"{
+        let placeholder=builder.placeholder(mime).map_err(|_|"PDF_PLACEHOLDER_FAILED")?;
+        let mut package=pdf::append(&original,&placeholder)?;
+        builder.set_data_hash_exclusions(vec![c2pa::HashRange::new(package.manifest_start as u64,package.manifest_len as u64)])?;
+        builder.update_hash_from_stream(mime,&mut Cursor::new(&package.bytes))?;
+        let manifest=builder.sign_embeddable(mime).map_err(|_|"PDF_SIGN_FAILED")?;
+        if manifest.len()!=package.manifest_len{return Err("PDF_MANIFEST_SIZE_CHANGED".into());}
+        package.bytes[package.manifest_start..package.manifest_start+manifest.len()].copy_from_slice(&manifest);
+        if pdf::original(&package.bytes,original.len() as u64)?!=original{return Err("PDF_SOURCE_BYTES_CHANGED".into());}
+        package.bytes
+    }else{
+        let mut destination=Cursor::new(Vec::new());
+        builder.sign(signer.as_ref(),mime,&mut Cursor::new(&original),&mut destination).map_err(|_|"C2PA_SIGN_FAILED")?;
+        let signed=destination.into_inner();
+        if original_image(&signed)?.0!=original{return Err("SDK_CHANGED_ORIGINAL_IMAGE_BYTES".into());}signed
+    };
     let (report,_)=inspect(&signed,None)?;
     // Create only after all validations, and never overwrite an existing file or symlink.
     let mut file=OpenOptions::new().write(true).create_new(true).open(&args[5])?;
@@ -149,7 +179,7 @@ fn execute()->Result<()>{
             let roots=String::from_utf8(read(&args[2],256*1024)?)?;
             let (report,trusted)=inspect(&signed,Some(&roots))?;output(report,trusted,format(&signed)?.0);Ok(())
         },
-        _=>Err("Usage: workproof-c2pa embed ... | verify SIGNED.png|jpg TRUSTED-ROOTS.pem".into()),
+        _=>Err("Usage: workproof-c2pa embed ... | verify SIGNED.png|jpg|pdf TRUSTED-ROOTS.pem".into()),
     }
 }
 fn main()->ExitCode{
