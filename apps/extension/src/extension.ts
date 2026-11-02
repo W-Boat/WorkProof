@@ -10,6 +10,7 @@ type Pair = {port:number;token:string};
 let ctx:vscode.ExtensionContext, session:Session|undefined, pair:Pair|undefined;
 let baseline=performance.now(), elapsedBase=0, sending:Promise<void>|undefined, timer:ReturnType<typeof setInterval>;
 let status:vscode.StatusBarItem, fault='';
+let actionBusy=false;
 const hex=(b:Uint8Array)=>Buffer.from(b).toString('hex');
 const elapsed=()=>Math.floor(elapsedBase+performance.now()-baseline);
 function paint(){if(!status)return;status.text=session?`$(shield) WorkProof · ${fault?'连接中断':session.paused?'已暂停':'记录中'}`:'$(shield) WorkProof';status.tooltip=fault||'点击选择记录操作；不保存文本内容';status.show();}
@@ -38,7 +39,11 @@ async function flush(){
   sending=(async()=>{while(session&&session.pending.length){const current=session;const batch=current.pending.slice(0,128);await api(`/v1/sessions/${current.id}/events`,{events:batch});if(session!==current)return;current.pending.splice(0,batch.length);await persist();}fault='';paint();})();
   try{await sending;}catch(error){fault=String(error);paint();throw error;}finally{sending=undefined;}
 }
-async function safe(action:()=>Promise<unknown>){try{await action();}catch(e){void vscode.window.showErrorMessage(`WorkProof: ${e instanceof Error?e.message:String(e)}`);}}
+async function safe(action:()=>Promise<unknown>){
+  if(actionBusy){void vscode.window.showInformationMessage('上一步还在处理，请稍后再试。');return;}
+  actionBusy=true;
+  try{await action();}catch(e){void vscode.window.showErrorMessage(`WorkProof: ${e instanceof Error?e.message:String(e)}`);}finally{actionBusy=false;}
+}
 async function pairEngine(){
   const defaultFile=path.join(dataDirectory(),'connection.json');
   let file=defaultFile;
@@ -63,13 +68,17 @@ async function toggle(){if(!session)throw new Error('没有正在记录的文件
 async function exportProof(){
   if(!session)throw new Error('没有正在记录的文件。');
   const current=session;const doc=await vscode.workspace.openTextDocument(vscode.Uri.parse(current.uri));
-  if(current.paused)throw new Error('请先继续记录，再保存并导出；暂停期间将标注缺口。');
   if(!await doc.save())throw new Error('文件未保存。');
   const version=doc.version;
   const bytes=await fs.readFile(doc.uri.fsPath);
   if(doc.isDirty||doc.version!==version)throw new Error('文件在读取期间发生变化，请重试。');
   const fingerprint=hex(blake3(bytes));
-  current.chars=doc.getText().length;enqueue('save',0,0,fingerprint);await persist();await flush();
+  // Exporting while paused is an explicit snapshot, not a resumption of collection.
+  // Reserve room for both the disclosed gap and the final byte-bound checkpoint.
+  if(current.pending.length>(current.paused?2046:2047))throw new Error('还有操作尚未保存，请恢复本机服务后重试导出。');
+  current.chars=doc.getText().length;
+  if(current.paused)enqueue('gap');
+  enqueue('save',0,0,fingerprint);await persist();await flush();
   if(doc.isDirty||doc.version!==version||session!==current)throw new Error('导出期间有新的编辑，请重试。');
   const proof=await api(`/v1/sessions/${current.id}/export`,{artifact_hash:fingerprint,artifact_bytes:bytes.length});
   const second=await fs.readFile(doc.uri.fsPath);
