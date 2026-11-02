@@ -30,12 +30,17 @@ jobs:
             . -> target
             tools/c2pa -> target
             tools/c2pa-wasm -> target
+      - uses: ./.github/actions/wasm-bindgen-cli
+        id: embedded-bindgen
+        with:
+          version: '0.2.130'
       - name: Build locked native signer and browser verifier
+        env:
+          BINDGEN_BINARY: ${{ steps.embedded-bindgen.outputs.binary }}
         run: |
           cargo build --release --locked --manifest-path tools/c2pa/Cargo.toml --bins --examples
           cargo build --release --locked --target wasm32-unknown-unknown --manifest-path tools/c2pa-wasm/Cargo.toml
-          cargo install wasm-bindgen-cli --version 0.2.130 --locked
-          wasm-bindgen tools/c2pa-wasm/target/wasm32-unknown-unknown/release/workproof_c2pa_wasm.wasm --target web --out-dir tools/c2pa-wasm/pkg
+          "$BINDGEN_BINARY" tools/c2pa-wasm/target/wasm32-unknown-unknown/release/workproof_c2pa_wasm.wasm --target web --out-dir tools/c2pa-wasm/pkg
       - name: Generate fresh allowlisted public fixtures with actual signatures
         run: |
           python -m pip install Pillow==12.0.0 pypdf==6.1.3
