@@ -11,6 +11,8 @@ param(
     [Parameter(Mandatory = $true)][string]$Engine,
     [string]$Desktop,
     [string]$PowerPointAddIn,
+    [string]$AddInX86,
+    [string]$PowerPointAddInX86,
     [string]$Verifier,
     [string]$Vsix,
     [string]$Docs,
@@ -33,6 +35,9 @@ $Package = (Resolve-Path -LiteralPath $Package).Path
 
 Copy-Required $AddIn (Join-Path $Package (Split-Path -Leaf $AddIn))
 Copy-Required $Engine (Join-Path $Package 'workproof-engine.exe')
+Copy-Required (Join-Path $PSScriptRoot 'local/native-office-platform.ps1') (Join-Path $Package 'native-office-platform.ps1')
+if ($AddInX86) { Copy-Required $AddInX86 (Join-Path $Package 'WorkProofWord.x86.dll') }
+if ($PowerPointAddInX86) { Copy-Required $PowerPointAddInX86 (Join-Path $Package 'WorkProofPowerPoint.x86.dll') }
 if ($PowerPointAddIn) {
     Copy-Required $PowerPointAddIn (Join-Path $Package 'WorkProofPowerPoint.dll')
     Copy-Required (Join-Path $PSScriptRoot 'local/install-native-powerpoint.ps1') (Join-Path $Package 'install-native-powerpoint.ps1')
@@ -70,6 +75,9 @@ $provenance = [ordered]@{
     build_run = $env:GITHUB_RUN_ID
     repository = $env:GITHUB_REPOSITORY
     notices = $(if ($Notices) { 'third-party-notices/inventory.json' } else { $null })
+    windows_os = 'x64'
+    word_dll_architectures = $(if ($AddInX86) { @('x86','x64') } else { @('x64') })
+    powerpoint_dll_architectures = $(if ($PowerPointAddInX86) { @('x86','x64') } elseif ($PowerPointAddIn) { @('x64') } else { @() })
 }
 [IO.File]::WriteAllText((Join-Path $Package 'BUILD-INFO.json'), ($provenance | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'local/install-native-word.ps1') -Destination $Package -Force

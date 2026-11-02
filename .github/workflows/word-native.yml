@@ -13,6 +13,7 @@ on:
       - 'scripts/local/open-native-word.ps1'
       - 'scripts/local/open-native-powerpoint.ps1'
       - 'scripts/local/install-native-powerpoint.ps1'
+      - 'scripts/local/native-office-platform.ps1'
       - 'scripts/local/*.cmd'
       - 'scripts/stage_word_native.ps1'
       - 'scripts/verify_package_zip.py'
@@ -29,6 +30,7 @@ on:
       - 'scripts/test_native_fingerprint.py'
       - 'scripts/test_word_native.cjs'
       - 'scripts/test_word_native_dll.ps1'
+      - 'scripts/test_office_bitness.ps1'
       - 'docs/WORD-NATIVE.md'
       - '.github/workflows/word-native.yml'
       - '.github/actions/c2pa-resource/**'
@@ -42,12 +44,40 @@ on:
 permissions:
   contents: read
 jobs:
+  native-x86-adapters:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - name: Build and probe the real 32-bit Word add-in
+        shell: pwsh
+        run: ./apps/word-native-cpp/build.ps1 -Architecture x86 -OutDir apps/word-native-cpp/out-x86
+      - name: Build and probe the real 32-bit PowerPoint add-in
+        shell: pwsh
+        run: ./apps/word-native-cpp/build.ps1 -Architecture x86 -PowerPoint -OutDir apps/word-native-cpp/out-powerpoint-x86
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-office-x86-adapters
+          if-no-files-found: error
+          path: |
+            apps/word-native-cpp/out-x86/WorkProofWord.dll
+            apps/word-native-cpp/out-x86/test_addin.exe
+            apps/word-native-cpp/out-powerpoint-x86/WorkProofPowerPoint.dll
+            apps/word-native-cpp/out-powerpoint-x86/test_addin.exe
   # Native in-proc COM add-in: no CLR, no Office.js sideload, no local HTTPS.
   native-addin:
+    needs: native-x86-adapters
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-office-x86-adapters
+          path: .ci-office-x86
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -81,10 +111,10 @@ jobs:
         run: python scripts/test_native_fingerprint.py target/release/workproof-engine.exe
       - name: Build the native COM add-in and probe it without Word
         shell: pwsh
-        run: ./apps/word-native-cpp/build.ps1 -OutDir apps/word-native-cpp/out
+        run: ./apps/word-native-cpp/build.ps1 -Architecture x64 -OutDir apps/word-native-cpp/out
       - name: Build native PowerPoint adapter
         shell: pwsh
-        run: ./apps/word-native-cpp/build.ps1 -PowerPoint -OutDir apps/word-native-cpp/out-powerpoint
+        run: ./apps/word-native-cpp/build.ps1 -Architecture x64 -PowerPoint -OutDir apps/word-native-cpp/out-powerpoint
       - name: Build the desktop that accepts the native word grant
         working-directory: apps/desktop
         run: npx tauri build --no-bundle
@@ -103,6 +133,8 @@ jobs:
           ./scripts/stage_word_native.ps1 -Package "$env:RUNNER_TEMP/workproof-native-word" `
             -AddIn apps/word-native-cpp/out/WorkProofWord.dll `
             -PowerPointAddIn apps/word-native-cpp/out-powerpoint/WorkProofPowerPoint.dll `
+            -AddInX86 .ci-office-x86/out-x86/WorkProofWord.dll `
+            -PowerPointAddInX86 .ci-office-x86/out-powerpoint-x86/WorkProofPowerPoint.dll `
             -Engine target/release/workproof-engine.exe `
             -Desktop target/release/workproof-desktop.exe `
             -Verifier apps/verifier/out `
@@ -111,6 +143,14 @@ jobs:
             -Notices .ci-word-notices `
             -C2pa apps/desktop/src-tauri/resources/c2pa `
             -Zip dist/workproof-native-word-windows-dev.zip
+      - name: Check both host architectures with actual PE files and isolated registration
+        shell: pwsh
+        run: |
+          ./scripts/test_office_bitness.ps1 -Package "$env:RUNNER_TEMP/workproof-native-word" `
+            -X86WordProbe .ci-office-x86/out-x86/test_addin.exe `
+            -X64WordProbe apps/word-native-cpp/out/test_addin.exe `
+            -X86PowerPointProbe .ci-office-x86/out-powerpoint-x86/test_addin.exe `
+            -X64PowerPointProbe apps/word-native-cpp/out-powerpoint/test_addin.exe
       - name: Verify every actual ZIP member including hidden upstream notices
         run: |
           python scripts/test_package_zip.py
@@ -197,6 +237,7 @@ jobs:
             ${{ runner.temp }}/workproof-native-word/
             dist/workproof-native-word-windows-dev.zip
             test-word-native-results.json
+            test-office-bitness-results.json
           if-no-files-found: error
 
   # The earlier managed add-in stays in the repository and keeps its own probe, but it is not shipped.

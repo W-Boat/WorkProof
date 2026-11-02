@@ -3,16 +3,34 @@
 .SYNOPSIS
     Builds the native Word add-in (no common language runtime involved) and its COM probe.
 .DESCRIPTION
-    Requires an MSVC x64 environment on PATH; CI provides it through ilammy/msvc-dev-cmd.
+    Requires a matching MSVC x86 or x64 environment on PATH; CI provides it through ilammy/msvc-dev-cmd.
     Nothing here needs Office, the .NET Framework or NuGet.
 #>
 [CmdletBinding()]
 param(
     [string]$OutDir = (Join-Path $PSScriptRoot 'out'),
+    [ValidateSet('x86','x64')][string]$Architecture = 'x64',
     [switch]$SkipProbe,
     [switch]$PowerPoint
 )
 $ErrorActionPreference = 'Stop'
+if ($env:VSCMD_ARG_TGT_ARCH -ne $Architecture) {
+    throw "MSVC target '$env:VSCMD_ARG_TGT_ARCH' does not match requested architecture '$Architecture'. Enter the matching MSVC environment first."
+}
+function Assert-PeArchitecture([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $reader = New-Object IO.BinaryReader($stream)
+        if ($reader.ReadUInt16() -ne 0x5A4D -or $stream.Length -lt 64) { throw "Invalid PE output: $Path" }
+        $stream.Position = 0x3C
+        $offset = $reader.ReadInt32()
+        if ($offset -lt 64 -or $offset + 6 -gt $stream.Length) { throw "Invalid PE offset: $Path" }
+        $stream.Position = $offset
+        if ($reader.ReadUInt32() -ne 0x4550) { throw "Invalid PE signature: $Path" }
+        $expected = if ($Architecture -eq 'x86') { 0x14C } else { 0x8664 }
+        if ($reader.ReadUInt16() -ne $expected) { throw "Output does not match requested $Architecture architecture: $Path" }
+    } finally { $stream.Dispose() }
+}
 $source = Join-Path $PSScriptRoot 'src'
 if (-not (Test-Path -LiteralPath (Join-Path $source 'connect.cpp'))) { throw 'src/connect.cpp is missing' }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
@@ -37,15 +55,19 @@ foreach ($file in $sources) {
 }
 $objects = $sources | ForEach-Object { Join-Path $objectDir ((Split-Path $_ -Leaf) -replace '\.cpp$', '.obj') }
 & link /nologo /DLL /GUARD:CF "/OUT:$dll" "/DEF:$(Join-Path $source 'WorkProofWord.def')" @objects @libraries
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $dll)) { throw 'link failed for WorkProofWord.dll' }
-Write-Output "Built $dll"
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $dll)) { throw "link failed for $Architecture add-in: $dll" }
+Assert-PeArchitecture $dll
+Write-Output "Built $Architecture add-in: $dll"
 
-if (-not $SkipProbe -and -not $PowerPoint) {
+if (-not $SkipProbe) {
     $probe = Join-Path $OutDir 'test_addin.exe'
     & cl @common (Join-Path $source 'test_addin.cpp') "/Fo$probeDir\" "/Fe$probe" 'oleaut32.lib' 'ole32.lib' 'user32.lib' 'uuid.lib'
     if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_addin.cpp' }
+    Assert-PeArchitecture $probe
     & $probe $dll
-    if ($LASTEXITCODE -ne 0) { throw 'the COM probe rejected the built add-in' }
+    if ($LASTEXITCODE -ne 0) { throw "the $Architecture COM/ActiveX probe rejected the built add-in" }
+}
+if (-not $SkipProbe -and -not $PowerPoint) {
     $bindingProbe = Join-Path $OutDir 'test_document_binding.exe'
     & cl @common (Join-Path $source 'test_document_binding.cpp') "/Fo$probeDir\" "/Fe$bindingProbe" @libraries
     if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_document_binding.cpp' }

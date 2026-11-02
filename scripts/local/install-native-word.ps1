@@ -17,7 +17,8 @@ param(
     [switch]$RemoveFiles,
     [switch]$NoCopy,
     # Isolated Actions registry fixture; never usable for a real installation.
-    [string]$RegistryFixture
+    [string]$RegistryFixture,
+    [ValidateSet('x86','x64')][string]$RegistryFixtureArchitecture = 'x64'
 )
 $ErrorActionPreference = 'Stop'
 
@@ -26,8 +27,8 @@ $Clsid = '{5F628C20-62BB-4DA6-94DF-36BD599A9301}'
 $TaskPaneProgId = 'WorkProof.WordNative.TaskPane'
 $TaskPaneClsid = '{41D77603-57A1-43C8-839E-BB5375A9D843}'
 $Marker = '.workproof-native'
-$AddInNames = @('WorkProofWord.dll', 'WorkProof.WordNative.dll')
-$OptionalFiles = @('workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'BUILD-INFO.json', 'README-WORD.md', 'install-native-word.ps1', 'Install Word.cmd', 'Open WorkProof.cmd', 'Remove Word add-in.cmd', 'open-native-word.ps1')
+$AddInNames = @('WorkProofWord.x86.dll', 'WorkProofWord.dll', 'WorkProof.WordNative.dll')
+$OptionalFiles = @('native-office-platform.ps1', 'workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'BUILD-INFO.json', 'README-WORD.md', 'install-native-word.ps1', 'Install Word.cmd', 'Open WorkProof.cmd', 'Remove Word add-in.cmd', 'open-native-word.ps1')
 
 function Get-PeArchitecture([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)
@@ -104,6 +105,7 @@ if (-not $RuntimeRoot) {
         throw '请把 -RuntimeRoot 指向解压后的工作包目录。'
     }
 }
+if ($PSBoundParameters.ContainsKey('RegistryFixtureArchitecture') -and -not $RegistryFixture) { throw '隔离测试的位数参数不能用于真实安装。' }
 $source = [IO.Path]::GetFullPath($RuntimeRoot)
 $addInName = $null
 foreach ($name in $AddInNames) {
@@ -121,7 +123,8 @@ if ($RegistryFixture) {
         throw 'Registry fixture 只用于隔离的 Actions 验证，不能用于真实安装。'
     }
     $prefix = $RegistryFixture + '\'
-    $view = [Microsoft.Win32.RegistryView]::Registry64
+    $view = if ($RegistryFixtureArchitecture -eq 'x86') { [Microsoft.Win32.RegistryView]::Registry32 } else { [Microsoft.Win32.RegistryView]::Registry64 }
+    if ($WordPath -and (Get-PeArchitecture ([IO.Path]::GetFullPath($WordPath))) -ne $view) { throw '隔离宿主 PE 的位数与测试指定视图不一致。' }
     $NoCopy = $true
     $installDir = $source
 } else {
@@ -142,6 +145,19 @@ if ($RegistryFixture) {
     }
 }
 
+# Select and validate before copying payload or writing registration.
+if (-not $Remove) {
+    $addInName = $null
+    foreach ($name in $AddInNames) {
+        $candidate = Join-Path $source $name
+        if ((Test-Path -LiteralPath $candidate -PathType Leaf) -and (Get-AddInArchitecture $candidate) -eq $view) { $addInName = $name; break }
+    }
+    if (-not $addInName) {
+        $bits = if ($view -eq [Microsoft.Win32.RegistryView]::Registry32) { '32' } else { '64' }
+        throw ('工作包缺少与当前 Word 位数匹配的加载项（' + $bits + ' 位）。请重新下载包含该位数 DLL 的完整工作包。')
+    }
+}
+
 $registry = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $view)
 $classKey = $prefix + 'Software\Classes\CLSID\' + $Clsid
 $progKey = $prefix + 'Software\Classes\' + $ProgId
@@ -153,8 +169,12 @@ $shortcutPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'WorkProof.
 try {
     if ($Remove) {
         # Only WorkProof's own identifiers; files, documents and other add-ins are untouched here.
-        foreach ($key in @($addinKey, $progKey, $classKey, $taskPaneProgKey, $taskPaneClassKey)) {
-            $registry.DeleteSubKeyTree($key, $false)
+        $removeViews = if ($RegistryFixture) { @($view) } else { @([Microsoft.Win32.RegistryView]::Registry32,[Microsoft.Win32.RegistryView]::Registry64) }
+        foreach ($removeView in $removeViews) {
+            $removeRegistry = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser,$removeView)
+            try {
+                foreach ($key in @($addinKey,$progKey,$classKey,$taskPaneProgKey,$taskPaneClassKey)) { $removeRegistry.DeleteSubKeyTree($key,$false) }
+            } finally { $removeRegistry.Dispose() }
         }
         if (-not $RegistryFixture -and (Test-Path -LiteralPath $shortcutPath -PathType Leaf)) {
             Remove-Item -LiteralPath $shortcutPath -Force
@@ -216,11 +236,7 @@ try {
         }
     }
 
-    $dll = $null
-    foreach ($name in $AddInNames) {
-        $candidate = Join-Path $installDir $name
-        if (Test-Path -LiteralPath $candidate -PathType Leaf) { $dll = $candidate; break }
-    }
+    $dll = Join-Path $installDir $addInName
     if (-not $dll) { throw '安装目录中缺少加载项 DLL。' }
     $engine = Join-Path $installDir 'workproof-engine.exe'
     if (-not (Test-Path -LiteralPath $engine -PathType Leaf)) { throw '安装目录中缺少 workproof-engine.exe。' }

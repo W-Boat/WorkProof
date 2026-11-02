@@ -6,7 +6,15 @@
 
 namespace {
 
+#ifdef WORKPROOF_POWERPOINT
+const CLSID kClass = {0x6EC055C4,0x2EB0,0x49EB,{0x80,0xC9,0x30,0xC6,0xDA,0x38,0xEB,0x86}};
+const CLSID kPaneClass = {0x6EC055C4,0x2EB0,0x49EB,{0x80,0xC9,0x30,0xC6,0xDA,0x38,0xEB,0x87}};
+const wchar_t* kRibbonId = L"Microsoft.PowerPoint.Presentation";
+#else
 const CLSID kClass = {0x5F628C20, 0x62BB, 0x4DA6, {0x94, 0xDF, 0x36, 0xBD, 0x59, 0x9A, 0x93, 0x01}};
+const CLSID kPaneClass = {0x41D77603,0x57A1,0x43C8,{0x83,0x9E,0xBB,0x53,0x75,0xA9,0xD8,0x43}};
+const wchar_t* kRibbonId = L"Microsoft.Word.Document";
+#endif
 const IID kExtensibility = {0xB65AD801, 0xABAF, 0x11D0, {0xBB, 0x8B, 0x00, 0xA0, 0xC9, 0x0F, 0x27, 0x44}};
 const IID kRibbon = {0x000C0396, 0x0000, 0x0000, {0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
 
@@ -54,7 +62,7 @@ int Fail(const char* message) {
 } // namespace
 
 int wmain(int argc, wchar_t** argv) {
-    if (argc < 2) return Fail("usage: test_addin <WorkProofWord.dll>");
+    if (argc < 2) return Fail("usage: test_addin <native Word or PowerPoint DLL>");
     if(FAILED(OleInitialize(nullptr))) return Fail("OLE initialization failed");
     HMODULE module = LoadLibraryW(argv[1]);
     if (!module) return Fail("LoadLibrary failed; the DLL cannot be loaded into a plain process");
@@ -101,7 +109,7 @@ int wmain(int argc, wchar_t** argv) {
         return Fail("consumer factory dispatch failed");
     consumer->Release();
 
-    BSTR ribbonId = SysAllocString(L"Microsoft.Word.Document");
+    BSTR ribbonId = SysAllocString(kRibbonId);
     BSTR markup = nullptr;
     hr = ribbon->GetCustomUI(ribbonId, &markup);
     SysFreeString(ribbonId);
@@ -114,7 +122,7 @@ int wmain(int argc, wchar_t** argv) {
     if (FAILED(ribbon->QueryInterface(IID_IDispatch,(void**)&ribbonDispatch))) return Fail("ribbon dispatch missing");
     OLECHAR* uiName=const_cast<OLECHAR*>(L"GetCustomUI");DISPID uiId=DISPID_UNKNOWN;
     if (FAILED(ribbonDispatch->GetIDsOfNames(IID_NULL,&uiName,1,LOCALE_USER_DEFAULT,&uiId))) return Fail("ribbon GetCustomUI dispatch missing");
-    VARIANT argument;VariantInit(&argument);argument.vt=VT_BSTR;argument.bstrVal=SysAllocString(L"Microsoft.Word.Document");
+    VARIANT argument;VariantInit(&argument);argument.vt=VT_BSTR;argument.bstrVal=SysAllocString(kRibbonId);
     DISPPARAMS parameters={&argument,nullptr,1,0};VARIANT output;VariantInit(&output);
     hr=ribbonDispatch->Invoke(uiId,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_METHOD,&parameters,&output,nullptr,nullptr);
     VariantClear(&argument);
@@ -153,7 +161,7 @@ int wmain(int argc, wchar_t** argv) {
 
     // Office creates this separate control through ICTPFactory; probe its real OLE
     // interfaces and lifecycle without pretending a windowless probe is an Office host.
-    const CLSID paneClass={0x41D77603,0x57A1,0x43C8,{0x83,0x9E,0xBB,0x53,0x75,0xA9,0xD8,0x43}};
+    const CLSID paneClass=kPaneClass;
     IClassFactory* paneFactory=nullptr;
     if(FAILED(getClassObject(paneClass,IID_IClassFactory,(void**)&paneFactory))||!paneFactory)
         return Fail("task pane class factory missing");

@@ -28,6 +28,7 @@ apps/office/wps/wps-addon-build/
 apps/office/wps/wps-addon-publish/
 .wps-publisher/
 .ci-office/
+.ci-office-x86/
 tools/c2pa-wasm/pkg/
 tools/c2pa-wasm/target/
 apps/verifier/public/c2pa/
