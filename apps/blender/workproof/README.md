@@ -1,5 +1,19 @@
 # WorkProof Blender extension
 
+Structure checkpoints additionally commit to object parenting, world transforms,
+data identity, and modifier identities/order/type/visibility. Only the
+domain-separated `workproof-blender-structure-v1-sha256` digest is transmitted;
+the structure, pointer identities and coordinates stay in transient main-thread
+memory. The Rust event chain and final artifact hashing still use BLAKE3.
+Pointers identify state within one running session, not persistent identities.
+This detects same-count edits and same-type modifier reordering but does not
+reconstruct a full graph, capture arbitrary modifier parameters, or fingerprint
+same-count mesh coordinate changes. Limits are 50000 objects, 200000 modifiers
+and 16 MiB serialized structure; exceeding them pauses recording. These are
+input limits, not an operating-system memory sandbox. Idle viewport polling
+does not traverse this structure. Real Blender/collector Actions acceptance is
+required for each implementation revision.
+
 This Blender extension distribution is provided under the GNU General Public
 License, version 3 or (at your option) any later version. See `COPYING` for the
 full terms. You may use it commercially, modify it, and redistribute it under
