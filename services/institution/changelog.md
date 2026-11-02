@@ -1,6 +1,8 @@
 # Changelog
 
-## 2026-11-02 Windows 服务个人身份解析修正 待验收
+- `10b0c4e` 权限专项 41398053176 在 Windows/Linux/macOS 全部通过；完整 Windows 队列生命周期仍待验收。
+
+## 2026-11-02 Windows 服务个人身份解析修正 权限专项通过
 
 - 使用 JDK NTSystem 原生当前用户身份替代 Windows 临时文件默认 owner，避免提升权限时误把 Administrators 组当成个人服务账户；不使用 user.name。
 - 仅本次原子创建的新空对象可切换默认 owner 至服务用户并收紧 ACL；既有对象、恢复输入及锁文件不接管 owner。新增工具创建方法统一用于服务与真实权限探针。

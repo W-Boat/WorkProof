@@ -1,10 +1,12 @@
-# 机构持久批量任务（新增源码，待 Actions 验收）
+# 机构持久批量任务
 
-Windows 身份解析后续修正（待 CI）：提升权限的服务进程创建文件时，默认 owner 可能是 Administrators 组，因此不能用临时文件 owner 推断 Windows 服务用户。新增实现改用 JDK 17 `NTSystem` 原生读取当前用户 SID、域与名称，并解析对应个人主体，不依赖 `user.name` 或环境用户名。仅在原子创建成功的本次新空目录/文件上可将默认组 owner 设置为该服务用户，然后收紧并验证 ACL，之后才写入内容；任何既有或恢复路径仍禁止接管 owner。该方案依赖完整 JDK 的 `jdk.security.auth` 模块，缺失或身份解析失败时拒绝启用。[官方 API](https://docs.oracle.com/en/java/javase/17/docs/api/jdk.security.auth/com/sun/security/auth/module/NTSystem.html)。下述临时 owner 推断为前序实现，Windows 以后续结果为准。
+权限专项：`10b0c4e` 的 [41398053176](https://github.com/W-Boat/WorkProof/actions/runs/41398053176) 已在 Windows、Linux、macOS 全部通过。Windows 实测服务用户专属 ACL、其他主体读取及继承授权拒绝，以及既有其他 owner 文件拒绝接管。该结果不替代完整 Windows JAR 队列生命周期验收。
 
-跨平台权限新增源码：`PrivateJobSpool` 提供 Windows ACL 与 POSIX 私有权限后端，待新专项验证。Windows 仅允许文件系统分配给本进程新建文件的个人 owner，拒绝组 owner、其他主体的 ALLOW 授权、非服务 owner 与无法验证的权限提供器；不会取得其他 owner 所有权。既有目录需预先满足权限要求，不能通过启动隐式修复宽松权限。新空文件先收紧并验证，之后才写证书；恢复输入与锁文件也检查。OS 管理员及具有备份/所有权等系统特权的主体不在该 ACL 隔离模型内。父目录及卷必须由可信管理员配置，避免其他主体有权替换服务目录。Windows 全 JAR 队列生命周期仍未验收，不能仅凭权限探针将其标为可交付支持。
+Windows 身份解析（权限专项已通过）：提升权限的服务进程创建文件时，默认 owner 可能是 Administrators 组，因此不能用临时文件 owner 推断 Windows 服务用户。新增实现改用 JDK 17 `NTSystem` 原生读取当前用户 SID、域与名称，并解析对应个人主体，不依赖 `user.name` 或环境用户名。仅在原子创建成功的本次新空目录/文件上可将默认组 owner 设置为该服务用户，然后收紧并验证 ACL，之后才写入内容；任何既有或恢复路径仍禁止接管 owner。该方案依赖完整 JDK 的 `jdk.security.auth` 模块，缺失或身份解析失败时拒绝启用。[官方 API](https://docs.oracle.com/en/java/javase/17/docs/api/jdk.security.auth/com/sun/security/auth/module/NTSystem.html)。下述临时 owner 推断为前序实现，Windows 以后续结果为准。
 
-升级注意：旧实现创建的 `.queue.lock` 可能继承 0644 或 Windows 非私有 ACL，新实现会拒绝继续使用。需管理员在停止队列并完成备份后，将既有目录和锁文件按同一服务主体收紧；服务不会自动接管或修复既有宽松权限。原生探针的 other-owner 变更及所有 Windows reparse-point 类型尚未测量；Java `NOFOLLOW_LINKS` 与符号链接检测不等于完整文件系统隔离沙箱，也不承诺抵御有权修改祖先目录的并发攻击者。
+跨平台权限：`PrivateJobSpool` 提供 Windows ACL 与 POSIX 私有权限后端。Windows 仅允许原生服务用户主体，拒绝组 owner、其他主体的 ALLOW 授权、非服务 owner 与无法验证的权限提供器；不会取得其他 owner 所有权。既有目录需预先满足权限要求，不能通过启动隐式修复宽松权限。新空文件先收紧并验证，之后才写证书；恢复输入与锁文件也检查。OS 管理员及具有备份/所有权等系统特权的主体不在该 ACL 隔离模型内。父目录及卷必须由可信管理员配置，避免其他主体有权替换服务目录。Windows 全 JAR 队列生命周期仍未验收，不能仅凭权限探针将其标为可交付支持。
+
+升级注意：旧实现创建的 `.queue.lock` 可能继承 0644 或 Windows 非私有 ACL，新实现会拒绝继续使用。需管理员在停止队列并完成备份后，将既有目录和锁文件按同一服务主体收紧；服务不会自动接管或修复既有宽松权限。Windows 权限专项已实际验证其他 owner 文件拒绝接管，全部 Windows reparse-point 类型尚未测量；Java `NOFOLLOW_LINKS` 与符号链接检测不等于完整文件系统隔离沙箱，也不承诺抵御有权修改祖先目录的并发攻击者。
 
 最新验收：43d2434 的机构 Actions [41328284766](https://github.com/W-Boat/WorkProof/actions/runs/41328284766) 已全部通过。该配置实际调用 `test_institution_runtime.py`（含默认关闭时的新任务页面）及 `test_institution_jobs.py`（隔离V4、真实JAR/Rust、浏览器原字节上传与关闭重开、进程终止重启、owner隔离、幂等、取消、权限撤销与清理、后台审计无正文）。首次审计查询编码失败已经修正为utf8mb4。下方“待CI”是早期实现记录，以本段为当前组件验收状态；本机用户数据库仍未迁移V4，Windows持久队列与全部故障矩阵未完成。
 
@@ -23,7 +25,7 @@ WORKPROOF_VERIFIER_EXECUTABLE=/absolute/workproof-inspector
 
 V4 新增 `wp_certificate_job` 和 `wp_certificate_job_item`，不改原证书摘要表、账号或角色授权。准备检查核对所需字段及主键、owner/clientKey、spool token 唯一索引；不替代完整迁移/备份审计。现有 Windows V3 准备脚本不自动支持 V4，禁止以普通启动隐式迁移。
 
-当前持久暂存目录要求支持 POSIX 私有权限（目录0700、文件0600）；不支持时拒绝启用，不冒称 Windows ACL 已验收。目录及数据库同时独占锁，只允许一个活跃队列实例。运行中丢失专用数据库锁则拒绝结果提交，随后释放失效连接重新获取锁并恢复 running 项；不是多节点高可用队列。原子改名与文件 force 降低崩溃窗口，但不承诺任意文件系统/机器断电下硬件级持久性。
+当前暂存目录要求 POSIX 私有权限（目录0700、文件0600）或已通过专项的 Windows 服务用户专属 ACL；不支持或无法验证权限时拒绝启用。Windows 完整队列仍待集成验收。目录及数据库同时独占锁，只允许一个活跃队列实例。运行中丢失专用数据库锁则拒绝结果提交，随后释放失效连接重新获取锁并恢复 running 项；不是多节点高可用队列。原子改名与文件 force 降低崩溃窗口，但不承诺任意文件系统/机器断电下硬件级持久性。
 
 ## API
 
