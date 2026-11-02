@@ -19,14 +19,25 @@ export default function Page(){
   const worker=useRef<Worker|null>(null),disclosureWorker=useRef<Worker|null>(null);const reduced=useReducedMotion();
   const [selection,setSelection]=useState(''),[disclosureBusy,setDisclosureBusy]=useState(false),[disclosureError,setDisclosureError]=useState('');
   const [expectedId,setExpectedId]=useState(''),[shareMessage,setShareMessage]=useState('');
-  useEffect(()=>()=>{worker.current?.terminate();disclosureWorker.current?.terminate();},[]);
-  const invalidate=()=>{worker.current?.terminate();disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');setSelection('');setResult(null);setStage('idle');setError('');};
+  function stopVerification(){const active=worker.current;worker.current=null;active?.terminate();}
+  useEffect(()=>()=>{stopVerification();const active=disclosureWorker.current;disclosureWorker.current=null;active?.terminate();},[]);
+  const invalidate=()=>{stopVerification();disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');setSelection('');setResult(null);setStage('idle');setError('');setPhase('');setProgress(0);};
   function verify(a=artifact,p=proofFile){
-    if(!a||!p)return;disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');worker.current?.terminate();setResult(null);setError('');setProgress(0);setStage('working');
-    const w=new Worker('/verify-worker.js',{type:'module'});worker.current=w;
-    w.onmessage=({data})=>{if(data.type==='progress'){setPhase(data.phase);setProgress(data.progress);}else if(data.type==='result'){setResult(data);setStage('done');w.terminate();}else{setError(data.message);setStage('error');w.terminate();}};
+    if(!a||!p)return;disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');stopVerification();setResult(null);setError('');setProgress(0);setPhase('');setStage('working');
     setShareMessage('');
-    w.onerror=()=>{setError('无法加载核验引擎。请使用完整的本地站点包，或重新加载页面。');setStage('error');w.terminate();};w.postMessage({artifact:a,proof:p,expectedCertificateId:expectedId});
+    try{
+      const w=new Worker('/verify-worker.js',{type:'module'});worker.current=w;
+      function fail(message:string){if(worker.current!==w)return;stopVerification();setError(message);setStage('error');setPhase('');}
+      w.onmessage=({data})=>{
+        if(worker.current!==w)return;
+        if(data.type==='progress'){setPhase(data.phase);setProgress(data.progress);}
+        else if(data.type==='result'){stopVerification();setResult(data);setStage('done');}
+        else fail(data.message||'未能完成核验，请检查作品与证书后重试。');
+      };
+      w.onerror=()=>fail('无法加载核验引擎。请使用完整的本地站点包，或重新加载页面。');
+      w.onmessageerror=()=>fail('无法读取核验结果，请重新选择作品和证书后重试。');
+      try{w.postMessage({artifact:a,proof:p,expectedCertificateId:expectedId});}catch{fail('无法读取所选文件，请重新选择作品和证书后重试。');}
+    }catch{stopVerification();setError('无法启动核验工具，请重新加载完整站点后重试。');setStage('error');setPhase('');}
   }
   async function demo(){setDemoBusy(true);try{const [a,p]=await Promise.all([fetch('/demo/essay.md'),fetch('/demo/essay.md.wproof')]);if(!a.ok||!p.ok)throw new Error('示例尚未生成，请使用 Actions 构建的完整站点。');const af=new File([await a.blob()],'essay.md'),pf=new File([await p.blob()],'essay.md.wproof');setArtifact(af);setProofFile(pf);verify(af,pf);}catch(e){setError(String(e));setStage('error');}finally{setDemoBusy(false);}}
   const m=result?.proof.manifest,r=result?.report;const records=result?.proof.records||[];
@@ -91,7 +102,7 @@ export default function Page(){
     <Panel title="载入作品与过程证书" aria-label="核验作品与证书" tools={<Tag tone="info">本地处理</Tag>}>
       <div className="uploads"><Upload label="选择最终作品" caption="拖入原始交付文件，支持任意格式" file={artifact} onFile={f=>{invalidate();setArtifact(f);}} disabled={stage==='working'}/><Upload label="选择 .wproof 证书" caption="与作品对应的过程记录文件" accept=".wproof,application/json" file={proofFile} onFile={f=>{invalidate();setProofFile(f);}} disabled={stage==='working'}/></div>
       <details className="fingerprint-input"><summary>收到证书指纹？核对是否为同一张证书（可选）</summary><label className="field"><span className="field-label">发送者提供的完整证书指纹</span><TextInput aria-label="发送者提供的完整证书指纹" value={expectedId} onChange={e=>{invalidate();setExpectedId(e.target.value);}} placeholder="粘贴 64 位指纹；不一致时核验不会通过" maxLength={128} disabled={stage==='working'}/></label><p>请从可信渠道取得指纹。仅检查证书自带签名，无法识别别人重新签发的替代证书。</p></details>
-      <div className="verify-actions"><Button variant="ghost" onClick={demo} disabled={demoBusy||stage==='working'}>{demoBusy?<LoaderCircle size={15} className="spin"/>:<Activity size={15}/>}先体验一份演示证据<ArrowUpRight size={13}/></Button>{stage==='working'?<Button onClick={()=>{worker.current?.terminate();setStage('idle');setPhase('');}}><X size={15}/>取消核验</Button>:<Button variant="primary" disabled={!artifact||!proofFile} onClick={()=>verify()}><ShieldCheck size={16}/>开始本地核验</Button>}</div>
+      <div className="verify-actions"><Button variant="ghost" onClick={demo} disabled={demoBusy||stage==='working'}>{demoBusy?<LoaderCircle size={15} className="spin"/>:<Activity size={15}/>}先体验一份演示证据<ArrowUpRight size={13}/></Button>{stage==='working'?<Button onClick={invalidate}><X size={15}/>取消核验</Button>:<Button variant="primary" disabled={!artifact||!proofFile} onClick={()=>verify()}><ShieldCheck size={16}/>开始本地核验</Button>}</div>
       {stage==='working'&&<div className="progress" role="status"><span>{phase}</span><span>{progress}%</span><div><i style={{width:`${progress}%`}}/></div></div>}
       {stage==='error'&&<div className="error-box" role="alert"><AlertTriangle size={18}/><div><strong>暂时无法完成核验</strong><p>{error}</p></div></div>}
     </Panel>
