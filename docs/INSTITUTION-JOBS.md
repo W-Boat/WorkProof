@@ -1,14 +1,16 @@
 # 机构持久批量任务
 
+当前 Windows 集成结果：`3d78ea5` 的 [41427203607](https://github.com/W-Boat/WorkProof/actions/runs/41427203607) 已全部通过。实际使用隔离 MySQL/Garnet、真实 JAR/Rust，覆盖运行中终止与恢复、账号隔离（读取/上传/提交/取消）、上传不可覆盖、数量检查、去重、取消、权限撤销及暂存清理，且数据库完整退出、临时目录成功清理。首次运行的 MySQL 文件占用清理失败已修复。本机用户库仍未迁移 V4，Windows 浏览器交互及完整故障矩阵不在该结果范围。
+
 权限专项：`10b0c4e` 的 [41398053176](https://github.com/W-Boat/WorkProof/actions/runs/41398053176) 已在 Windows、Linux、macOS 全部通过。Windows 实测服务用户专属 ACL、其他主体读取及继承授权拒绝，以及既有其他 owner 文件拒绝接管。该结果不替代完整 Windows JAR 队列生命周期验收。
 
 Windows 身份解析（权限专项已通过）：提升权限的服务进程创建文件时，默认 owner 可能是 Administrators 组，因此不能用临时文件 owner 推断 Windows 服务用户。新增实现改用 JDK 17 `NTSystem` 原生读取当前用户 SID、域与名称，并解析对应个人主体，不依赖 `user.name` 或环境用户名。仅在原子创建成功的本次新空目录/文件上可将默认组 owner 设置为该服务用户，然后收紧并验证 ACL，之后才写入内容；任何既有或恢复路径仍禁止接管 owner。该方案依赖完整 JDK 的 `jdk.security.auth` 模块，缺失或身份解析失败时拒绝启用。[官方 API](https://docs.oracle.com/en/java/javase/17/docs/api/jdk.security.auth/com/sun/security/auth/module/NTSystem.html)。下述临时 owner 推断为前序实现，Windows 以后续结果为准。
 
-跨平台权限：`PrivateJobSpool` 提供 Windows ACL 与 POSIX 私有权限后端。Windows 仅允许原生服务用户主体，拒绝组 owner、其他主体的 ALLOW 授权、非服务 owner 与无法验证的权限提供器；不会取得其他 owner 所有权。既有目录需预先满足权限要求，不能通过启动隐式修复宽松权限。新空文件先收紧并验证，之后才写证书；恢复输入与锁文件也检查。OS 管理员及具有备份/所有权等系统特权的主体不在该 ACL 隔离模型内。父目录及卷必须由可信管理员配置，避免其他主体有权替换服务目录。Windows 全 JAR 队列生命周期仍未验收，不能仅凭权限探针将其标为可交付支持。
+跨平台权限：`PrivateJobSpool` 提供 Windows ACL 与 POSIX 私有权限后端。Windows 仅允许原生服务用户主体，拒绝组 owner、其他主体的 ALLOW 授权、非服务 owner 与无法验证的权限提供器；不会取得其他 owner 所有权。既有目录需预先满足权限要求，不能通过启动隐式修复宽松权限。新空文件先收紧并验证，之后才写证书；恢复输入与锁文件也检查。OS 管理员及具有备份/所有权等系统特权的主体不在该 ACL 隔离模型内。父目录及卷必须由可信管理员配置，避免其他主体有权替换服务目录。Windows JAR 队列生命周期现另有上述真实集成验收，权限探针与集成结果各自覆盖不同范围。
 
 升级注意：旧实现创建的 `.queue.lock` 可能继承 0644 或 Windows 非私有 ACL，新实现会拒绝继续使用。需管理员在停止队列并完成备份后，将既有目录和锁文件按同一服务主体收紧；服务不会自动接管或修复既有宽松权限。Windows 权限专项已实际验证其他 owner 文件拒绝接管，全部 Windows reparse-point 类型尚未测量；Java `NOFOLLOW_LINKS` 与符号链接检测不等于完整文件系统隔离沙箱，也不承诺抵御有权修改祖先目录的并发攻击者。
 
-最新验收：43d2434 的机构 Actions [41328284766](https://github.com/W-Boat/WorkProof/actions/runs/41328284766) 已全部通过。该配置实际调用 `test_institution_runtime.py`（含默认关闭时的新任务页面）及 `test_institution_jobs.py`（隔离V4、真实JAR/Rust、浏览器原字节上传与关闭重开、进程终止重启、owner隔离、幂等、取消、权限撤销与清理、后台审计无正文）。首次审计查询编码失败已经修正为utf8mb4。下方“待CI”是早期实现记录，以本段为当前组件验收状态；本机用户数据库仍未迁移V4，Windows持久队列与全部故障矩阵未完成。
+最新验收：43d2434 的机构 Actions [41328284766](https://github.com/W-Boat/WorkProof/actions/runs/41328284766) 已全部通过。该配置实际调用 `test_institution_runtime.py`（含默认关闭时的新任务页面）及 `test_institution_jobs.py`（隔离V4、真实JAR/Rust、浏览器原字节上传与关闭重开、进程终止重启、owner隔离、幂等、取消、权限撤销与清理、后台审计无正文）。首次审计查询编码失败已经修正为utf8mb4。下方“待CI”是早期实现记录，以本段为当前组件验收状态；本机用户数据库仍未迁移V4，Windows集成结果见开头更新；全部故障矩阵仍未完成。
 
 原 `CertificateBatchDialog` 是页面内逐份发送，关闭页面会停止后续发送。本功能另建数据库持久任务和私有暂存目录，不能把原有浏览器队列的通过记录当作本功能验收。
 
@@ -27,7 +29,7 @@ V4 新增 `wp_certificate_job` 和 `wp_certificate_job_item`，不改原证书�
 
 Actions 的 Windows 启动包随附 `sql/V4__workproof_certificate_jobs.sql` 和本说明，供管理员在备份并核对结构后显式准备队列。包中包含 SQL 不表示已启用队列；普通 Start 和证书目录准备入口均不执行 V4，也不会自动设置上述队列配置。
 
-当前暂存目录要求 POSIX 私有权限（目录0700、文件0600）或已通过专项的 Windows 服务用户专属 ACL；不支持或无法验证权限时拒绝启用。Windows 完整队列仍待集成验收。目录及数据库同时独占锁，只允许一个活跃队列实例。运行中丢失专用数据库锁则拒绝结果提交，随后释放失效连接重新获取锁并恢复 running 项；不是多节点高可用队列。原子改名与文件 force 降低崩溃窗口，但不承诺任意文件系统/机器断电下硬件级持久性。
+当前暂存目录要求 POSIX 私有权限（目录0700、文件0600）或已通过专项的 Windows 服务用户专属 ACL；不支持或无法验证权限时拒绝启用。Windows 集成验收见开头更新。目录及数据库同时独占锁，只允许一个活跃队列实例。运行中丢失专用数据库锁则拒绝结果提交，随后释放失效连接重新获取锁并恢复 running 项；不是多节点高可用队列。原子改名与文件 force 降低崩溃窗口，但不承诺任意文件系统/机器断电下硬件级持久性。
 
 ## API
 
@@ -61,12 +63,12 @@ Actions 的 Windows 启动包随附 `sql/V4__workproof_certificate_jobs.sql` 和
 
 本会话未提供 mysql 技能，源码仅根据已核对的 V3 SQL/mapper设计，不操作用户本机数据库。`scripts/test_institution_jobs.py` 强制 GITHUB_ACTIONS=true、DB_NAME=workproof_ci、DB_HOST=127.0.0.1；先只读核对数据库身份和 SHOW CREATE TABLE 原V3，再在隔离库显式执行V4两次、确认已有账号未改变。脚本自行启动18091专用JAR，使用单独临时spool和真实Rust检查器，重启实际JAR验证durable任务，检查owner隔离、上传幂等、期望项数、摘要去重、取消、停用账号后停止与原文件清理。
 
-调用位置：现有机构 workflow 完成原 `scripts/test_institution_runtime.py` 初始化/回归后，保留同一隔离 MySQL/Valkey、原native及打包JAR，另执行 `python scripts/test_institution_jobs.py`。无需安装额外Python包。不向公开产物上传spool、账号、SQL备份或证书内容。测试仍待CI运行；计划覆盖不等于已通过。断电、磁盘满、删除故障、所有部门变动和Windows持久队列仍需后续专项，不能称整个机构阶段已完成。
+调用位置：现有机构 workflow 完成原 `scripts/test_institution_runtime.py` 初始化/回归后，保留同一隔离 MySQL/Valkey、原native及打包JAR，另执行 `python scripts/test_institution_jobs.py`。无需安装额外Python包。不向公开产物上传spool、账号、SQL备份或证书内容。上述 Linux 和 Windows 生命周期已有实际 CI 结果。断电、磁盘满、删除故障和所有部门变动仍需后续专项，不能称整个机构阶段已完成。
 # Windows 完整队列验收
 
 `institution-jobs-windows.yml` 使用 Windows 2025 runner，在 RUNNER_TEMP 下启动独立的 MySQL 8.4.13 与 Garnet 2.2.5，固定下载地址并核对 SHA-256；不连接本机开发库，不注册系统服务。它构建真实 JAR 与 Rust 核验器，再复用 `scripts/test_institution_jobs.py` 的 HTTP 验收：账户隔离、重复提交、不可覆盖上传、数量检查、运行中崩溃重启、恢复后去重、取消、权限撤销及原始证明清理。
 
 Windows 专用延迟包装器只等待两秒，然后执行相邻的真实 Rust 核验器并继承输入输出，以便观察任务运行中断。它不生成核验结果。Windows 此任务覆盖服务与原生进程生命周期；浏览器交互仍由单独的 Linux 机构工作流验证。数据库目录、凭据、证明暂存与服务日志都不作为公开 artifact 上传。
 
-新增工作流需等待 Actions 实际执行结果才能认定 Windows 全链路验收通过；源码存在不代表已通过。
+该工作流已在开头所列提交和 Actions 运行通过；范围限于脚本实际执行的服务生命周期断言，不扩展为全部 Windows 宿主、浏览器或所有故障场景通过。
 

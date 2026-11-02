@@ -91,7 +91,9 @@ jobs:
           shutil.copytree('.ci-c2pa-notices',package/'third-party')
           (package/'VALIDATION.json').write_text(json.dumps({
               'platform':os.environ['PLATFORM'],
-              'scope':'native release build, parser probes and real PNG/JPEG signing round trips',
+              'scope':'native release build, parser probes and real PNG/JPEG/PDF signing round trips',
+              'pdf_strict_incremental_roundtrip_on_this_platform':True,
+              'pdf_input_limits':['no encryption','no existing PDF signature','no existing C2PA','no compressed object streams'],
               'real_signing_roundtrip_on_this_platform':True,
               'network_calls_measured_on_this_platform':False,
               'public_c2pa_trust_certification':False,
