@@ -16,12 +16,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          test "$(gh api repos/${{ github.repository }}/actions/runs/41495885258 --jq .head_sha)" = '7ee35ed8bbe0bbc46cfb5e1f45982c16f0b10160'
-          test "$(gh api repos/${{ github.repository }}/actions/jobs/125453548991 --jq .conclusion)" = success
+          test "$(gh api repos/${{ github.repository }}/actions/runs/41505275832 --jq .head_sha)" = 'e4583b5c398b98bd80a50b0186a8861b6fa1736a'
+          test "$(gh api repos/${{ github.repository }}/actions/jobs/125485707115 --jq .conclusion)" = success
       - uses: actions/download-artifact@v4
         with:
           name: workproof-linux-x64
-          run-id: 41495885258
+          run-id: 41505275832
           github-token: ${{ github.token }}
           path: .linux-artifact
       - uses: dtolnay/rust-toolchain@stable
@@ -39,7 +39,7 @@ jobs:
           cargo install tauri-driver --version 2.1.0 --locked --root "$RUNNER_TEMP/workproof-webdriver"
       - name: Exercise the actual installed milestone
         env:
-          WORKPROOF_APPLICATION_COMMIT: 7ee35ed8bbe0bbc46cfb5e1f45982c16f0b10160
+          WORKPROOF_APPLICATION_COMMIT: e4583b5c398b98bd80a50b0186a8861b6fa1736a
         run: xvfb-run -a dbus-run-session -- python3 scripts/test_embedded_webview.py "$RUNNER_TEMP/workproof-webdriver/bin/tauri-driver"
       - uses: actions/upload-artifact@v4
         if: always()

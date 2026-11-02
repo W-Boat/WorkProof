@@ -24,6 +24,16 @@ def click(selector):
     element=call('POST',f'/session/{session}/element',{'using':'css selector','value':selector})
     identifier=element['element-6066-11e4-a52e-4f735466cecf']
     call('POST',f'/session/{session}/element/{identifier}/click',{})
+
+def select_file(selector,path):
+    element=call('POST',f'/session/{session}/element',{'using':'css selector','value':selector})
+    identifier=element['element-6066-11e4-a52e-4f735466cecf']
+    call('POST',f'/session/{session}/element/{identifier}/value',{'text':str(path.resolve())})
+
+def click_text(text):
+    element=execute('return Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes('+json.dumps(text)+'))')
+    assert element
+    call('POST',f'/session/{session}/element/{element["element-6066-11e4-a52e-4f735466cecf"]}/click',{})
 def screenshot(name):
     data=call('GET',f'/session/{session}/screenshot');(evidence/name).write_bytes(base64.b64decode(data))
 with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporary:
@@ -47,18 +57,43 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         url=call('GET',f'/session/{session}/url');assert url.startswith('http://127.0.0.1:')
         blocked=call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];const invoke=window.__TAURI__?.core?.invoke;if(!invoke){done(true);}else{invoke('pending_adapters').then(()=>done(false),()=>done(true));}",'args':[]})
         assert blocked is True,'Embedded page acquired workbench commands'
-        element=execute("return Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('先体验一份演示证据'))")
-        assert element
-        identifier=element['element-6066-11e4-a52e-4f735466cecf']
-        call('POST',f'/session/{session}/element/{identifier}/click',{})
+        click_text('先体验一份演示证据')
         def verified():assert execute("return !!document.querySelector('.result-banner.success')")
         wait(verified)
+        # Select actual filesystem files through WebDriver's file-input command.
+        # No File/DataTransfer injection, mocked worker or app-only test bridge.
+        files=pathlib.Path(temporary)/'个人资料';files.mkdir(mode=0o700)
+        for name in ('essay.md','essay.md.wproof'):
+            with urllib.request.urlopen(url.rstrip('/')+'/demo/'+name,timeout=10) as response:
+                body=response.read(262145)
+            assert len(body)<=262144
+            (files/name).write_bytes(body)
+        click('button[aria-label="清空重新核验"]')
+        select_file('input[aria-label="选择最终作品"]',files/'essay.md')
+        select_file('input[aria-label="选择 .wproof 证书"]',files/'essay.md.wproof')
+        def selected():assert execute("return Array.from(document.querySelectorAll('.upload-copy strong')).map(e=>e.textContent).includes('essay.md.wproof')")
+        wait(selected);click_text('开始本地核验');wait(verified);screenshot('files-verified.png')
+        changed=pathlib.Path(temporary)/'changed';changed.mkdir(mode=0o700)
+        (changed/'essay.md').write_bytes((files/'essay.md').read_bytes()+b'\nchanged by acceptance fixture\n')
+        select_file('input[aria-label="选择最终作品"]',changed/'essay.md')
+        click_text('开始本地核验')
+        def rejected():assert execute("return !!document.querySelector('.result-banner.failure')")
+        wait(rejected);screenshot('files-rejected.png')
+        select_file('input[aria-label="选择最终作品"]',files/'essay.md')
+        click_text('开始本地核验');wait(verified)
+        call('POST',f'/session/{session}/window/rect',{'width':480,'height':640})
+        assert execute('return document.documentElement.scrollWidth<=window.innerWidth'),'Narrow native window overflowed horizontally'
+        execute('window.scrollTo(0,0);return true')
+        call('POST',f'/session/{session}/actions',{'actions':[{'type':'key','id':'keyboard','actions':[{'type':'keyDown','value':'\ue00f'},{'type':'keyUp','value':'\ue00f'}]}]})
+        def scrolled():assert execute('return window.scrollY>0')
+        wait(scrolled);screenshot('narrow-scrolled.png')
+        call('POST',f'/session/{session}/window/rect',{'width':1120,'height':800})
         execute("window.location.href='http://127.0.0.1:43127/';return true")
         assert call('GET',f'/session/{session}/url')==url,'Navigation escaped verifier origin'
         screenshot('verifier.png')
         switch(workbench);click('#verify');assert len(handles())==2,'Repeated open created another verifier'
-        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm and IPC/navigation rejection. File picker/download/printing not covered.','url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','no workbench command access','navigation restriction','window reuse']},indent=2),encoding='utf-8')
-        print('PASS: installed native WebView opens and reuses local verifier; workbench commands unavailable')
+        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']},indent=2),encoding='utf-8')
+        print('PASS: installed native WebView verifies filesystem input, rejects changed bytes, scrolls and reuses the local verifier; workbench commands unavailable')
     finally:
         if session:
             try:screenshot('last-ui.png');call('DELETE',f'/session/{session}')
