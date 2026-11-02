@@ -8,6 +8,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('tool')
 parser.add_argument('fixture')
 parser.add_argument('--desktop-report',help='Write actual successful CLI reports for desktop compatibility tests.')
+parser.add_argument('--public-fixtures-out',help='Export only synthetic public validation files for manual UI acceptance; never private keys.')
 parser.add_argument('--trust-probe',help='Optional CI-only SDK trust-chain diagnostic executable for synthetic public certificates.')
 parser.add_argument('--without-network-trace',action='store_true',help='Explicitly skip syscall tracing on platforms without strace; report this as unmeasured.')
 options=parser.parse_args()
@@ -190,6 +191,17 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
 
         assert source.read_bytes()==original_jpeg and (folder/'full.wproof').read_bytes()==proof_bytes
         jpeg_results.append({'progressive':progressive,'segmented_app11_packets':len(packets),'metadata_preserved':True,'full_and_selective':True})
+
+    if options.public_fixtures_out:
+        export=pathlib.Path(options.public_fixtures_out)
+        export.mkdir(parents=True,exist_ok=False)
+        # An explicit allowlist prevents accidentally publishing signing keys,
+        # CSRs or temporary files when the fixture gains additional materials.
+        for source,name in [(signed,'full.png'),(selected,'selected.png'),(original,'unsigned.png'),
+                            (root/'ca.pem','synthetic-ca.pem'),(root/'wrong.pem','wrong-ca.pem'),
+                            (root/'baseline/signed.jpg','baseline.jpg'),(root/'progressive/signed.jpg','progressive.jpg')]:
+            (export/name).write_bytes(source.read_bytes())
+        (export/'README.txt').write_text('SYNTHETIC CI VALIDATION ONLY\nNot real authorship, identity or public C2PA accreditation.\nThe synthetic CA expires after two days. All private keys are discarded.\nfull.png/baseline.jpg/progressive.jpg should pass using synthetic-ca.pem; selected.png discloses only three records.\nwrong-ca.pem must be rejected; unsigned.png has no embedded certificate.\nThese files are for manual UI acceptance, not real delivery.\n',encoding='utf-8')
 
 pathlib.Path('test-c2pa-results.json').write_text(json.dumps({'real_c2pa_png':True,'real_c2pa_jpeg':jpeg_results,'explicit_ca':True,'full_and_selective':True,'tamper_rejected':True,'original_bytes_unchanged':True,'verification_network_calls':False if traces_performed else None,'network_trace_performed':bool(traces_performed),'network_traces':traces_performed,'synthetic_authority_only':True},indent=2))
 assert traces_performed == (3 if trace_enabled else 0)
