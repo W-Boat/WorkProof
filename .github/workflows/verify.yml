@@ -249,6 +249,18 @@ jobs:
         run: |
           sudo apt-get install -y "$PWD"/target/release/bundle/deb/*.deb
           xvfb-run -a dbus-run-session -- python3 scripts/test_tray.py /usr/bin/workproof-desktop
+      - name: Verify the installed Linux native WebView and local Wasm flow
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y webkit2gtk-driver
+          cargo install tauri-driver --version 2.1.0 --locked --root "$RUNNER_TEMP/workproof-webdriver"
+          xvfb-run -a dbus-run-session -- python3 scripts/test_embedded_webview.py "$RUNNER_TEMP/workproof-webdriver/bin/tauri-driver"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && runner.os == 'Linux' }}
+        with:
+          name: native-embedded-verifier-ui
+          path: test-results/embedded-webview/
+          if-no-files-found: warn
       - name: Start the real macOS app bundle and preserve its executable permissions
         if: runner.os == 'macOS'
         run: |
