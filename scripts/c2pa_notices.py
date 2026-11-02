@@ -1,10 +1,14 @@
 """Collect actual locked Rust package notices; inventory is not commercial clearance."""
-import hashlib,json,pathlib,re,subprocess,tomllib
+import argparse,hashlib,json,pathlib,re,subprocess,tomllib
 
 root=pathlib.Path(__file__).resolve().parents[1]
-destination=root/'.ci-c2pa-notices';destination.mkdir(exist_ok=True)
-metadata=json.loads(subprocess.check_output(['cargo','metadata','--locked','--format-version','1','--manifest-path',str(root/'tools/c2pa/Cargo.toml')]))
-lock=tomllib.loads((root/'tools/c2pa/Cargo.lock').read_text(encoding='utf-8'))
+parser=argparse.ArgumentParser()
+parser.add_argument('--workspace',choices=['c2pa','c2pa-wasm'],default='c2pa')
+options=parser.parse_args()
+workspace=root/'tools'/options.workspace
+destination=root/('.ci-c2pa-notices' if options.workspace=='c2pa' else '.ci-c2pa-wasm-notices');destination.mkdir(exist_ok=True)
+metadata=json.loads(subprocess.check_output(['cargo','metadata','--locked','--format-version','1','--manifest-path',str(workspace/'Cargo.toml')]))
+lock=tomllib.loads((workspace/'Cargo.lock').read_text(encoding='utf-8'))
 checksums={(p['name'],p['version']):p.get('checksum') for p in lock['package']}
 supplement_root=root/'docs/licenses/c2pa-supplemental'
 supplements={ (p['name'],p['version']):p for p in json.loads((supplement_root/'evidence.json').read_text(encoding='utf-8'))['packages'] }

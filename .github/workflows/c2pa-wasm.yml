@@ -46,7 +46,9 @@ jobs:
           npx playwright install --with-deps chromium
           node tools/c2pa-wasm/test-browser.cjs .ci-browser-images .ci-browser-pdf
       - name: Stage only the verified public browser runtime
-        run: node tools/c2pa-wasm/stage.mjs
+        run: |
+          python scripts/c2pa_notices.py --workspace c2pa-wasm
+          node tools/c2pa-wasm/stage.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: c2pa-browser-runtime
