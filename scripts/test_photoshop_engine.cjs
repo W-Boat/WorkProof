@@ -29,7 +29,7 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
       async getMetadata(){const stat=fs.statSync(filename);return {size:stat.size,dateModified:new Date(stat.mtimeMs)};},
       async read(){const data=fs.readFileSync(filename);return data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);},
       async write(data){fs.writeFileSync(filename,data);}});
-    const doc={id:31,title:'private source.psd',path:path.join(directory,'private-source.psd'),cloudDocument:false,activeHistoryState:{id:1},layers:[{kind:1,visible:true,name:'private layer name'}]};
+    const doc={id:31,title:'private source.psd',path:path.join(directory,'private-source.psd'),cloudDocument:false,activeHistoryState:{id:1},layers:[{id:301,kind:1,visible:true,name:'private layer name'}]};
     const ps={app:{activeDocument:doc},constants:{LayerKind:{GROUP:7}},
       action:{async addNotificationListener(events,fn){assert(!events.includes('all'));callback=fn;},async removeNotificationListener(){callback=null;}},
       core:{async executeAsModal(fn){await fn({isCancelled:false});}}};
@@ -44,7 +44,7 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
       return result.data;
     }});
     await r.start();const nativeToken=r.token;
-    doc.layers.push({kind:7,visible:true,layers:[{kind:1,visible:false,name:'private nested name'}]});doc.activeHistoryState.id++;
+    doc.layers.push({id:302,kind:7,visible:true,layers:[{id:303,kind:1,visible:false,name:'private nested name'}]});doc.activeHistoryState.id++;
     callback('make',{documentID:31,privateText:'DO NOT SEND PIXELS',layerName:'private nested name'});now+=1000;await r.sample();
     await r.pause();now+=5000;doc.activeHistoryState.id++;await r.pause();
     await r.export();

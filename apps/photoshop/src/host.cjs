@@ -20,23 +20,29 @@ function createHost(ps,storage){
   }
   function snapshot(){
     const doc=ps.app.activeDocument;if(!doc)throw new Error('请先打开 Photoshop 文档。');
+    const before=marker(),topology=[],seen=new Set();
     let layers=0,groups=0,visible_layers=0;
-    const stack=list(doc.layers).map(layer=>({layer,visible:true}));
+    const stack=list(doc.layers).map((layer,order)=>({layer,visible:true,parent:null,order}));
     while(stack.length){
-      const {layer,visible}=stack.pop();
+      const {layer,visible,parent,order}=stack.pop();
       if(++layers>50_000)throw new Error('当前适配器最多统计 50000 个图层节点。');
       if(typeof layer.visible!=='boolean'||layer.kind===undefined)throw new Error('当前宿主无法读取图层种类或可见性，不能将未知值当成零。');
+      if(!Number.isSafeInteger(layer.id)||layer.id<0||seen.has(layer.id))throw new Error('宿主未提供唯一的图层标识，无法安全记录图层变化。');
+      seen.add(layer.id);
+      const kind=String(layer.kind);if(!/^[A-Za-z0-9_]{1,64}$/.test(kind))throw new Error('宿主图层种类无法识别。');
+      topology.push([layer.id,parent,order,kind,layer.visible]);
       const shown=visible&&layer.visible;
       if(shown)visible_layers++;
       if(layer.kind===ps.constants.LayerKind.GROUP){
         groups++;const children=list(layer.layers);
         if(stack.length+layers+children.length>50_000)throw new Error('当前适配器最多统计 50000 个图层节点。');
-        for(const child of children)stack.push({layer:child,visible:shown});
+        children.forEach((child,index)=>stack.push({layer:child,visible:shown,parent:layer.id,order:index}));
       }
     }
     const position=marker();
-    if(position.id!==doc.id)throw new Error('统计期间活动文档已改变。');
-    return {...position,metrics:{layers,groups,visible_layers}};
+    if(position.id!==doc.id||position.id!==before.id||position.history!==before.history)throw new Error('统计期间文档或历史状态已改变，请停止编辑后重试。');
+    topology.sort((a,b)=>a[0]-b[0]);
+    return {...position,metrics:{layers,groups,visible_layers},topology};
   }
   return {
     snapshot,marker,activeId:id,

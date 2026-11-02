@@ -3,7 +3,8 @@
 const MAX_QUEUE=2048;
 const EVENTS=['make','delete','move','mergeLayersNew','mergeVisible','set','paint','undoEvent','select','save','open','close'];
 const MAP={make:'layer',delete:'layer',move:'layer',mergeLayersNew:'layer',mergeVisible:'layer',set:'edit',paint:'edit',undoEvent:'undo',save:'save'};
-const same=(a,b)=>a.id===b.id&&a.history===b.history&&JSON.stringify(a.metrics)===JSON.stringify(b.metrics);
+const topology=s=>JSON.stringify(s.topology??null);
+const same=(a,b)=>a.id===b.id&&a.history===b.history&&JSON.stringify(a.metrics)===JSON.stringify(b.metrics)&&topology(a)===topology(b);
 class Recorder {
   constructor({host,request,hash,now=Date.now,sleep=ms=>new Promise(r=>setTimeout(r,ms)),changed=()=>{}}){
     Object.assign(this,{host,request,hash,now,sleep,changed});
@@ -36,6 +37,11 @@ class Recorder {
   event(kind,snapshot,checkpoint=''){
     if(this.pending.length>=MAX_QUEUE){this.paused=true;throw new Error('离线队列已满，记录已暂停。恢复连接后继续。');}
     this.elapsed=Math.max(this.elapsed,Math.max(0,Math.floor(this.now()-this.started)));
+    if(!checkpoint&&snapshot.topology&&['start','layer','resume'].includes(kind)){
+      // This fixed-format numeric/ASCII snapshot remains in memory. Only its
+      // BLAKE3 commitment enters the existing signed checkpoint field.
+      const text=topology(snapshot);checkpoint=this.hash(Uint8Array.from(text,char=>char.charCodeAt(0)));
+    }
     this.pending.push({seq:this.next++,elapsed_ms:this.elapsed,kind,inserted:0,deleted:0,chars:0,checkpoint,metrics:{...snapshot.metrics}});this.paint();
   }
   async flush(){
@@ -66,7 +72,7 @@ class Recorder {
       if(this.stopped)throw new Error('插件已关闭，本次记录未启动。');
       this.session=result.session_id;this.started=this.now();this.lastSample=this.started;this.next=0;this.committed=0;this.pending=[];this.elapsed=0;
       this.previous=current;this.signals.clear();this.paused=false;
-      this.event('start',current);await this.flush();this.message='记录中。每秒合并动作信号与图层统计，不保存图像或图层名称。';
+      this.event('start',current);await this.flush();this.message='记录中。每秒合并动作信号，记录图层统计和结构摘要，不保存图像或图层名称。';
     }catch(error){
       this.paused=true;
       if(this.listening&&!this.session){await this.host.unlisten(EVENTS,this.notify).catch(()=>{});this.listening=false;}
@@ -93,8 +99,9 @@ class Recorder {
       const current=this.host.snapshot();this.check(current);
       if(this.now()-this.lastSample>15000)this.event('gap',current);
       this.lastSample=this.now();
-      if(this.signals.size){for(const kind of this.signals)this.event(kind,current);this.signals.clear();}
-      else if(!same(this.previous,current))this.event(JSON.stringify(current.metrics)!==JSON.stringify(this.previous.metrics)?'layer':'edit',current);
+      const structureChanged=topology(this.previous)!==topology(current);
+      if(this.signals.size){if(structureChanged)this.signals.add('layer');for(const kind of this.signals)this.event(kind,current);this.signals.clear();}
+      else if(!same(this.previous,current))this.event(structureChanged||JSON.stringify(current.metrics)!==JSON.stringify(this.previous.metrics)?'layer':'edit',current);
       this.previous=current;await this.flush();
     }catch(error){this.paused=true;throw error;}finally{this.sampling=false;this.paint();}
   }

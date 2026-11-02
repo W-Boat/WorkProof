@@ -98,9 +98,9 @@ test('hiding a panel during start pauses after the outstanding operation settles
 });
 function nativeFixture(){
   const neverRead=()=>{throw Error('Private host content must not be read');};
-  const child={kind:1,visible:true,get name(){return neverRead();}};
+  const child={id:103,kind:1,visible:true,get name(){return neverRead();}};
   const doc={id:17,title:'design.psd',path:'C:/private/source.psd',cloudDocument:false,activeHistoryState:{id:99,get name(){return neverRead();}},
-    layers:[{kind:7,visible:false,layers:[child]},{kind:1,visible:true,get name(){return neverRead();}}]};
+    layers:[{id:101,kind:7,visible:false,layers:[child]},{id:102,kind:1,visible:true,get name(){return neverRead();}}]};
   const entry={name:'delivery.psd',nativePath:'C:/delivery/delivery.psd',async getMetadata(){return {size:8,dateModified:new Date(1000)};},async read(){return new Uint8Array([1,2,3,4,5,6,7,8]).buffer;}};
   const calls=[];
   doc.saveAs={psd:async(...args)=>calls.push(args)};
@@ -109,7 +109,31 @@ function nativeFixture(){
   return {host:createHost(ps,storage),doc,entry,calls};
 }
 test('native API adapter counts nested visibility and excludes names',()=>{
-  const {host}=nativeFixture();assert.deepEqual(host.snapshot(),{id:17,history:99,metrics:{layers:3,groups:1,visible_layers:1}});
+  const {host}=nativeFixture();assert.deepEqual(host.snapshot(),{id:17,history:99,metrics:{layers:3,groups:1,visible_layers:1},topology:[[101,null,0,'7',false],[102,null,1,'1',true],[103,101,0,'1',true]]});
+});
+
+test('native topology detects same-count reorder, reparent and visibility swap',()=>{
+  const {host,doc}=nativeFixture();const before=host.snapshot();
+  doc.layers.reverse();const reordered=host.snapshot();
+  assert.deepEqual(reordered.metrics,before.metrics);assert.notDeepEqual(reordered.topology,before.topology);
+  const group=doc.layers[1],child=group.layers.pop();doc.layers.push(child);
+  const moved=host.snapshot();assert.equal(moved.metrics.layers,before.metrics.layers);
+  assert.equal(moved.topology.find(row=>row[0]===103)[1],null);
+  doc.layers[0].visible=false;group.visible=true;
+  const visibilitySwap=host.snapshot();assert.deepEqual(visibilitySwap.metrics,moved.metrics);
+  assert.notDeepEqual(visibilitySwap.topology,moved.topology);
+  doc.layers.push(child);assert.throws(()=>host.snapshot(),/唯一的图层标识/);
+});
+
+test('same-count structural edits get signed commitments without exporting layer IDs',async()=>{
+  const {host,doc}=nativeFixture();const f=fixture();f.host.snapshot=host.snapshot;
+  f.host.activeId=()=>doc.id;
+  const hashes=[];f.recorder.hash=bytes=>{hashes.push(new TextDecoder().decode(bytes));return 'cd'.repeat(32);};
+  await f.recorder.start();doc.layers.reverse();doc.activeHistoryState.id++;f.state.clock+=1000;
+  await f.recorder.sample();
+  const event=[...f.events.values()].at(-1);assert.equal(event.kind,'layer');assert.equal(event.checkpoint,'cd'.repeat(32));
+  assert(hashes.length>=2);assert.notEqual(hashes[0],hashes[1]);
+  const exported=JSON.stringify([...f.events.values()]);assert(!exported.includes('topology'));assert(!exported.includes('103'));assert(!exported.includes('private'));
 });
 test('native API adapter saves as copy in modal scope and refuses source overwrite',async()=>{
   const {host,entry,calls}=nativeFixture();await host.saveCopy(entry,17);
@@ -133,6 +157,6 @@ test('same-size writes within one second are detected at metadata millisecond pr
 test('missing host capabilities are unknown, never zero-valued measurements',()=>{
   const {host,doc}=nativeFixture();doc.layers=undefined;assert.throws(()=>host.snapshot(),/完整读取图层结构/);
   doc.layers=[{kind:1}];assert.throws(()=>host.snapshot(),/未知值当成零/);
-  doc.layers=[{kind:7,visible:true,layers:undefined}];assert.throws(()=>host.snapshot(),/完整读取图层结构/);
+  doc.layers=[{id:1,kind:7,visible:true,layers:undefined}];assert.throws(()=>host.snapshot(),/完整读取图层结构/);
   doc.layers=[];doc.activeHistoryState={};assert.throws(()=>host.snapshot(),/历史状态标识/);
 });

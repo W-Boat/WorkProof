@@ -14,7 +14,8 @@
 
 ## 隐私与限制
 
-- 事件只含层数、组数、实际可见节点数及动作类别；不保存像素、图层名称、历史状态名称或描述符。文档/历史 ID 仅用于当前内存中的隔离与并发变化检查，不送入事件。
+- 事件包含层数、组数、实际可见节点数、动作类别，以及开始/图层变化/继续时的 BLAKE3 结构摘要。图层 ID、父级、排列位置、类型和可见性仅在内存中组成确定性快照；证书只签入摘要，不发送原始 ID、像素、图层名称、历史状态名称或描述符。文档/历史 ID 也仅用于当前内存中的隔离与并发变化检查。
+- 即使图层数量不变，重新排序、移入/移出组、替换图层或可见性变化也会产生新的结构观察。最多遍历 50000 个唯一节点，重复/缺失 ID 或遍历期间历史状态改变时拒绝继续；摘要检查不能恢复原图层树，不构成逐操作回放或完整分支历史。重做/撤销方向不依赖历史 ID 的大小推断。
 - 隐藏面板会暂停；继续时披露缺口，换文档拒绝续录。离线事件保留到恢复并重试，停止前须确认已提交；关闭宿主仍可能丢失未提交队列。
 - UXP File.read 在当前实现一次读取文件，因此副本上限 128 MB，不支持超大 PSD/PSB。此限制不改变长期大文件目标，后续需补安全流式文件权限与读取路径。
 - 当前传输仅向 `http://127.0.0.1:43127`。Adobe 文档说明 macOS 对不安全 HTTP 有额外限制；没有通过修改系统策略绕过。Windows 实机、macOS 安全传输与实际宿主验收仍需完成。
@@ -35,3 +36,5 @@
 - [动作通知](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/media/photoshopaction)
 - [动作代码表](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/media/eventcodes)
 - [文件选择与权限](https://developer.adobe.com/photoshop/uxp/2022/uxp-api/reference-js/modules/uxp/persistent-file-storage/storage)
+
+结构摘要增量已加入源码，待 Actions 验证。新增测试分别使用宿主 API 模拟及真实 Rust 引擎签发，覆盖同数量排序/父级变化、摘要进入签名事件、原始图层 ID 不外传与身份/导出保护；这不代表已在真实 Adobe Photoshop 中验收。Layer.id/kind/layers/visible 以及 HistoryState.id 的使用依据：[Adobe Layer](https://developer.adobe.com/photoshop/uxp/ps_reference/classes/layer/)、[Adobe HistoryState](https://developer.adobe.com/photoshop/uxp/ps_reference/classes/historystate/)。
