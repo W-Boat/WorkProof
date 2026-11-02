@@ -130,7 +130,7 @@ pub fn append(original:&[u8],manifest:&[u8])->Result<Package>{
         offsets.push(bytes.len());write!(bytes,"{} 0 obj\n",id.0)?;self::object(&mut bytes,&object,0)?;bytes.extend_from_slice(b"\nendobj\n");
     }
     let xref=bytes.len();write!(bytes,"xref\n{} 3\n",first)?;
-    for offset in offsets {if offset>9_999_999_999usize{return Err("PDF_OFFSET_LIMIT".into());}write!(bytes,"{offset:010} 00000 n \n")?;}
+    for offset in offsets {if u64::try_from(offset)?>9_999_999_999u64{return Err("PDF_OFFSET_LIMIT".into());}write!(bytes,"{offset:010} 00000 n \n")?;}
     let mut trailer=doc.trailer.clone();
     for key in [b"XRefStm".as_slice(),b"Type",b"W",b"Index",b"Filter",b"Length",b"DecodeParms"]{trailer.remove(key);}
     trailer.set("Root",Object::Reference(catalog_id));trailer.set("Size",(first+3) as i64);trailer.set("Prev",doc.xref_start as i64);
