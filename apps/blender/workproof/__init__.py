@@ -62,6 +62,9 @@ def evolution_nodes(runtime):
         uid=getattr(obj,'session_uid',None)
         return ('object_uid',int(uid)) if isinstance(uid,int) and uid>0 else ('object_pointer',obj.as_pointer())
     ids={obj.as_pointer():identity(object_key(obj)) for obj in objects}
+    # bpy.data ordering can change on rename. Object order is only a stable
+    # display order within this session; modifier order remains host sequence.
+    objects.sort(key=lambda obj:ids[obj.as_pointer()])
     rows=[];orders={}
     for obj in objects:
         parent=ids.get(obj.parent.as_pointer()) if obj.parent else None
@@ -112,7 +115,7 @@ def visible_viewports():
 
 class Runtime:
     def __init__(self,filename,evolution=False):
-        self.evolution=evolution;self.identities={};self.next_identity=1;self.snapshots=[];self.snapshot_count=0;self.snapshot_nodes=0;self.snapshot_bytes=64
+        self.evolution=evolution;self.identities={};self.next_identity=1;self.last_graph_nodes=None;self.snapshots=[];self.snapshot_count=0;self.snapshot_nodes=0;self.snapshot_bytes=64
         self.filename=filename;self.queue=queue.Queue(maxsize=2048)
         self.closed=threading.Event();self.retry=threading.Event()
         self.session=None;self.seq=0;self.started=time.monotonic()
@@ -125,6 +128,9 @@ class Runtime:
         except queue.Full:self.paused=True;self.last_error='离线队列已满，已暂停；继续时将记录缺口。';return False
     def event(self,kind,values=None,checkpoint=''):
         nodes=evolution_nodes(self) if self.evolution and kind in ('start','mesh','resume') else None
+        # A coordinate or mesh-content edit still carries the original private
+        # structure digest. Reserve graph capacity only for changed topology.
+        if kind=='mesh' and nodes==self.last_graph_nodes:nodes=None
         if nodes is not None:
             if self.snapshot_count>=128 or self.snapshot_nodes+len(nodes)>50000:raise RuntimeError('结构补充已达容量上限，请导出后重新开始。')
             size=len(json.dumps(nodes,separators=(',',':')).encode())+512
@@ -132,7 +138,10 @@ class Runtime:
         payload={'elapsed_ms':int((time.monotonic()-self.started)*1000),'kind':kind,'inserted':0,'deleted':0,'chars':0,'checkpoint':checkpoint,'metrics':values or {}}
         if nodes is not None:payload['_nodes']=nodes
         accepted=self.put('event',payload)
-        if accepted and nodes is not None:self.snapshot_count+=1;self.snapshot_nodes+=len(nodes);self.snapshot_bytes+=size
+        if accepted and nodes is not None:
+            self.snapshot_count+=1;self.snapshot_nodes+=len(nodes);self.snapshot_bytes+=size
+            # The queued list is owned by this event; later sampling creates new lists.
+            self.last_graph_nodes=[dict(node) for node in nodes]
         return accepted
     def seal(self,filename,values):
         event={'elapsed_ms':int((time.monotonic()-self.started)*1000),'kind':'save','inserted':0,'deleted':0,'chars':0,'checkpoint':'','metrics':values}

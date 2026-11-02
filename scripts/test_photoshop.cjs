@@ -73,6 +73,30 @@ test('anonymous structure keeps groups and rejects cycles, missing parents and c
   assert.throws(()=>r.graphNodesFor({topology:[[1,2,0,'7',true],[2,1,0,'7',true]]}),/结构关系无效/);
   assert.throws(()=>r.graphNodesFor({topology:[[1,99,0,'1',true]]}),/结构关系无效/);
 });
+
+test('unchanged anonymous relationships retain topology digest without consuming graph capacity or RPC',async()=>{
+  const {recorder:r,host}=fixture();
+  let topology=[[301,null,0,'1',true],[302,null,1,'1',true]],rpc=0;
+  const snapshot=host.snapshot;
+  host.snapshot=()=>({...snapshot(),topology:topology.map(row=>[...row])});
+  const request=r.request;
+  r.request=async(path,body,token)=>{
+    if(!path.endsWith('/evolution-checkpoint'))return request(path,body,token);
+    rpc++;return {checkpoint:'ab'.repeat(32),snapshot:{format:'workproof-evolution/1',session_id:r.session,source:'photoshop',seq:body.seq,event_kind:body.event_kind,nodes:body.nodes}};
+  };
+  r.evolution=true;r.hash=()=> 'cd'.repeat(32);await r.start();
+  const reservedBytes=r.graphBytes,reservedNodes=r.graphNodes;
+  topology[0][4]=false;
+  for(let i=0;i<150;i++)r.event('layer',host.snapshot());
+  assert.equal(r.graphCount,1);assert.equal(r.graphBytes,reservedBytes);assert.equal(r.graphNodes,reservedNodes);
+  assert(r.pending.every(event=>event.checkpoint==='cd'.repeat(32)&&!r.graphPending.has(event)));
+  await r.flush();assert.equal(rpc,1);assert.equal(r.graphs.length,1);
+  topology[0][2]=1;topology[1][2]=0;
+  r.event('layer',host.snapshot());await r.flush();assert.equal(rpc,2);assert.equal(r.graphs.length,2);
+  topology[1][1]=301;
+  r.event('layer',host.snapshot());await r.flush();assert.equal(rpc,3);assert.equal(r.graphs.length,3);
+  r.event('resume',host.snapshot());await r.flush();assert.equal(rpc,4);assert.equal(r.graphs.length,4);
+});
 test('document switch while paused cannot contaminate an existing session',async()=>{
   const {recorder:r,state}=fixture();await r.start();await r.pause();state.id=9;
   await assert.rejects(()=>r.pause(),/活动文档已改变/);assert.equal(r.paused,true);assert.equal(state.writes.length,0);
@@ -108,7 +132,8 @@ test('pause/export clicks are serialized while an acknowledgement is pending',as
   const {recorder:r,state,events}=fixture();await r.start();
   let release;state.holdEvents=new Promise(resolve=>{release=resolve;});
   const pausing=r.pause();await new Promise(resolve=>setImmediate(resolve));assert.equal(r.busy,true);
-  await r.pause();await assert.rejects(()=>r.export(),/请先开始或继续记录/);
+  await r.pause();await assert.rejects(()=>r.export(),/请等待当前操作完成，再导出/);
+  assert.equal(state.saveCalls,0);assert.deepEqual(state.writes,[]);
   await assert.rejects(()=>r.stop(),/等待当前操作完成/);assert.equal(r.stopped,false);
   release();await pausing;assert.equal(r.paused,true);assert.deepEqual([...events.values()].map(e=>e.kind),['start','pause']);
 });

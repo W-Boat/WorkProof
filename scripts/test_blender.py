@@ -103,6 +103,48 @@ with tempfile.TemporaryDirectory(prefix='workproof-blender-') as tmp:
         bpy.context.scene.workproof_evolution=True
         assert bpy.ops.workproof.start()=={'FINISHED'}
         wait_for(lambda:workproof._runtime.committed>=1,'Graph start: '+workproof._runtime.last_error)
+        # Repeated same-topology edits keep signed SHA-256 structure checkpoints,
+        # without spending graph capacity or calling the canonical graph RPC.
+        actual_request=workproof.request;traffic={'graphs':0,'events':[]}
+        def count_graph_requests(route,body):
+            if route.endswith('/evolution-checkpoint'):traffic['graphs']+=1
+            if route.endswith('/events'):traffic['events'].extend(json.loads(json.dumps(body['events'])))
+            return actual_request(route,body)
+        workproof.request=count_graph_requests
+        baseline_count=workproof._runtime.snapshot_count
+        expected_digests=[]
+        for index in range(6):
+            target=workproof._runtime.committed+1
+            obj.location.x+=.125
+            bpy.context.view_layer.update()
+            expected_digests.append(workproof.structure_checkpoint())
+            workproof.on_change();workproof.sample()
+            wait_for(lambda:workproof._runtime.committed>=target,'Same-topology signed event')
+        assert workproof._runtime.snapshot_count==baseline_count
+        assert len(workproof._runtime.snapshots)==baseline_count and traffic['graphs']==0
+        actual_digests=[event['checkpoint'] for event in traffic['events'] if event['kind']=='mesh']
+        assert actual_digests==expected_digests,'Coordinate edits lost their signed private structure digests'
+        # Renaming may reorder bpy.data.objects, but names are not topology.
+        before_rename=workproof.evolution_nodes(workproof._runtime)
+        target=workproof._runtime.committed+1
+        obj.name='AAA_PRIVATE_RENAMED_OBJECT'
+        bpy.context.view_layer.update()
+        assert workproof.evolution_nodes(workproof._runtime)==before_rename
+        rename_checkpoint=workproof.structure_checkpoint()
+        workproof.on_change();workproof.sample()
+        wait_for(lambda:workproof._runtime.committed>=target,'Rename summary event')
+        assert workproof._runtime.snapshot_count==baseline_count and traffic['graphs']==0
+        assert [event for event in traffic['events'] if event['kind']=='mesh'][-1]['checkpoint']==rename_checkpoint
+        # Same-count modifier reorder changes anonymous topology and uses one RPC.
+        target=workproof._runtime.committed+1
+        bpy.context.view_layer.objects.active=obj
+        bpy.ops.object.modifier_move_up(modifier=obj.modifiers[1].name)
+        bpy.context.view_layer.update();workproof.on_change();workproof.sample()
+        wait_for(lambda:workproof._runtime.committed>=target,'Same-count modifier reorder')
+        assert traffic['graphs']==1 and workproof._runtime.snapshot_count==baseline_count+1
+        assert workproof._runtime.snapshots[-1]['nodes']!=workproof._runtime.snapshots[0]['nodes']
+        workproof.request=actual_request
+        ack_baseline=len(workproof._runtime.snapshots)
         # Lose one ACK *after* the real collector commits: retry must submit the
         # same event and retain the original main-thread topology, not current bpy.
         original_request=workproof.request;lost={'once':False};captured={}
@@ -117,12 +159,12 @@ with tempfile.TemporaryDirectory(prefix='workproof-blender-') as tmp:
         obj.parent=None
         bpy.context.view_layer.update();workproof.on_change();workproof.sample()
         wait_for(lambda:workproof._runtime.failed,'Lost ACK did not pause transport')
-        assert len(workproof._runtime.snapshots)==1,'Unacknowledged snapshot was published'
+        assert len(workproof._runtime.snapshots)==ack_baseline,'Unacknowledged snapshot was published'
         committed_seq=workproof._runtime.seq
         # Mutate real bpy while pending. Retry must retain the earlier topology.
         obj.parent=parent;bpy.context.view_layer.update()
         workproof._runtime.retry.set()
-        wait_for(lambda:len(workproof._runtime.snapshots)>=2 and workproof._runtime.seq==committed_seq+1,'Graph retry: '+workproof._runtime.last_error)
+        wait_for(lambda:len(workproof._runtime.snapshots)==ack_baseline+1 and workproof._runtime.seq==committed_seq+1,'Graph retry: '+workproof._runtime.last_error)
         workproof.request=original_request
         retained=workproof._runtime.snapshots[-1]
         assert retained['seq']==committed_seq and workproof._runtime.seq==committed_seq+1
@@ -181,7 +223,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-blender-') as tmp:
         rejected({'Authorization':'Bearer '+token,'Origin':'https://example.invalid'},body,403)
         rejected({'Authorization':'Bearer '+token},dict(body,source='photoshop'),422)
         rejected({'Authorization':'Bearer '+token},dict(body,seq=0),400)
-        result={'host':bpy.app.version_string,'native_adapter':'passed','opt_in_graph_full_and_selective':'passed','lost_ack_immutable_retry':'passed','observed_modifier_retirement':'passed','graph_tamper_and_endpoint_auth':'passed','signed_metrics':'passed','pause_gap':'passed','real_blend_file_binding':'passed','tampered_metric_rejected':'passed','viewport_rotation_and_zoom':'passed','paused_viewport_not_counted':'passed','viewport_tamper_rejected':'passed','idle_viewport_sample_p95_ms':sorted(timings)[94],'sample_scope':'100 synchronous samples in factory-startup scene, not general editor performance','events':len(events)}
+        result={'host':bpy.app.version_string,'native_adapter':'passed','opt_in_graph_full_and_selective':'passed','lost_ack_immutable_retry':'passed','same_topology_edits_preserve_digest_without_graph_rpc':'passed','same_count_reorder_emits_graph':'passed','rename_does_not_change_anonymous_topology':'passed','observed_modifier_retirement':'passed','graph_tamper_and_endpoint_auth':'passed','signed_metrics':'passed','pause_gap':'passed','real_blend_file_binding':'passed','tampered_metric_rejected':'passed','viewport_rotation_and_zoom':'passed','paused_viewport_not_counted':'passed','viewport_tamper_rejected':'passed','idle_viewport_sample_p95_ms':sorted(timings)[94],'sample_scope':'100 synchronous samples in factory-startup scene, not general editor performance','events':len(events)}
         (root/'test-blender-results.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
         print(json.dumps(result))
     finally:

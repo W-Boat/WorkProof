@@ -13,7 +13,7 @@ class Recorder {
     this.notify=this.notify.bind(this);this.stopped=false;this.pauseAfterBusy=false;
     this.evolution=evolution;this.resetGraphs();
   }
-  resetGraphs(){this.graphs=[];this.graphPending=new WeakMap();this.identities=new Map();this.nextIdentity=1;this.graphCount=0;this.graphNodes=0;this.graphBytes=64;}
+  resetGraphs(){this.graphs=[];this.graphPending=new WeakMap();this.identities=new Map();this.nextIdentity=1;this.graphCount=0;this.graphNodes=0;this.graphBytes=64;this.lastGraphNodes=null;}
   graphNodesFor(snapshot){
     if(!Array.isArray(snapshot.topology)||snapshot.topology.length>10000)throw Error('结构补充最多支持 10000 个节点。');
     const active=new Map();
@@ -63,16 +63,21 @@ class Recorder {
       // BLAKE3 commitment enters the existing signed checkpoint field.
       const text=topology(snapshot);checkpoint=this.hash(Uint8Array.from(text,char=>char.charCodeAt(0)));
     }
-    let nodes;
+    let nodes,nodeText,graphBytes=0;
     if(this.evolution&&['start','layer','resume'].includes(kind)){
-      nodes=this.graphNodesFor(snapshot);
-      const bytes=JSON.stringify(nodes).length+512;
-      if(this.graphCount>=128||this.graphNodes+nodes.length>50000||this.graphBytes+bytes>8*1024*1024){this.paused=true;throw Error('结构补充已达容量上限，请导出已有记录后重新开始。');}
-      this.graphCount++;this.graphNodes+=nodes.length;this.graphBytes+=bytes;
+      const candidate=this.graphNodesFor(snapshot);nodeText=JSON.stringify(candidate);
+      // Visibility and raw kind changes still receive the original topology digest.
+      // Only changed anonymous relationships consume a layer snapshot reservation.
+      if(kind!=='layer'||nodeText!==this.lastGraphNodes){
+        nodes=candidate;graphBytes=nodeText.length+512;
+        if(this.graphCount>=128||this.graphNodes+nodes.length>50000||this.graphBytes+graphBytes>8*1024*1024){this.paused=true;throw Error('结构补充已达容量上限，请导出已有记录后重新开始。');}
+      }
     }
     const event={seq:this.next++,elapsed_ms:this.elapsed,kind,inserted:0,deleted:0,chars:0,checkpoint,metrics:{...snapshot.metrics}};
     if(nodes)this.graphPending.set(event,{nodes});
-    this.pending.push(event);this.paint();
+    this.pending.push(event);
+    if(nodes){this.graphCount++;this.graphNodes+=nodes.length;this.graphBytes+=graphBytes;this.lastGraphNodes=nodeText;}
+    this.paint();
   }
   async flush(){
     if(this.delivering)return this.delivering;
@@ -156,7 +161,8 @@ class Recorder {
     }catch(error){this.paused=true;throw error;}finally{await this.finishBusy();}
   }
   async export(){
-    if(!this.session||this.busy)throw new Error('请先开始记录。');
+    if(this.busy)throw new Error('请等待当前操作完成，再导出。');
+    if(!this.session)throw new Error('请先开始记录。');
     this.busy=true;this.error='';this.paint();
     try{
       while(this.sampling)await this.sleep(20);
