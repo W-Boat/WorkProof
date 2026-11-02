@@ -7,8 +7,16 @@ session=None
 def call(method,path,body=None):
     payload=json.dumps(body).encode() if body is not None else None
     request=urllib.request.Request('http://127.0.0.1:4444'+path,data=payload,headers={'Content-Type':'application/json'},method=method)
-    with urllib.request.urlopen(request,timeout=90) as response:
-        value=json.load(response)['value']
+    try:
+        with urllib.request.urlopen(request,timeout=90) as response:
+            value=json.load(response)['value']
+    except urllib.error.HTTPError as error:
+        try:
+            details=json.loads(error.read(65536)).get('value',{})
+            code=details.get('error') if isinstance(details,dict) else None
+        except Exception:code=None
+        if code:raise RuntimeError('Native WebDriver: '+code) from error
+        raise
     if isinstance(value,dict) and value.get('error'):raise RuntimeError(value['error'])
     return value
 def wait(action):
@@ -17,12 +25,18 @@ def wait(action):
         try:return action()
         except Exception as error:last=error;time.sleep(.3)
     raise AssertionError('Native WebView operation timed out') from last
-def execute(script):return call('POST',f'/session/{session}/execute/sync',{'script':script,'args':[]})
+def execute(script,args=None):return call('POST',f'/session/{session}/execute/sync',{'script':script,'args':args or []})
 def handles():return call('GET',f'/session/{session}/window/handles')
 def switch(handle):call('POST',f'/session/{session}/window',{'handle':handle})
 def click(selector):
     element=call('POST',f'/session/{session}/element',{'using':'css selector','value':selector})
     identifier=element['element-6066-11e4-a52e-4f735466cecf']
+    # The page intentionally uses smooth scrolling. Bring the target into view
+    # without waiting for a WebDriver-internal scroll animation to finish.
+    execute("document.querySelector(arguments[0]).scrollIntoView({block:'center',behavior:'instant'});return true",[selector])
+    def visible():
+        assert execute("const r=document.querySelector(arguments[0]).getBoundingClientRect();return r.width>0&&r.height>0&&r.top+r.height/2>=0&&r.top+r.height/2<innerHeight",[selector])
+    wait(visible)
     call('POST',f'/session/{session}/element/{identifier}/click',{})
 
 def select_file(selector,path):
