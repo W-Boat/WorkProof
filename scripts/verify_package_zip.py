@@ -12,7 +12,7 @@ def verify(archive):
             raise ValueError('Duplicate archive member')
         for name in names:
             path = pathlib.PurePosixPath(name)
-            if path.is_absolute() or '..' in path.parts or '\\' in name:
+            if path.is_absolute() or '..' in path.parts or chr(92) in name or (path.parts and ':' in path.parts[0]):
                 raise ValueError('Unsafe archive member: ' + name)
         manifest = package.read('SHA256SUMS.txt').decode('utf-8-sig')
         expected = {}

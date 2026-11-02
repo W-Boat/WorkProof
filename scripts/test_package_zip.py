@@ -44,6 +44,12 @@ class PackageEvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify(self.archive({self.notice: self.content}, self.manifest * 2))
 
+    def test_unsafe_paths_are_rejected_even_when_listed_and_hashed(self):
+        for name in ('../escape.txt', '/absolute.txt', 'C:/absolute.txt', 'folder\\ambiguous.txt'):
+            manifest = hashlib.sha256(self.content).hexdigest() + '  ' + name + '\n'
+            with self.assertRaisesRegex(ValueError, 'Unsafe archive member'):
+                verify(self.archive({name: self.content}, manifest))
+
 if __name__ == '__main__':
     if os.environ.get('GITHUB_ACTIONS') != 'true':
         raise SystemExit('Run package tests in GitHub Actions only.')
