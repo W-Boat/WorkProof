@@ -1,7 +1,7 @@
 name: Institution backend baseline
 on:
   push:
-    paths: ['deploy/institution/**', 'services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution*.py', 'scripts/test_backup_crypto.py', 'scripts/test_institution*.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml']
+    paths: ['deploy/institution/**', 'services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution*.py', 'scripts/test_backup_crypto.py', 'scripts/test_snapshot_archive.py', 'scripts/test_institution*.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml']
   workflow_dispatch:
     inputs:
       ai_models:
@@ -123,6 +123,8 @@ jobs:
         run: python scripts/test_institution_server.py
       - name: Verify authenticated byte encryption in the actual server image
         run: docker run --rm --network none -v "$PWD/scripts/test_backup_crypto.py:/test_backup_crypto.py:ro" --entrypoint python3 workproof-institution:local /test_backup_crypto.py
+      - name: Verify restricted encrypted snapshots without restoring data
+        run: docker run --rm --user 0 --network none -v "$PWD/scripts/test_snapshot_archive.py:/test_snapshot_archive.py:ro" --entrypoint python3 workproof-institution:local /test_snapshot_archive.py
       - name: Archive the verified image without any deployment secrets
         shell: python
         run: |
