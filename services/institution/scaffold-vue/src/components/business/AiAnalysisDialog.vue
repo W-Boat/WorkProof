@@ -12,13 +12,22 @@ import {analysisApi,ApiError} from '@/api'
 import type {AnalysisCapabilities,AnalysisTask} from '@/api/analysis'
 const props=defineProps<{open:boolean}>(),emit=defineEmits<{(event:'close'):void}>()
 const capability=ref<AnalysisCapabilities|null>(null),file=ref<File|null>(null),engine=ref('mpu-zh-v3'),consent=ref(false),busy=ref(false),cancelling=ref(false),error=ref(''),task=ref<AnalysisTask|null>(null)
+const capabilityLoading=ref(false)
 let generation=0,request:AbortController|null=null
 const options=computed(()=>capability.value?.engines.map(e=>({value:e.id,label:e.label+(e.configured?'':'（尚未准备）'),disabled:!e.configured}))??[])
 const ready=computed(()=>!busy.value&&task.value?.state!=='done'&&!!file.value&&consent.value&&capability.value?.engines.some(e=>e.id===engine.value&&e.configured))
 watch(()=>props.open,async open=>{
-  const current=++generation;file.value=null;consent.value=false;task.value=null;error.value='';capability.value=null;busy.value=false;cancelling.value=false
-  if(open)try{const value=await analysisApi.capabilities();if(current===generation)capability.value=value}catch(failure){if(current===generation)error.value=failure instanceof ApiError?failure.message:'暂时无法读取准备状态，请稍后重试。'}
-})
+  ++generation;file.value=null;consent.value=false;task.value=null;error.value='';capability.value=null;busy.value=false;cancelling.value=false
+  capabilityLoading.value=false
+  if(open)await loadCapabilities()
+},{immediate:true})
+async function loadCapabilities(){
+  if(capabilityLoading.value||busy.value||!props.open)return
+  const current=generation;capabilityLoading.value=true;error.value=''
+  try{const value=await analysisApi.capabilities();if(current===generation)capability.value=value}
+  catch(failure){if(current===generation)error.value=failure instanceof ApiError?failure.message:'暂时无法读取准备状态，请稍后重试。'}
+  finally{if(current===generation)capabilityLoading.value=false}
+}
 onBeforeUnmount(()=>{generation++;request?.abort();if(busy.value&&task.value)void analysisApi.cancel(task.value.id).catch(()=>{})})
 function resetResult(){task.value=null;error.value='';consent.value=false}
 function select(value:File|null){if(busy.value)return;resetResult();
@@ -48,7 +57,7 @@ function downloadReport(){const report=task.value?.report;if(!report)return;down
   <FormDialog :open="open" title="AI 辅助分析" sub="选文件 → 选语言 → 同意发送。结果仅供人工复核。" :saving="busy" :submit-disabled="!ready" :submit-text="task?.state==='done'?'本次分析已结束':'发送并分析'" @submit="submit" @close="close">
     <Field label="待分析文档" group span :error="error||undefined"><FilePicker label="选择文档" :file="file" accept=".docx,.txt,.md" :disabled="busy" @select="select"/><span class="field-hint">支持 DOCX、TXT、Markdown，最多 8 MB。</span></Field>
     <Field label="文档使用的语言" span><Select :model-value="engine" :options="options" :disabled="busy" @update:model-value="value=>{engine=String(value);resetResult()}"/><p class="field-hint">模型可能误判，不能单独用来判断作弊或原创性。</p></Field>
-    <Field label="确认发送" group span><Checkbox v-model="consent" :disabled="busy||!file" label="我同意将所选文档发送给机构服务器进行辅助分析"/><p class="field-hint">分析后删除临时文档，不保存正文。</p><details><summary>分析范围与保留规则</summary><p>DOCX 只分析主文档源文字，可能含隐藏或修订文字；不含页眉、脚注或图片。作品过长时会提示未分析，不会只分析开头。</p><p>参考结果最多保留十分钟，服务器重启后不保留。模型尚未在本产品中评估误报率，准备就绪不代表效果或许可审查已完成。</p></details><p v-if="busy||!capability" class="field-hint" role="status">{{ busy ? (cancelling?'正在请求停止，请等待服务器确认…':'正在分析；点击取消可请求停止。') : '正在读取模型准备状态…' }}</p><p v-else-if="!capability.engines.some(item=>item.configured)" class="field-hint" role="status">模型尚未准备好，请联系管理员。您仍可使用证书核验。</p></Field>
+    <Field label="确认发送" group span><Checkbox v-model="consent" :disabled="busy||!file" label="我同意将所选文档发送给机构服务器进行辅助分析"/><p class="field-hint">分析结束后清理临时文档；若清理失败，会提示联系管理员。</p><details><summary>分析范围与保留规则</summary><p>DOCX 只分析主文档源文字，可能含隐藏或修订文字；不含页眉、脚注或图片。作品过长时会提示未分析，不会只分析开头。</p><p>参考结果最多保留十分钟，服务器重启后不保留。模型尚未在本产品中评估误报率，准备就绪不代表效果或许可审查已完成。</p></details><p v-if="busy||capabilityLoading" class="field-hint" role="status">{{ busy ? (cancelling?'正在请求停止，请等待服务器确认…':'正在分析；点击取消可请求停止。') : '正在读取模型准备状态…' }}</p><p v-else-if="!capability" class="field-hint" role="status">模型状态读取失败，分析尚未开始。请重试，或先使用证书核验。</p><Button v-if="!capability&&!capabilityLoading" :disabled="busy" @click="loadCapabilities">重试读取模型状态</Button><p v-if="capability&&!capability.engines.some(item=>item.configured)" class="field-hint" role="status">模型尚未准备好，请联系管理员。您仍可使用证书核验。</p></Field>
     <Field v-if="task?.state==='cancelled'" label="分析已取消" group span><p role="status">服务器已结束本次分析。</p></Field>
     <Field v-if="task?.report&&task.report.status!=='completed'" label="下一步" span><p>{{ task.report.message }}</p></Field>
     <Field v-if="task?.report" label="辅助结果" group span aria-live="polite"><Tag tone="info">{{ task.report.status==='completed'?'仅供人工参考':'本次未完成模型分析' }}</Tag><p>模型得分不是 AI 内容比例，也没有确认作者身份。</p><dl v-if="task.report.raw_scores"><template v-for="(value,key) in task.report.raw_scores" :key="key"><dt>{{ label(String(key)) }}</dt><dd>{{ value.toFixed(4) }}（未校准）</dd></template></dl><p class="field-hint">{{ task.report.scope }}</p><code style="overflow-wrap:anywhere">文档 SHA-256：{{ task.report.artifact_hash }}</code><details><summary>模型版本与报告</summary><p style="overflow-wrap:anywhere">{{ task.report.model }} · {{ task.report.model_revision }}</p><p>保存的记录包含文件指纹和模型版本，不含正文；记录可以被修改，不是签名证书。</p><Button @click="downloadReport">保存辅助报告</Button></details></Field>
