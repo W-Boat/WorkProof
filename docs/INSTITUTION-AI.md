@@ -1,6 +1,6 @@
 # 机构 AI 辅助分析工作台
 
-本轮源码新增可选英文 Desklib v1.01，固定 revision `5fdea974cd4287c61674951ec78803aa274e2fb7`，默认仍关闭、不下载权重。页面的“分析模型”按语言选择，机构对每个模型分别校验得分类型；Desklib 的 sigmoid 与 MPU 的 softmax 不混用或平均。真实权重 CLI、Java 桥接、常规未配置页面及显式模型生产网页仍待本轮 Actions。完整许可及近期误报评估未完成，两种实现仍属于监督分类方法，不能计作多类独立检测原理。
+新增可选英文 Desklib v1.01，固定 revision `5fdea974cd4287c61674951ec78803aa274e2fb7`，默认仍关闭、不下载权重。页面的“分析模型”按语言选择，机构对每个模型分别校验得分类型；Desklib 的 sigmoid 与 MPU 的 softmax 不混用或平均。[真实权重 CLI/Java 桥接](https://github.com/W-Boat/WorkProof/actions/runs/41502727303)、[常规机构回归](https://github.com/W-Boat/WorkProof/actions/runs/41502727546)与[显式三模型生产网页](https://github.com/W-Boat/WorkProof/actions/runs/41503104263)均已通过；网页覆盖模型选择、明确同意、真实结果与下载报告核对，不替代效果评估或用户本机升级。完整许可及近期误报评估未完成，两种实现仍属于监督分类方法，不能计作多类独立检测原理。
 
 57d5aef 的真实中英文完整网页专项 [41298447642](https://github.com/W-Boat/WorkProof/actions/runs/41298447642) 已通过，包括模型版本与下载报告；当前新增阅读流程简化仍待最新 Actions。
 

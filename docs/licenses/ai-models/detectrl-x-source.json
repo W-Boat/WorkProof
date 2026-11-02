@@ -1,0 +1,23 @@
+{
+  "reviewed_date": "2026-11-03",
+  "dataset": "WUJUNCHAO/DetectRL-X",
+  "revision": "ccc9a0a74793dd3448e0da1650b430f5df1b0402",
+  "card": "https://huggingface.co/datasets/WUJUNCHAO/DetectRL-X/blob/ccc9a0a74793dd3448e0da1650b430f5df1b0402/README.md",
+  "card_sha256": "9ce2fe0531ec832d40c5f952a2e23395ebd6cca93c42b74a8a2708959b9365dd",
+  "license_declaration": "mit",
+  "commercial_clearance": false,
+  "candidate_file": "Binary/binary_general_256_open.json",
+  "candidate_bytes": 775337623,
+  "candidate_sha256": "9b3fe5250b85ee02749282600a803c843e0205e0c411dea8460bea6eb21262ff",
+  "observed_schema_fields": ["human_written_text", "llm_generated_text", "lang", "model", "split", "domain"],
+  "declared_generators": ["deepseek-v3", "gemini-2.5-flash", "gpt-4o", "qwen-max"],
+  "status": "Source and bounded first-record schema inspected; no evaluation run or quality result yet",
+  "issues": [
+    "Model card explicitly declares MIT, but the pinned file listing contains no LICENSE/NOTICE/terms document; underlying text source rights and complete distribution notices remain unreviewed.",
+    "A 2026 benchmark release is not proof that samples cover the latest generator versions or match university assignments.",
+    "Upstream states train data is shared across strategy files. Merely using different variant filenames does not make calibration and evaluation independent.",
+    "Human texts can repeat across generated variants and models; selection must de-duplicate and audit leakage before metrics.",
+    "The general_256 variant is length restricted in upstream testing; results cannot be generalized to full documents. The shared train partition is not necessarily length restricted.",
+    "No raw texts were added to the repository or distribution. Only a bounded prefix was read to check field structure."
+  ]
+}

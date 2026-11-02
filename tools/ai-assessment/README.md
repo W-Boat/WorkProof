@@ -2,13 +2,13 @@
 
 独立 Python 按需运行，不进入 Rust 常驻记录进程。机构工作台已接入文件选择、明确发送同意、任务查询及取消，配置见[机构辅助分析](../../docs/INSTITUTION-AI.md)。用户本机尚未安装模型。
 
-现有 MPU 中英文模型属于同一方法；本轮新增 Desklib 英文分类器源码，待 Actions 真实推理验收。两种实现都属于监督分类，不能称为多类独立检测原理或“大多数开源引擎已支持”。旧英文 GPT-2 参考模型已从注册表、机构接口和用户选项移除；命令行必须明确指定引擎，不再隐式选择它。
+现有 MPU 中英文模型属于同一方法；新增 Desklib 英文分类器已通过[真实模型与 Java 调用](https://github.com/W-Boat/WorkProof/actions/runs/41502727303)和[机构网页](https://github.com/W-Boat/WorkProof/actions/runs/41503104263)验收。两种实现都属于监督分类，不能称为多类独立检测原理或“大多数开源引擎已支持”。旧英文 GPT-2 参考模型已从注册表、机构接口和用户选项移除；命令行必须明确指定引擎，不再隐式选择它。
 
 | 引擎 | 固定权重 revision | 语言 |
 |---|---|---|
 | `mpu-zh-v3` | `47695ff451b32c225dd938f4f478f7fdc6aa6bb0` | 中文 |
 | `mpu-en-v3` | `3ceb1d1bb7b9ca11585ce3f4299950e1c465b6d8` | 英文 |
-| `desklib-en-v1.01` | `5fdea974cd4287c61674951ec78803aa274e2fb7` | 英文（本轮待验收） |
+| `desklib-en-v1.01` | `5fdea974cd4287c61674951ec78803aa274e2fb7` | 英文 |
 
 两者类别映射均为 0=Human、1=AI，依据[固定官方演示代码](https://huggingface.co/spaces/yuchuantian/AIGC_text_detector/blob/191c98291f204cae3e52db965ab0f944c9005067/app.py)，不是根据分数或默认 LABEL 名称猜测。配置预期 LABEL_0/1，运行时若变化拒绝推理。
 

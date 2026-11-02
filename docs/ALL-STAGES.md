@@ -2,7 +2,9 @@
 
 ## 当前状态（2026-11-03）
 
-本轮 UI 与来源线索：JPEG EXIF/注释/简单 XMP 的本机读取已通过 `46e43f0` 的 [48 项浏览器回归](https://github.com/W-Boat/WorkProof/actions/runs/41500803947)；中文属性卡片 `2bf862d` 的 [网页回归](https://github.com/W-Boat/WorkProof/actions/runs/41501143636)也已通过，特殊字段名补强 `d04efcf` 继续复验。Linux 实际安装的内嵌 WebView [验收](https://github.com/W-Boat/WorkProof/actions/runs/41498967934)通过打开、真实 Wasm、调用隔离、导航拒绝和窗口复用；系统文件选择/下载/打印及其他平台仍未据此验收。本轮另新增 Desklib 英文分类器、独立 sigmoid 类型和机构选择源码，真实模型与网页链路待 Actions，不计为已验收或独立统计方法；近期中英文误报评估仍待真实有来源样本。
+本轮 UI 与来源线索：JPEG EXIF/注释/简单 XMP 的本机读取已通过 `46e43f0` 的 [48 项浏览器回归](https://github.com/W-Boat/WorkProof/actions/runs/41500803947)；中文属性卡片 `2bf862d` 的 [网页回归](https://github.com/W-Boat/WorkProof/actions/runs/41501143636)及特殊字段名补强 `d04efcf` 的 [回归](https://github.com/W-Boat/WorkProof/actions/runs/41501648469)也已通过。随后折叠范围说明导致旧测试匹配两个 summary，已在 `482ee1c` 用明确入口名称修正，新增 PNG/JPEG IPTC 来源自述识别一起复验中，未记为通过。Linux 实际安装的内嵌 WebView [验收](https://github.com/W-Boat/WorkProof/actions/runs/41498967934)通过打开、真实 Wasm、调用隔离、导航拒绝和窗口复用；系统文件选择/下载/打印及其他平台仍未据此验收。
+
+Desklib 英文分类器、独立 sigmoid 类型与机构选择已经通过[真实模型及 Java](https://github.com/W-Boat/WorkProof/actions/runs/41502727303)、[常规机构](https://github.com/W-Boat/WorkProof/actions/runs/41502727546)与[显式三模型网页](https://github.com/W-Boat/WorkProof/actions/runs/41503104263)验收，未据此称作独立统计方法或证明检测效果。DetectRL-X 近期中英文数据候选已固定来源版本及摘要，尚未运行效果评估，完整许可及原始语料权利仍待核查；近期中英文误报评估仍未完成。
 
 用户最新优先顺序：先收住当前已提交的服务器原生导出验收，随后重点优化用户 UI、功能和网页内嵌体验，再推进多种 AI 检测方法、文件指纹/来源线索与中英文误报评估。交互继续以流程清晰、逻辑明确、文案普通人能懂为验收标准；桌面端、核验页与管理端优先复用已有组件和能力。未完成的完整备份恢复、宿主适配、证据互通与发布准备仍保留，不因此缩小总目标。AI 辅助判断与证书密码学核验事实分别呈现。
 
