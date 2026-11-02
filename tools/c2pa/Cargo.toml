@@ -10,7 +10,8 @@ publish = false
 [workspace]
 
 [dependencies]
-c2pa = { version = "=0.91.7", default-features = false, features = ["rust_native_crypto"] }
+c2pa = { version = "=0.91.7", default-features = false, features = ["rust_native_crypto", "pdf"] }
+lopdf = { version = "=0.45.0", default-features = false }
 workproof-protocol = { path = "../../crates/proof", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
