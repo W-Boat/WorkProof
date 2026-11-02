@@ -21,6 +21,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-queue-',dir=runner) as direct
     password=secrets.token_hex(24)
     server=mysql/'bin/mysqld.exe'
     client=mysql/'bin/mysql.exe'
+    base=[str(client),'--protocol=TCP','--host=127.0.0.1','--port=33309','--user=root','--default-character-set=utf8mb4']
     run([str(server),'--initialize-insecure','--basedir='+str(mysql),'--datadir='+str(data)])
     processes=[]
     with (work/'mysql.log').open('wb') as db_log, (work/'cache.log').open('wb') as cache_log:
@@ -34,7 +35,6 @@ with tempfile.TemporaryDirectory(prefix='workproof-queue-',dir=runner) as direct
                         if probe.connect_ex(('127.0.0.1',port))==0:break
                     time.sleep(.5)
                 else:raise AssertionError('Native fixture did not listen')
-            base=[str(client),'--protocol=TCP','--host=127.0.0.1','--port=33309','--user=root','--default-character-set=utf8mb4']
             run(base,"CREATE DATABASE workproof_ci CHARACTER SET utf8mb4; CREATE USER 'workproof_ci'@'127.0.0.1' IDENTIFIED BY '"+password+"'; GRANT ALL ON workproof_ci.* TO 'workproof_ci'@'127.0.0.1';")
             jar=next((root/'services/institution/scaffold-system/scaffold-admin/target').glob('scaffold-admin-*.jar'))
             hashed=run(['java','-Dloader.main=com.scaffold.admin.util.LocalPasswordHasher','-cp',str(jar),'org.springframework.boot.loader.launch.PropertiesLauncher'],secrets.token_hex(24)).strip()
@@ -49,9 +49,24 @@ with tempfile.TemporaryDirectory(prefix='workproof-queue-',dir=runner) as direct
             os.environ.update(DB_HOST='127.0.0.1',DB_PORT='33309',DB_NAME='workproof_ci',DB_USERNAME='workproof_ci',DB_PASSWORD=password,REDIS_HOST='127.0.0.1',REDIS_PORT='36389',WORKPROOF_WINDOWS_QUEUE_FIXTURE='isolated-runner-temp',WORKPROOF_TEST_MYSQL_CLIENT=str(client))
             runpy.run_path(str(root/'scripts/test_institution_jobs.py'),run_name='__main__')
         finally:
-            for process in reversed(processes):
-                if process.poll() is None:
-                    process.terminate()
-                    process.wait(timeout=35)
+            try:
+                # On Windows mysqld may spawn a monitor/worker pair. Terminating
+                # only Popen's PID can leave the worker holding InnoDB files.
+                # Ask the exact isolated server to stop, after checking its data
+                # directory; never stop a process merely by executable name.
+                if processes:
+                    actual=run(base,'SELECT @@datadir;').strip()
+                    assert pathlib.Path(actual).resolve()==data.resolve(), 'Unexpected MySQL data directory during shutdown'
+                    run(base,'SHUTDOWN;')
+                    for _ in range(120):
+                        with socket.socket() as probe:
+                            if probe.connect_ex(('127.0.0.1',33309))!=0:break
+                        time.sleep(.25)
+                    else:raise AssertionError('Isolated MySQL still listening after shutdown')
+            finally:
+                for process in reversed(processes):
+                    if process.poll() is None:
+                        process.terminate()
+                        process.wait(timeout=35)
             # Private SQL, spool and logs are intentionally not artifacts.
             time.sleep(3)
