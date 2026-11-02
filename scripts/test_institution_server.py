@@ -35,7 +35,9 @@ def healthy():
     while time.monotonic()<deadline:
         try:
             if request('/api/health')[0]==200:return
-        except (urllib.error.URLError,TimeoutError):pass
+        # Docker can publish the port before Java accepts HTTP connections.
+        # A transient reset is not readiness; continue until a real HTTP 200.
+        except (urllib.error.URLError,TimeoutError,ConnectionError):pass
         time.sleep(1)
     raise AssertionError('Server container did not become healthy')
 
