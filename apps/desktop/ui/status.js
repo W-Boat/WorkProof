@@ -60,11 +60,11 @@ async function refresh(){
   }catch{document.getElementById('status').textContent='暂时无法连接记录服务。请退出并重新打开 WorkProof。';}
 }
 refresh();setInterval(refresh,1500);document.addEventListener('visibilitychange',refresh);
-for(const [id,command] of [['install','install_vscode'],['verify','open_verifier'],['open-word','open_word'],['open-powerpoint','open_powerpoint']]){
+for(const [id,command] of [['install','install_vscode'],['verify','open_verifier'],['verify-browser','open_verifier_browser'],['open-word','open_word'],['open-powerpoint','open_powerpoint']]){
   document.getElementById(id).addEventListener('click',async()=>{
     const button=document.getElementById(id);button.disabled=true;
     const message=document.getElementById('message');message.textContent=id.startsWith('open-')?'正在打开软件… 新作品请先保存；首次连接请回到这里允许连接。':'正在处理…';
-    try{const result=await window.__TAURI__.core.invoke(command);message.textContent=result||'已请求系统浏览器打开检查页面。';}
+    try{const result=await window.__TAURI__.core.invoke(command);message.textContent=result||'操作已完成。';}
     catch(error){message.textContent=String(error);}finally{button.disabled=false;}
   });
 }

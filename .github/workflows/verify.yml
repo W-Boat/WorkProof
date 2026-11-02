@@ -144,6 +144,8 @@ jobs:
       - run: npm run build -w @workproof/desktop
       - name: Desktop image report compatibility and process limits
         run: cargo test --release --locked -p workproof-desktop c2pa::tests
+      - name: Embedded verifier navigation and command isolation
+        run: cargo test --release --locked -p workproof-desktop embedded_tests
       - name: Start real tray binary
         run: python scripts/test_tray.py target/release/workproof-desktop.exe
       - name: Measure idle resources and durable ingestion
@@ -240,6 +242,8 @@ jobs:
       - run: npm run ${{ matrix.build }} -w @workproof/desktop
       - name: Desktop image report compatibility and process limits
         run: cargo test --release --locked -p workproof-desktop c2pa::tests
+      - name: Embedded verifier navigation and command isolation
+        run: cargo test --release --locked -p workproof-desktop embedded_tests
       - name: Install and start the real Linux package under a virtual display
         if: runner.os == 'Linux'
         run: |

@@ -121,6 +121,8 @@ jobs:
         run: npx tauri build --no-bundle
       - name: Desktop image report compatibility and process limits
         run: cargo test --release --locked -p workproof-desktop c2pa::tests
+      - name: Embedded verifier navigation and command isolation
+        run: cargo test --release --locked -p workproof-desktop embedded_tests
       - name: Native word grant, session, export and isolation against the real collector
         run: |
           cargo build --locked -p workproof-engine --example native_adapter_harness
