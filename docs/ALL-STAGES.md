@@ -5,11 +5,13 @@
 以下历史记录中的“待实现”“正在构建”只描述当时状态；当前交付范围先以本节及对应专项说明为准。全部阶段仍在进行，不以局部 Actions 通过宣称整项目标完成。
 
 - 桌面与网页核验：`1e540ca` 的[四平台构建及协议/网页流程](https://github.com/W-Boat/WorkProof/actions/runs/41448127361)已通过；`65d4a0d` 的[网页复验](https://github.com/W-Boat/WorkProof/actions/runs/41450271607)覆盖取消后迟到的旧 Worker 结果与错误不能污染新结果。普通证书、结构补充与 C2PA 浏览器 Wasm 已随同版本工作包提供。公开身份信任、撤销与长期验证仍不因此完成。
-- Word / PowerPoint：`26dce52` 的[双位数工作包](https://github.com/W-Boat/WorkProof/actions/runs/41454717888)已通过并核对下载归档的 2,421 个文件摘要，支持目标为 64 位 Windows 上的 x86 / x64 Office。此处的 COM / OLE 探针及隔离注册验证不是所有真实 Office 版本验收。`9ffb519` 的[复制安装检查](https://github.com/W-Boat/WorkProof/actions/runs/41480148294)与 `4463165` 的[文件占用保护检查](https://github.com/W-Boat/WorkProof/actions/runs/41480509924)仍在运行，未列为已通过。详见[位数与验收范围](OFFICE-BITNESS.md)。
-- VS Code：`ab27ccb` 的[专项运行](https://github.com/W-Boat/WorkProof/actions/runs/41480963186)中，类型检查、扩展打包及真实 Rust 引擎集成步骤已成功，新增暂停导出与重叠命令保护；整条运行尚未结束。VS Code 宿主 API 在该集成测试中是模拟的，不能代替真实宿主安装验收。
+- Word / PowerPoint：`ab27ccb` 的[完整工作包](https://github.com/W-Boat/WorkProof/actions/runs/41480934601)已通过，下载归档的 2,421 个文件摘要及四份 DLL 的实际 PE 位数已核对。复制安装、文件占用保护和包内网页核验均已通过；支持范围为 64 位 Windows 上的 x86 / x64 Office。COM / OLE 探针及隔离注册不是所有真实 Office 版本验收。本机现用 DLL 未因此替换，详见[位数与验收范围](OFFICE-BITNESS.md)。
+- VS Code：`ab27ccb` 的[协议与网页运行](https://github.com/W-Boat/WorkProof/actions/runs/41480963186)全部通过，含 43 项浏览器测试；`60752a7` 的[真实宿主运行](https://github.com/W-Boat/WorkProof/actions/runs/41491273659)也已通过。在官方 Linux stable 1.144.0 中实际安装 VSIX，经真实界面记录、暂停、导出，再由 Rust 核验并拒绝篡改；证据归档摘要已核对。该结论不扩大为 Windows/macOS 或所有历史版本验收。
 - Blender / Photoshop：已增加显式选择的匿名结构补充文件、认证检查点和浏览器关系图。Blender 有真实宿主 CI；Photoshop 控制器与真实引擎的测试仍使用模拟 Adobe API。结构快照不包含完整参数树、所有编辑过程或完整几何体，也不等于代码 AST。详见[结构补充](EVOLUTION.md)及各适配器说明。
 - WPS：自有功能区与共用任务窗入口已存在，正式点击安装发布尚未完成。替代候选 `wpsjs-rpc-sdk@1.1.31` 的精确官方发布包也缺完整许可/版权材料，尚未引入；不能只凭 ISC 元数据放行。详见[服务与发布说明](OFFICE-SERVER.md)。
-- 机构服务与 AI 辅助：既有机构权限、证书索引、持久批量任务和辅助模型能力保留；生产服务器部署、全新电脑运行时准备、多种检测方法及近期中英文误报评估仍需推进。用户本机 V4 迁移未执行，不用 CI 数据库验证替代本机迁移。
+- 机构服务器：`7a3e2df` 的[真实容器验收](https://github.com/W-Boat/WorkProof/actions/runs/41490325377)全部通过，222 MB 部署包已下载，12 个包内文件摘要、镜像配置摘要/源码标签/平台/UID 均匹配。覆盖随机账号、默认密码拒绝、真实核验、重启保留、非空库拒绝、秘密不进入日志；首次部署仅需 Docker 与 Compose，不在用户机器编译。目标为 Linux amd64 容器，未登录生产服务器；catalog/jobs/AI 默认关闭，V3/V4、完整备份恢复和正式启用仍待交付。详见[服务器手册](INSTITUTION-SERVER.md)。
+- 加密与归档：`3b6630d` 的[容器验收](https://github.com/W-Boat/WorkProof/actions/runs/41492650775)全部通过。已验证认证后才解析归档、受限文件清单、权限和篡改拒绝；模块不执行 mysqldump、不恢复数据库，不能据此宣称完整备份或恢复已完成。实际备份编排尚未落盘。
+- AI 辅助与本机状态：现有辅助模型能力保留；更多检测方法、近期中英文误报评估、元数据/水印线索仍需继续推进。用户本机 V4 未迁移，不用 CI 数据库验证替代本机迁移。
 
 性能数字仅代表对应 CI 的测量范围；全部依赖商业分发审查仍未完成。用户约束保持不变：本机只编辑与检查源码/归档，构建和自动测试交给 GitHub Actions；不因新包生成而覆盖正在使用的宿主 DLL。
 
