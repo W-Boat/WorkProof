@@ -102,6 +102,22 @@ class EvaluationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'CALIBRATION_SAMPLE_OVERLAP'):
             ev.evaluate(rows,'d'*64,policy,'e'*64,lambda row:None)
 
+    def test_policy_score_kind_must_match_the_pinned_engine(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=pathlib.Path(directory)/'policy.json'
+            policy=self.policy();policy['score_kind']='uncalibrated_binary_sigmoid'
+            path.write_text(json.dumps(policy),encoding='utf-8')
+            registry={'fixture':{'revision':'fixed','score_kind':'uncalibrated_binary_sigmoid'}}
+            ev.load_policy(path,'b'*64,registry)
+            with self.assertRaisesRegex(ValueError,'UNSUPPORTED_SCORE_POLICY'):
+                ev.load_policy(path,'b'*64,{'fixture':{'revision':'fixed','score_kind':'uncalibrated_class_softmax'}})
+            rows=[self.sample('kind-mismatch')]
+            def predict(row):
+                return dict(protocol='workproof-ai-assessment/1',engine_id='fixture',model_revision='fixed',input_hash=ev.digest(row['text'].encode()),network_used=False,status='completed',score_kind='uncalibrated_class_softmax',calibration=None,raw_scores={'Human':.9,'AI':.1})
+            report=ev.evaluate(rows,'d'*64,policy,'e'*64,predict)
+            self.assertEqual(report['overall']['statuses'],{'error':1})
+            self.assertIsNone(report['overall']['false_positive']['rate'])
+
     @unittest.skipUnless(os.name=='posix','POSIX process control only')
     def test_child_output_limit_exit_code_protocol_and_stderr(self):
         command=lambda text:[sys.executable,'-c',text]

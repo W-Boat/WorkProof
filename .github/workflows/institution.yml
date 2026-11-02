@@ -88,6 +88,7 @@ jobs:
           pip install -r tools/ai-assessment/requirements.txt
           python tools/ai-assessment/detector.py prepare --engine mpu-zh-v3 --model-dir .ci-institution-ai/mpu-zh-v3
           python tools/ai-assessment/detector.py prepare --engine mpu-en-v3 --model-dir .ci-institution-ai/mpu-en-v3
+          python tools/ai-assessment/detector.py prepare --engine desklib-en-v1.01 --model-dir .ci-institution-ai/desklib-en-v1.01
       - name: Test the real bundled application, generated password and API boundaries
         # Model preparation is opt-in and never part of the recorder runtime.
         env:

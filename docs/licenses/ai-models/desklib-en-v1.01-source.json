@@ -1,0 +1,19 @@
+{
+  "reviewed_date": "2026-11-03",
+  "model": "desklib/ai-text-detector-v1.01",
+  "revision": "5fdea974cd4287c61674951ec78803aa274e2fb7",
+  "model_card": "https://huggingface.co/desklib/ai-text-detector-v1.01/blob/5fdea974cd4287c61674951ec78803aa274e2fb7/README.md",
+  "model_card_sha256": "a9d2aee79852340b6420838fe2af0864f16245c950a128c428f842bca41181ff",
+  "license_declaration": "mit",
+  "model_bytes": 1736100972,
+  "model_sha256": "c024a1704c65f5a4bffeda58745c58fc0ed67d6ca07b158b068a257238815265",
+  "upstream_repository": "https://github.com/desklib/ai-text-detector",
+  "base_model": "microsoft/deberta-v3-large",
+  "commercial_clearance": false,
+  "issues": [
+    "Pinned model repository file listing contains no full LICENSE/NOTICE file; model-card MIT declaration alone does not close distribution review.",
+    "Original copyright notices, weights/base-model license applicability and dataset terms require separate review.",
+    "WorkProof implements a local architecture adapter, does not load upstream Python or remote custom code, and does not bundle these weights with the recorder.",
+    "No WorkProof accuracy, recent-model coverage or false-positive result follows from upstream performance claims or real-inference smoke tests."
+  ]
+}

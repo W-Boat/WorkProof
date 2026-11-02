@@ -42,6 +42,20 @@ class AiAnalysisServiceTest{
         var service=service("printf '%s' '"+value+"'\n");
         try{String id=(String)service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(data)).get("id");var result=done(service,id);assertEquals("failed",result.get("state"));assertFalse(result.containsKey("report"));}finally{service.close();}
     }
+    @Test void sigmoidReportMustMatchDesklibScoreKind()throws Exception{
+        byte[] data="sample".getBytes();String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
+        Files.createDirectories(root.resolve("desklib-en-v1.01"));Files.writeString(root.resolve("desklib-en-v1.01/workproof-model.json"),"{}");
+        for(String kind:List.of("uncalibrated_binary_sigmoid","uncalibrated_class_softmax")){
+            var value=new ObjectMapper().createObjectNode();value.put("protocol","workproof-ai-assessment/1");value.put("engine_id","desklib-en-v1.01");value.put("model","desklib/ai-text-detector-v1.01");value.put("model_revision","5fdea974cd4287c61674951ec78803aa274e2fb7");value.put("network_used",false);value.put("artifact_hash",hash);value.put("artifact_bytes",data.length);value.put("status","completed");value.put("score_kind",kind);value.putNull("calibration");value.putObject("raw_scores").put("Human",0.4).put("AI",0.6);
+            var service=service("printf '%s' '"+value+"'\n");
+            try{
+                String id=(String)service.submit(1,"desklib-en-v1.01","txt",new ByteArrayInputStream(data)).get("id");var result=done(service,id);
+                assertEquals(kind.equals("uncalibrated_binary_sigmoid")?"done":"failed",result.get("state"));
+                if(kind.equals("uncalibrated_binary_sigmoid"))assertEquals(kind,new ObjectMapper().valueToTree(result.get("report")).path("score_kind").asText());
+                else assertFalse(result.containsKey("report"));
+            }finally{service.close();}
+        }
+    }
     @Test @EnabledIfEnvironmentVariable(named="WORKPROOF_REAL_AI_ENGINE",matches=".+")
     void realConfiguredPythonModelRoundTrip()throws Exception{
         String engine=System.getenv("WORKPROOF_REAL_AI_ENGINE");
@@ -53,6 +67,7 @@ class AiAnalysisServiceTest{
             String id=(String)service.submit(1,engine,"txt",new ByteArrayInputStream(text.getBytes(java.nio.charset.StandardCharsets.UTF_8))).get("id");
             assertEquals("done",done(service,id).get("state"));
             var report=new ObjectMapper().valueToTree(service.status(1,id).get("report"));assertEquals("completed",report.path("status").asText());assertTrue(report.path("raw_scores").isObject());assertFalse(report.has("text"));
+            assertEquals(engine.equals("desklib-en-v1.01")?"uncalibrated_binary_sigmoid":"uncalibrated_class_softmax",report.path("score_kind").asText());
         }finally{service.close();}
     }
 }

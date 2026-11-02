@@ -2,7 +2,7 @@
 import argparse,hashlib,json,os,pathlib,sys,re
 
 LIMITATIONS=[
-             'Class softmax is not the proportion of AI-generated content or a calibrated authorship probability.',
+             'Raw classifier scores are not the proportion of AI-generated content or a calibrated authorship probability.',
              'Do not use alone for misconduct decisions. No identity or original certificate is verified.']
 ENGINES=json.loads(pathlib.Path(__file__).with_name('engines.json').read_text(encoding='utf-8'))
 def file_hash(path):
@@ -19,6 +19,7 @@ def prepare(folder,engine):
     folder.mkdir(parents=True,exist_ok=True)
     snapshot_download(model,revision=revision,allow_patterns=files,local_dir=folder)
     hashes={name:file_hash(folder/name) for name in files}
+    if any(hashes.get(name)!=expected for name,expected in cfg.get('expected_sha256',{}).items()):raise ValueError('MODEL_FILE_CHANGED')
     (folder/'workproof-model.json').write_text(json.dumps(dict(model=model,revision=revision,sha256=hashes),indent=2),encoding='utf-8')
     return report(engine,'prepared',network_used=True,notice='Explicit public model download; no user text read. Code, base-model and weights licenses require separate review.')
 def infer(folder,request,engine):
@@ -35,7 +36,8 @@ def infer(folder,request,engine):
     evidence=json.loads(receipt.read_text(encoding='utf-8'))
     if evidence.get('model')!=model_id or evidence.get('revision')!=revision or set(evidence.get('sha256',{}))!=set(files):raise ValueError('MODEL_RECEIPT_MISMATCH')
     for name in files:
-        if file_hash(folder/name)!=evidence['sha256'][name]:raise ValueError('MODEL_FILE_CHANGED')
+        observed=file_hash(folder/name)
+        if observed!=evidence['sha256'][name] or (name in cfg.get('expected_sha256',{}) and observed!=cfg['expected_sha256'][name]):raise ValueError('MODEL_FILE_CHANGED')
     os.environ.update(HF_HUB_OFFLINE='1',TRANSFORMERS_OFFLINE='1',HF_HUB_DISABLE_TELEMETRY='1',DO_NOT_TRACK='1')
     import torch
     from transformers import AutoTokenizer,AutoModelForSequenceClassification
@@ -43,12 +45,17 @@ def infer(folder,request,engine):
     tokenizer=AutoTokenizer.from_pretrained(folder,local_files_only=True,trust_remote_code=False)
     encoded=tokenizer(text,return_tensors='pt',truncation=False)
     if encoded['input_ids'].shape[1]>512:return respond('unsupported',reason='TEXT_EXCEEDS_512_TOKENS_NO_SILENT_TRUNCATION',**identity)
-    model=AutoModelForSequenceClassification.from_pretrained(folder,local_files_only=True,trust_remote_code=False,use_safetensors=cfg['safetensors'],weights_only=True)
-    if model.config.id2label!=dict(enumerate(cfg['config_labels'])):raise ValueError('UNEXPECTED_LABEL_MAPPING')
-    model.eval()
-    with torch.inference_mode():scores=torch.softmax(model(**encoded).logits,dim=-1)[0].tolist()
-    if not all(0<=v<=1 for v in scores):raise ValueError('INVALID_MODEL_OUTPUT')
-    return respond('completed',score_kind='uncalibrated_class_softmax',raw_scores=dict(zip(cfg['labels'],scores)),calibration=None,**identity)
+    if cfg.get('backend')=='desklib_mean_pool':
+        from desklib_backend import scores as desklib_scores
+        scores=desklib_scores(folder,encoded)
+    else:
+        model=AutoModelForSequenceClassification.from_pretrained(folder,local_files_only=True,trust_remote_code=False,use_safetensors=cfg['safetensors'],weights_only=True)
+        if model.config.id2label!=dict(enumerate(cfg['config_labels'])):raise ValueError('UNEXPECTED_LABEL_MAPPING')
+        model.eval()
+        with torch.inference_mode():values=torch.softmax(model(**encoded).logits,dim=-1)[0].tolist()
+        scores=dict(zip(cfg['labels'],values))
+    if set(scores)!={'Human','AI'} or not all(0<=v<=1 for v in scores.values()):raise ValueError('INVALID_MODEL_OUTPUT')
+    return respond('completed',score_kind=cfg['score_kind'],raw_scores=scores,calibration=None,**identity)
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=['prepare','infer','infer-file']);parser.add_argument('--model-dir',required=True,type=pathlib.Path);parser.add_argument('--engine',choices=ENGINES,required=True);parser.add_argument('--input-file',type=pathlib.Path);parser.add_argument('--language',choices=['en','zh']);args=parser.parse_args()
     try:

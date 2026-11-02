@@ -18,10 +18,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 public class AiAnalysisService {
     public static final int MAX_BYTES=8*1024*1024;
-    private record Engine(String label,String language,String model,String revision){}
+    private record Engine(String label,String language,String model,String revision,String scoreKind){}
     private static final Map<String,Engine> ENGINES=Map.of(
-        "mpu-zh-v3",new Engine("中文 MPU v3","zh","yuchuantian/AIGC_detector_zhv3","47695ff451b32c225dd938f4f478f7fdc6aa6bb0"),
-        "mpu-en-v3",new Engine("英文 MPU v3","en","yuchuantian/AIGC_detector_env3","3ceb1d1bb7b9ca11585ce3f4299950e1c465b6d8"));
+        "mpu-zh-v3",new Engine("中文 MPU v3","zh","yuchuantian/AIGC_detector_zhv3","47695ff451b32c225dd938f4f478f7fdc6aa6bb0","uncalibrated_class_softmax"),
+        "mpu-en-v3",new Engine("英文 MPU v3","en","yuchuantian/AIGC_detector_env3","3ceb1d1bb7b9ca11585ce3f4299950e1c465b6d8","uncalibrated_class_softmax"),
+        "desklib-en-v1.01",new Engine("英文 Desklib v1.01","en","desklib/ai-text-detector-v1.01","5fdea974cd4287c61674951ec78803aa274e2fb7","uncalibrated_binary_sigmoid"));
     private final String python,script,models;
     private final boolean enabled;
     private final ObjectMapper mapper;
@@ -43,7 +44,7 @@ public class AiAnalysisService {
             &&s.getFileName().toString().equals("detector.py")&&m!=null&&Files.isRegularFile(m.resolve(engine).resolve("workproof-model.json"));
     }
     public Map<String,Object> capabilities(){return Map.of("maxBytes",MAX_BYTES,"maxConcurrent",1,"retentionMinutes",10,
-        "engines",List.of("mpu-zh-v3","mpu-en-v3").stream().map(id->{Engine e=ENGINES.get(id);return Map.of("id",id,"label",e.label(),"language",e.language(),"model",e.model(),"model_revision",e.revision(),"configured",ready(id));}).toList(),
+        "engines",List.of("mpu-zh-v3","mpu-en-v3","desklib-en-v1.01").stream().map(id->{Engine e=ENGINES.get(id);return Map.of("id",id,"label",e.label(),"language",e.language(),"model",e.model(),"model_revision",e.revision(),"score_kind",e.scoreKind(),"method_family","supervised_classifier","configured",ready(id));}).toList(),
         "message","仅作辅助参考。需要发送所选文档；分析后删除临时文件，不保存正文。模型准备状态不代表准确率或许可审查已完成。");}
     private void cleanExpired(){long cutoff=System.currentTimeMillis()-600000;jobs.entrySet().removeIf(e->e.getValue().finished&&e.getValue().created<cutoff);}
     public Map<String,Object> submit(long owner,String engine,String format,InputStream input)throws IOException{
@@ -100,8 +101,8 @@ public class AiAnalysisService {
                     default -> result.equals("completed")?"模型已返回参考分数；没有确认作者身份或 AI 使用比例。":"本次没有完成分析，请核对模型准备状态、文档语言和长度。";
                 });
                 if(result.equals("completed")){
-                    if(!"uncalibrated_class_softmax".equals(value.path("score_kind").asText())||!value.path("calibration").isNull())throw new IOException("INVALID_SCORE_KIND");
-                    safe.put("score_kind","uncalibrated_class_softmax");safe.putNull("calibration");
+                    if(!specification.scoreKind().equals(value.path("score_kind").asText())||!value.path("calibration").isNull())throw new IOException("INVALID_SCORE_KIND");
+                    safe.put("score_kind",specification.scoreKind());safe.putNull("calibration");
                     List<String> labels=List.of("Human","AI");ObjectNode scores=safe.putObject("raw_scores");double sum=0;
                     for(String label:labels){JsonNode v=value.path("raw_scores").path(label);double number=v.asDouble(Double.NaN);if(!v.isNumber()||!Double.isFinite(number)||number<0||number>1)throw new IOException("INVALID_SCORE");scores.put(label,number);sum+=number;}
                     if(Math.abs(sum-1)>0.0001)throw new IOException("INVALID_SCORE_SUM");

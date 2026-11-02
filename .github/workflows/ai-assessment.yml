@@ -11,8 +11,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        engine: ['mpu-en-v3', 'mpu-zh-v3']
-    timeout-minutes: 25
+        engine: ['mpu-en-v3', 'mpu-zh-v3', 'desklib-en-v1.01']
+    timeout-minutes: 40
     env:
       HF_HUB_DISABLE_TELEMETRY: '1'
       WORKPROOF_TEST_ENGINE: ${{ matrix.engine }}

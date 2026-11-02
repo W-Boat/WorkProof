@@ -7,6 +7,7 @@
     "labels": ["Human", "AI"],
     "config_labels": ["LABEL_0", "LABEL_1"],
     "safetensors": false,
+    "score_kind": "uncalibrated_class_softmax",
     "label_source": "https://huggingface.co/spaces/yuchuantian/AIGC_text_detector/blob/191c98291f204cae3e52db965ab0f944c9005067/app.py",
     "limitations": ["English MPU v3 classifier; labels follow pinned official inference code. Coverage of current models, paraphrases and mixed authorship has not been evaluated in WorkProof.", "Upstream publishes only .bin: restricted weights_only loading is mandatory; no remote custom code."]
   },
@@ -18,7 +19,25 @@
     "labels": ["Human", "AI"],
     "config_labels": ["LABEL_0", "LABEL_1"],
     "safetensors": false,
+    "score_kind": "uncalibrated_class_softmax",
     "label_source": "https://huggingface.co/spaces/yuchuantian/AIGC_text_detector/blob/191c98291f204cae3e52db965ab0f944c9005067/app.py",
     "limitations": ["Chinese MPU v3 classifier; labels follow pinned official inference code. Local deployment accuracy has not been calibrated.", "Upstream publishes only .bin: restricted weights_only loading is mandatory; no remote custom code."]
+  },
+  "desklib-en-v1.01": {
+    "model": "desklib/ai-text-detector-v1.01",
+    "revision": "5fdea974cd4287c61674951ec78803aa274e2fb7",
+    "language": "en",
+    "files": ["model.safetensors", "config.json", "special_tokens_map.json", "tokenizer_config.json", "tokenizer.json", "added_tokens.json", "spm.model", "README.md"],
+    "labels": ["Human", "AI"],
+    "backend": "desklib_mean_pool",
+    "expected_sha256": {
+      "model.safetensors": "c024a1704c65f5a4bffeda58745c58fc0ed67d6ca07b158b068a257238815265",
+      "spm.model": "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd",
+      "README.md": "a9d2aee79852340b6420838fe2af0864f16245c950a128c428f842bca41181ff"
+    },
+    "safetensors": true,
+    "score_kind": "uncalibrated_binary_sigmoid",
+    "label_source": "https://huggingface.co/desklib/ai-text-detector-v1.01/blob/5fdea974cd4287c61674951ec78803aa274e2fb7/README.md",
+    "limitations": ["English Desklib v1.01 supervised classifier; not an independent statistical or watermark method. Coverage and false positives on recent generators are not evaluated in WorkProof.", "Model card declares MIT; a complete code, weight and base-model notice review is pending. Not commercially cleared or bundled with the recording daemon.", "Uses a single AI logit and sigmoid, with Human reported only as its complement; not class softmax or an AI content percentage. WorkProof rejects input over 512 tokens without truncation."]
   }
 }

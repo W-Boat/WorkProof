@@ -9,7 +9,8 @@ const {chromium,expect}=require('@playwright/test');
   const unauthorized=await fetch(origin+'/api/workproof/analysis/capabilities');assert.equal(unauthorized.status,401);
   const noConsent=await fetch(origin+'/api/workproof/analysis/tasks/mpu-zh-v3/txt',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/octet-stream'},body:'not uploaded for analysis'});assert.equal((await noConsent.json()).code,400);
   const capabilities=(await(await fetch(origin+'/api/workproof/analysis/capabilities',{headers:{Authorization:'Bearer '+token}})).json()).data;
-  assert.deepEqual(capabilities.engines.map(engine=>engine.id).sort(),['mpu-en-v3','mpu-zh-v3']);
+  assert.deepEqual(capabilities.engines.map(engine=>engine.id).sort(),['desklib-en-v1.01','mpu-en-v3','mpu-zh-v3']);
+  assert.equal(capabilities.engines.find(engine=>engine.id==='desklib-en-v1.01').score_kind,'uncalibrated_binary_sigmoid');
   const browser=await chromium.launch({headless:true});
   let page;
   try{
@@ -41,6 +42,15 @@ const {chromium,expect}=require('@playwright/test');
       await expect(dialog.getByRole('button',{name:'本次分析已结束',exact:true})).toBeDisabled();
       await expect(dialog.getByText('文档 SHA-256：'+crypto.createHash('sha256').update(english).digest('hex'),{exact:true})).toBeVisible();
       await expect(dialog.getByText('更接近生成样本的模型得分',{exact:true})).toBeVisible();
+      await dialog.getByRole('combobox').click();await page.getByRole('option',{name:'英文 Desklib v1.01',exact:true}).click();
+      await expect(submit).toBeDisabled();await dialog.getByText('我同意将所选文档发送给机构服务器进行辅助分析',{exact:true}).click();await submit.click();
+      await expect(dialog.getByText('仅供人工参考',{exact:true})).toBeVisible({timeout:150000});
+      await dialog.getByText('模型版本与报告',{exact:true}).click();
+      const desklibDownloadEvent=page.waitForEvent('download');await dialog.getByRole('button',{name:'保存辅助报告',exact:true}).click();
+      const desklibStream=await(await desklibDownloadEvent).createReadStream();const desklibChunks=[];for await(const chunk of desklibStream)desklibChunks.push(chunk);
+      const desklibReport=JSON.parse(Buffer.concat(desklibChunks).toString('utf8'));
+      assert.equal(desklibReport.engine_id,'desklib-en-v1.01');assert.equal(desklibReport.model_revision,'5fdea974cd4287c61674951ec78803aa274e2fb7');
+      assert.equal(desklibReport.score_kind,'uncalibrated_binary_sigmoid');assert.equal(desklibReport.artifact_hash,crypto.createHash('sha256').update(english).digest('hex'));assert(!('text' in desklibReport));
     }
     await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/institution-ai-mobile.png',fullPage:true});
   }catch(error){fs.mkdirSync('test-results',{recursive:true});if(page)await page.screenshot({path:'test-results/institution-ai-failed.png',fullPage:true}).catch(()=>{});throw error;}finally{await browser.close();}

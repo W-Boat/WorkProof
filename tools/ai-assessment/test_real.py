@@ -14,7 +14,8 @@ text=('This synthetic paragraph is used only to exercise a reference classifier 
       'It is not a benchmark and its score must not be interpreted as evidence of authorship. ')*3
 if zh:text='这是一段用于持续集成的合成文字，只检查中文检测模型是否能够安全加载和返回数值。这不是准确率测试，不代表模型能够确认作者身份，也不能单独用于判断学术不端。模型输出必须结合来源、修改过程和人工判断。'*2
 result=run({'text':text,'language':language});assert result['status']=='completed',result
-assert result['score_kind']=='uncalibrated_class_softmax' and not result['network_used'] and result['calibration'] is None
+specification=json.loads(pathlib.Path('tools/ai-assessment/engines.json').read_text())[engine]
+assert result['score_kind']==specification['score_kind'] and not result['network_used'] and result['calibration'] is None
 assert set(result['raw_scores'])=={'Human','AI'} and abs(sum(result['raw_scores'].values())-1)<0.00001
 with tempfile.TemporaryDirectory(prefix='workproof-docx-model-') as directory:
     path=pathlib.Path(directory)/'synthetic.docx'

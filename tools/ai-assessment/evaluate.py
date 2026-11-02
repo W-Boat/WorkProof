@@ -83,7 +83,8 @@ def load_policy(path, dataset_hash, registry):
     engine = policy.get('engine_id')
     require(engine in registry, 'UNKNOWN_ENGINE')
     require(policy.get('model_revision') == registry[engine]['revision'], 'POLICY_REVISION_MISMATCH')
-    require(policy.get('score_kind') == 'uncalibrated_class_softmax' and policy.get('score_label') == 'AI', 'UNSUPPORTED_SCORE_POLICY')
+    kind = registry[engine].get('score_kind', 'uncalibrated_class_softmax')
+    require(kind in {'uncalibrated_class_softmax', 'uncalibrated_binary_sigmoid'} and policy.get('score_kind') == kind and policy.get('score_label') == 'AI', 'UNSUPPORTED_SCORE_POLICY')
     threshold = policy.get('threshold')
     require(type(threshold) in (int, float) and math.isfinite(threshold) and 0 <= threshold <= 1, 'INVALID_THRESHOLD')
     calibration = policy.get('calibration_dataset_sha256')
@@ -149,6 +150,7 @@ def evaluate(rows, dataset_hash, policy, policy_hash, predict):
         groups[dimension] = {key: metrics([r for r in records if r[dimension] == key]) for key in sorted({r[dimension] for r in records})}
     return {'protocol': 'workproof-ai-evaluation/1', 'dataset_sha256': dataset_hash, 'policy_sha256': policy_hash,
             'engine_id': policy['engine_id'], 'model_revision': policy['model_revision'], 'threshold': policy['threshold'],
+            'score_kind': policy['score_kind'], 'score_label': policy['score_label'],
             'calibration_dataset_sha256': policy['calibration_dataset_sha256'], 'declared_calibration_samples': len(calibration_hashes), 'overall': metrics(records), 'groups': groups, 'samples': records,
             'limitations': ['Provenance and independent calibration are supplied declarations, not externally verified facts.',
                             'Only exact UTF-8 hashes in the supplied calibration manifest were checked for overlap; completeness and semantic independence are not verified.',
