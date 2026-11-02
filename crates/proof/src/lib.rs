@@ -7,6 +7,7 @@ use wasm_bindgen::prelude::*;
 pub const VERSION: &str = "workproof/3";
 pub const MAX_EVENTS: usize = 100_000;
 pub mod merkle;
+pub mod evolution;
 pub use merkle::{create_disclosure, verify_disclosure, Disclosure};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
