@@ -28,16 +28,18 @@ def wait(action):
 def execute(script,args=None):return call('POST',f'/session/{session}/execute/sync',{'script':script,'args':args or []})
 def handles():return call('GET',f'/session/{session}/window/handles')
 def switch(handle):call('POST',f'/session/{session}/window',{'handle':handle})
-def click(selector):
-    element=call('POST',f'/session/{session}/element',{'using':'css selector','value':selector})
+def click_element(element):
     identifier=element['element-6066-11e4-a52e-4f735466cecf']
     # The page intentionally uses smooth scrolling. Bring the target into view
     # without waiting for a WebDriver-internal scroll animation to finish.
-    execute("document.querySelector(arguments[0]).scrollIntoView({block:'center',behavior:'instant'});return true",[selector])
+    execute("arguments[0].scrollIntoView({block:'center',behavior:'instant'});return true",[element])
     def visible():
-        assert execute("const r=document.querySelector(arguments[0]).getBoundingClientRect();return r.width>0&&r.height>0&&r.top+r.height/2>=0&&r.top+r.height/2<innerHeight",[selector])
+        assert execute("const r=arguments[0].getBoundingClientRect();return r.width>0&&r.height>0&&r.top+r.height/2>=0&&r.top+r.height/2<innerHeight",[element])
     wait(visible)
     call('POST',f'/session/{session}/element/{identifier}/click',{})
+
+def click(selector):
+    click_element(call('POST',f'/session/{session}/element',{'using':'css selector','value':selector}))
 
 def select_file(selector,path):
     element=call('POST',f'/session/{session}/element',{'using':'css selector','value':selector})
@@ -47,7 +49,7 @@ def select_file(selector,path):
 def click_text(text):
     element=execute('return Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes('+json.dumps(text)+'))')
     assert element
-    call('POST',f'/session/{session}/element/{element["element-6066-11e4-a52e-4f735466cecf"]}/click',{})
+    click_element(element)
 def screenshot(name):
     data=call('GET',f'/session/{session}/screenshot');(evidence/name).write_bytes(base64.b64decode(data))
 with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporary:
