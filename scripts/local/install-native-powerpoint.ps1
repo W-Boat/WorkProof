@@ -184,7 +184,8 @@ try {
                 Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($name)) -ErrorAction SilentlyContinue | ForEach-Object {
                     $path = $null
                     try { $path = $_.Path } catch { }
-                    if ($path -and $path.StartsWith($installDir, [StringComparison]::OrdinalIgnoreCase)) {
+                    $installedBinary = [IO.Path]::GetFullPath((Join-Path $installDir $name))
+                    if ($path -and [string]::Equals([IO.Path]::GetFullPath($path), $installedBinary, [StringComparison]::OrdinalIgnoreCase)) {
                         try {
                             $_.Kill()
                             $null = $_.WaitForExit(5000)
