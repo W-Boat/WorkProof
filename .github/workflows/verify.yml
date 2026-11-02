@@ -19,7 +19,7 @@ env:
 jobs:
   protocol-and-web:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -81,6 +81,7 @@ jobs:
       - name: Package Blender extension
         run: python scripts/package_blender.py
       - run: npm run package -w workproof-vscode
+      - uses: ./.github/actions/c2pa-browser-resource
       - run: npm run build:web
       - run: npx playwright install --with-deps chromium
       - name: Browser verification and screenshots
@@ -98,6 +99,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-web-and-extension
+          include-hidden-files: true
           path: |
             apps/verifier/out/
             apps/extension/*.vsix
