@@ -77,7 +77,7 @@ foreach ($entry in @('Install Word.cmd','Open WorkProof.cmd','Remove Word add-in
 $licence = Join-Path (Split-Path -Parent $PSScriptRoot) 'LICENSE'
 if (Test-Path -LiteralPath $licence -PathType Leaf) { Copy-Item -LiteralPath $licence -Destination $Package -Force }
 
-$lines = Get-ChildItem -LiteralPath $Package -Recurse -File |
+$lines = Get-ChildItem -LiteralPath $Package -Recurse -File -Force |
     Where-Object { $_.Name -ne 'SHA256SUMS.txt' } |
     Sort-Object FullName |
     ForEach-Object {
@@ -91,7 +91,8 @@ if ($Zip) {
     $folder = Split-Path -Parent ([IO.Path]::GetFullPath($Zip))
     if ($folder) { New-Item -ItemType Directory -Force -Path $folder | Out-Null }
     if (Test-Path -LiteralPath $Zip) { Remove-Item -LiteralPath $Zip -Force }
-    Compress-Archive -Path (Join-Path $Package '*') -DestinationPath $Zip -CompressionLevel Optimal
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::CreateFromDirectory($Package, [IO.Path]::GetFullPath($Zip), [IO.Compression.CompressionLevel]::Optimal, $false)
     $zipHash = (Get-FileHash -LiteralPath $Zip -Algorithm SHA256).Hash
     Write-Output "Packed $Zip"
     Write-Output "SHA256 $($zipHash.ToLowerInvariant())"
