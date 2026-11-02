@@ -75,3 +75,27 @@ test('desktop starts with Word and shows only the chosen software steps',async({
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/desktop-simple-guide.png',fullPage:true});
 });
+
+test('image certificate check explains partial scope, cancellation and failures',async({page})=>{
+  await desktop(page);
+  await page.getByText('检查图片内嵌的创作证书',{exact:true}).click();
+  const button=page.getByRole('button',{name:'选择图片和 CA，开始检查'});
+  const result=page.locator('#image-result');
+  await page.evaluate(()=>{
+    const ipc=(window as any).__TAURI__.core,original=ipc.invoke;
+    const responses=[{scope:'selective',disclosed:3,total:1500},{cancelled:true},{scope:'full',disclosed:5,total:5}];
+    ipc.invoke=async(command:string,args:unknown)=>{
+      if(command!=='verify_image')return original(command,args);
+      if(args!==undefined)throw new Error('Image paths must not be supplied by the webview');
+      if(responses.length)return responses.shift();
+      throw new Error('所选 CA 未能建立可信签名链');
+    };
+  });
+  await button.click();await expect(result).toContainText('已披露的 3 条记录');
+  await expect(result).toContainText('未披露记录不在本次检查范围内');
+  await button.click();await expect(result).toHaveText('已取消，本次没有核验。');
+  await button.click();await expect(result).toContainText('完整过程记录');
+  await button.click();await expect(result).toContainText('所选 CA 未能建立可信签名链');
+  await expect(result).not.toContainText('检查通过');await expect(button).toBeEnabled();
+  await expect(page.getByText(/不要仅因它与图片一起收到就信任它/)).toBeVisible();
+});
