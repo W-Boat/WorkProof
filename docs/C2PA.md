@@ -1,5 +1,7 @@
 # C2PA PNG / JPEG 证据封装（开发中）
 
+最新复验：`6411293` 的 [专项 41386033416](https://github.com/W-Boat/WorkProof/actions/runs/41386033416) Linux、Windows x64、macOS Intel/ARM 四任务全部成功，包含各平台实际 PNG、基线/渐进 JPEG 签署与核验。此前 macOS 失败来自测试 CA 继承 runner 的 OpenSSL 默认配置，导致重复 Basic Constraints；OpenSSL 自身也拒绝该链。现使用隔离配置生成合法合成 CA，保留全部产品信任校验与错根拒绝。Windows/macOS 三个开发包各 639 个文件摘要已核对，仍未测这些平台的网络系统调用；仅 Linux 有 strace 证据。以下失败状态为历史，具体见 [交付证据](DELIVERY-2026-11-02.md)。
+
 2026-11-02 最新状态：Linux 真实 PNG/JPEG 往返及两类 JPEG 的网络调用跟踪已通过；`3a87738` 的 [专项 41384413851](https://github.com/W-Boat/WorkProof/actions/runs/41384413851) Windows x64 实际签署、核验及开发包也已成功，归档和包内 639 个文件摘要已核对。Windows 未测网络调用，macOS ARM/Intel 实际显式 CA 核验仍失败。详见 [交付证据](DELIVERY-2026-11-02.md)。下述早期“继续构建中”描述为历史，不覆盖此状态。
 
 源码4651999已通过[C2PA专项41288148673](https://github.com/W-Boat/WorkProof/actions/runs/41288148673)：真实合成PNG/CA/签名器往返，独立CA信任、完整与选择性披露、修改像素/断言/过程记录拒绝、错CA拒绝、不覆盖输出、不改原文件，以及strace未见核验联网调用。333个锁定包的声明和实际许可材料已采集；13项包内缺失材料补充至确切VCS提交，少数上游仅以README授予任选许可的条目明确选择Apache-2.0并附标准正文。源码7c80a85的可下载Linux开发包继续构建中，不能把开发包、合成CA或上述验收称为正式C2PA公共信任认证。
