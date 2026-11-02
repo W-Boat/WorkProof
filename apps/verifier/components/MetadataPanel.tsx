@@ -83,6 +83,7 @@ export function MetadataPanel({file}:{file:File|null}){
       <div className="metadata-findings">{result.findings.map((item,index)=><div className="metadata-finding" key={index}><Tag tone={item.hint?'info':'neutral'}>{fieldLabel(item.field)}</Tag><p>{item.value||'（字段为空）'}</p></div>)}</div>
       {!!result.findings.length&&<details><summary>查看原始字段与位置</summary><ol className="metadata-source-list">{result.findings.map((item,index)=><li key={index}>{item.field} · {item.location}</li>)}</ol></details>}
       {!!result.skipped&&<p>{result.skipped} 项不支持、过大、异常或超出显示上限的元数据未检查。</p>}</div>}
-    <p className="caption">这些字段可以添加、删除或伪造。prompt、workflow 等名称只是线索；Word、WPS 等编辑软件名称不等于 AI 证据。DOCX/PPTX 仅检查三类文档属性，不读取文档或幻灯片正文、宏或外部链接；旧版 DOC/PPT 不支持。JPEG 只检查第一段图像扫描前的部分 EXIF、注释和简单 XMP 属性，跳过 GPS、缩略图、扩展 XMP 等内容。本功能未运行 AI 检测模型，未检查水印、像素或 C2PA 签名，不改变证书结果。PNG 压缩文字和 CRC 不检查。</p>
+    <p>文件属性可以被修改或清除。这里提供复核线索，不判断作品是否由 AI 生成，也不改变证书核验结果。</p>
+    <details className="caption"><summary>了解具体检查范围</summary><p>prompt、workflow 等字段名称只是线索；Word、WPS 等编辑软件名称不等于 AI 证据。DOCX/PPTX 仅检查三类文档属性，不读取文档或幻灯片正文、宏或外部链接；旧版 DOC/PPT 不支持。JPEG 只检查第一段图像扫描前的部分 EXIF、注释和简单 XMP 属性，跳过 GPS、缩略图、扩展 XMP 等内容。本功能未运行 AI 检测模型，未检查水印、像素或 C2PA 签名。PNG 压缩文字和 CRC 不检查。</p></details>
   </details></Panel>;
 }
