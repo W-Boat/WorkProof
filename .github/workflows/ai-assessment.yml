@@ -1,7 +1,7 @@
 name: Optional AI reference model
 on:
   push:
-    paths: ['tools/ai-assessment/**', 'services/institution/**/AiAnalysisService*.java', '.github/workflows/ai-assessment.yml']
+    paths: ['tools/ai-assessment/detector.py', 'tools/ai-assessment/desklib_backend.py', 'tools/ai-assessment/documents.py', 'tools/ai-assessment/engines.json', 'tools/ai-assessment/requirements.txt', 'tools/ai-assessment/test_real.py', 'tools/ai-assessment/test_documents.py', 'tools/ai-assessment/collect_notices.py', 'tools/ai-assessment/test_collect_notices.py', 'docs/licenses/ai-runtime/**', 'services/institution/**/AiAnalysisService*.java', '.github/workflows/ai-assessment.yml']
   workflow_dispatch:
 permissions:
   contents: read

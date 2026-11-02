@@ -1,6 +1,10 @@
 name: Build and verify WorkProof
 on:
   push:
+    paths-ignore:
+      - '**/*.md'
+      - 'scripts/test_embedded_webview.py'
+      - '.github/workflows/native-webview.yml'
   pull_request:
   workflow_dispatch:
     inputs:
