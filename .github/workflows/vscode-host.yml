@@ -1,0 +1,34 @@
+name: Real VS Code host acceptance
+on:
+  workflow_dispatch:
+  push:
+    paths: ['apps/extension/**', 'crates/proof/**', 'crates/engine/**', 'scripts/test_vscode_host.cjs', '.github/workflows/vscode-host.yml', 'package-lock.json']
+permissions:
+  contents: read
+jobs:
+  linux-stable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: npm run typecheck -w workproof-vscode
+      - run: npm run build:extension
+      - run: npm run package -w workproof-vscode
+      - run: cargo build --locked --release -p workproof-engine --bin workproof-engine
+      - name: Install Linux desktop libraries for the isolated official host
+        run: npx playwright install-deps chromium
+      - name: Exercise the installed extension through the real workbench UI
+        run: xvfb-run -a node scripts/test_vscode_host.cjs target/release/workproof-engine apps/extension/workproof-vscode-0.1.0.vsix
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vscode-linux-stable-acceptance
+          path: test-results/vscode-host/
+          if-no-files-found: warn

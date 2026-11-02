@@ -53,7 +53,7 @@ MySQL 与 Valkey 不发布宿主端口。应用容器以 UID/GID 10001 运行，
 
 镜像增加了备份字节的加密封装基础 `backup_crypto.py`，使用固定参数的 scrypt 与 AES-256-GCM，口令只从标准输入或终端读取。解密输出须等完整认证成功后才发布，并拒绝覆盖已有文件。该模块不执行数据库导出、归档解析或恢复；完整加密备份与恢复流程仍待实现，不能将它当成已经可用的备份入口。对应 Actions 在实际镜像中检查原字节往返、篡改和错误口令拒绝、权限、符号链接及真实写入失败。
 
-Dockerfile 仅供 Actions 构建及审阅，要求上下文含 `app.jar`、`workproof-inspector`、`entrypoint.py`、`manage.py` 和原始 `sql/V1__init_schema.sql`、`sql/V2__seed_data.sql`。Java 基于 Temurin 17 JRE Noble，原生检查器在 Ubuntu 24.04 构建，仍必须在实际容器内执行并核对动态依赖；不能从源码名称推断所有发行版兼容。
+Dockerfile 仅供 Actions 构建及审阅，要求上下文含 `app.jar`、`workproof-inspector`、`entrypoint.py`、`manage.py`、`backup_crypto.py` 和原始 `sql/V1__init_schema.sql`、`sql/V2__seed_data.sql`。Java 基于 Temurin 17 JRE Noble，原生检查器在 Ubuntu 24.04 构建，仍必须在实际容器内执行并核对动态依赖；不能从源码名称推断所有发行版兼容。
 
 应验收：未经准备 app 拒绝启动且不建表；随机管理员真实登录、默认密码拒绝、示例普通账号停用；受保护 API、Vue 深链接、Office 页面；真实证书成功/篡改拒绝；重启保留账号；重复 prepare/initialize 与非空库拒绝；配置卷及应用 UID；MySQL/Valkey 无宿主公开端口；普通日志和归档无密码。这些步骤只在 Actions 独立 Compose 项目中运行，不针对用户本机库。
 
