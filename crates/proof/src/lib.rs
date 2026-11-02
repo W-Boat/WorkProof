@@ -211,6 +211,13 @@ pub fn create_disclosure_json(json:&str,indices:&str)->Result<String,JsValue>{
 
 #[cfg(feature="wasm")]
 #[wasm_bindgen]
+pub fn verify_evolution_json(proof_json:&str,supplement_json:&str)->Result<String,JsValue>{
+    serde_json::to_string(&evolution::verify_json(proof_json.as_bytes(),supplement_json.as_bytes()))
+        .map_err(|_|JsValue::from_str("EVOLUTION_REPORT_INVALID"))
+}
+
+#[cfg(feature="wasm")]
+#[wasm_bindgen]
 pub struct FileHasher { hasher: blake3::Hasher, bytes: u64 }
 #[cfg(feature="wasm")]
 #[wasm_bindgen]

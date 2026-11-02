@@ -3,7 +3,7 @@ self.onmessage = async ({data}) => {
   try {
     self.postMessage({type:'progress',phase:'加载核验引擎',progress:0});
     ready ||= import('/wasm/workproof_protocol.js').then(async mod=>{await mod.default();return mod;});
-    const {FileHasher,create_disclosure_json}=await ready;
+    const {FileHasher,create_disclosure_json,verify_evolution_json}=await ready;
     const {artifact,proof}=data;
     if(proof.size>32*1024*1024)throw new Error('证据文件超过 32 MB 限制');
     const json=await proof.text();
@@ -12,6 +12,12 @@ self.onmessage = async ({data}) => {
     if(data.action==='disclose'){
       const output=create_disclosure_json(json,JSON.stringify(data.indices));
       self.postMessage({type:'disclosure',json:output});return;
+    }
+    if(data.action==='evolution'){
+      if(!data.supplement||data.supplement.size>8*1024*1024)throw new Error('结构文件超过 8 MB 限制，或尚未选择结构文件');
+      const graph=await data.supplement.text();
+      const report=JSON.parse(verify_evolution_json(json,graph));
+      self.postMessage({type:'evolution',report});return;
     }
     const hasher=new FileHasher();
     try {
