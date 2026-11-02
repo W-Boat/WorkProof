@@ -34,7 +34,7 @@ runs:
             output.write(f'key=workproof-bindgen-cli-v1-{version}-{digest}\nroot={root}\nbinary={binary}\n')
     - name: Restore only the native CLI binary
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: ${{ steps.identity.outputs.binary }}
         key: ${{ steps.identity.outputs.key }}
@@ -57,3 +57,11 @@ runs:
         actual=subprocess.check_output([str(binary),'--version'],text=True).strip()
         if actual!='wasm-bindgen '+version:raise RuntimeError('Native wasm-bindgen CLI version mismatch: '+actual)
         print('Using '+actual+'; exact cache hit: '+str(os.environ['BINDGEN_CACHE_HIT']=='true'))
+    # Save while this composite's outputs are in scope. Nested callers can lose the
+    # dynamic path during an automatic post step; only the validated CLI is saved.
+    - name: Save the validated native CLI on cache miss
+      if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.identity.outputs.binary }}
+        key: ${{ steps.identity.outputs.key }}
