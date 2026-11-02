@@ -2,7 +2,7 @@ name: Real browser embedded certificate verification
 on:
   workflow_dispatch:
   push:
-    paths: ['tools/c2pa/**', 'tools/c2pa-wasm/**', 'scripts/test_c2pa.py', 'scripts/test_c2pa_pdf.py', '.github/workflows/c2pa-wasm.yml']
+    paths: ['tools/c2pa/**', 'tools/c2pa-wasm/**', 'apps/verifier/**', 'scripts/test_c2pa.py', 'scripts/test_c2pa_pdf.py', '.github/workflows/c2pa-wasm.yml']
 permissions:
   contents: read
 concurrency:
@@ -51,6 +51,8 @@ jobs:
           node tools/c2pa-wasm/stage.mjs
       - name: Build the user verifier with the actual embedded verification runtime
         run: npm run build:web
+      - name: Verify the actual user page with real PDF files and Wasm
+        run: node tools/c2pa-wasm/test-ui.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: verifier-with-embedded-certificates
