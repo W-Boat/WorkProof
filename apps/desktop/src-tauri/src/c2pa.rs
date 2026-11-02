@@ -113,24 +113,30 @@ fn capture(mut command:Command,seconds:u64,limit:usize)->Result<(ExitStatus,Vec<
 }
 
 fn choose(image:bool)->Result<Option<PathBuf>,String>{
+    if image{pick("选择带有创作证书的图片","PNG / JPEG|*.png;*.jpg;*.jpeg",false,"带证书图片.png")}
+    else{pick("选择从可信渠道取得的 CA 证书文件","CA 证书文件|*.pem;*.crt;*.cer",false,"")}
+}
+fn pick(title:&str,filter:&str,save:bool,suggested:&str)->Result<Option<PathBuf>,String>{
     #[cfg(windows)]let command={
         let root=std::env::var_os("SystemRoot").ok_or("无法定位系统文件选择器。")?;
         let mut c=Command::new(PathBuf::from(root).join("System32/WindowsPowerShell/v1.0/powershell.exe"));
-        let filter=if image{"PNG / JPEG|*.png;*.jpg;*.jpeg"}else{"CA 证书文件|*.pem;*.crt;*.cer"};
-        let title=if image{"选择带有创作证书的图片"}else{"选择从可信渠道取得的 CA 证书文件"};
-        c.args(["-NoLogo","-NoProfile","-NonInteractive","-STA","-Command"]).arg(format!("Add-Type -AssemblyName System.Windows.Forms;[Console]::OutputEncoding=New-Object Text.UTF8Encoding($false);$d=New-Object Windows.Forms.OpenFileDialog;$d.Title='{title}';$d.Filter='{filter}';$d.Multiselect=$false;$d.CheckFileExists=$true;if($d.ShowDialog() -eq 'OK'){{[Console]::Write($d.FileName)}};$d.Dispose()"));c
+        let kind=if save{"SaveFileDialog"}else{"OpenFileDialog"};
+        // Arguments are fixed application labels, never selected file paths.
+        c.args(["-NoLogo","-NoProfile","-NonInteractive","-STA","-Command"]).arg(format!("Add-Type -AssemblyName System.Windows.Forms;[Console]::OutputEncoding=New-Object Text.UTF8Encoding($false);$d=New-Object Windows.Forms.{kind};$d.Title='{title}';$d.Filter='{filter}';$d.FileName='{suggested}';if($d.ShowDialog() -eq 'OK'){{[Console]::Write($d.FileName)}};$d.Dispose()"));c
     };
-    #[cfg(target_os="macos")]let command={let mut c=Command::new("/usr/bin/osascript");let prompt=if image{"选择带有创作证书的 PNG 或 JPEG 图片"}else{"选择从可信渠道取得的 CA 证书文件"};c.args(["-e",&format!("try\nPOSIX path of (choose file with prompt \"{prompt}\")\non error number -128\nreturn \"\"\nend try")]);c};
-    #[cfg(target_os="linux")]let command={let mut c=Command::new("zenity");c.args(["--file-selection","--title",if image{"选择带有创作证书的图片"}else{"选择独立可信的 CA 证书文件"}]);c.arg(if image{"--file-filter=PNG / JPEG | *.png *.jpg *.jpeg"}else{"--file-filter=CA | *.pem *.crt *.cer"});c};
+    #[cfg(target_os="macos")]let command={let mut c=Command::new("/usr/bin/osascript");let selection=if save{format!("choose file name with prompt \"{title}\" default name \"{suggested}\"")}else{format!("choose file with prompt \"{title}\"")};c.args(["-e",&format!("try\nPOSIX path of ({selection})\non error number -128\nreturn \"\"\nend try")]);c};
+    #[cfg(target_os="linux")]let command={let mut c=Command::new("zenity");c.args(["--file-selection","--title",title]);if save{c.args(["--save","--confirm-overwrite","--filename",suggested]);}let (label,patterns)=filter.split_once('|').unwrap_or(("文件","*"));c.arg(format!("--file-filter={label} | {}",patterns.replace(';'," ")));c};
     let (status,out,_)=capture(command,300,32768)?;
     #[cfg(target_os="linux")]if status.code()==Some(1){return Ok(None);}
     if !status.success(){return Err("系统没有完成文件选择。Linux 桌面需要安装 zenity，并在图形会话中运行。".into());}
     let text=String::from_utf8(out).map_err(|_|"文件路径无法读取。")?;let text=text.trim_end_matches(['\r','\n']);
     if text.is_empty(){Ok(None)}else{Ok(Some(PathBuf::from(text)))}
 }
-fn regular(path:&Path,limit:u64)->Result<(),String>{let m=std::fs::metadata(path).map_err(|_|"选中的文件无法读取，请检查是否仍在原位置。")?;if !m.is_file()||m.len()==0||m.len()>limit{return Err("请选择大小符合要求的普通文件：图片最多 96 MB，CA 文件最多 256 KB。".into());}Ok(())}
+fn regular(path:&Path,limit:u64)->Result<(),String>{let m=std::fs::metadata(path).map_err(|_|"选中的文件无法读取，请检查是否仍在原位置。")?;if !m.is_file()||m.len()==0||m.len()>limit{return Err(format!("请选择非空的普通文件，当前文件大小上限为 {} KB。",limit/1024));}Ok(())}
 
-pub(crate) fn checked_summary(bytes:&[u8])->Result<Value,String>{
+pub(crate) fn checked_summary(bytes:&[u8])->Result<Value,String>{parse_summary(bytes,true)}
+pub(crate) fn checked_embed_summary(bytes:&[u8])->Result<Value,String>{parse_summary(bytes,false)}
+fn parse_summary(bytes:&[u8],trusted:bool)->Result<Value,String>{
     let v:Value=serde_json::from_slice(bytes).map_err(|_|"核验工具返回了无法识别的结果，请更新完整安装包。")?;
     let yes=|path:&str|v.pointer(path).and_then(Value::as_bool)==Some(true);
     let no=|path:&str|v.pointer(path).and_then(Value::as_bool)==Some(false);
@@ -143,8 +149,8 @@ pub(crate) fn checked_summary(bytes:&[u8])->Result<Value,String>{
         "selective"=>no("/workproof/chain_valid")&&yes("/workproof/merkle_valid"),
         _=>false,
     };
-    if v["protocol"]!="workproof-c2pa-report/1"||v["trust_policy"]!="explicit-ca-file"||!matches!(mime,"image/png"|"image/jpeg")||!matches!(scope,"full"|"selective")||
-        !coverage||!["/c2pa_integrity_valid","/c2pa_trusted","/original_asset_checked","/workproof/valid","/workproof/file_match","/workproof/signature_valid"].iter().all(|p|yes(p))||
+    if v["protocol"]!="workproof-c2pa-report/1"||v["trust_policy"]!=(if trusted{"explicit-ca-file"}else{"not-verified"})||!matches!(mime,"image/png"|"image/jpeg")||!matches!(scope,"full"|"selective")||
+        !coverage||v["c2pa_trusted"].as_bool()!=Some(trusted)||!["/c2pa_integrity_valid","/original_asset_checked","/workproof/valid","/workproof/file_match","/workproof/signature_valid"].iter().all(|p|yes(p))||
         !["/identity_verified","/creation_time_verified","/revocation_checked","/network_used"].iter().all(|p|no(p))||
         !yes(if mime=="image/png"{"/original_png_checked"}else{"/original_jpeg_checked"})||
         v.pointer("/workproof/errors").and_then(Value::as_array).map_or(true,|a|!a.is_empty())||
@@ -158,11 +164,38 @@ fn failure(stderr:&[u8])->String{
     else if text.contains("WORKPROOF_OR_ORIGINAL_ASSET_MISMATCH"){"图片与创作证据不匹配，或创作证据已被修改。请取得原始交付件后重试。"}
     else{"本次核验未通过。图片、内嵌证书或 CA 文件可能不符合要求，请核对原始交付件；不能将此结果直接认定为 AI 创作或抄袭。"}.into()
 }
-pub fn verify(resource:PathBuf)->Result<Value,String>{
-    if BUSY.swap(true,Ordering::AcqRel){return Err("已有图片核验正在进行，请完成或取消当前选择。".into());}let _guard=Guard;
+fn find_tool(resource:PathBuf)->Result<PathBuf,String>{
     let name=if cfg!(windows){"workproof-c2pa.exe"}else{"workproof-c2pa"};
     let mut candidates=vec![resource.join("c2pa").join(name)];if let Ok(exe)=std::env::current_exe(){if let Some(parent)=exe.parent(){candidates.push(parent.join("c2pa").join(name));}}
-    let tool=candidates.into_iter().find(|p|p.is_file()).ok_or("安装包中缺少图片核验工具。请安装包含 C2PA 工具的完整 WorkProof 安装包。")?;
+    candidates.into_iter().find(|p|p.is_file()).ok_or_else(||"安装包中缺少图片核验工具。请安装包含 C2PA 工具的完整 WorkProof 安装包。".into())
+}
+
+pub fn embed(resource:PathBuf,consent:bool)->Result<Value,String>{
+    if !consent{return Err("请先确认同意公开所选证书中的过程信息。".into());}
+    if BUSY.swap(true,Ordering::AcqRel){return Err("已有图片操作正在进行，请先完成或取消。".into());}let _guard=Guard;
+    let tool=find_tool(resource)?;
+    let mut inputs=Vec::new();
+    for (title,filter,limit) in [
+        ("第 1 步：选择原始 PNG 或 JPEG","PNG / JPEG|*.png;*.jpg;*.jpeg",64*1024*1024),
+        ("第 2 步：选择与原图匹配的创作证书","WorkProof 证书|*.wproof",8*1024*1024),
+        ("第 3 步：选择 ES256 签署证书链","PEM 签名链|*.pem",256*1024),
+        ("第 4 步：选择对应的签署私钥","PEM 私钥|*.pem;*.key",64*1024)]{
+        let Some(path)=pick(title,filter,false,"")?else{return Ok(json!({"cancelled":true}));};
+        regular(&path,limit)?;inputs.push(path);
+    }
+    let jpeg=inputs[0].extension().and_then(|e|e.to_str()).is_some_and(|e|e.eq_ignore_ascii_case("jpg")||e.eq_ignore_ascii_case("jpeg"));
+    let suggested=if jpeg{"作品-带证书.jpg"}else{"作品-带证书.png"};
+    let Some(destination)=pick("第 5 步：选择新图片保存位置（不覆盖已有文件）","PNG / JPEG|*.png;*.jpg;*.jpeg",true,suggested)?else{return Ok(json!({"cancelled":true}));};
+    if std::fs::symlink_metadata(&destination).is_ok(){return Err("保存位置已有文件，请重新操作并选择新的文件名。原文件未修改。".into());}
+    let mut command=Command::new(tool);command.arg("embed").args(&inputs).arg(&destination).arg("--allow-public-process");
+    let (status,out,stderr)=capture(command,60,1024*1024)?;
+    if !status.success(){return Err(if String::from_utf8_lossy(&stderr).contains("OUTPUT_ALREADY_EXISTS"){"保存位置已有文件，请选择新文件名。".into()}else{"封装未完成。请核对原图与创作证书是否匹配、签名链与私钥是否对应，并确认它们支持 ES256。已有文件不会覆盖。".into()});}
+    checked_embed_summary(&out)
+}
+
+pub fn verify(resource:PathBuf)->Result<Value,String>{
+    if BUSY.swap(true,Ordering::AcqRel){return Err("已有图片核验正在进行，请完成或取消当前选择。".into());}let _guard=Guard;
+    let tool=find_tool(resource)?;
     let Some(image)=choose(true)?else{return Ok(json!({"cancelled":true}));};regular(&image,96*1024*1024)?;
     let Some(ca)=choose(false)?else{return Ok(json!({"cancelled":true}));};regular(&ca,256*1024)?;
     let mut command=Command::new(tool);command.arg("verify").arg(image).arg(ca);
@@ -193,6 +226,20 @@ pub fn verify(resource:PathBuf)->Result<Value,String>{
         let mut full=false;let mut selected=false;
         for report in reports{let summary=checked_summary(&serde_json::to_vec(&report).unwrap()).expect("real independent CLI result must be compatible");full|=summary["scope"]=="full";selected|=summary["scope"]=="selective";assert!(summary["total"].is_u64());}
         assert!(full&&selected,"real CLI fixtures must cover full and selective evidence");
+    }
+    #[test]fn packaging_is_not_independent_ca_trust(){
+        let mut report=sample();report["c2pa_trusted"]=json!(false);report["trust_policy"]=json!("not-verified");
+        let bytes=serde_json::to_vec(&report).unwrap();assert!(checked_embed_summary(&bytes).is_ok());assert!(checked_summary(&bytes).is_err());
+        assert!(checked_embed_summary(&serde_json::to_vec(&sample()).unwrap()).is_err());
+        report["workproof"]["valid"]=json!(false);assert!(checked_embed_summary(&serde_json::to_vec(&report).unwrap()).is_err());
+    }
+    #[test]fn consent_is_required_before_opening_any_files(){assert!(embed(PathBuf::new(),false).unwrap_err().contains("同意"));}
+    #[test]fn consume_real_embed_reports(){
+        let Some(path)=std::env::var_os("WORKPROOF_C2PA_EMBED_REPORT")else{assert_ne!(std::env::var("GITHUB_ACTIONS").as_deref(),Ok("true"),"CI must supply real embed reports");return;};
+        let reports:Vec<Value>=serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        assert_eq!(reports.len(),6);let mut full=false;let mut selected=false;
+        for report in reports{let bytes=serde_json::to_vec(&report).unwrap();let summary=checked_embed_summary(&bytes).expect("real embed report must be accepted without asserting CA trust");assert!(checked_summary(&bytes).is_err());full|=summary["scope"]=="full";selected|=summary["scope"]=="selective";}
+        assert!(full&&selected);
     }
     fn helper(script:&str)->Command{
         #[cfg(windows)]{let root=std::env::var_os("SystemRoot").unwrap();let mut c=Command::new(PathBuf::from(root).join("System32/WindowsPowerShell/v1.0/powershell.exe"));c.args(["-NoProfile","-NonInteractive","-Command",script]);c}

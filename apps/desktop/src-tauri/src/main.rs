@@ -3,6 +3,12 @@ use tauri::{menu::{Menu,MenuItem},tray::TrayIconBuilder,Manager};
 mod platform;
 mod c2pa;
 #[tauri::command]
+async fn embed_image(app:tauri::AppHandle,consent:bool)->Result<serde_json::Value,String>{
+    if !consent{return Err("请先同意公开所选证书中的过程信息。".into());}
+    let resource=app.path().resource_dir().map_err(|_|"无法定位安装资源。".to_string())?;
+    tauri::async_runtime::spawn_blocking(move||c2pa::embed(resource,consent)).await.map_err(|_|"图片封装未能完成，请检查输出位置后重试。".to_string())?
+}
+#[tauri::command]
 async fn verify_image(app:tauri::AppHandle)->Result<serde_json::Value,String>{
     let resource=app.path().resource_dir().map_err(|_|"无法定位安装资源。".to_string())?;
     tauri::async_runtime::spawn_blocking(move||c2pa::verify(resource)).await.map_err(|_|"图片核验未能完成，请重试。".to_string())?
@@ -50,7 +56,7 @@ async fn install_vscode(app:tauri::AppHandle)->Result<String,String>{
     Ok("插件安装完成。在 VS Code 状态栏点击 WorkProof 即可开始记录。".into())
 }
 fn main(){
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,install_vscode,open_word,open_powerpoint,verify_image]).setup(|app|{
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,install_vscode,open_word,open_powerpoint,verify_image,embed_image]).setup(|app|{
         let open=MenuItem::with_id(app,"open","WorkProof · 状态与帮助",true,None::<&str>)?;
         let quit=MenuItem::with_id(app,"quit","退出 WorkProof",true,None::<&str>)?;
         let menu=Menu::with_items(app,&[&open,&quit])?;

@@ -92,3 +92,20 @@ document.getElementById('verify-image').addEventListener('click',async()=>{
   }catch(error){result.textContent=String(error);}
   finally{button.disabled=false;}
 });
+
+const embedConsent=document.getElementById('embed-consent'),embedButton=document.getElementById('embed-image');
+let embedding=false;
+embedConsent.addEventListener('change',()=>{embedButton.disabled=embedding||!embedConsent.checked;});
+embedButton.addEventListener('click',async()=>{
+  const result=document.getElementById('embed-result');result.textContent='';
+  if(!embedConsent.checked){result.textContent='请先确认同意公开证书中的过程信息。';return;}
+  embedding=true;embedButton.disabled=true;embedConsent.disabled=true;
+  result.textContent='请在系统窗口中依次选择原图、创作证书、签名链、私钥和新的保存位置。可随时取消。';
+  try{
+    const report=await window.__TAURI__.core.invoke('embed_image',{consent:true});
+    if(report.cancelled===true){result.textContent='已取消，没有生成新图片。';return;}
+    if(!['full','selective'].includes(report.scope)||!Number.isSafeInteger(report.disclosed)||!Number.isSafeInteger(report.total)||report.disclosed<2||report.disclosed>report.total)throw new Error('返回结果无法识别，请检查输出位置，不要直接交付未核验文件。');
+    result.textContent=`新图片已生成，包含${report.scope==='selective'?'选择性披露的':'完整的'} ${report.disclosed} 条过程记录。它尚未通过独立可信 CA 核验；请使用上方入口检查后再交付。`;
+  }catch(error){result.textContent=String(error);}
+  finally{embedding=false;embedConsent.checked=false;embedConsent.disabled=false;embedButton.disabled=true;}
+});

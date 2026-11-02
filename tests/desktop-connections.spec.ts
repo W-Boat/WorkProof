@@ -99,3 +99,26 @@ test('image certificate check explains partial scope, cancellation and failures'
   await expect(result).not.toContainText('检查通过');await expect(button).toBeEnabled();
   await expect(page.getByText(/不要仅因它与图片一起收到就信任它/)).toBeVisible();
 });
+
+test('embedding requires fresh consent and does not claim independent trust',async({page})=>{
+  await desktop(page);
+  await page.getByText('把创作证书放进图片',{exact:true}).click();
+  const consent=page.locator('#embed-consent'),button=page.getByRole('button',{name:'选择文件并生成新图片'}),result=page.locator('#embed-result');
+  await expect(button).toBeDisabled();
+  await page.evaluate(()=>{
+    const ipc=(window as any).__TAURI__.core,original=ipc.invoke;
+    let count=0;
+    ipc.invoke=async(command:string,args:unknown)=>{
+      if(command!=='embed_image')return original(command,args);
+      if(JSON.stringify(args)!==JSON.stringify({consent:true}))throw new Error('Only explicit consent may cross IPC');
+      return count++===0?{scope:'selective',disclosed:3,total:5}:{cancelled:true};
+    };
+  });
+  await consent.check();await button.click();
+  await expect(result).toContainText('尚未通过独立可信 CA 核验');
+  await expect(result).toContainText('选择性披露的 3 条');
+  await expect(consent).not.toBeChecked();await expect(button).toBeDisabled();
+  await consent.check();await button.click();
+  await expect(result).toHaveText('已取消，没有生成新图片。');
+  await expect(consent).not.toBeChecked();await expect(button).toBeDisabled();
+});
