@@ -1,0 +1,47 @@
+import {test,expect} from '@playwright/test';
+import fs from 'node:fs';
+const fixture='apps/verifier/public/demo/';
+test('real Wasm binds structure snapshots, changes parents, rejects tampering and clears stale results',async({page})=>{
+  const requests:string[]=[];
+  page.on('request',request=>{if(request.method()!=='GET'||!request.url().startsWith('http://127.0.0.1:4173'))requests.push(request.url());});
+  await page.goto('/');
+  await page.getByLabel('选择最终作品',{exact:true}).setInputFiles(fixture+'structure-demo.txt');
+  await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles(fixture+'structure-demo.txt.wproof');
+  await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
+  await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByText('收到 .wgraph 结构文件？查看对象和图层怎样变化',{exact:true}).click();
+  await page.getByLabel('选择 .wgraph 结构文件',{exact:true}).setInputFiles(fixture+'structure-demo.wgraph');
+  await page.getByRole('button',{name:'核验并查看结构',exact:true}).click();
+  await expect(page.getByText('结构与证书中的记录一致',{exact:true})).toBeVisible();
+  const tree=page.getByRole('list',{name:'已核验的对象层级'});
+  await expect(tree.getByText('属于 #1 · 同层顺序 1',{exact:true})).toBeVisible();
+  await page.getByLabel('选择结构记录',{exact:true}).selectOption('1');
+  await expect(tree.getByText('属于 #2 · 同层顺序 1',{exact:true})).toBeVisible();
+  const graph=JSON.parse(fs.readFileSync(fixture+'structure-demo.wgraph','utf8'));
+  graph.snapshots[0].nodes[2].parent=2;
+  await page.getByLabel('选择 .wgraph 结构文件',{exact:true}).setInputFiles({name:'changed.wgraph',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(graph))});
+  await expect(page.getByText('结构与证书中的记录一致',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'核验并查看结构',exact:true}).click();
+  await expect(page.getByText('结构与证书中的记录不匹配，或文件格式不受支持。请向提供者核对配套文件。',{exact:true})).toBeVisible();
+  await expect(tree).toHaveCount(0);
+  expect(requests).toEqual([]);
+});
+
+test('selective certificate only authorizes structures in disclosed events',async({page})=>{
+  await page.goto('/');
+  await page.getByLabel('选择最终作品',{exact:true}).setInputFiles(fixture+'structure-demo.txt');
+  await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles(fixture+'structure-demo.selected.wproof');
+  await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
+  await expect(page.getByText('部分证据核验通过',{exact:true})).toBeVisible();
+  await page.getByText('收到 .wgraph 结构文件？查看对象和图层怎样变化',{exact:true}).click();
+  await page.getByLabel('选择 .wgraph 结构文件',{exact:true}).setInputFiles(fixture+'structure-demo.wgraph');
+  await page.getByRole('button',{name:'核验并查看结构',exact:true}).click();
+  await expect(page.getByText('这份证书没有公开结构文件对应的记录。请向提供者索取配套的结构文件，或包含这些记录的证书。',{exact:true})).toBeVisible();
+  await expect(page.getByRole('list',{name:'已核验的对象层级'})).toHaveCount(0);
+  await page.getByLabel('选择 .wgraph 结构文件',{exact:true}).setInputFiles(fixture+'structure-demo.selected.wgraph');
+  await page.getByRole('button',{name:'核验并查看结构',exact:true}).click();
+  await expect(page.getByText('结构与证书中的记录一致',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('选择结构记录',{exact:true}).getByRole('option')).toHaveCount(1);
+  await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles(fixture+'essay.md.wproof');
+  await expect(page.getByRole('list',{name:'已核验的对象层级'})).toHaveCount(0);
+});

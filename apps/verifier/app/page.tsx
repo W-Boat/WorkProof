@@ -12,6 +12,7 @@ import {type Stage,type Result,download,escape,time} from '../lib/evidence';
 import {TimestampPanel} from '../components/TimestampPanel';
 import {MetadataPanel} from '../components/MetadataPanel';
 import {EmbeddedCertificatePanel} from '../components/EmbeddedCertificatePanel';
+import {EvolutionPanel} from '../components/EvolutionPanel';
 
 export default function Page(){
   const [artifact,setArtifact]=useState<File|null>(null),[proofFile,setProofFile]=useState<File|null>(null),[stage,setStage]=useState<Stage>('idle'),[progress,setProgress]=useState(0),[phase,setPhase]=useState(''),[result,setResult]=useState<Result|null>(null),[error,setError]=useState(''),[demoBusy,setDemoBusy]=useState(false);
@@ -105,6 +106,7 @@ export default function Page(){
       {r.valid&&!partial&&m.protocol==='workproof/3'&&<DisclosurePanel selection={selection} busy={disclosureBusy} error={disclosureError} onChange={setSelection} onExport={exportDisclosure}/>}
       {r.chain_valid&&<Timeline records={records}/>}
       {r.valid&&partial&&<DisclosedEvents records={records}/>}
+      {r.valid&&proofFile&&<EvolutionPanel key={result.certificateId+proofFile.name} proof={proofFile}/>}
     </motion.div>:<Panel className="empty-proof"><EmptyState icon={<Fingerprint size={28}/>} title="载入一份作品，开始核验。" desc="你将看到文件匹配、记录完整性、签名与过程轨迹，也可以先体验标明来源的演示证据。"/></Panel>}
     <EmbeddedCertificatePanel/>
     <MetadataPanel file={artifact}/>
