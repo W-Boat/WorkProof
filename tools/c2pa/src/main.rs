@@ -75,13 +75,13 @@ fn proof_report(certificate:&str,original:&[u8])->Result<Report>{
     if certificate.len()>PROOF_LIMIT{return Err("PROOF_TOO_LARGE".into());}
     let evidence:Evidence=serde_json::from_str(certificate).map_err(|_|"INVALID_WORKPROOF_JSON")?;
     let report=verify_evidence(&evidence,&digest(original),original.len() as u64);
-    if !report.valid{return Err("WORKPROOF_OR_ORIGINAL_PNG_MISMATCH".into());}Ok(report)
+    if !report.valid{return Err("WORKPROOF_OR_ORIGINAL_ASSET_MISMATCH".into());}Ok(report)
 }
 
 fn inspect(data:&[u8],roots:Option<&str>)->Result<(Report,bool)>{
     let (mime,normalization)=format(data)?;
     let (original,count)=original_image(data)?;
-    if count==0{return Err("C2PA_PNG_REQUIRED".into());}
+    if count==0{return Err("C2PA_MANIFEST_REQUIRED".into());}
     let reader=Reader::from_context(context(roots)?).with_stream(mime,Cursor::new(data))
         .map_err(|_|"C2PA_READ_FAILED")?;
     let state=reader.validation_state();
@@ -111,7 +111,7 @@ fn output(report:Report,trusted:bool,mime:&str){
 }
 
 fn embed(args:&[String])->Result<()>{
-    if args.len()!=7||args[6]!="--allow-public-process"{return Err("Usage: workproof-c2pa embed ORIGINAL.png CERTIFICATE.wproof CHAIN.pem KEY.pem OUTPUT.png --allow-public-process".into());}
+    if args.len()!=7||args[6]!="--allow-public-process"{return Err("Usage: workproof-c2pa embed ORIGINAL.png|jpg CERTIFICATE.wproof CHAIN.pem KEY.pem OUTPUT.png|jpg --allow-public-process".into());}
     if Path::new(&args[5]).exists(){return Err("OUTPUT_ALREADY_EXISTS".into());}
     let original=read(&args[1],64*1024*1024)?;
     let (mime,normalization)=format(&original)?;
@@ -149,7 +149,7 @@ fn execute()->Result<()>{
             let roots=String::from_utf8(read(&args[2],256*1024)?)?;
             let (report,trusted)=inspect(&signed,Some(&roots))?;output(report,trusted,format(&signed)?.0);Ok(())
         },
-        _=>Err("Usage: workproof-c2pa embed ... | verify SIGNED.png TRUSTED-ROOTS.pem".into()),
+        _=>Err("Usage: workproof-c2pa embed ... | verify SIGNED.png|jpg TRUSTED-ROOTS.pem".into()),
     }
 }
 fn main()->ExitCode{
