@@ -6,15 +6,23 @@ assert os.environ.get('GITHUB_ACTIONS')=='true'
 assert os.environ.get('DB_NAME')=='workproof_ci'
 assert os.environ.get('DB_HOST')=='127.0.0.1'
 root=pathlib.Path(__file__).resolve().parents[1]
-mysql=['docker','exec','-i','-e','MYSQL_PWD='+os.environ['DB_PASSWORD'],os.environ['MYSQL_CONTAINER_ID'],'mysql','--user=workproof_ci','--default-character-set=utf8mb4','--batch','--skip-column-names','workproof_ci']
-def sql(query):return subprocess.run(mysql,input=query,text=True,capture_output=True,check=True).stdout
+windows=os.name=='nt'
+if windows:
+ assert os.environ.get('WORKPROOF_WINDOWS_QUEUE_FIXTURE')=='isolated-runner-temp'
+ client=pathlib.Path(os.environ['WORKPROOF_TEST_MYSQL_CLIENT']).resolve(strict=True)
+ assert client.is_relative_to(pathlib.Path(os.environ['RUNNER_TEMP']).resolve())
+ mysql=[str(client),'--protocol=TCP','--host=127.0.0.1','--port='+os.environ['DB_PORT'],'--user=workproof_ci','--default-character-set=utf8mb4','--batch','--skip-column-names','workproof_ci']
+ os.environ['MYSQL_PWD']=os.environ['DB_PASSWORD']
+else:
+ mysql=['docker','exec','-i','-e','MYSQL_PWD='+os.environ['DB_PASSWORD'],os.environ['MYSQL_CONTAINER_ID'],'mysql','--user=workproof_ci','--default-character-set=utf8mb4','--batch','--skip-column-names','workproof_ci']
+def sql(query):return subprocess.run(mysql,input=query,text=True,encoding='utf-8',capture_output=True,check=True).stdout
 # Read-only identity and existing V3 inspection before the first V4 write.
 assert sql('SELECT DATABASE(),CURRENT_USER();').startswith('workproof_ci\tworkproof_ci@')
 ddl=sql('SHOW CREATE TABLE wp_certificate;')
 assert all(name in ddl for name in ['owner_user_id','dept_id','proof_hash','uk_wp_certificate_owner_proof','ascii_bin'])
 assert re.search(r'UNIQUE KEY `uk_wp_certificate_owner_proof` \(`owner_user_id`,`proof_hash`\)',ddl)
 before=sql('SELECT id,username,password,status,deleted FROM sys_user ORDER BY id;')
-migration=(root/'services/institution/scaffold-system/sql/V4__workproof_certificate_jobs.sql').read_text()
+migration=(root/'services/institution/scaffold-system/sql/V4__workproof_certificate_jobs.sql').read_text(encoding='utf-8')
 sql(migration);sql(migration)
 assert before==sql('SELECT id,username,password,status,deleted FROM sys_user ORDER BY id;')
 jar=next((root/'services/institution/scaffold-system/scaffold-admin/target').glob('scaffold-admin-*.jar'))
@@ -45,13 +53,19 @@ def wait(id,token):
 with tempfile.TemporaryDirectory(prefix='workproof-jobs-ci-') as directory:
  spool=pathlib.Path(directory)/'spool'
  # A real inspector wrapper delays execution to expose a live crash/cancel window.
- native=root/'target/release/workproof-inspector';assert native.is_file()
- wrapper=pathlib.Path(directory)/'workproof-inspector'
- wrapper.write_text('#!/bin/sh\nsleep 2\nexec "'+str(native)+'"\n');wrapper.chmod(0o700)
+ native=root/('target/release/workproof-inspector.exe' if windows else 'target/release/workproof-inspector');assert native.is_file()
+ if windows:
+  wrapper=pathlib.Path(os.environ['WORKPROOF_TEST_DELAY_INSPECTOR']).resolve(strict=True)
+  assert wrapper.name=='workproof-inspector.exe' and wrapper.is_relative_to(pathlib.Path(os.environ['RUNNER_TEMP']).resolve())
+ else:
+  wrapper=pathlib.Path(directory)/'workproof-inspector'
+  wrapper.write_text('#!/bin/sh\nsleep 2\nexec "'+str(native)+'"\n');wrapper.chmod(0o700)
  environment=dict(os.environ,JWT_SECRET=secrets.token_hex(32),WORKPROOF_CATALOG_ENABLED='true',WORKPROOF_JOBS_ENABLED='true',WORKPROOF_JOBS_SPOOL=str(spool),WORKPROOF_VERIFIER_EXECUTABLE=str(wrapper))
  def start():
   global process
-  process=subprocess.Popen(['java','-Xms96m','-Xmx384m','-jar',str(jar),'--server.address=127.0.0.1','--server.port=18091'],env=environment,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+  # Kept private in the ephemeral fixture; never publish DB/spool/log directories.
+  with (pathlib.Path(directory)/'service.log').open('ab') as service_log:
+   process=subprocess.Popen(['java','-Xms96m','-Xmx384m','-jar',str(jar),'--server.address=127.0.0.1','--server.port=18091'],env=environment,stdout=service_log,stderr=subprocess.STDOUT)
   for _ in range(180):
    assert process.poll() is None
    try:
@@ -68,10 +82,17 @@ with tempfile.TemporaryDirectory(prefix='workproof-jobs-ci-') as directory:
   proof=(root/'apps/verifier/public/demo/sample.wproof')
   if not proof.exists():proof=next((root/'apps/verifier/public/demo').glob('*.wproof'))
   raw=proof.read_bytes();assert len(raw)<32*1024*1024
-  subprocess.run(['node',str(root/'scripts/test_institution_jobs_ui.cjs')],env=dict(os.environ,WORKPROOF_TEST_ORIGIN=origin,WORKPROOF_TEST_TOKEN=token,WORKPROOF_TEST_REAL_JOBS='1',WORKPROOF_JOB_FIXTURE=str(proof)),check=True)
+  if not windows:
+   subprocess.run(['node',str(root/'scripts/test_institution_jobs_ui.cjs')],env=dict(os.environ,WORKPROOF_TEST_ORIGIN=origin,WORKPROOF_TEST_TOKEN=token,WORKPROOF_TEST_REAL_JOBS='1',WORKPROOF_JOB_FIXTURE=str(proof)),check=True)
+  else:print('SCOPE: Windows real HTTP/JAR/native queue lifecycle; browser UI covered separately by Linux institution job')
   key=str(uuid.uuid4());body=dict(clientKey=key,consent=True,expectedItems=2)
   job=request(base,token,body)[1]['data'];id=job['id'];assert request(base,token,body)[1]['data']['id']==id
   assert request(base+'/'+id,other)[1]['code']==404
+  original=get(id,token)
+  assert request(base+'/'+id+'/items/0',other,raw,'PUT')[1]['code']==404
+  assert request(base+'/'+id+'/submit',other,{},'POST')[1]['code']==404
+  assert request(base+'/'+id,other,method='DELETE')[1]['code']==404
+  assert get(id,token)==original,'Other owner changed private job state'
   request(base+'/'+id+'/items/0',token,raw,'PUT')
   assert request(base+'/'+id+'/submit',token,{},'POST')[0]==400
   assert request(base+'/'+id+'/items/0',token,b'changed','PUT')[1]['code']==409

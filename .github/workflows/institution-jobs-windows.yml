@@ -1,0 +1,58 @@
+name: Windows real institution queue lifecycle
+on:
+  workflow_dispatch:
+  push:
+    paths: ['services/institution/scaffold-system/**', 'crates/proof/**', 'crates/engine/**', 'scripts/test_institution_jobs*.py', 'scripts/fixtures/delayed_inspector_windows.cpp', '.github/workflows/institution-jobs-windows.yml']
+permissions:
+  contents: read
+jobs:
+  native-queue:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build real JAR and shared Rust inspector
+        shell: pwsh
+        run: |
+          mvn -B -f services/institution/scaffold-system/pom.xml -pl scaffold-admin -am package -DskipTests
+          if ($LASTEXITCODE -ne 0) {throw 'JAR build failed'}
+          cargo build --locked -p workproof-engine --release
+          if ($LASTEXITCODE -ne 0) {throw 'Rust build failed'}
+          cargo run --locked -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
+          if ($LASTEXITCODE -ne 0) {throw 'Signed fixture generation failed'}
+      - name: Prepare pinned native MySQL and Garnet with real delayed inspector
+        shell: pwsh
+        run: |
+          $mysql=Join-Path $env:RUNNER_TEMP 'mysql-queue.zip'
+          Invoke-WebRequest 'https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.13-winx64.zip' -OutFile $mysql
+          if ((Get-FileHash $mysql -Algorithm SHA256).Hash -ne 'E9CD98B1D23F122987B1AFCA26AD942EFEC5891481103D48AE3CDE237FA3EA54') {throw 'MySQL digest mismatch'}
+          Expand-Archive -LiteralPath $mysql -DestinationPath (Join-Path $env:RUNNER_TEMP 'mysql-queue')
+          $garnet=Join-Path $env:RUNNER_TEMP 'garnet-queue.zip'
+          Invoke-WebRequest 'https://github.com/microsoft/garnet/releases/download/v2.2.5/win-x64-based-readytorun.zip' -OutFile $garnet
+          if ((Get-FileHash $garnet -Algorithm SHA256).Hash -ne '48103D4E02A90081D6050BC932227C0908947568CE1CAED208E2DAF095A798C3') {throw 'Garnet digest mismatch'}
+          Expand-Archive -LiteralPath $garnet -DestinationPath (Join-Path $env:RUNNER_TEMP 'garnet-queue')
+          $wrapper=Join-Path $env:RUNNER_TEMP 'delay-inspector'
+          New-Item -ItemType Directory $wrapper | Out-Null
+          cl /nologo /MT /EHsc scripts/fixtures/delayed_inspector_windows.cpp /Fe:"$wrapper/workproof-inspector.exe" /Fo:"$wrapper/delay.obj"
+          if ($LASTEXITCODE -ne 0) {throw 'Delay wrapper compile failed'}
+          Copy-Item target/release/workproof-inspector.exe (Join-Path $wrapper 'real-inspector.exe')
+          "WORKPROOF_CI_MYSQL=$env:RUNNER_TEMP/mysql-queue/mysql-8.4.13-winx64" >> $env:GITHUB_ENV
+          "WORKPROOF_CI_GARNET=$env:RUNNER_TEMP/garnet-queue/net10.0/GarnetServer.exe" >> $env:GITHUB_ENV
+          "WORKPROOF_TEST_DELAY_INSPECTOR=$wrapper/workproof-inspector.exe" >> $env:GITHUB_ENV
+      - name: Real HTTP, private spool, recovery, owner isolation and cancellation
+        shell: pwsh
+        run: python scripts/test_institution_jobs_windows.py

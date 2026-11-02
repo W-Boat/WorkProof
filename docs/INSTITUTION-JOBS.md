@@ -62,3 +62,11 @@ Actions 的 Windows 启动包随附 `sql/V4__workproof_certificate_jobs.sql` 和
 本会话未提供 mysql 技能，源码仅根据已核对的 V3 SQL/mapper设计，不操作用户本机数据库。`scripts/test_institution_jobs.py` 强制 GITHUB_ACTIONS=true、DB_NAME=workproof_ci、DB_HOST=127.0.0.1；先只读核对数据库身份和 SHOW CREATE TABLE 原V3，再在隔离库显式执行V4两次、确认已有账号未改变。脚本自行启动18091专用JAR，使用单独临时spool和真实Rust检查器，重启实际JAR验证durable任务，检查owner隔离、上传幂等、期望项数、摘要去重、取消、停用账号后停止与原文件清理。
 
 调用位置：现有机构 workflow 完成原 `scripts/test_institution_runtime.py` 初始化/回归后，保留同一隔离 MySQL/Valkey、原native及打包JAR，另执行 `python scripts/test_institution_jobs.py`。无需安装额外Python包。不向公开产物上传spool、账号、SQL备份或证书内容。测试仍待CI运行；计划覆盖不等于已通过。断电、磁盘满、删除故障、所有部门变动和Windows持久队列仍需后续专项，不能称整个机构阶段已完成。
+# Windows 完整队列验收
+
+`institution-jobs-windows.yml` 使用 Windows 2025 runner，在 RUNNER_TEMP 下启动独立的 MySQL 8.4.13 与 Garnet 2.2.5，固定下载地址并核对 SHA-256；不连接本机开发库，不注册系统服务。它构建真实 JAR 与 Rust 核验器，再复用 `scripts/test_institution_jobs.py` 的 HTTP 验收：账户隔离、重复提交、不可覆盖上传、数量检查、运行中崩溃重启、恢复后去重、取消、权限撤销及原始证明清理。
+
+Windows 专用延迟包装器只等待两秒，然后执行相邻的真实 Rust 核验器并继承输入输出，以便观察任务运行中断。它不生成核验结果。Windows 此任务覆盖服务与原生进程生命周期；浏览器交互仍由单独的 Linux 机构工作流验证。数据库目录、凭据、证明暂存与服务日志都不作为公开 artifact 上传。
+
+新增工作流需等待 Actions 实际执行结果才能认定 Windows 全链路验收通过；源码存在不代表已通过。
+
