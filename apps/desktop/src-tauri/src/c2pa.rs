@@ -5,6 +5,69 @@ static BUSY:AtomicBool=AtomicBool::new(false);
 struct Guard;
 impl Drop for Guard{fn drop(&mut self){BUSY.store(false,Ordering::Release);}}
 
+// Each invocation owns a fresh process group/job. Cleanup never targets a
+// process discovered by name or an unrelated installation's process ID.
+#[cfg(unix)]struct ProcessTree(i32);
+#[cfg(unix)]impl ProcessTree{
+    fn attach(child:&std::process::Child)->Result<Self,String>{Ok(Self(child.id() as i32))}
+}
+#[cfg(unix)]impl Drop for ProcessTree{fn drop(&mut self){
+    unsafe extern "C"{fn kill(pid:i32,signal:i32)->i32;}
+    unsafe{kill(-self.0,9);}
+}}
+
+#[cfg(windows)]mod process_tree{
+    use std::{ffi::c_void,os::windows::io::AsRawHandle,process::Child};
+    type Handle=*mut c_void;
+    #[repr(C)]#[derive(Default)]struct BasicLimits{process_time:i64,job_time:i64,flags:u32,min_working:usize,max_working:usize,active:u32,affinity:usize,priority:u32,scheduling:u32}
+    #[repr(C)]#[derive(Default)]struct ExtendedLimits{basic:BasicLimits,io:[u64;6],process_memory:usize,job_memory:usize,peak_process:usize,peak_job:usize}
+    #[repr(C)]struct ThreadEntry{size:u32,usage:u32,id:u32,owner:u32,base_priority:i32,delta_priority:i32,flags:u32}
+    #[link(name="kernel32")]unsafe extern "system"{
+        fn CreateJobObjectW(attributes:*mut c_void,name:*const u16)->Handle;
+        fn SetInformationJobObject(job:Handle,class:i32,info:*const c_void,size:u32)->i32;
+        fn AssignProcessToJobObject(job:Handle,process:Handle)->i32;
+        fn CloseHandle(handle:Handle)->i32;
+        fn CreateToolhelp32Snapshot(flags:u32,pid:u32)->Handle;
+        fn Thread32First(snapshot:Handle,entry:*mut ThreadEntry)->i32;
+        fn Thread32Next(snapshot:Handle,entry:*mut ThreadEntry)->i32;
+        fn OpenThread(access:u32,inherit:i32,id:u32)->Handle;
+        fn ResumeThread(thread:Handle)->u32;
+    }
+    struct Owned(Handle);
+    impl Drop for Owned{fn drop(&mut self){unsafe{CloseHandle(self.0);}}}
+    pub(super) struct ProcessTree(Owned);
+    impl ProcessTree{
+        pub(super) fn attach(child:&Child)->Result<Self,String>{unsafe{
+            let job=CreateJobObjectW(std::ptr::null_mut(),std::ptr::null());
+            if job.is_null(){return Err("无法隔离本次核验进程。".into());}
+            let job=Owned(job);let mut limits=ExtendedLimits::default();limits.basic.flags=0x2000;
+            if SetInformationJobObject(job.0,9,&limits as *const _ as *const c_void,std::mem::size_of_val(&limits) as u32)==0||AssignProcessToJobObject(job.0,child.as_raw_handle())==0{
+                return Err("无法隔离本次核验进程，已取消启动。".into());
+            }
+            // The child was created suspended, so it cannot spawn descendants
+            // before assignment. Resume only its own initial thread.
+            let snapshot=CreateToolhelp32Snapshot(4,0);
+            if snapshot as isize == -1{return Err("无法完成核验进程启动。".into());}
+            let snapshot=Owned(snapshot);
+            let mut entry=ThreadEntry{size:std::mem::size_of::<ThreadEntry>() as u32,usage:0,id:0,owner:0,base_priority:0,delta_priority:0,flags:0};
+            let mut available=Thread32First(snapshot.0,&mut entry);
+            while available!=0{
+                if entry.owner==child.id(){
+                    let thread=OpenThread(2,0,entry.id);
+                    if thread.is_null(){return Err("无法恢复核验进程。".into());}
+                    let thread=Owned(thread);
+                    if ResumeThread(thread.0)==u32::MAX{return Err("无法恢复核验进程。".into());}
+                    return Ok(Self(job));
+                }
+                entry.size=std::mem::size_of::<ThreadEntry>() as u32;
+                available=Thread32Next(snapshot.0,&mut entry);
+            }
+            Err("核验进程的初始线程不可用。".into())
+        }}
+    }
+}
+#[cfg(windows)]use process_tree::ProcessTree;
+
 #[cfg(unix)]
 fn prepare<T:std::os::fd::AsRawFd>(pipe:&T)->Result<(),String>{
     unsafe extern "C"{fn fcntl(fd:i32,cmd:i32,...)->i32;}
@@ -32,8 +95,10 @@ fn drain<T:Pipe>(pipe:&mut T,out:&mut Vec<u8>,limit:usize)->Result<(),String>{
 }
 fn capture(mut command:Command,seconds:u64,limit:usize)->Result<(ExitStatus,Vec<u8>,Vec<u8>),String>{
     command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
-    #[cfg(windows)]{use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+    #[cfg(windows)]{use std::os::windows::process::CommandExt;command.creation_flags(0x08000004);}
+    #[cfg(unix)]{use std::os::unix::process::CommandExt;command.process_group(0);}
     let mut child=command.spawn().map_err(|_|"无法启动核验工具或系统文件选择器，请检查完整安装包与系统组件。")?;
+    let tree=match ProcessTree::attach(&child){Ok(tree)=>tree,Err(error)=>{let _=child.kill();let _=child.wait();return Err(error);}};
     let mut stdout=child.stdout.take().unwrap();let mut stderr=child.stderr.take().unwrap();
     let deadline=Instant::now()+Duration::from_secs(seconds);let mut out=vec![];let mut err=vec![];
     let result=(||{prepare(&stdout)?;prepare(&stderr)?;loop{
@@ -43,6 +108,7 @@ fn capture(mut command:Command,seconds:u64,limit:usize)->Result<(ExitStatus,Vec<
         if Instant::now()>=deadline{return Err("操作超时，已停止本次检查。你的文件没有修改。".into());}
         std::thread::sleep(Duration::from_millis(30));
     }})();
+    drop(tree); // Also closes descendants after normal helper exit.
     if result.is_err(){let _=child.kill();let _=child.wait();}result
 }
 
@@ -136,5 +202,35 @@ pub fn verify(resource:PathBuf)->Result<Value,String>{
         #[cfg(windows)]let (large,stall)=("[Console]::Write(('x'*10000))","Start-Sleep -Seconds 5");
         #[cfg(unix)]let (large,stall)=("printf '%010000d' 0","exec sleep 5");
         assert!(capture(helper(large),10,100).is_err());let start=Instant::now();assert!(capture(helper(stall),1,100).is_err());assert!(start.elapsed()<Duration::from_secs(4));
+    }
+    #[test]fn timeout_cleans_up_owned_descendant(){
+        let path=std::env::temp_dir().join(format!("workproof-image-child-{}-{}.pid",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        #[cfg(windows)]let script="$p=Start-Process -FilePath (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe') -ArgumentList '-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30' -WindowStyle Hidden -PassThru;[IO.File]::WriteAllText($env:WORKPROOF_TEST_CHILD_PID,[string]$p.Id);Start-Sleep -Seconds 30";
+        #[cfg(unix)]let script="sleep 30 & echo $! > \"$WORKPROOF_TEST_CHILD_PID\"; wait";
+        let mut command=helper(script);command.env("WORKPROOF_TEST_CHILD_PID",&path);
+        let start=Instant::now();assert!(capture(command,5,4096).is_err());
+        assert!(start.elapsed()<Duration::from_secs(9));
+        let pid:u32=std::fs::read_to_string(&path).expect("descendant must have started before deadline").trim().parse().unwrap();
+        let _=std::fs::remove_file(&path);
+        #[cfg(windows)]{
+            #[link(name="kernel32")]unsafe extern "system"{
+                fn OpenProcess(access:u32,inherit:i32,pid:u32)->*mut std::ffi::c_void;
+                fn WaitForSingleObject(handle:*mut std::ffi::c_void,milliseconds:u32)->u32;
+                fn CloseHandle(handle:*mut std::ffi::c_void)->i32;
+            }
+            unsafe{let handle=OpenProcess(0x100000,0,pid);if !handle.is_null(){let status=WaitForSingleObject(handle,3000);CloseHandle(handle);assert_eq!(status,0,"owned descendant must terminate with the job");}}
+        }
+        #[cfg(unix)]{
+            // A killed orphan may briefly remain as a zombie until its reaper
+            // runs; it is no longer executing or holding inherited pipe ends.
+            let deadline=Instant::now()+Duration::from_secs(3);
+            loop{
+                let output=Command::new("/bin/ps").args(["-o","stat=","-p",&pid.to_string()]).output().unwrap();
+                let state=String::from_utf8_lossy(&output.stdout);
+                if !output.status.success()||state.trim().is_empty()||state.trim_start().starts_with('Z'){break;}
+                assert!(Instant::now()<deadline,"owned descendant is still running: {state}");
+                std::thread::sleep(Duration::from_millis(30));
+            }
+        }
     }
 }
