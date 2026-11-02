@@ -60,6 +60,9 @@ test('JPEG EXIF and simple XMP stay local and remain editable clues',async({page
   const nested=xml.replace('<tool:workflow>editable workflow</tool:workflow>','<tool:workflow><rdf:Bag><rdf:li>PRIVATE_NESTED_TEXT</rdf:li></rdf:Bag></tool:workflow>');
   await scan([xmp(nested)]);await expect(panel.getByRole('status')).not.toContainText('PRIVATE_NESTED_TEXT');await expect(panel.getByRole('status')).toContainText('1 项');
   await scan([xmp('<not-xmp/>')]);await expect(panel.getByRole('status')).toContainText('1 项');
+  await scan([xmp(xml.replace('tool:prompt=', 'tool:__proto__="plain property" tool:constructor="another property" tool:prompt='))]);
+  await expect(panel.getByText('__proto__',{exact:true})).toBeVisible();await expect(panel.getByText('constructor',{exact:true})).toBeVisible();
+  await expect(panel.getByRole('status')).toContainText('plain property');
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(external).toEqual([]);
 });
