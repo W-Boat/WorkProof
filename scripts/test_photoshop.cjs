@@ -82,7 +82,7 @@ test('unchanged anonymous relationships retain topology digest without consuming
   const request=r.request;
   r.request=async(path,body,token)=>{
     if(!path.endsWith('/evolution-checkpoint'))return request(path,body,token);
-    rpc++;return {checkpoint:'ab'.repeat(32),snapshot:{format:'workproof-evolution/1',session_id:r.session,source:'photoshop',seq:body.seq,event_kind:body.event_kind,nodes:body.nodes}};
+    rpc++;return {checkpoint:'ab'.repeat(32),snapshot:{format:'workproof-evolution/1',session_id:r.session,source:'photoshop',seq:body.seq,event_kind:body.event_kind,nodes:body.nodes.map(({id,parent,order,kind,relation})=>({relation,parent,order,kind,id}))}};
   };
   r.evolution=true;r.hash=()=> 'cd'.repeat(32);await r.start();
   const reservedBytes=r.graphBytes,reservedNodes=r.graphNodes;

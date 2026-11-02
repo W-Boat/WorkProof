@@ -128,7 +128,7 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
     await graphRecorder.export();
     const graph=JSON.parse(fs.readFileSync(graphPath,'utf8'));
     assert(graph.snapshots.length>=2);assert(graph.snapshots.some(s=>s.nodes.some(n=>n.kind==='group')));
-    for(const snapshot of graph.snapshots)for(const node of snapshot.nodes){assert.deepEqual(Object.keys(node),['id','parent','order','kind','relation']);assert(node.id<301);}
+    for(const snapshot of graph.snapshots)for(const node of snapshot.nodes){assert.deepEqual(Object.keys(node).sort(),['id','kind','order','parent','relation']);assert(node.id<301);}
     assert(!JSON.stringify(graph).includes('private'));
     let inspected=spawnSync(engine,['inspect-evolution',certificatePath,graphPath],{encoding:'utf8'});assert.equal(inspected.status,0,inspected.stdout+inspected.stderr);
     const selectedPath=path.join(directory,'graph.selected.wproof');

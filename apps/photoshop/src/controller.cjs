@@ -4,6 +4,10 @@ const MAX_QUEUE=2048;
 const EVENTS=['make','delete','move','mergeLayersNew','mergeVisible','set','paint','undoEvent','select','save','open','close'];
 const MAP={make:'layer',delete:'layer',move:'layer',mergeLayersNew:'layer',mergeVisible:'layer',set:'edit',paint:'edit',undoEvent:'undo',save:'save'};
 const topology=s=>JSON.stringify(s.topology??null);
+const NODE_FIELDS=['id','parent','order','kind','relation'];
+// JSON object key order is not semantic; Rust's Value map may reorder the fields.
+const sameGraphNodes=(received,expected)=>Array.isArray(received)&&received.length===expected.length&&received.every((node,i)=>
+  node&&typeof node==='object'&&!Array.isArray(node)&&Object.keys(node).length===NODE_FIELDS.length&&NODE_FIELDS.every(key=>Object.prototype.hasOwnProperty.call(node,key)&&node[key]===expected[i][key]));
 const same=(a,b)=>a.id===b.id&&a.history===b.history&&JSON.stringify(a.metrics)===JSON.stringify(b.metrics)&&topology(a)===topology(b);
 class Recorder {
   constructor({host,request,hash,evolution=false,now=Date.now,sleep=ms=>new Promise(r=>setTimeout(r,ms)),changed=()=>{}}){
@@ -87,7 +91,7 @@ class Recorder {
         const graph=this.graphPending.get(batch[0]);
         if(graph&&!graph.prepared){
           const prepared=await this.api('/v1/sessions/'+this.session+'/evolution-checkpoint',{seq:batch[0].seq,event_kind:batch[0].kind,nodes:graph.nodes});
-          if(prepared.snapshot?.session_id!==this.session||prepared.snapshot.source!=='photoshop'||prepared.snapshot.seq!==batch[0].seq||prepared.snapshot.event_kind!==batch[0].kind||JSON.stringify(prepared.snapshot.nodes)!==JSON.stringify(graph.nodes)||!/^[a-f0-9]{64}$/.test(prepared.checkpoint))throw Error('本机引擎返回的结构绑定不一致。');
+          if(prepared.snapshot?.format!=='workproof-evolution/1'||prepared.snapshot.session_id!==this.session||prepared.snapshot.source!=='photoshop'||prepared.snapshot.seq!==batch[0].seq||prepared.snapshot.event_kind!==batch[0].kind||!sameGraphNodes(prepared.snapshot.nodes,graph.nodes)||!/^[a-f0-9]{64}$/.test(prepared.checkpoint))throw Error('本机引擎返回的结构绑定不一致。');
           graph.prepared=prepared;batch[0].checkpoint=prepared.checkpoint;
         }
         const result=await this.api('/v1/sessions/'+this.session+'/events',{events:batch});
