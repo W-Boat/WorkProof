@@ -8,6 +8,71 @@ function chunk(kind:string,body:Buffer){
   const length=Buffer.alloc(4),checksum=Buffer.alloc(4);length.writeUInt32BE(body.length);checksum.writeUInt32BE((crc^0xffffffff)>>>0);
   return Buffer.concat([length,data,checksum]);
 }
+
+function jpegSegment(marker:number,body:Buffer){
+  const header=Buffer.alloc(4);header[0]=255;header[1]=marker;header.writeUInt16BE(body.length+2,2);return Buffer.concat([header,body]);
+}
+function jpegExif(little=true,comment=Buffer.from('ASCII\0\0\0a fixture comment\0')){
+  const software=Buffer.from('Adobe Photoshop\0'),tiff=Buffer.alloc(56+software.length+comment.length);
+  const u16=(at:number,value:number)=>little?tiff.writeUInt16LE(value,at):tiff.writeUInt16BE(value,at);
+  const u32=(at:number,value:number)=>little?tiff.writeUInt32LE(value,at):tiff.writeUInt32BE(value,at);
+  tiff.write(little?'II':'MM');u16(2,42);u32(4,8);u16(8,2);
+  u16(10,305);u16(12,2);u32(14,software.length);u32(18,56);
+  u16(22,0x8769);u16(24,4);u32(26,1);u32(30,38);
+  u16(38,1);u16(40,0x9286);u16(42,7);u32(44,comment.length);u32(48,56+software.length);
+  software.copy(tiff,56);comment.copy(tiff,56+software.length);
+  return Buffer.concat([Buffer.from('Exif\0\0'),tiff]);
+}
+
+test('JPEG EXIF and simple XMP stay local and remain editable clues',async({page})=>{
+  const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
+  await page.goto('/');
+  // Use the browser's actual JPEG encoder, then add synthetic metadata segments.
+  const encoded=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=1;return c.toDataURL('image/jpeg').split(',')[1];});
+  const image=Buffer.from(encoded,'base64'),panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
+  const xmp=(text:string)=>jpegSegment(225,Buffer.from('http://ns.adobe.com/xap/1.0/\0'+text));
+  const xml='<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:tool="https://example.org/editable" tool:prompt="&lt;script&gt;fixture&lt;/script&gt;"><tool:workflow>editable workflow</tool:workflow></rdf:Description></rdf:RDF></x:xmpmeta>';
+  async function scan(segments:Buffer[]){
+    await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'properties.jpg',mimeType:'image/jpeg',buffer:Buffer.concat([image.subarray(0,2),...segments,image.subarray(2)])});
+    await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+  }
+  await scan([jpegSegment(225,jpegExif())]);
+  await expect(panel.getByRole('status')).toContainText('图片文件头属性（JPEG）');await expect(panel.getByRole('status')).toContainText('Adobe Photoshop');
+  await expect(panel.getByRole('status')).toContainText('a fixture comment');await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
+  await scan([jpegSegment(225,jpegExif()),xmp(xml)]);
+  await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');await expect(panel.getByRole('status')).toContainText('<script>fixture</script>');
+  await expect(panel.getByRole('status')).toContainText('editable workflow');await expect(panel.locator('script')).toHaveCount(0);
+  const unicode=Buffer.concat([Buffer.from('UNICODE\0'),Buffer.from([255,254]),Buffer.from('中文注释\0','utf16le')]);
+  await scan([jpegSegment(225,jpegExif(false,unicode)),jpegSegment(254,Buffer.from('ordinary comment'))]);
+  await expect(panel.getByRole('status')).toContainText('中文注释');await expect(panel.getByRole('status')).toContainText('ordinary comment');
+  await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
+  const badExif=jpegExif();badExif.writeUInt32LE(0xffffff00,24); // out-of-bounds Software value offset
+  const badXml='<!DOCTYPE x [<!ENTITY private SYSTEM "https://example.com/private">]>'+xml;
+  await scan([jpegSegment(225,badExif),xmp(badXml),jpegSegment(254,Buffer.from('safe comment'))]);
+  await expect(panel.getByRole('status')).toContainText('safe comment');await expect(panel.getByRole('status')).toContainText('2 项');
+  await expect(panel.getByRole('status')).not.toContainText('Adobe Photoshop');
+  const nested=xml.replace('<tool:workflow>editable workflow</tool:workflow>','<tool:workflow><rdf:Bag><rdf:li>PRIVATE_NESTED_TEXT</rdf:li></rdf:Bag></tool:workflow>');
+  await scan([xmp(nested)]);await expect(panel.getByRole('status')).not.toContainText('PRIVATE_NESTED_TEXT');await expect(panel.getByRole('status')).toContainText('1 项');
+  await scan([xmp('<not-xmp/>')]);await expect(panel.getByRole('status')).toContainText('1 项');
+  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(external).toEqual([]);
+});
+
+test('JPEG malformed segment bounds and repeated metadata have explicit limits',async({page})=>{
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
+  async function scan(buffer:Buffer){
+    await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'bounded.jpg',mimeType:'image/jpeg',buffer});await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+  }
+  for(const buffer of [Buffer.from([255,216,255,225,255,255,0]),Buffer.from([255,216,255,225,0,1]),Buffer.from([255,216,255,218,0,2])]){
+    await scan(buffer);await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('status')).toHaveCount(0);
+  }
+  // This fixture exercises only header parsing, not JPEG image validity.
+  const comment=jpegSegment(254,Buffer.from('bounded comment'));
+  await scan(Buffer.concat([Buffer.from([255,216]),...Array(35).fill(comment),Buffer.from([255,217])]));
+  await expect(panel.getByRole('status')).toContainText('3 项');await expect(panel.getByRole('status').getByText('bounded comment',{exact:true})).toHaveCount(32);
+  await scan(Buffer.concat([Buffer.from([255,216]),...Array(4097).fill(jpegSegment(224,Buffer.alloc(0))),Buffer.from([255,217])]));
+  await expect(panel.getByRole('alert')).toContainText('数据段过多');await expect(panel.getByRole('status')).toHaveCount(0);
+});
 test('optional PNG metadata stays local and distinguishes hints from conclusions',async({page})=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
   await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();

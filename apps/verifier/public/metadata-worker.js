@@ -1,12 +1,13 @@
 // Optional local PNG / DOCX / PPTX metadata inspection. No network or external relationships.
-importScripts('/docx-metadata.js');
+importScripts('/docx-metadata.js','/jpeg-metadata.js');
 self.onmessage=async({data:{file}})=>{
   try{
     if(file.size>256*1024*1024)throw Error('文件超过 256 MB，请选择较小的文件。');
     const read=async(start,length)=>new Uint8Array(await file.slice(start,start+length).arrayBuffer());
     const signature=await read(0,8);
     if(signature[0]===80&&signature[1]===75){self.postMessage(await docxMetadata(file));return;}
-    if(signature.join(',')!=='137,80,78,71,13,10,26,10')throw Error('目前只支持 PNG、DOCX 和 PPTX 元数据检查；其他格式尚未分析。');
+    if(signature[0]===255&&signature[1]===216){self.postMessage(await jpegMetadata(file));return;}
+    if(signature.join(',')!=='137,80,78,71,13,10,26,10')throw Error('目前只支持 PNG、JPEG、DOCX 和 PPTX 元数据检查；其他格式尚未分析。');
     const latin=value=>Array.from(value,b=>String.fromCharCode(b)).join('');
     const clean=value=>value.replace(/[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g,' ').slice(0,160);
     const findings=[];let skipped=0,pos=8,total=0,ended=false,header=false;
