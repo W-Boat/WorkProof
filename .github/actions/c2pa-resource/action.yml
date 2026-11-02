@@ -3,15 +3,28 @@ description: Package the optional C2PA CLI and its locked dependency notices out
 runs:
   using: composite
   steps:
+    - uses: ilammy/msvc-dev-cmd@v1
+      if: runner.os == 'Windows'
+      with:
+        arch: x64
     - uses: actions/setup-python@v5
       with:
         python-version: '3.13'
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: 'tools/c2pa -> target'
+        key: desktop-image-${{ runner.os }}-${{ runner.arch }}
+        cache-on-failure: true
     - name: Build isolated image tool
-      shell: bash
-      run: cargo build --release --locked --manifest-path tools/c2pa/Cargo.toml
+      shell: python
+      run: |
+        import subprocess
+        subprocess.run(['cargo','build','--release','--locked','--manifest-path','tools/c2pa/Cargo.toml'],check=True)
     - name: Collect exact dependency notices
-      shell: bash
-      run: python scripts/c2pa_notices.py
+      shell: python
+      run: |
+        import runpy
+        runpy.run_path('scripts/c2pa_notices.py',run_name='__main__')
     - name: Stage optional resource with provenance
       shell: python
       run: |
