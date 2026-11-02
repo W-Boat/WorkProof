@@ -16,6 +16,7 @@ on:
       - 'scripts/local/*.cmd'
       - 'scripts/stage_word_native.ps1'
       - 'scripts/verify_package_zip.py'
+      - 'scripts/test_package_zip.py'
       - 'scripts/word_package_notices.py'
       - '.gitattributes'
       - 'docs/licenses/office-supplemental/**'
@@ -101,7 +102,9 @@ jobs:
             -C2pa apps/desktop/src-tauri/resources/c2pa `
             -Zip dist/workproof-native-word-windows-dev.zip
       - name: Verify every actual ZIP member including hidden upstream notices
-        run: python scripts/verify_package_zip.py dist/workproof-native-word-windows-dev.zip
+        run: |
+          python scripts/test_package_zip.py
+          python scripts/verify_package_zip.py dist/workproof-native-word-windows-dev.zip
       - name: Register and unregister PowerPoint in isolated registry
         shell: pwsh
         run: |
