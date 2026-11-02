@@ -1,8 +1,14 @@
 """Actions-only real PDF export/explicit-CA verification; no source reserialization."""
-import json,os,pathlib,shutil,subprocess,sys,tempfile
+import argparse,json,os,pathlib,shutil,subprocess,sys,tempfile
 from pypdf import PdfReader,PdfWriter
 assert os.environ.get('GITHUB_ACTIONS')=='true'
-tool,fixture=(str(pathlib.Path(p).resolve()) for p in sys.argv[1:3])
+parser=argparse.ArgumentParser()
+parser.add_argument('tool');parser.add_argument('fixture')
+parser.add_argument('--desktop-report',type=pathlib.Path)
+parser.add_argument('--desktop-embed-report',type=pathlib.Path)
+args=parser.parse_args()
+tool,fixture=(str(pathlib.Path(p).resolve()) for p in [args.tool,args.fixture])
+verified_reports=[];embedded_reports=[]
 openssl=shutil.which('openssl');assert openssl
 def run(*args,ok=True):
     result=subprocess.run(list(map(str,args)),capture_output=True,timeout=60)
@@ -42,6 +48,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-pdf-ci-') as directory:
     for scope in ['full','selected']:
         signed=root/(scope+'.pdf')
         report=json.loads(embed(source,root/(scope+'.wproof'),signed).stdout)
+        embedded_reports.append(report)
         assert report['original_pdf_checked'] and not report['c2pa_trusted']
         assert signed.read_bytes().startswith(original) and source.read_bytes()==original
         parsed=PdfReader(signed)
@@ -50,6 +57,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-pdf-ci-') as directory:
         assert 'WorkProof provenance.c2pa' in parsed.attachments
         assert len(parsed.trailer['/Root']['/AF'])==2
         checked=json.loads(run(tool,'verify',signed,root/'ca.pem').stdout)
+        verified_reports.append(checked)
         assert checked['c2pa_trusted'] and checked['original_pdf_checked'] and checked['workproof']['valid']
         assert checked['workproof']['scope']==('selective' if scope=='selected' else 'full')
         assert not any(checked[k] for k in ['network_used','identity_verified','creation_time_verified','revocation_checked'])
@@ -68,3 +76,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-pdf-ci-') as directory:
     run(fixture,encrypted,root)
     embed(encrypted,root/'full.wproof',root/'encrypted-out.pdf',ok=False);assert not (root/'encrypted-out.pdf').exists()
     print('PASS PDF full/selective real signatures, explicit CA and wrong CA, exact original prefix, existing attachments, tampering/revisions, wrong proof, preexisting C2PA and encrypted refusal')
+    # Export only actual CLI results, and only after every negative probe passed.
+    for path,reports in [(args.desktop_report,verified_reports),(args.desktop_embed_report,embedded_reports)]:
+        if path:
+            path.write_text(json.dumps(reports,ensure_ascii=False),encoding='utf-8')
