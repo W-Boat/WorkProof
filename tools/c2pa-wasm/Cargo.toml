@@ -1,0 +1,23 @@
+[package]
+name = "workproof-c2pa-wasm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.96"
+license = "MIT"
+publish = false
+
+# Optional browser verifier, never a recorder dependency.
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+workproof-c2pa = { path = "../c2pa" }
+wasm-bindgen = "=0.2.130"
+wasm-bindgen-futures = "=0.4.80"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
