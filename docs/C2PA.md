@@ -1,6 +1,6 @@
 # C2PA PNG / JPEG / PDF 证据封装（开发中）
 
-PDF 增量源码已加入，尚待新 Actions 实际构建与完整往返验收；下文既有绿色记录只证明其当时覆盖的 PNG/JPEG 范围。PDF 暂未接入桌面文件选择器或浏览器解析。
+PDF 增量源码及桌面文件选择、格式报告校验已加入，尚待新 Actions 实际构建与完整往返验收；下文既有绿色记录只证明其当时覆盖的 PNG/JPEG 范围。PDF 暂未接入浏览器解析。
 
 最新复验：`6411293` 的 [专项 41386033416](https://github.com/W-Boat/WorkProof/actions/runs/41386033416) Linux、Windows x64、macOS Intel/ARM 四任务全部成功，包含各平台实际 PNG、基线/渐进 JPEG 签署与核验。此前 macOS 失败来自测试 CA 继承 runner 的 OpenSSL 默认配置，导致重复 Basic Constraints；OpenSSL 自身也拒绝该链。现使用隔离配置生成合法合成 CA，保留全部产品信任校验与错根拒绝。Windows/macOS 三个开发包各 639 个文件摘要已核对，仍未测这些平台的网络系统调用；仅 Linux 有 strace 证据。以下失败状态为历史，具体见 [交付证据](DELIVERY-2026-11-02.md)。
 

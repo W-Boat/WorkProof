@@ -83,12 +83,12 @@ creationTool.addEventListener('change',showGuide);showGuide();
 
 document.getElementById('verify-image').addEventListener('click',async()=>{
   const button=document.getElementById('verify-image'),result=document.getElementById('image-result');
-  button.disabled=true;result.textContent='请在系统窗口中依次选择图片和独立可信的 CA 文件；完成选择后核验通常需要几秒。';
+  button.disabled=true;result.textContent='请在系统窗口中依次选择作品和独立可信的 CA 文件；完成选择后核验通常需要几秒。';
   try{
     const report=await window.__TAURI__.core.invoke('verify_image');
     if(report.cancelled===true){result.textContent='已取消，本次没有核验。';return;}
     if(!['full','selective'].includes(report.scope)||!Number.isSafeInteger(report.disclosed)||!Number.isSafeInteger(report.total)||report.disclosed<0||report.disclosed>report.total)throw new Error('核验结果无法识别，请更新完整安装包。');
-    result.textContent=report.scope==='selective'?`已披露的 ${report.disclosed} 条记录通过检查（全部记录共 ${report.total} 条）。图片匹配、签名及所选 CA 信任检查通过；未披露记录不在本次检查范围内。`:`图片匹配、签名、完整过程记录和所选 CA 信任检查通过，共 ${report.total} 条记录。`;
+    result.textContent=report.scope==='selective'?`已披露的 ${report.disclosed} 条记录通过检查（全部记录共 ${report.total} 条）。作品匹配、签名及所选 CA 信任检查通过；未披露记录不在本次检查范围内。`:`作品匹配、签名、完整过程记录和所选 CA 信任检查通过，共 ${report.total} 条记录。`;
   }catch(error){result.textContent=String(error);}
   finally{button.disabled=false;}
 });
@@ -100,12 +100,12 @@ embedButton.addEventListener('click',async()=>{
   const result=document.getElementById('embed-result');result.textContent='';
   if(!embedConsent.checked){result.textContent='请先确认同意公开证书中的过程信息。';return;}
   embedding=true;embedButton.disabled=true;embedConsent.disabled=true;
-  result.textContent='请在系统窗口中依次选择原图、创作证书、签名链、私钥和新的保存位置。可随时取消。';
+  result.textContent='请在系统窗口中依次选择原文件、创作证书、签名链、私钥和新的保存位置。可随时取消。';
   try{
     const report=await window.__TAURI__.core.invoke('embed_image',{consent:true});
-    if(report.cancelled===true){result.textContent='已取消，没有生成新图片。';return;}
+    if(report.cancelled===true){result.textContent='已取消，没有生成新文件。';return;}
     if(!['full','selective'].includes(report.scope)||!Number.isSafeInteger(report.disclosed)||!Number.isSafeInteger(report.total)||report.disclosed<2||report.disclosed>report.total)throw new Error('返回结果无法识别，请检查输出位置，不要直接交付未核验文件。');
-    result.textContent=`新图片已生成，包含${report.scope==='selective'?'选择性披露的':'完整的'} ${report.disclosed} 条过程记录。它尚未通过独立可信 CA 核验；请使用上方入口检查后再交付。`;
+    result.textContent=`新文件已生成，包含${report.scope==='selective'?'选择性披露的':'完整的'} ${report.disclosed} 条过程记录。它尚未通过独立可信 CA 核验；请使用上方入口检查后再交付。`;
   }catch(error){result.textContent=String(error);}
   finally{embedding=false;embedConsent.checked=false;embedConsent.disabled=false;embedButton.disabled=true;}
 });

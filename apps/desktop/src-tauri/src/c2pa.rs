@@ -113,7 +113,7 @@ fn capture(mut command:Command,seconds:u64,limit:usize)->Result<(ExitStatus,Vec<
 }
 
 fn choose(image:bool)->Result<Option<PathBuf>,String>{
-    if image{pick("选择带有创作证书的图片","PNG / JPEG|*.png;*.jpg;*.jpeg",false,"带证书图片.png")}
+    if image{pick("选择带有创作证书的作品","PNG / JPEG / PDF|*.png;*.jpg;*.jpeg;*.pdf",false,"")}
     else{pick("选择从可信渠道取得的 CA 证书文件","CA 证书文件|*.pem;*.crt;*.cer",false,"")}
 }
 fn pick(title:&str,filter:&str,save:bool,suggested:&str)->Result<Option<PathBuf>,String>{
@@ -149,10 +149,11 @@ fn parse_summary(bytes:&[u8],trusted:bool)->Result<Value,String>{
         "selective"=>no("/workproof/chain_valid")&&yes("/workproof/merkle_valid"),
         _=>false,
     };
-    if v["protocol"]!="workproof-c2pa-report/1"||v["trust_policy"]!=(if trusted{"explicit-ca-file"}else{"not-verified"})||!matches!(mime,"image/png"|"image/jpeg")||!matches!(scope,"full"|"selective")||
+    if v["protocol"]!="workproof-c2pa-report/1"||v["trust_policy"]!=(if trusted{"explicit-ca-file"}else{"not-verified"})||!matches!(mime,"image/png"|"image/jpeg"|"application/pdf")||!matches!(scope,"full"|"selective")||
         !coverage||v["c2pa_trusted"].as_bool()!=Some(trusted)||!["/c2pa_integrity_valid","/original_asset_checked","/workproof/valid","/workproof/file_match","/workproof/signature_valid"].iter().all(|p|yes(p))||
         !["/identity_verified","/creation_time_verified","/revocation_checked","/network_used"].iter().all(|p|no(p))||
-        !yes(if mime=="image/png"{"/original_png_checked"}else{"/original_jpeg_checked"})||
+        !yes(match mime{"image/png"=>"/original_png_checked","image/jpeg"=>"/original_jpeg_checked",_=>"/original_pdf_checked"})||
+        [ ("image/png","/original_png_checked"),("image/jpeg","/original_jpeg_checked"),("application/pdf","/original_pdf_checked") ].iter().any(|(kind,path)|*kind!=mime&&v.pointer(path).is_some_and(|value|value.as_bool()!=Some(false)))||
         v.pointer("/workproof/errors").and_then(Value::as_array).map_or(true,|a|!a.is_empty())||
         disclosed.is_none()||total.is_none()||disclosed<Some(2)||disclosed>total||(scope=="full"&&disclosed!=total){return Err("核验结果不完整或检查未全部通过，请使用匹配版本的完整安装包重试。".into());}
     Ok(json!({"scope":scope,"disclosed":disclosed,"total":total,"mediaType":mime}))
@@ -160,45 +161,47 @@ fn parse_summary(bytes:&[u8],trusted:bool)->Result<Value,String>{
 fn failure(stderr:&[u8])->String{
     let text=String::from_utf8_lossy(stderr);
     if text.contains("C2PA_EXPLICIT_CA_TRUST_FAILED"){"所选 CA 未能建立可信签名链。请向签发方核对独立可信的 CA 文件。"}
-    else if text.contains("C2PA_MANIFEST_REQUIRED"){"这张图片没有找到可核验的内嵌证书。普通图片请使用作品与 .wproof 配对核验。"}
-    else if text.contains("WORKPROOF_OR_ORIGINAL_ASSET_MISMATCH"){"图片与创作证据不匹配，或创作证据已被修改。请取得原始交付件后重试。"}
-    else{"本次核验未通过。图片、内嵌证书或 CA 文件可能不符合要求，请核对原始交付件；不能将此结果直接认定为 AI 创作或抄袭。"}.into()
+    else if text.contains("C2PA_MANIFEST_REQUIRED"){"这份文件没有找到可核验的内嵌证书。普通文件请使用作品与 .wproof 配对核验。"}
+    else if text.contains("PDF_")||text.contains("ENCRYPTED_PDF_UNSUPPORTED"){"这份 PDF 暂不能封装或核验。请使用未加密、未签署且不含压缩对象流的原始 PDF；也可直接交付作品和 .wproof。"}
+    else if text.contains("WORKPROOF_OR_ORIGINAL_ASSET_MISMATCH"){"作品与创作证据不匹配，或创作证据已被修改。请取得原始交付件后重试。"}
+    else{"本次核验未通过。作品、内嵌证书或 CA 文件可能不符合要求，请核对原始交付件；不能将此结果直接认定为 AI 创作或抄袭。"}.into()
 }
 fn find_tool(resource:PathBuf)->Result<PathBuf,String>{
     let name=if cfg!(windows){"workproof-c2pa.exe"}else{"workproof-c2pa"};
     let mut candidates=vec![resource.join("c2pa").join(name)];if let Ok(exe)=std::env::current_exe(){if let Some(parent)=exe.parent(){candidates.push(parent.join("c2pa").join(name));}}
-    candidates.into_iter().find(|p|p.is_file()).ok_or_else(||"安装包中缺少图片核验工具。请安装包含 C2PA 工具的完整 WorkProof 安装包。".into())
+    candidates.into_iter().find(|p|p.is_file()).ok_or_else(||"安装包中缺少文件核验工具。请安装包含 C2PA 工具的完整 WorkProof 安装包。".into())
 }
 
 pub fn embed(resource:PathBuf,consent:bool)->Result<Value,String>{
     if !consent{return Err("请先确认同意公开所选证书中的过程信息。".into());}
-    if BUSY.swap(true,Ordering::AcqRel){return Err("已有图片操作正在进行，请先完成或取消。".into());}let _guard=Guard;
+    if BUSY.swap(true,Ordering::AcqRel){return Err("已有文件操作正在进行，请先完成或取消。".into());}let _guard=Guard;
     let tool=find_tool(resource)?;
     let mut inputs=Vec::new();
     for (title,filter,limit) in [
-        ("第 1 步：选择原始 PNG 或 JPEG","PNG / JPEG|*.png;*.jpg;*.jpeg",64*1024*1024),
-        ("第 2 步：选择与原图匹配的创作证书","WorkProof 证书|*.wproof",8*1024*1024),
+        ("第 1 步：选择原始 PNG、JPEG 或 PDF","PNG / JPEG / PDF|*.png;*.jpg;*.jpeg;*.pdf",64*1024*1024),
+        ("第 2 步：选择与作品匹配的创作证书","WorkProof 证书|*.wproof",8*1024*1024),
         ("第 3 步：选择 ES256 签署证书链","PEM 签名链|*.pem",256*1024),
         ("第 4 步：选择对应的签署私钥","PEM 私钥|*.pem;*.key",64*1024)]{
         let Some(path)=pick(title,filter,false,"")?else{return Ok(json!({"cancelled":true}));};
         regular(&path,limit)?;inputs.push(path);
     }
     let mut header=[0u8;8];
-    let length=std::fs::File::open(&inputs[0]).map_err(|_|"原图无法读取，请重新选择。")?.read(&mut header).map_err(|_|"原图无法读取，请重新选择。")?;
+    let length=std::fs::File::open(&inputs[0]).map_err(|_|"作品无法读取，请重新选择。")?.read(&mut header).map_err(|_|"作品无法读取，请重新选择。")?;
     let jpeg=length>=2&&header[..2]==[0xff,0xd8];
-    if !jpeg&&(length<8||header!=*b"\x89PNG\r\n\x1a\n"){return Err("原图内容不是 PNG 或 JPEG，请检查文件格式。".into());}
-    let suggested=if jpeg{"作品-带证书.jpg"}else{"作品-带证书.png"};
-    let filter=if jpeg{"JPEG 图片|*.jpg;*.jpeg"}else{"PNG 图片|*.png"};
-    let Some(destination)=pick("第 5 步：选择新图片保存位置（不覆盖已有文件）",filter,true,suggested)?else{return Ok(json!({"cancelled":true}));};
+    let pdf=length>=5&&header[..5]==*b"%PDF-";
+    if !jpeg&&!pdf&&(length<8||header!=*b"\x89PNG\r\n\x1a\n"){return Err("文件内容不是 PNG、JPEG 或 PDF，请检查文件格式。".into());}
+    let suggested=if pdf{"作品-带证书.pdf"}else if jpeg{"作品-带证书.jpg"}else{"作品-带证书.png"};
+    let filter=if pdf{"PDF 文档|*.pdf"}else if jpeg{"JPEG 图片|*.jpg;*.jpeg"}else{"PNG 图片|*.png"};
+    let Some(destination)=pick("第 5 步：选择新文件保存位置（不覆盖已有文件）",filter,true,suggested)?else{return Ok(json!({"cancelled":true}));};
     if std::fs::symlink_metadata(&destination).is_ok(){return Err("保存位置已有文件，请重新操作并选择新的文件名。原文件未修改。".into());}
     let mut command=Command::new(tool);command.arg("embed").args(&inputs).arg(&destination).arg("--allow-public-process");
     let (status,out,stderr)=capture(command,60,1024*1024)?;
-    if !status.success(){return Err(if String::from_utf8_lossy(&stderr).contains("OUTPUT_ALREADY_EXISTS"){"保存位置已有文件，请选择新文件名。".into()}else{"封装未完成。请核对原图与创作证书是否匹配、签名链与私钥是否对应，并确认它们支持 ES256。已有文件不会覆盖。".into()});}
+    if !status.success(){return Err(if String::from_utf8_lossy(&stderr).contains("OUTPUT_ALREADY_EXISTS"){"保存位置已有文件，请选择新文件名。".into()}else if String::from_utf8_lossy(&stderr).contains("PDF_"){failure(&stderr)}else{"封装未完成。请核对作品与创作证书是否匹配、签名链与私钥是否对应，并确认它们支持 ES256。已有文件不会覆盖。".into()});}
     checked_embed_summary(&out)
 }
 
 pub fn verify(resource:PathBuf)->Result<Value,String>{
-    if BUSY.swap(true,Ordering::AcqRel){return Err("已有图片核验正在进行，请完成或取消当前选择。".into());}let _guard=Guard;
+    if BUSY.swap(true,Ordering::AcqRel){return Err("已有文件核验正在进行，请完成或取消当前选择。".into());}let _guard=Guard;
     let tool=find_tool(resource)?;
     let Some(image)=choose(true)?else{return Ok(json!({"cancelled":true}));};regular(&image,96*1024*1024)?;
     let Some(ca)=choose(false)?else{return Ok(json!({"cancelled":true}));};regular(&ca,256*1024)?;
@@ -238,6 +241,31 @@ pub fn verify(resource:PathBuf)->Result<Value,String>{
         report["workproof"]["valid"]=json!(false);assert!(checked_embed_summary(&serde_json::to_vec(&report).unwrap()).is_err());
     }
     #[test]fn consent_is_required_before_opening_any_files(){assert!(embed(PathBuf::new(),false).unwrap_err().contains("同意"));}
+    #[test]fn media_type_requires_matching_format_check(){
+        let mut report=sample();report["media_type"]=json!("application/pdf");
+        assert!(checked_summary(&serde_json::to_vec(&report).unwrap()).is_err());
+        report["original_pdf_checked"]=json!(true);
+        assert!(checked_summary(&serde_json::to_vec(&report).unwrap()).is_err());
+        report["original_png_checked"]=json!(false);
+        assert_eq!(checked_summary(&serde_json::to_vec(&report).unwrap()).unwrap()["mediaType"],"application/pdf");
+        report["media_type"]=json!("image/jpeg");
+        assert!(checked_summary(&serde_json::to_vec(&report).unwrap()).is_err());
+    }
+    fn real_pdf_reports(variable:&str,trusted:bool){
+        let Some(path)=std::env::var_os(variable)else{assert_ne!(std::env::var("GITHUB_ACTIONS").as_deref(),Ok("true"),"CI must supply {variable} from real PDF CLI results");return;};
+        let reports:Vec<Value>=serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        assert_eq!(reports.len(),2);let mut full=false;let mut selected=false;
+        for report in reports{
+            assert_eq!(report["media_type"],"application/pdf");
+            let bytes=serde_json::to_vec(&report).unwrap();
+            let summary=if trusted{checked_summary(&bytes)}else{checked_embed_summary(&bytes)}.expect("real PDF result must be compatible");
+            full|=summary["scope"]=="full";selected|=summary["scope"]=="selective";
+            if !trusted{assert!(checked_summary(&bytes).is_err());}
+        }
+        assert!(full&&selected);
+    }
+    #[test]fn consume_real_pdf_reports(){real_pdf_reports("WORKPROOF_C2PA_PDF_REPORT",true);}
+    #[test]fn consume_real_pdf_embed_reports(){real_pdf_reports("WORKPROOF_C2PA_PDF_EMBED_REPORT",false);}
     #[test]fn consume_real_embed_reports(){
         let Some(path)=std::env::var_os("WORKPROOF_C2PA_EMBED_REPORT")else{assert_ne!(std::env::var("GITHUB_ACTIONS").as_deref(),Ok("true"),"CI must supply real embed reports");return;};
         let reports:Vec<Value>=serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
