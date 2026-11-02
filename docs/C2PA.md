@@ -1,6 +1,8 @@
 # C2PA PNG / JPEG / PDF 证据封装（开发中）
 
-PDF CLI 专项：`86cfca2` 的 [41429621475](https://github.com/W-Boat/WorkProof/actions/runs/41429621475) 已在 Linux、Windows x64、macOS Intel/ARM 四个平台全部通过，包含真实完整/选择性签名、显式 CA 与错误根拒绝、原件字节及页面文字和附件保留、内容/追加结构篡改拒绝及加密输入拒绝。桌面文件选择与报告校验在 `323f2c0` 中接入，桌面端实际验收仍单独跟进；PDF 暂未接入浏览器解析。
+PDF CLI 专项：`86cfca2` 的 [41429621475](https://github.com/W-Boat/WorkProof/actions/runs/41429621475) 已在 Linux、Windows x64、macOS Intel/ARM 四个平台全部通过，包含真实完整/选择性签名、显式 CA 与错误根拒绝、原件字节及页面文字和附件保留、内容/追加结构篡改拒绝及加密输入拒绝。桌面文件选择与报告校验在 `323f2c0` 中接入，四平台桌面与 Office 开发包已通过 Actions；真实系统文件选择器的手动全流程仍需单独验收。
+
+浏览器入口已接入用户核验页，复用机构 UI 组件，要求用户独立选择并确认 CA。[40deb16 / 41439109694](https://github.com/W-Boat/WorkProof/actions/runs/41439109694) 已实际通过 Chromium Worker/Wasm 的三格式完整和选择性证据、错误 CA、篡改及无证书拒绝、取消、超时、无上传/外部请求，以及导出页面和原生 Rust 静态服务上的真实 PDF 用户操作。站点打包包含独立锁文件与 359 项依赖许可清单，实际 ZIP 全部 732 个文件摘要已验证。该结果不等于所有浏览器、公共 CA 认证、作者身份、原创性或撤销验证。
 
 最新复验：`6411293` 的 [专项 41386033416](https://github.com/W-Boat/WorkProof/actions/runs/41386033416) Linux、Windows x64、macOS Intel/ARM 四任务全部成功，包含各平台实际 PNG、基线/渐进 JPEG 签署与核验。此前 macOS 失败来自测试 CA 继承 runner 的 OpenSSL 默认配置，导致重复 Basic Constraints；OpenSSL 自身也拒绝该链。现使用隔离配置生成合法合成 CA，保留全部产品信任校验与错根拒绝。Windows/macOS 三个开发包各 639 个文件摘要已核对，仍未测这些平台的网络系统调用；仅 Linux 有 strace 证据。以下失败状态为历史，具体见 [交付证据](DELIVERY-2026-11-02.md)。
 

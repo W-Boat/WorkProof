@@ -1,4 +1,6 @@
-# Optional browser-local C2PA verifier (pending Actions acceptance)
+# Optional browser-local C2PA verifier
+
+Actual acceptance: [40deb16 / 41439109694](https://github.com/W-Boat/WorkProof/actions/runs/41439109694) passed Chromium module-worker PNG/JPEG/PDF full/selective verification and negative cases, the exported Next user page, and the same PDF trust flow served by the real Rust `serve-web` process. It also verified all 732 archived site files, including hidden notice files. This proves the tested Chromium/Linux workflow; other browsers and installed Office hosts require their own acceptance. The main desktop and Office packaging now include this optional resource but those newer package builds are tracked separately.
 
 This separate workspace exports one asynchronous browser function, `verify_embedded(bytes, independentCaPem)`. It uses the official c2pa-rs 0.91.7 async Reader with Rust-native crypto and the same WorkProof verification library as the native CLI. PNG/JPEG normalization and strict incremental PDF reconstruction are shared, not duplicated in JavaScript. The SDK HTTP features remain disabled; remote manifests, OCSP and redirects are disabled in shared settings.
 
