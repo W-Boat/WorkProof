@@ -7,6 +7,7 @@ assert os.environ.get('GITHUB_ACTIONS') == 'true'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('tool')
 parser.add_argument('fixture')
+parser.add_argument('--trust-probe',help='Optional CI-only SDK trust-chain diagnostic executable for synthetic public certificates.')
 parser.add_argument('--without-network-trace',action='store_true',help='Explicitly skip syscall tracing on platforms without strace; report this as unmeasured.')
 options=parser.parse_args()
 tool, fixture = map(lambda p: str(pathlib.Path(p).resolve()), (options.tool,options.fixture))
@@ -49,7 +50,18 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
         details=run(openssl,'x509','-in',root/certificate,'-noout','-text').stdout.decode(errors='replace')
         algorithms=[line.strip() for line in details.splitlines() if 'Signature Algorithm:' in line]
         print(certificate,algorithms,flush=True)
+        print('Synthetic public certificate '+certificate+':\n'+details,flush=True)
         assert algorithms and all(line.split(':',1)[1].strip()=='ecdsa-with-SHA256' for line in algorithms), algorithms
+    independent_chain=subprocess.run([openssl,'verify','-CAfile',str(root/'ca.pem'),str(root/'signer.pem')],capture_output=True,timeout=60)
+    print('OpenSSL synthetic chain verification:',independent_chain.returncode,
+          independent_chain.stdout.decode(errors='replace'),independent_chain.stderr.decode(errors='replace'),flush=True)
+    if options.trust_probe:
+        for source,destination in [('ca.pem','ca.der'),('signer.pem','signer.der')]:
+            run(openssl,'x509','-in',root/source,'-outform','DER','-out',root/destination)
+        diagnostic=run(str(pathlib.Path(options.trust_probe).resolve()),root/'ca.pem',root/'ca.der',root/'signer.der')
+        print('SDK synthetic certificate trust probes:\n'+diagnostic.stdout.decode(errors='replace'),flush=True)
+        if diagnostic.stderr:print(diagnostic.stderr.decode(errors='replace'),flush=True)
+    assert independent_chain.returncode==0, 'Synthetic fixture chain was rejected by its own explicit root CA'
     (root/'chain.pem').write_bytes((root/'signer.pem').read_bytes()+(root/'ca.pem').read_bytes())
     signed=root/'signed.png'
     def embed(proof='full.wproof',destination=signed,source=original,consent=True,ok=True):
