@@ -6,6 +6,7 @@ dist/
 *.vsix
 .runtime/
 test-results/
+.ci-blender-evolution/
 playwright-report/
 test-timestamp-fixtures/
 .ci-c2pa-notices/

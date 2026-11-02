@@ -96,6 +96,10 @@ jobs:
             test-engine-results.json
             test-blender-results.json
             test-photoshop-results.json
+            .ci-blender-evolution/scene.blend
+            .ci-blender-evolution/scene.blend.wproof
+            .ci-blender-evolution/scene.blend.wgraph
+          include-hidden-files: true
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-web-and-extension

@@ -151,6 +151,14 @@ with tempfile.TemporaryDirectory(prefix='workproof-blender-') as tmp:
         assert checked.returncode==0,checked.stdout+checked.stderr
         report=json.loads(checked.stdout)
         assert report['valid'] and report['certificate_valid'] and not report['complete_history_verified']
+        # Allowlisted, synthetic CI artifacts for the actual browser acceptance path.
+        # The scene and its PRIVATE_* labels are generated above, never user files.
+        if os.environ.get('GITHUB_ACTIONS')=='true':
+            browser_fixture=root/'.ci-blender-evolution'
+            browser_fixture.mkdir(parents=True,exist_ok=True)
+            (browser_fixture/'scene.blend').write_bytes(pathlib.Path(filename).read_bytes())
+            (browser_fixture/'scene.blend.wproof').write_bytes(proof_path.read_bytes())
+            (browser_fixture/'scene.blend.wgraph').write_bytes(graph_path.read_bytes())
         selected=pathlib.Path(tmp,'selected.wproof')
         seqs=','.join(str(snapshot['seq']) for snapshot in graph['snapshots'])
         assert subprocess.run([engine,'disclose',str(proof_path),str(selected),seqs],capture_output=True).returncode==0
