@@ -1,6 +1,6 @@
 // Bounded ZIP reader. Only three property parts are inflated; no document content or relationships.
 async function docxMetadata(file){
-  const fail=()=>{throw Error('DOCX 结构异常、包含宏或超过安全限制，本次未检查。');};
+  const fail=()=>{throw Error('文档结构异常、包含宏或超过安全限制，本次未检查（仅支持 DOCX/PPTX）。');};
   if(file.size>64*1024*1024)fail();
   const read=async(start,length)=>new Uint8Array(await file.slice(start,start+length).arrayBuffer());
   const tail=await read(Math.max(0,file.size-65557),65557),e=new DataView(tail.buffer);let end=-1;
@@ -18,7 +18,10 @@ async function docxMetadata(file){
     total+=expanded;if(total>128*1024*1024)fail();
     entries.set(name,{flags,method,compressed,expanded,local,crc:view.getUint32(pos+16,true)});pos+=46+length+extra+comment;
   }
-  if(pos!==size||!entries.has('[Content_Types].xml')||!entries.has('word/document.xml'))fail();
+  if(pos!==size||!entries.has('[Content_Types].xml'))fail();
+  const word=entries.has('word/document.xml'),presentation=entries.has('ppt/presentation.xml');
+  if(word===presentation)fail();
+  const format=presentation?'pptx':'docx';
   const xml=[];let skipped=0;
   for(const name of ['docProps/core.xml','docProps/app.xml','docProps/custom.xml']){
     const item=entries.get(name);if(!item)continue;
@@ -39,7 +42,7 @@ async function docxMetadata(file){
     }
     const bytes=await read(start,item.compressed);let output=bytes;
     if(item.method===8){
-      let decompressor;try{decompressor=new DecompressionStream('deflate-raw');}catch{throw Error('此浏览器不支持 DOCX 解压，请使用较新的浏览器。');}
+      let decompressor;try{decompressor=new DecompressionStream('deflate-raw');}catch{throw Error('此浏览器不支持文档属性解压，请使用较新的浏览器。');}
       const reader=new Blob([bytes]).stream().pipeThrough(decompressor).getReader();const blocks=[];let length=0;
       try{while(true){const value=await reader.read();if(value.done)break;length+=value.value.length;if(length>item.expanded||length>256*1024)fail();blocks.push(value.value);}}finally{await reader.cancel().catch(()=>{});}
       output=new Uint8Array(length);let at=0;for(const block of blocks){output.set(block,at);at+=block.length;}
@@ -51,5 +54,5 @@ async function docxMetadata(file){
     if(text.includes('\0')||/<!DOCTYPE|<!ENTITY/i.test(text)||/encoding\s*=\s*['"](?!utf-8['"])/i.test(text))fail();
     xml.push({name,text});
   }
-  return {ok:true,findings:[],skipped,xml};
+  return {ok:true,findings:[],skipped,xml,format};
 }

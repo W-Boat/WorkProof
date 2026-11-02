@@ -22,8 +22,8 @@ test('optional PNG metadata stays local and distinguishes hints from conclusions
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(external).toEqual([]);
 });
 
-function docx(parts:[string,string][],compressed=true,descriptor=false){
-  const files:[string,string][]=[['[Content_Types].xml','<Types/>'],['word/document.xml','<document/>'],...parts];
+function docx(parts:[string,string][],compressed=true,descriptor=false,documentPart='word/document.xml'){
+  const files:[string,string][]=[['[Content_Types].xml','<Types/>'],[documentPart,'<document/>'],...parts];
   const locals:Buffer[]=[],directory:Buffer[]=[];let offset=0;
   for(const [name,text] of files){
     const bytes=Buffer.from(text),body=compressed?deflateRawSync(bytes):bytes,filename=Buffer.from(name);let crc=0xffffffff;
@@ -37,6 +37,31 @@ function docx(parts:[string,string][],compressed=true,descriptor=false){
   const index=Buffer.concat(directory),end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50);end.writeUInt16LE(files.length,8);end.writeUInt16LE(files.length,10);end.writeUInt32LE(index.length,12);end.writeUInt32LE(offset,16);
   return Buffer.concat([...locals,index,end]);
 }
+
+test('PPTX properties use the same bounded local scanner without reading slide text',async({page})=>{
+  const external:string[]=[];
+  page.on('request',request=>{if(new URL(request.url()).origin!=='http://127.0.0.1:4173')external.push(request.url());});
+  await page.goto('/');
+  const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
+  const app='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft PowerPoint</Application></Properties>';
+  const custom='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><property name="workflow"><vt:lpwstr>editable source clue</vt:lpwstr></property></Properties>';
+  async function scan(parts:[string,string][]){
+    await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'presentation.pptx',mimeType:'application/vnd.openxmlformats-officedocument.presentationml.presentation',buffer:docx(parts,true,false,'ppt/presentation.xml')});
+    await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+  }
+  await scan([['docProps/app.xml',app],['ppt/slides/slide1.xml','<slide>PRIVATE_SLIDE_TEXT</slide>']]);
+  await expect(panel.getByRole('status')).toContainText('演示文稿属性（PPTX）');
+  await expect(panel.getByRole('status')).toContainText('Microsoft PowerPoint');
+  await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
+  await expect(panel.getByRole('status')).not.toContainText('PRIVATE_SLIDE_TEXT');
+  await scan([['docProps/custom.xml',custom]]);
+  await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');
+  for(const parts of [[['word/document.xml','<document/>']],[['ppt/vbaProject.bin','macro']]] as [string,string][][]){
+    await scan(parts);await expect(panel.getByRole('alert')).toBeVisible();
+    await expect(panel.getByRole('status')).toHaveCount(0);
+  }
+  expect(external).toEqual([]);
+});
 test('DOCX properties remain local, distinguish editable hints and reject hostile containers',async({page})=>{
   const external:string[]=[];page.on('request',request=>{if(new URL(request.url()).origin!=='http://127.0.0.1:4173')external.push(request.url());});
   await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
