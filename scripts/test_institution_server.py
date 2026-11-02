@@ -12,7 +12,13 @@ base = 'http://127.0.0.1:18081'
 checks = []
 
 def run(*args, ok=True, timeout=180):
-    result = subprocess.run([*compose, *args], env=env, text=True, capture_output=True, timeout=timeout)
+    invocation=list(compose)
+    if args[0]=='down':
+        assert re.fullmatch(r'workproof-server-ci-[0-9a-f]{12}',project)
+        # Tool-only volumes (including initial_account) belong to a disabled
+        # profile and must be included when removing this isolated CI fixture.
+        invocation+=['--profile','tools']
+    result = subprocess.run([*invocation, *args], env=env, text=True, capture_output=True, timeout=timeout)
     if ok and result.returncode:
         # Never dump subprocess output: an explicit account command contains a password.
         raise AssertionError('Compose operation failed: ' + args[0])
@@ -96,6 +102,8 @@ try:
     # independently of the already-initialized marker refusal above.
     assert re.fullmatch(r'workproof-server-ci-[0-9a-f]{12}',project)
     run('down','--volumes','--remove-orphans',timeout=120)
+    remaining=subprocess.run(['docker','volume','ls','--quiet','--filter','label=com.docker.compose.project='+project],capture_output=True,text=True,check=True).stdout.strip()
+    assert not remaining, 'Isolated project volumes remained after full-profile cleanup'
     run('run','--rm','-T','prepare')
     run('up','-d','database','cache')
     connection_code="import json,pathlib,pymysql;c=json.loads(pathlib.Path('/private/config/application.json').read_text());db=pymysql.connect(host='database',user='workproof',password=c['databasePassword'],database='workproof',autocommit=True);cur=db.cursor();"
