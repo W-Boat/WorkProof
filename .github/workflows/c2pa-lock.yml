@@ -1,0 +1,36 @@
+name: Prepare C2PA dependency lock
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Resolve the separate SDK workspace without building
+        run: cargo fetch --manifest-path tools/c2pa/Cargo.toml
+      - name: Record source and resulting lock digest
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          lock = pathlib.Path('tools/c2pa/Cargo.lock')
+          report = {
+              'sourceCommit': os.environ['SOURCE_SHA'],
+              'lockSha256': hashlib.sha256(lock.read_bytes()).hexdigest(),
+              'scope': 'Dependency resolution only; no build or test result.',
+              'lockDiff': subprocess.check_output(['git', 'diff', '--', str(lock)], text=True),
+          }
+          pathlib.Path('c2pa-lock-provenance.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: c2pa-resolved-lock
+          path: |
+            tools/c2pa/Cargo.lock
+            c2pa-lock-provenance.json
+          if-no-files-found: error
