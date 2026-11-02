@@ -32,8 +32,19 @@ test('real Wasm binds structure snapshots, changes parents, rejects tampering an
   await expect(page.getByText('结构与证书中的记录一致',{exact:true})).toBeVisible();
   const tree=page.getByRole('list',{name:'已核验的对象层级'});
   await expect(tree.getByText('属于 #1 · 同层顺序 1',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('已核验的结构关系图',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'打开关系图',exact:true}).click();
+  const graphView=page.getByLabel('已核验的结构关系图',{exact:true});
+  await expect(graphView.locator('.react-flow__edge[data-id="1-3"]')).toBeVisible();
+  const viewport=graphView.locator('.react-flow__viewport');
+  const initialTransform=await viewport.getAttribute('style');
+  await graphView.getByRole('button',{name:'放大关系图',exact:true}).click();
+  await expect.poll(()=>viewport.getAttribute('style')).not.toBe(initialTransform);
+  await graphView.getByRole('button',{name:'显示整张关系图',exact:true}).click();
   await page.getByLabel('选择结构记录',{exact:true}).selectOption('1');
   await expect(tree.getByText('属于 #2 · 同层顺序 1',{exact:true})).toBeVisible();
+  await expect(graphView.locator('.react-flow__edge[data-id="2-3"]')).toBeVisible();
+  await expect(graphView.locator('.react-flow__edge[data-id="1-3"]')).toHaveCount(0);
   await page.getByRole('region',{name:'查看结构变化（可选）'}).screenshot({path:'test-results/evolution-verified-desktop.png'});
   await page.setViewportSize({width:390,height:844});
   await expect(tree.getByText('属于 #2 · 同层顺序 1',{exact:true})).toBeVisible();
@@ -45,6 +56,7 @@ test('real Wasm binds structure snapshots, changes parents, rejects tampering an
   await page.getByRole('button',{name:'核验并查看结构',exact:true}).click();
   await expect(page.getByText('结构与证书中的记录不匹配，或文件格式不受支持。请向提供者核对配套文件。',{exact:true})).toBeVisible();
   await expect(tree).toHaveCount(0);
+  await expect(graphView).toHaveCount(0);
   expect(requests).toEqual([]);
 });
 

@@ -31,4 +31,5 @@ apps/office/wps/wps-addon-publish/
 tools/c2pa-wasm/pkg/
 tools/c2pa-wasm/target/
 apps/verifier/public/c2pa/
+apps/verifier/public/notices/graph/
 

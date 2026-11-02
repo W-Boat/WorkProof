@@ -1,5 +1,6 @@
 'use client';
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {Component,useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
+import dynamic from 'next/dynamic';
 import {Panel,Tag} from './institution-ui';
 import {Upload} from './FileDrop';
 import {Button} from './button';
@@ -9,6 +10,12 @@ type Snapshot={seq:number;source:string;event_kind:string;nodes:Node[]};
 type Report={protocol:string;valid:boolean;certificate_valid:boolean;artifact_checked:boolean;complete_history_verified:boolean;identity_verified:boolean;completeness:string;snapshots:Snapshot[];errors:string[]};
 const labels:Record<string,string>={object:'对象',group:'组',mesh:'网格',layer:'图层',modifier:'修改器'};
 const PAGE_SIZE=100;
+const EvolutionGraph=dynamic(()=>import('./EvolutionGraph'),{ssr:false,loading:()=><p role="status">正在加载关系图…</p>});
+class GraphBoundary extends Component<{children:ReactNode},{failed:boolean}>{
+  state={failed:false};
+  static getDerivedStateFromError(){return {failed:true};}
+  render(){return this.state.failed?<p role="alert">关系图暂时无法显示。你仍可用下方列表查看已核验的结构。</p>:this.props.children;}
+}
 function ordered(nodes:Node[]){
   const children=new Map<number|null,Node[]>();
   for(const node of nodes){const group=children.get(node.parent)||[];group.push(node);children.set(node.parent,group);}
@@ -22,12 +29,13 @@ function ordered(nodes:Node[]){
 export function EvolutionPanel({proof}:{proof:File}){
   const [file,setFile]=useState<File|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
   const [report,setReport]=useState<Report|null>(null),[index,setIndex]=useState(0),[page,setPage]=useState(0);
+  const [showGraph,setShowGraph]=useState(false);
   const active=useRef<Worker|null>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
   function stop(){active.current?.terminate();active.current=null;if(timer.current)clearTimeout(timer.current);timer.current=null;}
   useEffect(()=>()=>stop(),[]);
   const snapshot=report?.snapshots[index];
   const rows=useMemo(()=>snapshot?ordered(snapshot.nodes):[],[snapshot]);
-  function reset(){stop();setBusy(false);setReport(null);setMessage('');setIndex(0);setPage(0);}
+  function reset(){stop();setBusy(false);setReport(null);setMessage('');setIndex(0);setPage(0);setShowGraph(false);}
   function check(){
     if(!file||busy)return;reset();
     if(file.size>8*1024*1024||!file.size){setMessage('结构文件不能为空，且不能超过 8 MB。');return;}
@@ -58,6 +66,8 @@ export function EvolutionPanel({proof}:{proof:File}){
         <p>已核对 {report.snapshots.length} 份结构。这里仅展示文件中提供、且能在证书中核对的结构，不表示每一步操作都已记录。</p>
         <label className="quiet-label">选择一次结构记录<select aria-label="选择结构记录" value={index} onChange={event=>{setIndex(Number(event.target.value));setPage(0);}}>{report.snapshots.map((item,i)=><option key={item.seq} value={i}>第 {i+1} 份 · 事件 {item.seq+1} · {item.nodes.length} 个节点</option>)}</select></label>
         <p>来源：{snapshot.source} · 对象编号仅在本次记录中用于识别同一节点。</p>
+        {!!rows.length&&<Button aria-expanded={showGraph} onClick={()=>setShowGraph(!showGraph)}>{showGraph?'收起关系图':'打开关系图'}</Button>}
+        {showGraph&&<GraphBoundary key={snapshot.seq}><EvolutionGraph rows={rows}/></GraphBoundary>}
         <ol className="evolution-nodes" aria-label="已核验的对象层级">{rows.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE).map(({node,depth})=><li key={node.id} style={{paddingInlineStart:`${Math.min(depth,12)*12+12}px`}}><strong>{labels[node.kind]||node.kind} #{node.id}</strong><span>{node.parent===null?'顶层':`属于 #${node.parent}`} · {node.relation==='modifies'?'修改器顺序':'同层顺序'} {node.order+1}{depth>12?` · 层级 ${depth+1}`:''}</span></li>)}</ol>
         {!rows.length&&<p>这次结构记录中没有对象。</p>}
         {rows.length>PAGE_SIZE&&<div className="share-actions"><Button disabled={!page} onClick={()=>setPage(page-1)}>上一页</Button><span role="status">第 {page+1} / {Math.ceil(rows.length/PAGE_SIZE)} 页 · 共 {rows.length} 个节点</span><Button disabled={(page+1)*PAGE_SIZE>=rows.length} onClick={()=>setPage(page+1)}>下一页</Button></div>}
