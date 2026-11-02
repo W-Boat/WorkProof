@@ -93,15 +93,20 @@ fn drain<T:Pipe>(pipe:&mut T,out:&mut Vec<u8>,limit:usize)->Result<(),String>{
         match pipe.read(&mut buffer){Ok(0)=>return Ok(()),Ok(n)=>{if out.len()+n>limit{return Err("核验输出过大，已停止本次检查。".into());}out.extend_from_slice(&buffer[..n]);},Err(e) if e.kind()==std::io::ErrorKind::WouldBlock=>return Ok(()),Err(_)=>return Err("无法读取核验输出。".into())}
     }
 }
-fn capture(mut command:Command,seconds:u64,limit:usize)->Result<(ExitStatus,Vec<u8>,Vec<u8>),String>{
+fn capture(command:Command,seconds:u64,limit:usize)->Result<(ExitStatus,Vec<u8>,Vec<u8>),String>{
+    capture_with_ready(command,seconds,limit,|_|Ok(()))
+}
+// Production starts its deadline immediately. Tests may establish that their
+// real descendant exists before exercising the same timed capture/cleanup path.
+fn capture_with_ready<F:FnOnce(&mut std::process::Child)->Result<(),String>>(mut command:Command,seconds:u64,limit:usize,ready:F)->Result<(ExitStatus,Vec<u8>,Vec<u8>),String>{
     command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(windows)]{use std::os::windows::process::CommandExt;command.creation_flags(0x08000004);}
     #[cfg(unix)]{use std::os::unix::process::CommandExt;command.process_group(0);}
     let mut child=command.spawn().map_err(|_|"无法启动核验工具或系统文件选择器，请检查完整安装包与系统组件。")?;
     let tree=match ProcessTree::attach(&child){Ok(tree)=>tree,Err(error)=>{let _=child.kill();let _=child.wait();return Err(error);}};
     let mut stdout=child.stdout.take().unwrap();let mut stderr=child.stderr.take().unwrap();
-    let deadline=Instant::now()+Duration::from_secs(seconds);let mut out=vec![];let mut err=vec![];
-    let result=(||{prepare(&stdout)?;prepare(&stderr)?;loop{
+    let mut out=vec![];let mut err=vec![];
+    let result=(||{ready(&mut child)?;let deadline=Instant::now()+Duration::from_secs(seconds);prepare(&stdout)?;prepare(&stderr)?;loop{
         let status=child.try_wait().map_err(|_|"无法确认核验工具是否完成。")?;
         drain(&mut stdout,&mut out,limit)?;drain(&mut stderr,&mut err,limit)?;
         if let Some(status)=status{return Ok((status,out,err));}
@@ -283,21 +288,55 @@ pub fn verify(resource:PathBuf)->Result<Value,String>{
         assert!(capture(helper(large),10,100).is_err());let start=Instant::now();assert!(capture(helper(stall),1,100).is_err());assert!(start.elapsed()<Duration::from_secs(4));
     }
     #[test]fn timeout_cleans_up_owned_descendant(){
+        #[cfg(windows)]
+        #[link(name="kernel32")]unsafe extern "system"{
+            fn OpenProcess(access:u32,inherit:i32,pid:u32)->*mut std::ffi::c_void;
+            fn WaitForSingleObject(handle:*mut std::ffi::c_void,milliseconds:u32)->u32;
+            fn CloseHandle(handle:*mut std::ffi::c_void)->i32;
+        }
+        #[cfg(windows)]struct DescendantHandle(*mut std::ffi::c_void);
+        #[cfg(windows)]impl Drop for DescendantHandle{fn drop(&mut self){unsafe{CloseHandle(self.0);}}}
+        #[cfg(windows)]let mut descendant_handle=None;
         let path=std::env::temp_dir().join(format!("workproof-image-child-{}-{}.pid",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         #[cfg(windows)]let script="$p=Start-Process -FilePath (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe') -ArgumentList '-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30' -WindowStyle Hidden -PassThru;[IO.File]::WriteAllText($env:WORKPROOF_TEST_CHILD_PID,[string]$p.Id);Start-Sleep -Seconds 30";
         #[cfg(unix)]let script="sleep 30 & echo $! > \"$WORKPROOF_TEST_CHILD_PID\"; wait";
         let mut command=helper(script);command.env("WORKPROOF_TEST_CHILD_PID",&path);
-        let start=Instant::now();assert!(capture(command,5,4096).is_err());
-        assert!(start.elapsed()<Duration::from_secs(9));
-        let pid:u32=std::fs::read_to_string(&path).expect("descendant must have started before deadline").trim().parse().unwrap();
+        let mut started=None;let mut descendant=None;
+        let result=capture_with_ready(command,5,4096,|child|{
+            // Cold PowerShell startup is fixture setup, not evidence of whether
+            // a running descendant is cleaned up at the operation deadline.
+            // Keep setup independently bounded and fail if the helper exits.
+            let setup_deadline=Instant::now()+Duration::from_secs(30);
+            loop{
+                if let Ok(text)=std::fs::read_to_string(&path){if let Ok(pid)=text.trim().parse::<u32>(){
+                    #[cfg(windows)]unsafe{
+                        let handle=OpenProcess(0x100000,0,pid);
+                        if handle.is_null(){return Err("Descendant fixture could not be opened while running".into());}
+                        let handle=DescendantHandle(handle);
+                        if WaitForSingleObject(handle.0,0)!=258{return Err("Descendant fixture exited before readiness".into());}
+                        descendant_handle=Some(handle);
+                    }
+                    #[cfg(unix)]{
+                        let output=Command::new("/bin/ps").args(["-o","stat=","-p",&pid.to_string()]).output().map_err(|e|e.to_string())?;
+                        let state=String::from_utf8_lossy(&output.stdout);
+                        if !output.status.success()||state.trim().is_empty()||state.trim_start().starts_with('Z'){return Err("Descendant fixture exited before readiness".into());}
+                    }
+                    descendant=Some(pid);started=Some(Instant::now());return Ok(());
+                }}
+                if let Some(status)=child.try_wait().map_err(|error|format!("Fixture status failed: {error}"))?{return Err(format!("Descendant fixture exited before readiness: {status}"));}
+                if Instant::now()>=setup_deadline{return Err("Descendant fixture readiness deadline exceeded".into());}
+                std::thread::sleep(Duration::from_millis(30));
+            }
+        });
+        assert!(matches!(&result,Err(error) if error.contains("操作超时")),"Expected the actual capture deadline after descendant readiness, got {result:?}");
+        assert!(started.expect("descendant readiness must precede capture deadline").elapsed()<Duration::from_secs(9));
+        let pid=descendant.expect("descendant PID must be observed before capture deadline");
         let _=std::fs::remove_file(&path);
         #[cfg(windows)]{
-            #[link(name="kernel32")]unsafe extern "system"{
-                fn OpenProcess(access:u32,inherit:i32,pid:u32)->*mut std::ffi::c_void;
-                fn WaitForSingleObject(handle:*mut std::ffi::c_void,milliseconds:u32)->u32;
-                fn CloseHandle(handle:*mut std::ffi::c_void)->i32;
-            }
-            unsafe{let handle=OpenProcess(0x100000,0,pid);if !handle.is_null(){let status=WaitForSingleObject(handle,3000);CloseHandle(handle);assert_eq!(status,0,"owned descendant must terminate with the job");}}
+            // Hold the same process object across timeout; a recycled PID cannot
+            // turn an unrelated process into evidence for or against cleanup.
+            let handle=descendant_handle.expect("live descendant handle must be acquired before deadline");
+            unsafe{assert_eq!(WaitForSingleObject(handle.0,3000),0,"owned descendant {pid} must terminate with the job");}
         }
         #[cfg(unix)]{
             // A killed orphan may briefly remain as a zombie until its reaper
