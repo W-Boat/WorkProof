@@ -11,6 +11,7 @@ import {CertificateCard,VerificationChecks,DisclosurePanel,DisclosedEvents} from
 import {type Stage,type Result,download,escape,time} from '../lib/evidence';
 import {TimestampPanel} from '../components/TimestampPanel';
 import {MetadataPanel} from '../components/MetadataPanel';
+import {EmbeddedCertificatePanel} from '../components/EmbeddedCertificatePanel';
 
 export default function Page(){
   const [artifact,setArtifact]=useState<File|null>(null),[proofFile,setProofFile]=useState<File|null>(null),[stage,setStage]=useState<Stage>('idle'),[progress,setProgress]=useState(0),[phase,setPhase]=useState(''),[result,setResult]=useState<Result|null>(null),[error,setError]=useState(''),[demoBusy,setDemoBusy]=useState(false);
@@ -105,6 +106,7 @@ export default function Page(){
       {r.chain_valid&&<Timeline records={records}/>}
       {r.valid&&partial&&<DisclosedEvents records={records}/>}
     </motion.div>:<Panel className="empty-proof"><EmptyState icon={<Fingerprint size={28}/>} title="载入一份作品，开始核验。" desc="你将看到文件匹配、记录完整性、签名与过程轨迹，也可以先体验标明来源的演示证据。"/></Panel>}
+    <EmbeddedCertificatePanel/>
     <MetadataPanel file={artifact}/>
     <Panel id="principles" title="如何理解核验结果" className="principles"><dl><div><dt>作品留在本机</dt><dd>浏览器中的独立工作线程计算文件指纹，不上传作品与证书。</dd></div><div><dt>签名与身份分开判断</dt><dd>签名核对记录是否改变，不证明真人身份、原创性或 AI 使用比例。</dd></div><div><dt>部分证据只核对所选归属</dt><dd>未披露的记录不连成曲线，未观测到的区间不视为持续劳动。</dd></div></dl></Panel>
   </VerifierShell>;
