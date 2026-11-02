@@ -53,10 +53,14 @@ jobs:
         run: npm run build:web
       - name: Verify the actual user page with real PDF files and Wasm
         run: node tools/c2pa-wasm/test-ui.cjs
+      - name: Archive and verify all public site bytes including hidden notices
+        run: python tools/c2pa-wasm/package.py
       - uses: actions/upload-artifact@v4
         with:
           name: verifier-with-embedded-certificates
-          path: apps/verifier/out/
+          path: |
+            verifier-with-embedded-certificates.zip
+            verifier-with-embedded-certificates.zip.sha256
           include-hidden-files: true
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
