@@ -1,5 +1,7 @@
 # 检查图片中的创作证书
 
+后续 Windows 清理验证：`2d8f71e` 的 [专项 41394367318](https://github.com/W-Boat/WorkProof/actions/runs/41394367318) 已全部通过，包含真实后代进程超时退出、五项桌面检查、五项 ZIP 检查反例及实际安装包 1,611 项摘要验证。Unix 新增进程组清理尚不能套用这一 Windows 结果；已运行的本机 `862b0ec` 版本也不包含此后续改动。
+
 验证进展：源码 `794e7d0` 的 [Windows Office 专项 41390430072](https://github.com/W-Boat/WorkProof/actions/runs/41390430072) 已全部成功，包含桌面实际编译、真实签署 PNG/基线与渐进 JPEG 报告兼容检查，以及超时、超量输出、完整/选择性披露语义的四项桌面测试。该源码对应四平台总流程因旧 Word 文案断言失败，后续 `e0eac77` 已修正断言并重新提交；不能以 Windows 通过替代 macOS/Linux 桌面入口验收。新安装包的真实点击流程也尚未验收。
 
 此入口用于已经嵌入 C2PA 与 WorkProof 过程证据的 PNG / JPEG。普通作品与独立 `.wproof` 文件，仍从“检查作品和证书”进入配对核验。
