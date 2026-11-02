@@ -98,6 +98,26 @@ try:
     ordinary_logs=run('logs','--no-color','app','database','cache').stdout
     assert all(value not in ordinary_logs for value in [password,*private_values]), 'A generated secret appeared in ordinary service logs'
     checks.append('Generated passwords and JWT absent from ordinary service logs')
+    # Real native dump roundtrip, still confined to this disposable CI database.
+    fixture_code="import json,pathlib,pymysql;c=json.loads(pathlib.Path('/private/config/application.json').read_text());db=pymysql.connect(host='database',user='workproof',password=c['databasePassword'],database='workproof',autocommit=True,charset='utf8mb4');cur=db.cursor();cur.execute('CREATE TABLE dump_fixture (id INT PRIMARY KEY, note TEXT NULL, payload BLOB) ENGINE=InnoDB');cur.executemany('INSERT INTO dump_fixture VALUES (%s,%s,%s)',[(1,None,bytes(range(256))),(2,'中文与表情🙂',b'\\x00\\xff')]);db.close()"
+    run('run','--rm','-T','--entrypoint','python3','initialize','-c',fixture_code)
+    exported=subprocess.run(['bash',str(context/'dump-stopped.sh')],env=env,capture_output=True,timeout=120)
+    assert exported.returncode==0 and exported.stdout, 'Stopped native dump failed'
+    # Password stays inside the DB container; no SQL dump is written to the runner disk.
+    root_access='export MYSQL_PWD="$(cat /private/mysql-root/password)"; '
+    restore=root_access+"mysql --user=root --execute='CREATE DATABASE workproof_dump_restore CHARACTER SET utf8mb4'; mysql --user=root --default-character-set=utf8mb4 workproof_dump_restore"
+    imported=subprocess.run([*compose,'exec','-T','database','bash','-ec',restore],env=env,input=exported.stdout,capture_output=True,timeout=120)
+    assert imported.returncode==0, 'Dump import to the isolated empty schema failed'
+    def rows(database):
+        assert database in ('workproof','workproof_dump_restore')
+        command=root_access+'exec mysqldump --user=root --skip-comments --compact --no-create-info --skip-triggers --skip-extended-insert --order-by-primary --hex-blob --set-gtid-purged=OFF --default-character-set=utf8mb4 '+database
+        result=subprocess.run([*compose,'exec','-T','database','bash','-ec',command],env=env,capture_output=True,timeout=120)
+        assert result.returncode==0, 'Row comparison could not read the isolated schema'
+        return result.stdout
+    assert rows('workproof')==rows('workproof_dump_restore'), 'Restored rows differ from stopped source'
+    identifier=run('ps','--all','-q','app').stdout.strip()
+    assert subprocess.check_output(['docker','inspect','--format','{{.State.Running}}',identifier],text=True).strip()=='false'
+    checks.append('Native MySQL dump/import preserves every row including NULL, UTF-8 and binary; app remains stopped')
     # Recreate only this random CI project to exercise a genuinely nonempty database,
     # independently of the already-initialized marker refusal above.
     assert re.fullmatch(r'workproof-server-ci-[0-9a-f]{12}',project)
