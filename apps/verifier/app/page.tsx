@@ -16,13 +16,14 @@ import {EvolutionPanel} from '../components/EvolutionPanel';
 
 export default function Page(){
   const [artifact,setArtifact]=useState<File|null>(null),[proofFile,setProofFile]=useState<File|null>(null),[stage,setStage]=useState<Stage>('idle'),[progress,setProgress]=useState(0),[phase,setPhase]=useState(''),[result,setResult]=useState<Result|null>(null),[error,setError]=useState(''),[demoBusy,setDemoBusy]=useState(false);
+  const demoRequest=useRef<AbortController|null>(null);
   const worker=useRef<Worker|null>(null),disclosureWorker=useRef<Worker|null>(null);const reduced=useReducedMotion();
   const [selection,setSelection]=useState(''),[disclosureBusy,setDisclosureBusy]=useState(false),[disclosureError,setDisclosureError]=useState('');
   const [expectedId,setExpectedId]=useState(''),[shareMessage,setShareMessage]=useState('');
   function stopVerification(){const active=worker.current;worker.current=null;active?.terminate();}
-  useEffect(()=>()=>{stopVerification();const active=disclosureWorker.current;disclosureWorker.current=null;active?.terminate();},[]);
-  const invalidate=()=>{stopVerification();disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');setSelection('');setResult(null);setStage('idle');setError('');setPhase('');setProgress(0);};
-  function verify(a=artifact,p=proofFile){
+  useEffect(()=>()=>{demoRequest.current?.abort();demoRequest.current=null;stopVerification();const active=disclosureWorker.current;disclosureWorker.current=null;active?.terminate();},[]);
+  const invalidate=()=>{demoRequest.current?.abort();demoRequest.current=null;setDemoBusy(false);setShareMessage('');stopVerification();disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');setSelection('');setResult(null);setStage('idle');setError('');setPhase('');setProgress(0);};
+  function verify(a=artifact,p=proofFile,expected=expectedId){
     if(!a||!p)return;disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');stopVerification();setResult(null);setError('');setProgress(0);setPhase('');setStage('working');
     setShareMessage('');
     try{
@@ -36,10 +37,24 @@ export default function Page(){
       };
       w.onerror=()=>fail('无法加载核验引擎。请使用完整的本地站点包，或重新加载页面。');
       w.onmessageerror=()=>fail('无法读取核验结果，请重新选择作品和证书后重试。');
-      try{w.postMessage({artifact:a,proof:p,expectedCertificateId:expectedId});}catch{fail('无法读取所选文件，请重新选择作品和证书后重试。');}
+      try{w.postMessage({artifact:a,proof:p,expectedCertificateId:expected});}catch{fail('无法读取所选文件，请重新选择作品和证书后重试。');}
     }catch{stopVerification();setError('无法启动核验工具，请重新加载完整站点后重试。');setStage('error');setPhase('');}
   }
-  async function demo(){setDemoBusy(true);try{const [a,p]=await Promise.all([fetch('/demo/essay.md'),fetch('/demo/essay.md.wproof')]);if(!a.ok||!p.ok)throw new Error('示例尚未生成，请使用 Actions 构建的完整站点。');const af=new File([await a.blob()],'essay.md'),pf=new File([await p.blob()],'essay.md.wproof');setArtifact(af);setProofFile(pf);verify(af,pf);}catch(e){setError(String(e));setStage('error');}finally{setDemoBusy(false);}}
+  async function demo(){
+    invalidate();
+    const request=new AbortController();demoRequest.current=request;setDemoBusy(true);
+    try{
+      const [a,p]=await Promise.all([fetch('/demo/essay.md',{signal:request.signal}),fetch('/demo/essay.md.wproof',{signal:request.signal})]);
+      if(!a.ok||!p.ok)throw new Error('演示文件暂时无法载入，请稍后重试，或选择自己的作品和证书。');
+      const [ab,pb]=await Promise.all([a.blob(),p.blob()]);
+      if(demoRequest.current!==request)return;
+      const af=new File([ab],'essay.md'),pf=new File([pb],'essay.md.wproof');
+      setArtifact(af);setProofFile(pf);setExpectedId('');verify(af,pf,'');
+    }catch(e){
+      if(demoRequest.current!==request||request.signal.aborted)return;
+      setError(e instanceof Error?e.message:'演示暂时无法载入，请稍后重试。');setStage('error');
+    }finally{if(demoRequest.current===request){demoRequest.current=null;setDemoBusy(false);}}
+  }
   const m=result?.proof.manifest,r=result?.report;const records=result?.proof.records||[];
   const partial=r?.scope==='selective';
   const gaps=records.filter(x=>x.event.kind==='gap').length;const duration=records.at(-1)?.event.elapsed_ms||0;
@@ -111,14 +126,14 @@ export default function Page(){
       <div className="result-grid"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId}/><VerificationChecks proof={result.proof} report={r}/></div>
       {result.certificateMatch===false&&<p className="error-box" role="alert">证书指纹不一致：这不是发送者指定的证书。请向发送者确认，勿作为有效交付凭据。</p>}
       {result.certificateMatch===true&&<p className="caption">证书指纹一致：与发送者提供的证书相符。</p>}
-      <div className="export-row"><span><LockKeyhole size={13}/>本次核验未上传作品或证书</span><div><Button disabled={!r.valid} onClick={exportImage}><ArrowDownToLine size={15}/>保存证书图片</Button><Button disabled={!r.valid} onClick={()=>window.print()}><FileText size={15}/>打印 / PDF</Button><Button variant="ghost" onClick={()=>{invalidate();setArtifact(null);setProofFile(null);}} aria-label="清空重新核验"><RotateCcw size={16}/></Button></div></div>
+      <div className="export-row"><span><LockKeyhole size={13}/>本次核验未上传作品或证书</span><div><Button disabled={!r.valid} onClick={exportImage}><ArrowDownToLine size={15}/>保存证书图片</Button><Button disabled={!r.valid} onClick={()=>window.print()}><FileText size={15}/>打印 / PDF</Button><Button variant="ghost" onClick={()=>{invalidate();setArtifact(null);setProofFile(null);setExpectedId('');}} aria-label="清空重新核验"><RotateCcw size={16}/></Button></div></div>
       {r.valid&&<Panel title="分享可复核的签名证书" className="share-panel"><p>把签名证书和作品原文件发给对方，对方即可重新核验。证书图片方便展示，复核时仍需 .wproof 文件。</p><p>{partial?'此证书仅包含已披露的事件。':'此证书包含完整过程记录。如需减少公开内容，请先在下方导出部分证据，再载入核验后分享。'}</p><label className="field"><span className="field-label">证书指纹 · 用于识别证书是否被替换</span><code className="share-fingerprint" tabIndex={0}>{result.certificateId}</code></label><div className="share-actions"><Button variant="primary" onClick={shareCertificate}>分享签名证书</Button><Button onClick={()=>{if(proofFile)download(proofFile,proofFile.name);}}>下载签名证书</Button><Button onClick={copyFingerprint}>复制指纹与核验说明</Button></div><p role="status">{shareMessage}</p><p className="caption">请经可信渠道发送指纹。当前不生成公网链接；本机地址无法供他人远程访问。签名可以查出内容改动，签名者身份仍未经认证。</p></Panel>}
       {r.valid&&<TimestampPanel key={result.certificateId} signature={result.proof.signature}/>}
       {r.valid&&!partial&&m.protocol==='workproof/3'&&<DisclosurePanel selection={selection} busy={disclosureBusy} error={disclosureError} onChange={setSelection} onExport={exportDisclosure}/>}
       {r.chain_valid&&<Timeline records={records}/>}
       {r.valid&&partial&&<DisclosedEvents records={records}/>}
       {r.valid&&proofFile&&<EvolutionPanel key={result.certificateId+proofFile.name} proof={proofFile}/>}
-    </motion.div>:<Panel className="empty-proof"><EmptyState icon={<Fingerprint size={28}/>} title="载入一份作品，开始核验。" desc="你将看到文件匹配、记录完整性、签名与过程轨迹，也可以先体验标明来源的演示证据。"/></Panel>}
+    </motion.div>:<Panel className="empty-proof"><EmptyState icon={<Fingerprint size={28}/>} title={stage==='working'?'正在核验作品和证书…':demoBusy?'正在载入演示…':stage==='error'?'请按上方提示检查后重试':artifact&&proofFile?'文件已选好，可以开始核验':artifact?'下一步：选择配套证书':proofFile?'下一步：选择对应作品':'载入一份作品，开始核验。'} desc={stage==='working'?'请稍候；需要更换文件时，可以先取消核验。':demoBusy?'你也可以直接选择自己的作品和证书。':artifact&&proofFile?'点击“开始本地核验”，查看文件、签名和记录的检查结果。':artifact?'请选择提供者发来的 .wproof 文件。只有作品还不能核对创作记录。':proofFile?'请选择与这份证书一同收到的原始作品文件。':'你将看到文件匹配、记录完整性、签名与过程轨迹，也可以先体验标明来源的演示证据。'}/></Panel>}
     <EmbeddedCertificatePanel/>
     <MetadataPanel file={artifact}/>
     <Panel id="principles" title="如何理解核验结果" className="principles"><dl><div><dt>作品留在本机</dt><dd>浏览器中的独立工作线程计算文件指纹，不上传作品与证书。</dd></div><div><dt>签名与身份分开判断</dt><dd>签名核对记录是否改变，不证明真人身份、原创性或 AI 使用比例。</dd></div><div><dt>部分证据只核对所选归属</dt><dd>未披露的记录不连成曲线，未观测到的区间不视为持续劳动。</dd></div></dl></Panel>
