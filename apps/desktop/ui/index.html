@@ -10,6 +10,7 @@ button,select{width:100%;margin:7px 0;padding:12px;background:#b7dfc0;color:#193
 <ol id="creation-steps" aria-label="开始记录的三个步骤"></ol><p id="installation-note"></p>
 <button id="open-word">打开 Word 并开始记录</button><button id="open-powerpoint" hidden>打开 PowerPoint 并开始记录</button><button id="install" hidden>安装 / 更新 VS Code 插件</button><button id="verify">检查作品和证书</button>
 <p>只在你点击开始后记录。不录屏，不保存文档正文。关闭这个窗口，已开始的记录仍会继续。</p>
+<details><summary>检查图片内嵌的创作证书</summary><p>用于已经封装证书的 PNG 或 JPEG。先选择图片，再选择从签发方等独立可信渠道取得的 CA 文件（PEM 格式）。无需上传文件。</p><p>请选择你确认可信的 CA；不要仅因它与图片一起收到就信任它。成功只表示签名、图片匹配和已披露记录通过检查，不认证作者身份、实际创作时间或原创性，也不查询撤销。</p><button id="verify-image">选择图片和 CA，开始检查</button><p id="image-result" role="status" aria-live="polite"></p></details>
 <section id="adapter-connections" aria-label="允许连接的软件"><h2>允许连接的软件</h2><p id="no-connections">还没有允许任何加载项连接。Word、WPS 或 Photoshop 请求连接时，请在这里核对并允许。</p></section>
 <details><summary>查看本机记录数量</summary><div class="stats"><div><strong id="sessions">—</strong><span>已开始的记录</span></div><div><strong id="events">—</strong><span>已保存的操作</span></div></div><div class="trace" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></details>
 <footer>VS Code 和 Blender 会自动连接，不在允许列表中显示。退出 WorkProof 会停止接收记录。记录不能证明作者身份或原创性。</footer>

@@ -143,6 +143,8 @@ jobs:
           & "$env:RUNNER_TEMP/workproof-platform-tests.exe"
       - run: cargo build --locked -p workproof-engine --release
       - run: npm run build -w @workproof/desktop
+      - name: Desktop image report compatibility and process limits
+        run: cargo test --release --locked -p workproof-desktop c2pa::tests
       - name: Start real tray binary
         run: python scripts/test_tray.py target/release/workproof-desktop.exe
       - name: Measure idle resources and durable ingestion
@@ -237,6 +239,8 @@ jobs:
       - name: Native certificate-only inspection
         run: node scripts/test_certificate_inspection.cjs target/release/workproof-engine target/release/workproof-inspector
       - run: npm run ${{ matrix.build }} -w @workproof/desktop
+      - name: Desktop image report compatibility and process limits
+        run: cargo test --release --locked -p workproof-desktop c2pa::tests
       - name: Install and start the real Linux package under a virtual display
         if: runner.os == 'Linux'
         run: |

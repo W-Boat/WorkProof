@@ -19,7 +19,17 @@ runs:
       shell: python
       run: |
         import subprocess
-        subprocess.run(['cargo','build','--release','--locked','--manifest-path','tools/c2pa/Cargo.toml'],check=True)
+        subprocess.run(['cargo','build','--release','--locked','--manifest-path','tools/c2pa/Cargo.toml','--bins','--examples'],check=True)
+    - name: Generate actual signed image reports for desktop tests
+      shell: python
+      run: |
+        import os,pathlib,subprocess,sys
+        subprocess.run([sys.executable,'-m','pip','install','Pillow==12.0.0'],check=True)
+        suffix='.exe' if os.name=='nt' else ''
+        report=pathlib.Path('.ci-c2pa-desktop-report.json').resolve()
+        subprocess.run([sys.executable,'scripts/test_c2pa.py','tools/c2pa/target/release/workproof-c2pa'+suffix,'tools/c2pa/target/release/examples/fixture'+suffix,'--without-network-trace','--desktop-report',str(report)],check=True)
+        with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as env:
+            env.write('WORKPROOF_C2PA_REPORT='+str(report)+'\n')
     - name: Collect exact dependency notices
       shell: python
       run: |

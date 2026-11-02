@@ -7,6 +7,7 @@ assert os.environ.get('GITHUB_ACTIONS') == 'true'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('tool')
 parser.add_argument('fixture')
+parser.add_argument('--desktop-report',help='Write actual successful CLI reports for desktop compatibility tests.')
 parser.add_argument('--trust-probe',help='Optional CI-only SDK trust-chain diagnostic executable for synthetic public certificates.')
 parser.add_argument('--without-network-trace',action='store_true',help='Explicitly skip syscall tracing on platforms without strace; report this as unmeasured.')
 options=parser.parse_args()
@@ -15,6 +16,7 @@ trace_enabled=not options.without_network_trace
 if trace_enabled:
     assert shutil.which('strace'), 'strace is required by default; unsupported platforms must explicitly select --without-network-trace'
 traces_performed=0
+desktop_reports=[]
 openssl = shutil.which('openssl')
 assert openssl
 def run(*args, ok=True):
@@ -81,6 +83,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
     embed(consent=False,ok=False);assert not signed.exists()
     packaged=json.loads(embed().stdout);assert packaged['original_png_checked'] and not packaged['c2pa_trusted']
     report=json.loads(run(tool,'verify',signed,root/'ca.pem').stdout)
+    desktop_reports.append(report)
     assert report['c2pa_integrity_valid'] and report['c2pa_trusted'] and report['original_png_checked'] and report['workproof']['valid'] and report['workproof']['scope']=='full'
     assert not any(report[k] for k in ['identity_verified','creation_time_verified','revocation_checked','network_used'])
     signed_snapshot=signed.read_bytes();embed(ok=False);assert signed.read_bytes()==signed_snapshot
@@ -107,6 +110,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
     (root/'bad.wproof').write_text(json.dumps(proof));embed(proof='bad.wproof',destination=root/'bad.png',ok=False);assert not (root/'bad.png').exists()
     selected=root/'selected.png';embed(proof='selected.wproof',destination=selected)
     partial=json.loads(run(tool,'verify',selected,root/'ca.pem').stdout)
+    desktop_reports.append(partial)
     # The protocol always includes start/save boundary records, plus the selected edit.
     assert partial['workproof']['scope']=='selective' and partial['workproof']['disclosed_events']==3 and partial['workproof']['total_events']==5, partial['workproof']
     # Runtime evidence for offline verification, in addition to disabled HTTP features.
@@ -156,6 +160,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
         for segment in metadata:assert signed_bytes.count(segment)==1,'JPEG metadata was lost or rewritten'
         with Image.open(destination) as decoded:decoded.load();assert decoded.size==(24,16)
         checked=json.loads(run(tool,'verify',destination,root/'ca.pem').stdout)
+        desktop_reports.append(checked)
         assert checked['original_jpeg_checked'] and checked['original_asset_checked'] and checked['c2pa_trusted']
         assert checked['workproof']['valid'] and checked['workproof']['scope']=='full'
         assert not any(checked[k] for k in ['identity_verified','creation_time_verified','revocation_checked','network_used'])
@@ -178,6 +183,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
         partial_output=folder/'selected.jpg'
         run(tool,'embed',source,folder/'selected.wproof',root/'chain.pem',root/'signer.key',partial_output,'--allow-public-process')
         partial_report=json.loads(run(tool,'verify',partial_output,root/'ca.pem').stdout)
+        desktop_reports.append(partial_report)
         assert partial_report['workproof']['scope']=='selective' and partial_report['workproof']['disclosed_events']==3 and partial_report['workproof']['total_events']==1500
         run(tool,'verify',destination,root/'wrong.pem',ok=False)
         verify_network_trace(destination,root/'ca.pem',folder/'network.trace')
@@ -187,4 +193,6 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
 
 pathlib.Path('test-c2pa-results.json').write_text(json.dumps({'real_c2pa_png':True,'real_c2pa_jpeg':jpeg_results,'explicit_ca':True,'full_and_selective':True,'tamper_rejected':True,'original_bytes_unchanged':True,'verification_network_calls':False if traces_performed else None,'network_trace_performed':bool(traces_performed),'network_traces':traces_performed,'synthetic_authority_only':True},indent=2))
 assert traces_performed == (3 if trace_enabled else 0)
+if options.desktop_report:
+    pathlib.Path(options.desktop_report).write_text(json.dumps(desktop_reports,indent=2),encoding='utf-8')
 print('PASS: real C2PA PNG and baseline/progressive JPEG packaging, exact original-byte binding, explicit CA trust, full/partial scope, tamper/wrong-root/overwrite rejection and verification; network syscall trace: '+('measured' if traces_performed else 'not performed'))

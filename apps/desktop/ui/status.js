@@ -80,3 +80,15 @@ const guides={
 const creationTool=document.getElementById('creation-tool');
 function showGuide(){const guide=guides[creationTool.value];const steps=document.getElementById('creation-steps');steps.replaceChildren();for(const text of guide.steps){const li=document.createElement('li');li.textContent=text;steps.append(li);}document.getElementById('installation-note').textContent=guide.note;document.getElementById('install').hidden=creationTool.value!=='vscode';document.getElementById('open-word').hidden=creationTool.value!=='word';document.getElementById('open-powerpoint').hidden=creationTool.value!=='powerpoint';}
 creationTool.addEventListener('change',showGuide);showGuide();
+
+document.getElementById('verify-image').addEventListener('click',async()=>{
+  const button=document.getElementById('verify-image'),result=document.getElementById('image-result');
+  button.disabled=true;result.textContent='请在系统窗口中依次选择图片和独立可信的 CA 文件；完成选择后核验通常需要几秒。';
+  try{
+    const report=await window.__TAURI__.core.invoke('verify_image');
+    if(report.cancelled===true){result.textContent='已取消，本次没有核验。';return;}
+    if(!['full','selective'].includes(report.scope)||!Number.isSafeInteger(report.disclosed)||!Number.isSafeInteger(report.total)||report.disclosed<0||report.disclosed>report.total)throw new Error('核验结果无法识别，请更新完整安装包。');
+    result.textContent=report.scope==='selective'?`已披露的 ${report.disclosed} 条记录通过检查（全部记录共 ${report.total} 条）。图片匹配、签名及所选 CA 信任检查通过；未披露记录不在本次检查范围内。`:`图片匹配、签名、完整过程记录和所选 CA 信任检查通过，共 ${report.total} 条记录。`;
+  }catch(error){result.textContent=String(error);}
+  finally{button.disabled=false;}
+});
