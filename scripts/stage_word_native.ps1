@@ -49,7 +49,9 @@ if ($C2pa) {
 }
 if ($Vsix) { Copy-Required $Vsix (Join-Path $Package 'workproof.vsix') }
 if ($Verifier) {
-    if (-not (Test-Path -LiteralPath (Join-Path $Verifier 'index.html') -PathType Leaf)) { throw 'The verifier build has no index.html' }
+    foreach ($entry in @('index.html','verify-worker.js','wasm/workproof_protocol.js','wasm/workproof_protocol_bg.wasm','wasm/BUILD-INFO.json','demo/essay.md','demo/essay.md.wproof','demo/structure-demo.wgraph','c2pa/client.mjs','c2pa/pkg/workproof_c2pa_wasm_bg.wasm','notices/graph/inventory.json')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $Verifier $entry) -PathType Leaf)) { throw "The verifier build is missing a required entry resource: $entry" }
+    }
     Copy-Item -LiteralPath $Verifier -Destination (Join-Path $Package 'verifier') -Recurse -Force
 }
 if ($Docs) {

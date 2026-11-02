@@ -33,14 +33,7 @@ jobs:
       - run: npm ci
       - name: Protocol tests
         run: cargo test --locked -p workproof-protocol -p workproof-engine
-      - name: Install matching Wasm bindings CLI
-        run: cargo install wasm-bindgen-cli --version 0.2.105 --locked
-      - name: Build browser verifier engine
-        run: |
-          cargo build --locked -p workproof-protocol --release --target wasm32-unknown-unknown
-          wasm-bindgen target/wasm32-unknown-unknown/release/workproof_protocol.wasm --target web --out-dir apps/verifier/public/wasm
-      - name: Generate explicitly labelled demo
-        run: cargo run -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
+      - uses: ./.github/actions/protocol-browser-resource
       - name: Build and exercise local collector
         run: |
           cargo build -p workproof-engine

@@ -18,6 +18,11 @@ on:
       - 'scripts/verify_package_zip.py'
       - 'scripts/test_package_zip.py'
       - 'scripts/word_package_notices.py'
+      - 'scripts/verifier_graph_notices.py'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - 'package-lock.json'
+      - 'package.json'
       - '.gitattributes'
       - 'docs/licenses/office-supplemental/**'
       - 'docs/licenses/office-npm-supplemental/**'
@@ -28,6 +33,7 @@ on:
       - '.github/workflows/word-native.yml'
       - '.github/actions/c2pa-resource/**'
       - '.github/actions/c2pa-browser-resource/**'
+      - '.github/actions/protocol-browser-resource/**'
       - 'tools/c2pa-wasm/**'
       - 'tools/c2pa/**'
       - 'scripts/c2pa_notices.py'
@@ -54,6 +60,7 @@ jobs:
       - run: npm ci
       - uses: ./.github/actions/c2pa-resource
       - uses: ./.github/actions/c2pa-browser-resource
+      - uses: ./.github/actions/protocol-browser-resource
       - name: Build the offline verifier and the VS Code extension for the same desktop
         run: |
           npm run build:web
@@ -109,6 +116,15 @@ jobs:
           python scripts/test_package_zip.py
           python scripts/verify_package_zip.py dist/workproof-native-word-windows-dev.zip
           python -c "import pathlib; p=pathlib.Path('.ci-c2pa-public-fixtures'); expected={'full.png','selected.png','unsigned.png','synthetic-ca.pem','wrong-ca.pem','baseline.jpg','progressive.jpg','README.txt','VALIDATION.json','SHA256SUMS.txt'}; assert {f.name for f in p.iterdir()}==expected, 'Unexpected public fixture content; refuse publication'"
+      - name: Install Chromium for the actual packaged verifier
+        run: npx playwright install chromium
+      - name: Verify ordinary proofs, structure edges and embedded images from the portable kit
+        env:
+          WORKPROOF_TEST_WEB_ENGINE: ${{ runner.temp }}/workproof-native-word/workproof-engine.exe
+          WORKPROOF_TEST_WEB_ROOT: ${{ runner.temp }}/workproof-native-word/verifier
+          WORKPROOF_TEST_EMBEDDED_FIXTURES: .ci-c2pa-public-fixtures
+          WORKPROOF_TEST_EMBEDDED_ASSET: selected.png
+        run: node tools/c2pa-wasm/test-ui.cjs
       - name: Register and unregister PowerPoint in isolated registry
         shell: pwsh
         run: |

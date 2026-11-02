@@ -11,10 +11,15 @@ files={}
 for file in sorted(site.rglob('*')):
     assert not file.is_symlink(),'Unexpected symlink in public site'
     if file.is_file():files[file.relative_to(site).as_posix()]=file
-required={'index.html','verify-worker.js','wasm/workproof_protocol.js','wasm/workproof_protocol_bg.wasm',
+required={'index.html','verify-worker.js','wasm/workproof_protocol.js','wasm/workproof_protocol_bg.wasm','wasm/BUILD-INFO.json',
           'demo/essay.md','demo/essay.md.wproof','demo/structure-demo.txt','demo/structure-demo.txt.wproof','demo/structure-demo.wgraph',
           'notices/graph/inventory.json','c2pa/pkg/workproof_c2pa_wasm_bg.wasm'}
 assert required<=files.keys(),'Missing public verifier entry resources: '+repr(sorted(required-files.keys()))
+protocol_build=json.loads((site/'wasm/BUILD-INFO.json').read_bytes())
+assert protocol_build['source_commit']==build['source_commit'],'Protocol and embedded verifier source revisions differ'
+for item in protocol_build['files']:
+    name=item['name'];assert pathlib.PurePosixPath(name).name==name
+    assert hashlib.sha256((site/'wasm'/name).read_bytes()).hexdigest()==item['sha256'],name
 assert 'SHA256SUMS.txt' not in files
 manifest=''.join(hashlib.sha256(file.read_bytes()).hexdigest()+'  '+name+'\n' for name,file in files.items())
 archive=root/'verifier-with-embedded-certificates.zip'

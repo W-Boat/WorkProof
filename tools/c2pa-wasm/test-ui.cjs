@@ -3,7 +3,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {chromium}=require('@playwright/test');
 const {spawn}=require('node:child_process');
 assert.equal(process.env.GITHUB_ACTIONS,'true');
-const root=path.resolve('apps/verifier/out'),fixtures=path.resolve('.ci-browser-pdf');
+const root=path.resolve(process.env.WORKPROOF_TEST_WEB_ROOT||'apps/verifier/out'),fixtures=path.resolve(process.env.WORKPROOF_TEST_EMBEDDED_FIXTURES||'.ci-browser-pdf');
+const embeddedAsset=process.env.WORKPROOF_TEST_EMBEDDED_ASSET||'selected.pdf';
 const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.wasm':'application/wasm','.css':'text/css','.json':'application/json','.svg':'image/svg+xml'};
 const server=http.createServer((req,res)=>{
   if(req.method!=='GET'){res.writeHead(405).end();return;}
@@ -51,7 +52,7 @@ const server=http.createServer((req,res)=>{
     assert.equal(await graph.locator('.react-flow__edge[data-id="1-3"]').count(),0);
     const panel=page.getByRole('region',{name:'检查作品内嵌的创作证书'});
     await panel.getByText('作品中已经包含证书？从这里检查',{exact:true}).click();
-    await panel.getByLabel('1. 选择带证书的作品',{exact:true}).setInputFiles(path.join(fixtures,'selected.pdf'));
+    await panel.getByLabel('1. 选择带证书的作品',{exact:true}).setInputFiles(path.join(fixtures,embeddedAsset));
     await panel.getByLabel('2. 选择你信任的 CA 文件',{exact:true}).setInputFiles(path.join(fixtures,'synthetic-ca.pem'));
     const button=panel.getByRole('button',{name:'3. 开始本地检查',exact:true});assert.equal(await button.isDisabled(),true);
     await panel.getByRole('checkbox').check();await button.click();
@@ -63,6 +64,6 @@ const server=http.createServer((req,res)=>{
     await panel.getByRole('checkbox').check();await button.click();
     await panel.getByText('所选 CA 无法确认这份签名，请向签发方核对可信来源。',{exact:true}).waitFor({timeout:90000});
     assert(requests.every(r=>r.method==='GET'&&r.url.startsWith(origin+'/')));
-    console.log('PASS exported user page: ordinary certificate Wasm, authenticated structure snapshots and React Flow edges, real PDF Wasm verification, explicit trust consent, stale-result reset, wrong-root refusal and local GET resources only');
+    console.log('PASS exported user page: ordinary certificate Wasm, authenticated structure snapshots and React Flow edges, real embedded '+path.extname(embeddedAsset)+' Wasm verification, explicit trust consent, stale-result reset, wrong-root refusal and local GET resources only');
   }finally{await browser.close();if(child){child.kill();await new Promise(resolve=>child.once('exit',resolve));}else server.close();}
 })().catch(error=>{console.error(error);server.close();process.exitCode=1;});
