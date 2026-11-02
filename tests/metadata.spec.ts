@@ -42,10 +42,16 @@ test('JPEG EXIF and simple XMP stay local and remain editable clues',async({page
   await scan([jpegSegment(225,jpegExif()),xmp(xml)]);
   await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');await expect(panel.getByRole('status')).toContainText('<script>fixture</script>');
   await expect(panel.getByRole('status')).toContainText('editable workflow');await expect(panel.locator('script')).toHaveCount(0);
+  await expect(panel.getByText('提示词',{exact:true})).toBeVisible();
+  await expect(panel.getByRole('list')).not.toBeVisible();
+  await panel.screenshot({path:'test-results/jpeg-source-desktop.png'});
   const unicode=Buffer.concat([Buffer.from('UNICODE\0'),Buffer.from([255,254]),Buffer.from('中文注释\0','utf16le')]);
   await scan([jpegSegment(225,jpegExif(false,unicode)),jpegSegment(254,Buffer.from('ordinary comment'))]);
   await expect(panel.getByRole('status')).toContainText('中文注释');await expect(panel.getByRole('status')).toContainText('ordinary comment');
   await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await panel.screenshot({path:'test-results/jpeg-source-mobile.png'});
   const badExif=jpegExif();badExif.writeUInt32LE(0xffffff00,24); // out-of-bounds Software value offset
   const badXml='<!DOCTYPE x [<!ENTITY private SYSTEM "https://example.com/private">]>'+xml;
   await scan([jpegSegment(225,badExif),xmp(badXml),jpegSegment(254,Buffer.from('safe comment'))]);
