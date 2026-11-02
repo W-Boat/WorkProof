@@ -4,7 +4,7 @@
 
 ## 输入
 
-JSONL 每行一份独立样本，UTF-8，最多 1000 份/16 MiB；文字最多 32 KiB。拒绝重复 ID、完全相同文字、缺失来源或许可声明。示意如下，不是可用基准：
+JSONL 每行一份独立样本，UTF-8，最多 1000 份/16 MiB；文字最多 32 KiB。拒绝重复 ID、完全相同文字、缺失来源或许可声明。样本、策略、引擎清单与检测器返回的 JSON 均拒绝重复键（含嵌套字段）及 NaN/Infinity 常量，避免标签、许可声明或阈值被后一个同名字段覆盖。示意如下，不是可用基准：
 
 ```json
 {"id":"example-001","language":"en","kind":"ai_original","truth":"ai","generator":"provider-model-version","text":"实际经过许可的评估文字","source":{"url":"https://example.org/dataset","license":"实际数据集许可标识","record":"不可变数据版本与行号、生成日期和记录"}}

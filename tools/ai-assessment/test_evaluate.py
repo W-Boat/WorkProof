@@ -41,6 +41,34 @@ class EvaluationTests(unittest.TestCase):
         self.assertAlmostEqual(ev.wilson(5,10)['wilson95'][0],.236593,places=5)
         self.assertIsNone(ev.wilson(0,0)['rate'])
 
+    def test_ambiguous_dataset_labels_and_nested_provenance_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=pathlib.Path(directory)/'data.jsonl'
+            valid=json.dumps(self.sample('ambiguous'))
+            for raw in (valid[:-1]+',"truth":"ai"}',
+                        valid.replace('"license": "test-fixture-only"', '"license":"first","license":"second"')):
+                path.write_text(raw,encoding='utf-8')
+                with self.assertRaisesRegex(ValueError,'DUPLICATE_JSON_KEY'):
+                    ev.load_dataset(path)
+
+    def test_ambiguous_policy_threshold_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=pathlib.Path(directory)/'policy.json'
+            path.write_text(json.dumps(self.policy())[:-1]+',"threshold":0.1}',encoding='utf-8')
+            with self.assertRaisesRegex(ValueError,'DUPLICATE_JSON_KEY'):
+                ev.load_policy(path,'b'*64,{'fixture':{'revision':'fixed'}})
+
+    def test_nonfinite_json_constants_rejected_at_any_depth(self):
+        for constant in ('NaN','Infinity','-Infinity'):
+            with self.assertRaisesRegex(ValueError,'NONFINITE_JSON_CONSTANT'):
+                ev.strict_json('{"source":{"unexpected":'+constant+'}}')
+
+    @unittest.skipUnless(os.name=='posix','POSIX process control only')
+    def test_ambiguous_detector_output_rejected(self):
+        raw='{"protocol":"workproof-ai-assessment/1","raw_scores":{"AI":0.1,"AI":0.9,"Human":0.1}}'
+        with self.assertRaisesRegex(ValueError,'DUPLICATE_JSON_KEY'):
+            ev.run_detector([sys.executable,'-c','print('+repr(raw)+')'],b'',timeout=5)
+
     def test_bad_protocol_scores_do_not_become_human(self):
         rows=[self.sample('bad')]
         def bad_score(row):

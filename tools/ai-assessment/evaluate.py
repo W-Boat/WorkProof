@@ -27,13 +27,28 @@ def require(condition, code):
         raise ValueError(code)
 
 
+def strict_json(raw):
+    """Reject ambiguous labels/policies, including duplicate nested fields."""
+    def object_pairs(pairs):
+        result = {}
+        for key, value in pairs:
+            require(key not in result, 'DUPLICATE_JSON_KEY')
+            result[key] = value
+        return result
+
+    def invalid_constant(_value):
+        raise ValueError('NONFINITE_JSON_CONSTANT')
+
+    return json.loads(raw, object_pairs_hook=object_pairs, parse_constant=invalid_constant)
+
+
 def load_dataset(path):
     require(path.stat().st_size <= 16 * 1024 * 1024, 'DATASET_TOO_LARGE')
     raw = path.read_bytes()
     rows, ids, texts = [], set(), set()
     for line in raw.decode('utf-8').splitlines():
         require(bool(line) and len(line.encode('utf-8')) <= 65536, 'INVALID_DATASET_LINE')
-        row = json.loads(line)
+        row = strict_json(line)
         require(isinstance(row, dict), 'INVALID_SAMPLE')
         require(isinstance(row.get('id'), str) and TOKEN.fullmatch(row['id']), 'INVALID_SAMPLE_ID')
         require(row['id'] not in ids, 'DUPLICATE_SAMPLE_ID')
@@ -63,7 +78,7 @@ def load_dataset(path):
 def load_policy(path, dataset_hash, registry):
     require(path.stat().st_size <= 131072, 'POLICY_TOO_LARGE')
     raw = path.read_bytes()
-    policy = json.loads(raw)
+    policy = strict_json(raw)
     require(isinstance(policy, dict), 'INVALID_POLICY')
     engine = policy.get('engine_id')
     require(engine in registry, 'UNKNOWN_ENGINE')
@@ -172,7 +187,7 @@ def run_detector(command, request, timeout=120):
         if timed_out.is_set():
             raise subprocess.TimeoutExpired(command, timeout)
         require(code == 0, 'DETECTOR_EXIT_FAILED')
-        value = json.loads(output)
+        value = strict_json(output)
         require(isinstance(value, dict) and value.get('protocol') == 'workproof-ai-assessment/1', 'WRONG_PROTOCOL')
         return value
     except (BrokenPipeError, OSError):
@@ -195,7 +210,7 @@ def main():
     args = parser.parse_args()
     try:
         rows, dataset_hash = load_dataset(args.dataset)
-        registry = json.loads((HERE / 'engines.json').read_text(encoding='utf-8'))
+        registry = strict_json((HERE / 'engines.json').read_text(encoding='utf-8'))
         policy, policy_hash = load_policy(args.policy, dataset_hash, registry)
         def predict(row):
             request = json.dumps({'text': row['text'], 'language': row['language']}, ensure_ascii=False).encode('utf-8')
