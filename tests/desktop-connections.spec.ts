@@ -61,7 +61,9 @@ test('desktop starts with Word and shows only the chosen software steps',async({
   await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('word');
   const steps=page.getByRole('list',{name:'开始记录的三个步骤'});
   await expect(steps.getByRole('listitem')).toHaveCount(3);
-  await expect(steps).toContainText('Word 文档');
+  await expect(page.getByRole('button',{name:'打开 Word 并开始记录'})).toBeVisible();
+  await expect(steps).toContainText('首次使用时');
+  await expect(steps).toContainText('导出作品和证书');
   const install=page.getByRole('button',{name:'安装 / 更新 VS Code 插件'});
   await expect(install).toBeHidden();
   await page.getByLabel('你用什么软件创作？').selectOption('vscode');
