@@ -58,6 +58,7 @@ def load_dataset(path):
         require(row['kind'] != 'human_original' or row['truth'] == 'human', 'HUMAN_LABEL_REQUIRED')
         require(row['kind'] != 'ai_original' or row['truth'] == 'ai', 'AI_LABEL_REQUIRED')
         require(isinstance(row.get('generator'), str) and TOKEN.fullmatch(row['generator']), 'GENERATOR_REQUIRED')
+        require('domain' not in row or isinstance(row['domain'], str) and TOKEN.fullmatch(row['domain']), 'INVALID_DOMAIN')
         require(row['kind'] != 'human_original' or row['generator'] == 'human', 'HUMAN_GENERATOR_REQUIRED')
         source = row.get('source')
         require(isinstance(source, dict), 'PROVENANCE_REQUIRED')
@@ -88,10 +89,19 @@ def load_policy(path, dataset_hash, registry):
     threshold = policy.get('threshold')
     require(type(threshold) in (int, float) and math.isfinite(threshold) and 0 <= threshold <= 1, 'INVALID_THRESHOLD')
     calibration = policy.get('calibration_dataset_sha256')
-    require(isinstance(calibration, str) and SHA.fullmatch(calibration) and calibration != dataset_hash, 'INDEPENDENT_CALIBRATION_REQUIRED')
     hashes = policy.get('calibration_input_sha256')
-    require(isinstance(hashes, list) and 0 < len(hashes) <= 1000 and all(isinstance(value, str) and SHA.fullmatch(value) for value in hashes), 'CALIBRATION_INPUT_HASHES_REQUIRED')
-    require(len(set(hashes)) == len(hashes), 'DUPLICATE_CALIBRATION_HASH')
+    mode = policy.get('policy_mode', 'independent_calibration')
+    require(mode in {'independent_calibration', 'published_fixed'}, 'INVALID_POLICY_MODE')
+    if mode == 'published_fixed':
+        published = registry[engine].get('published_policy', {})
+        require(published.get('decision_rule') in {'binary_argmax', 'threshold_gte'} and policy.get('decision_rule') == published['decision_rule'] and threshold == published.get('threshold'), 'PUBLISHED_RULE_MISMATCH')
+        require(policy.get('threshold_source') == registry[engine].get('label_source') and bool(registry[engine].get('label_source')), 'PUBLISHED_SOURCE_MISMATCH')
+        require(calibration is None and hashes == [], 'PUBLISHED_POLICY_IS_NOT_CALIBRATED')
+    else:
+        require(policy.get('decision_rule', 'threshold_gte') == 'threshold_gte', 'INVALID_CALIBRATED_DECISION_RULE')
+        require(isinstance(calibration, str) and SHA.fullmatch(calibration) and calibration != dataset_hash, 'INDEPENDENT_CALIBRATION_REQUIRED')
+        require(isinstance(hashes, list) and 0 < len(hashes) <= 1000 and all(isinstance(value, str) and SHA.fullmatch(value) for value in hashes), 'CALIBRATION_INPUT_HASHES_REQUIRED')
+        require(len(set(hashes)) == len(hashes), 'DUPLICATE_CALIBRATION_HASH')
     require(isinstance(policy.get('threshold_source'), str) and 0 < len(policy['threshold_source']) <= 1000, 'THRESHOLD_SOURCE_REQUIRED')
     return policy, digest(raw)
 
@@ -124,7 +134,7 @@ def evaluate(rows, dataset_hash, policy, policy_hash, predict):
     for row in rows:
         input_hash = digest(row['text'].encode('utf-8'))
         record = {key: row[key] for key in ('id', 'language', 'generator', 'kind', 'truth')}
-        record.update(input_hash=input_hash, prediction=None)
+        record.update(domain=row.get('domain', 'unspecified'), input_hash=input_hash, prediction=None)
         try:
             value = predict(row)
             require(value.get('protocol') == 'workproof-ai-assessment/1', 'WRONG_PROTOCOL')
@@ -139,22 +149,25 @@ def evaluate(rows, dataset_hash, policy, policy_hash, predict):
                 require(set(scores) == {'Human', 'AI'}, 'INVALID_SCORE_LABELS')
                 require(all(type(v) in (float, int) and math.isfinite(v) and 0 <= v <= 1 for v in scores.values()) and abs(sum(scores.values()) - 1) <= 0.0001, 'INVALID_SCORES')
                 score = scores[policy['score_label']]
-                record.update(score=score, prediction='ai' if score >= policy['threshold'] else 'human')
+                ai = scores['AI'] > scores['Human'] if policy.get('decision_rule') == 'binary_argmax' else score >= policy['threshold']
+                record.update(score=score, prediction='ai' if ai else 'human')
         except subprocess.TimeoutExpired:
             record['status'] = 'timeout'
         except Exception:
             record['status'] = 'error'
         records.append(record)
     groups = {}
-    for dimension in ('language', 'generator', 'kind'):
+    for dimension in ('language', 'generator', 'kind', 'domain'):
         groups[dimension] = {key: metrics([r for r in records if r[dimension] == key]) for key in sorted({r[dimension] for r in records})}
     return {'protocol': 'workproof-ai-evaluation/1', 'dataset_sha256': dataset_hash, 'policy_sha256': policy_hash,
             'engine_id': policy['engine_id'], 'model_revision': policy['model_revision'], 'threshold': policy['threshold'],
             'score_kind': policy['score_kind'], 'score_label': policy['score_label'],
+            'policy_mode': policy.get('policy_mode', 'independent_calibration'), 'decision_rule': policy.get('decision_rule', 'threshold_gte'),
             'calibration_dataset_sha256': policy['calibration_dataset_sha256'], 'declared_calibration_samples': len(calibration_hashes), 'overall': metrics(records), 'groups': groups, 'samples': records,
             'limitations': ['Provenance and independent calibration are supplied declarations, not externally verified facts.',
                             'Only exact UTF-8 hashes in the supplied calibration manifest were checked for overlap; completeness and semantic independence are not verified.',
                             'Fixed-threshold binary evaluation; scores are not AI proportions or authorship probabilities.',
+                            'Published fixed policies reproduce upstream decisions and do not imply independent calibration or a target false-positive rate.',
                             'Mixed texts are excluded from binary rates. Errors and unsupported inputs are coverage gaps, not human predictions.',
                             'Wilson intervals assume independent Bernoulli samples; related documents or shared prompts may violate this assumption.',
                             'This report does not itself certify modern-model coverage, dataset quality, licensing clearance or production readiness.']}
@@ -214,10 +227,17 @@ def main():
         rows, dataset_hash = load_dataset(args.dataset)
         registry = strict_json((HERE / 'engines.json').read_text(encoding='utf-8'))
         policy, policy_hash = load_policy(args.policy, dataset_hash, registry)
+        completed = 0
         def predict(row):
+            nonlocal completed
             request = json.dumps({'text': row['text'], 'language': row['language']}, ensure_ascii=False).encode('utf-8')
-            require(len(request) <= 32768, 'REQUEST_TOO_LARGE')
-            return run_detector([sys.executable, str(HERE / 'detector.py'), 'infer', '--engine', policy['engine_id'], '--model-dir', str(args.model_dir.resolve())], request)
+            try:
+                require(len(request) <= 32768, 'REQUEST_TOO_LARGE')
+                return run_detector([sys.executable, str(HERE / 'detector.py'), 'infer', '--engine', policy['engine_id'], '--model-dir', str(args.model_dir.resolve())], request)
+            finally:
+                completed += 1
+                if completed % 8 == 0 or completed == len(rows):
+                    print(f'Evaluation progress: {completed}/{len(rows)} samples processed.',flush=True)
         report = evaluate(rows, dataset_hash, policy, policy_hash, predict)
         with args.output.open('x', encoding='utf-8') as stream:
             json.dump(report, stream, ensure_ascii=False, indent=2, allow_nan=False)

@@ -102,6 +102,29 @@ class EvaluationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'CALIBRATION_SAMPLE_OVERLAP'):
             ev.evaluate(rows,'d'*64,policy,'e'*64,lambda row:None)
 
+    def test_published_policy_is_fixed_and_never_called_calibration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=pathlib.Path(directory)/'policy.json'
+            registry={'fixture':{'revision':'fixed','score_kind':'uncalibrated_class_softmax','label_source':'https://example.org/frozen-source','published_policy':{'threshold':.5,'decision_rule':'binary_argmax'}}}
+            policy=dict(self.policy(),policy_mode='published_fixed',threshold=.5,decision_rule='binary_argmax',threshold_source=registry['fixture']['label_source'],calibration_dataset_sha256=None,calibration_input_sha256=[])
+            path.write_text(json.dumps(policy),encoding='utf-8');ev.load_policy(path,'b'*64,registry)
+            for override in ({'threshold':.6},{'decision_rule':'threshold_gte'},{'threshold_source':'https://example.org/other'},{'calibration_input_sha256':['b'*64]},{'calibration_dataset_sha256':'c'*64}):
+                path.write_text(json.dumps(dict(policy,**override)),encoding='utf-8')
+                with self.assertRaises(ValueError):ev.load_policy(path,'b'*64,registry)
+
+    def test_published_argmax_tie_is_human_and_sigmoid_threshold_tie_is_ai(self):
+        row=dict(self.sample('tie'),domain='student-writing')
+        policy=dict(self.policy(),threshold=.5,policy_mode='published_fixed',decision_rule='binary_argmax',calibration_dataset_sha256=None,calibration_input_sha256=[])
+        def predict(row):
+            return dict(protocol='workproof-ai-assessment/1',engine_id='fixture',model_revision='fixed',input_hash=ev.digest(row['text'].encode()),network_used=False,status='completed',score_kind='uncalibrated_class_softmax',calibration=None,raw_scores={'Human':.5,'AI':.5})
+        report=ev.evaluate([row],'d'*64,policy,'e'*64,predict)
+        self.assertEqual(report['overall']['false_positive']['events'],0)
+        self.assertEqual(report['policy_mode'],'published_fixed')
+        self.assertEqual(report['declared_calibration_samples'],0)
+        self.assertEqual(report['groups']['domain']['student-writing']['samples'],1)
+        policy['decision_rule']='threshold_gte'
+        self.assertEqual(ev.evaluate([row],'d'*64,policy,'e'*64,predict)['overall']['false_positive']['events'],1)
+
     def test_policy_score_kind_must_match_the_pinned_engine(self):
         with tempfile.TemporaryDirectory() as directory:
             path=pathlib.Path(directory)/'policy.json'
