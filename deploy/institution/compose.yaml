@@ -1,0 +1,90 @@
+name: workproof-institution
+services:
+  prepare:
+    image: workproof-institution:local
+    profiles: [tools]
+    user: "0:0"
+    entrypoint: [python3, /opt/workproof/manage.py, prepare]
+    network_mode: none
+    volumes:
+      - app_config:/private/config
+      - initial_account:/private/account
+      - mysql_root_secret:/private/mysql-root
+      - mysql_app_secret:/private/mysql-app
+  database:
+    image: mysql:8.4.13
+    environment:
+      MYSQL_DATABASE: workproof
+      MYSQL_USER: workproof
+      MYSQL_ROOT_PASSWORD_FILE: /private/mysql-root/password
+      MYSQL_PASSWORD_FILE: /private/mysql-app/password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - mysql_root_secret:/private/mysql-root:ro
+      - mysql_app_secret:/private/mysql-app:ro
+    healthcheck:
+      test: [CMD, mysqladmin, ping, -h, 127.0.0.1, --silent]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+    restart: unless-stopped
+  cache:
+    image: valkey/valkey:8.0
+    command: [valkey-server, --appendonly, "yes"]
+    volumes: [cache_data:/data]
+    healthcheck:
+      test: [CMD, valkey-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+  initialize:
+    image: workproof-institution:local
+    profiles: [tools]
+    user: "0:0"
+    entrypoint: [python3, /opt/workproof/manage.py, initialize]
+    depends_on:
+      database: {condition: service_healthy}
+    volumes:
+      - app_config:/private/config
+      - initial_account:/private/account:ro
+  account:
+    image: workproof-institution:local
+    profiles: [tools]
+    user: "0:0"
+    entrypoint: [python3, /opt/workproof/manage.py, account]
+    network_mode: none
+    volumes:
+      - app_config:/private/config:ro
+      - initial_account:/private/account:ro
+  app:
+    image: workproof-institution:local
+    user: "10001:10001"
+    environment:
+      WORKPROOF_PUBLIC_ORIGIN: ${WORKPROOF_PUBLIC_ORIGIN:-}
+    ports: ["127.0.0.1:${WORKPROOF_HTTP_PORT:-18081}:8080"]
+    volumes:
+      - app_config:/private/config:ro
+      - app_data:/var/lib/workproof
+    tmpfs: ["/tmp:rw,nosuid,nodev,mode=1777"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      database: {condition: service_healthy}
+      cache: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python3, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health',timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    restart: unless-stopped
+volumes:
+  app_config:
+  initial_account:
+  mysql_root_secret:
+  mysql_app_secret:
+  mysql_data:
+  cache_data:
+  app_data:

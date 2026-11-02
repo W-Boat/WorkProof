@@ -1,7 +1,7 @@
 name: Institution backend baseline
 on:
   push:
-    paths: ['services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution*.py', 'scripts/test_institution*.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml']
+    paths: ['deploy/institution/**', 'services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution*.py', 'scripts/test_institution*.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml']
   workflow_dispatch:
     inputs:
       ai_models:
@@ -17,8 +17,8 @@ permissions:
 jobs:
   scaffold:
     if: ${{ inputs.windows_only != true }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     services:
       mysql:
         image: mysql:8.4.13
@@ -103,6 +103,55 @@ jobs:
         run: |
           python scripts/test_institution_runtime.py
           python scripts/test_institution_jobs.py
+      - name: Assemble the same-revision server image context
+        shell: python
+        run: |
+          import pathlib,shutil
+          root=pathlib.Path('.')
+          context=root/'.ci-institution-server'
+          shutil.copytree(root/'deploy/institution',context)
+          jars=list((root/'services/institution/scaffold-system/scaffold-admin/target').glob('scaffold-admin-*.jar'))
+          assert len(jars)==1,'Expected exactly one bootable JAR'
+          shutil.copy2(jars[0],context/'app.jar')
+          shutil.copy2(root/'target/release/workproof-inspector',context/'workproof-inspector')
+          (context/'sql').mkdir()
+          for name in ['V1__init_schema.sql','V2__seed_data.sql']:
+              shutil.copy2(root/'services/institution/scaffold-system/sql'/name,context/'sql'/name)
+      - name: Build the precompiled Linux amd64 server image
+        run: docker build --platform linux/amd64 --label org.opencontainers.image.revision=${{ github.sha }} -t workproof-institution:local .ci-institution-server
+      - name: Exercise the real server image and isolated new database
+        run: python scripts/test_institution_server.py
+      - name: Archive the verified image without any deployment secrets
+        shell: python
+        run: |
+          import gzip,hashlib,json,os,pathlib,shutil,subprocess
+          output=pathlib.Path('dist/institution-server-linux-amd64');output.mkdir(parents=True)
+          for source in pathlib.Path('deploy/institution').iterdir():
+              if source.is_file():shutil.copy2(source,output/source.name)
+          shutil.copy2('docs/INSTITUTION-SERVER.md',output/'README.md')
+          shutil.copy2('LICENSE',output/'WORKPROOF-LICENSE.txt')
+          shutil.copy2('services/institution/LICENSE',output/'SCAFFOLD-LICENSE.txt')
+          shutil.copy2('docs/COMMERCIAL-LICENSE-AUDIT.md',output/'COMMERCIAL-LICENSE-AUDIT.md')
+          with gzip.open(output/'workproof-institution-image.tar.gz','wb',compresslevel=1) as stream:
+              process=subprocess.Popen(['docker','save','workproof-institution:local'],stdout=subprocess.PIPE)
+              with process.stdout as source:shutil.copyfileobj(source,stream)
+              assert process.wait()==0,'Image export failed'
+          image=json.loads(subprocess.check_output(['docker','image','inspect','workproof-institution:local']))[0]
+          (output/'BUILD-INFO.json').write_text(json.dumps({'schema':'workproof.server-package.v1','source_commit':os.environ['GITHUB_SHA'],'build_run':os.environ['GITHUB_RUN_ID'],'image_id':image['Id'],'platform':'linux/amd64','scope':'New database only; catalog/jobs/AI disabled; no deployment secrets included'},indent=2)+'\n',encoding='utf-8')
+          lines=[]
+          for file in sorted(output.iterdir()):
+              if file.is_file():
+                  with file.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
+                  lines.append(digest+'  '+file.name+'\n')
+          (output/'SHA256SUMS.txt').write_text(''.join(lines),encoding='utf-8')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: institution-server-linux-amd64
+          path: |
+            dist/institution-server-linux-amd64/
+            test-institution-server-results.json
+          include-hidden-files: true
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: institution-baseline
