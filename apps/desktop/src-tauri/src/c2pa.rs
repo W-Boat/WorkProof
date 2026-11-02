@@ -183,9 +183,13 @@ pub fn embed(resource:PathBuf,consent:bool)->Result<Value,String>{
         let Some(path)=pick(title,filter,false,"")?else{return Ok(json!({"cancelled":true}));};
         regular(&path,limit)?;inputs.push(path);
     }
-    let jpeg=inputs[0].extension().and_then(|e|e.to_str()).is_some_and(|e|e.eq_ignore_ascii_case("jpg")||e.eq_ignore_ascii_case("jpeg"));
+    let mut header=[0u8;8];
+    let length=std::fs::File::open(&inputs[0]).map_err(|_|"原图无法读取，请重新选择。")?.read(&mut header).map_err(|_|"原图无法读取，请重新选择。")?;
+    let jpeg=length>=2&&header[..2]==[0xff,0xd8];
+    if !jpeg&&(length<8||header!=*b"\x89PNG\r\n\x1a\n"){return Err("原图内容不是 PNG 或 JPEG，请检查文件格式。".into());}
     let suggested=if jpeg{"作品-带证书.jpg"}else{"作品-带证书.png"};
-    let Some(destination)=pick("第 5 步：选择新图片保存位置（不覆盖已有文件）","PNG / JPEG|*.png;*.jpg;*.jpeg",true,suggested)?else{return Ok(json!({"cancelled":true}));};
+    let filter=if jpeg{"JPEG 图片|*.jpg;*.jpeg"}else{"PNG 图片|*.png"};
+    let Some(destination)=pick("第 5 步：选择新图片保存位置（不覆盖已有文件）",filter,true,suggested)?else{return Ok(json!({"cancelled":true}));};
     if std::fs::symlink_metadata(&destination).is_ok(){return Err("保存位置已有文件，请重新操作并选择新的文件名。原文件未修改。".into());}
     let mut command=Command::new(tool);command.arg("embed").args(&inputs).arg(&destination).arg("--allow-public-process");
     let (status,out,stderr)=capture(command,60,1024*1024)?;
