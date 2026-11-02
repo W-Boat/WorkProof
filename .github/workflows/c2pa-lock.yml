@@ -2,27 +2,47 @@ name: Prepare C2PA dependency lock
 on:
   workflow_dispatch:
   push:
-    paths: ['tools/c2pa/Cargo.toml']
+    paths: ['tools/c2pa/Cargo.toml', 'tools/c2pa-wasm/Cargo.toml']
 permissions:
   contents: read
 jobs:
   resolve:
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [c2pa, c2pa-wasm]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Detect optional workspace
+        id: workspace
+        env:
+          WORKSPACE: ${{ matrix.workspace }}
+        run: |
+          if [ -f "tools/$WORKSPACE/Cargo.toml" ]; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'Optional workspace is not present in this source revision.'
+          fi
       - name: Resolve the separate SDK workspace without building
-        run: cargo fetch --manifest-path tools/c2pa/Cargo.toml
+        if: steps.workspace.outputs.present == 'true'
+        env:
+          WORKSPACE: ${{ matrix.workspace }}
+        run: cargo fetch --manifest-path "tools/$WORKSPACE/Cargo.toml"
       - name: Record source and resulting lock digest
+        if: steps.workspace.outputs.present == 'true'
         env:
           SOURCE_SHA: ${{ github.sha }}
+          WORKSPACE: ${{ matrix.workspace }}
         run: |
           python - <<'PY'
           import hashlib, json, os, pathlib, subprocess
-          lock = pathlib.Path('tools/c2pa/Cargo.lock')
+          lock = pathlib.Path('tools') / os.environ['WORKSPACE'] / 'Cargo.lock'
           report = {
               'sourceCommit': os.environ['SOURCE_SHA'],
+              'workspace': os.environ['WORKSPACE'],
               'lockSha256': hashlib.sha256(lock.read_bytes()).hexdigest(),
               'scope': 'Dependency resolution only; no build or test result.',
               'lockDiff': subprocess.check_output(['git', 'diff', '--', str(lock)], text=True),
@@ -30,9 +50,10 @@ jobs:
           pathlib.Path('c2pa-lock-provenance.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
           PY
       - uses: actions/upload-artifact@v4
+        if: steps.workspace.outputs.present == 'true'
         with:
-          name: c2pa-resolved-lock
+          name: c2pa-resolved-lock-${{ matrix.workspace }}
           path: |
-            tools/c2pa/Cargo.lock
+            tools/${{ matrix.workspace }}/Cargo.lock
             c2pa-lock-provenance.json
           if-no-files-found: error
