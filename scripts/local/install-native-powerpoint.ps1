@@ -17,7 +17,8 @@ param(
     [switch]$NoCopy,
     # Isolated Actions registry fixture; never usable for a real installation.
     [string]$RegistryFixture,
-    [ValidateSet('x86','x64')][string]$RegistryFixtureArchitecture = 'x64'
+    [ValidateSet('x86','x64')][string]$RegistryFixtureArchitecture = 'x64',
+    [switch]$RegistryFixtureCopy
 )
 $ErrorActionPreference = 'Stop'
 
@@ -105,6 +106,7 @@ if (-not $RuntimeRoot) {
     }
 }
 if ($PSBoundParameters.ContainsKey('RegistryFixtureArchitecture') -and -not $RegistryFixture) { throw '隔离测试的位数参数不能用于真实安装。' }
+if ($RegistryFixtureCopy -and -not $RegistryFixture) { throw '复制测试只能用于隔离的 Actions 验证。' }
 $source = [IO.Path]::GetFullPath($RuntimeRoot)
 $addInName = $null
 foreach ($name in $AddInNames) {
@@ -124,8 +126,17 @@ if ($RegistryFixture) {
     $prefix = $RegistryFixture + '\'
     $view = if ($RegistryFixtureArchitecture -eq 'x86') { [Microsoft.Win32.RegistryView]::Registry32 } else { [Microsoft.Win32.RegistryView]::Registry64 }
     if ($PowerPointPath -and (Get-PeArchitecture ([IO.Path]::GetFullPath($PowerPointPath))) -ne $view) { throw '隔离宿主 PE 的位数与测试指定视图不一致。' }
-    $NoCopy = $true
-    $installDir = $source
+    if ($RegistryFixtureCopy) {
+        if (-not $env:RUNNER_TEMP -or -not $InstallDir -or $NoCopy) { throw '复制测试需要独立的 Actions 临时安装目录。' }
+        $fixtureTemp = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd('\') + '\'
+        $installDir = [IO.Path]::GetFullPath($InstallDir)
+        if (-not $installDir.StartsWith($fixtureTemp,[StringComparison]::OrdinalIgnoreCase) -or
+            [IO.Path]::GetFileName($installDir) -notmatch '^workproof-office-copy-[a-f0-9]{32}$' -or
+            $installDir.TrimEnd('\') -ieq $source.TrimEnd('\')) { throw '复制测试目录必须是独立的 Actions 临时目录。' }
+    } else {
+        $NoCopy = $true
+        $installDir = $source
+    }
 } else {
     $prefix = ''
     if (-not $NoCopy) {
@@ -195,26 +206,28 @@ try {
 
     # ------------------------------------------------------------- copy payload
     $copied = $false
-    if (-not $NoCopy -and -not $RegistryFixture) {
+    if (-not $NoCopy) {
         if ($installDir.TrimEnd('\') -ieq $source.TrimEnd('\')) {
             Write-Output '已在安装目录内运行，跳过复制。'
         } else {
             # Only our own binaries from a previous install are stopped; PowerPoint and other apps are untouched.
-            foreach ($name in @('workproof-desktop.exe', 'workproof-engine.exe')) {
-                Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($name)) -ErrorAction SilentlyContinue | ForEach-Object {
-                    $path = $null
-                    try { $path = $_.Path } catch { }
-                    $installedBinary = [IO.Path]::GetFullPath((Join-Path $installDir $name))
-                    if ($path -and [string]::Equals([IO.Path]::GetFullPath($path), $installedBinary, [StringComparison]::OrdinalIgnoreCase)) {
-                        try {
-                            $_.Kill()
-                            $null = $_.WaitForExit(5000)
-                            Write-Output ('已停止旧版 ' + $name + '（PID ' + $_.Id + '），安装后请重新打开 WorkProof 桌面程序。')
-                        } catch { }
+            if (-not $RegistryFixture) {
+                foreach ($name in @('workproof-desktop.exe', 'workproof-engine.exe')) {
+                    Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($name)) -ErrorAction SilentlyContinue | ForEach-Object {
+                        $path = $null
+                        try { $path = $_.Path } catch { }
+                        $installedBinary = [IO.Path]::GetFullPath((Join-Path $installDir $name))
+                        if ($path -and [string]::Equals([IO.Path]::GetFullPath($path), $installedBinary, [StringComparison]::OrdinalIgnoreCase)) {
+                            try {
+                                $_.Kill()
+                                $null = $_.WaitForExit(5000)
+                                Write-Output ('已停止旧版 ' + $name + '（PID ' + $_.Id + '），安装后请重新打开 WorkProof 桌面程序。')
+                            } catch { }
+                        }
                     }
                 }
+                Start-Sleep -Milliseconds 400
             }
-            Start-Sleep -Milliseconds 400
             New-Item -ItemType Directory -Force -Path $installDir | Out-Null
             foreach ($name in ($AddInNames + @('workproof-engine.exe') + $OptionalFiles)) {
                 $from = Join-Path $source $name

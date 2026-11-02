@@ -41,29 +41,74 @@ $hosts=@(
 )
 foreach ($hostSpec in $hosts) {
     foreach ($architecture in @('x86','x64')) {
-        $fixture='Software\WorkProofNative'+$hostSpec.Name+'CI\'+[guid]::NewGuid().ToString()
-        $view=if ($architecture -eq 'x86') {[Microsoft.Win32.RegistryView]::Registry32} else {[Microsoft.Win32.RegistryView]::Registry64}
-        $probe=(Resolve-Path -LiteralPath $hostSpec[$architecture.ToUpperInvariant()]).Path
-        $opposite=if ($architecture -eq 'x86') {$hostSpec.X64} else {$hostSpec.X86}
-        $arguments=@{RuntimeRoot=$packageRoot;RegistryFixture=$fixture;RegistryFixtureArchitecture=$architecture}
-        $arguments[$hostSpec.PathParameter]=$probe
-        $installer=Join-Path $localScripts $hostSpec.Installer
-        $open=Join-Path $localScripts $hostSpec.Open
-        try {
-            & $installer @arguments | Out-Null
-            $inspection=& $open -OfficePath $probe -Inspect -RegistryFixture $fixture -RegistryFixtureArchitecture $architecture | ConvertFrom-Json
-            $expectedDll=$hostSpec.Dll+$(if ($architecture -eq 'x86') {'.x86.dll'} else {'.dll'})
-            if ($inspection.Architecture -ne $architecture -or [IO.Path]::GetFileName($inspection.Dll) -ne $expectedDll -or $inspection.RuntimeRoot -ne $packageRoot) { throw 'Read-only launcher selected the wrong native runtime' }
-            $mismatch=$arguments.Clone();$mismatch[$hostSpec.PathParameter]=$opposite
-            Expect-Rejected { & $installer @mismatch } '位数.*不一致'
-            # Rejected attempts must preserve the previously valid registration.
-            $again=& $open -OfficePath $probe -Inspect -RegistryFixture $fixture -RegistryFixtureArchitecture $architecture | ConvertFrom-Json
-            if ($again.Dll -ne $inspection.Dll) { throw 'Rejected architecture attempt changed the installed DLL' }
-            Expect-Rejected { & $open -OfficePath $opposite -Inspect -RegistryFixture $fixture -RegistryFixtureArchitecture $architecture } '位数.*不一致'
-            & $installer @arguments -Remove | Out-Null
-            Expect-Rejected { & $open -OfficePath $probe -Inspect -RegistryFixture $fixture -RegistryFixtureArchitecture $architecture } '没有找到.*加载项'
-            $checks+=($hostSpec.Name+' '+$architecture+': native PE selection, inspect, mismatch refusal, preserved registration and removal')
-        } finally { Clear-Fixture $fixture }
+        foreach ($mode in @('original','copy')) {
+            $fixture='Software\WorkProofNative'+$hostSpec.Name+'CI\'+[guid]::NewGuid().ToString()
+            $view=if ($architecture -eq 'x86') {[Microsoft.Win32.RegistryView]::Registry32} else {[Microsoft.Win32.RegistryView]::Registry64}
+            $probe=(Resolve-Path -LiteralPath $hostSpec[$architecture.ToUpperInvariant()]).Path
+            $opposite=if ($architecture -eq 'x86') {$hostSpec.X64} else {$hostSpec.X86}
+            $arguments=@{RuntimeRoot=$packageRoot;RegistryFixture=$fixture;RegistryFixtureArchitecture=$architecture}
+            $arguments[$hostSpec.PathParameter]=$probe
+            $installedRoot=$packageRoot
+            if ($mode -eq 'copy') {
+                $installedRoot=Join-Path $env:RUNNER_TEMP ('workproof-office-copy-'+[guid]::NewGuid().ToString('N'))
+                $arguments.RegistryFixtureCopy=$true
+                $arguments.InstallDir=$installedRoot
+            }
+            $installer=Join-Path $localScripts $hostSpec.Installer
+            $open=Join-Path $localScripts $hostSpec.Open
+            try {
+                if ($mode -eq 'copy') {
+                    $invalidCopy=$arguments.Clone()
+                    $invalidCopy.InstallDir=Join-Path $env:RUNNER_TEMP ('invalid-office-copy-'+[guid]::NewGuid().ToString('N'))
+                    Expect-Rejected { & $installer @invalidCopy } '复制测试目录必须'
+                    if (Test-Path -LiteralPath $invalidCopy.InstallDir) { throw 'Rejected copy target was created' }
+                    Assert-FixtureAbsent $fixture $view
+                }
+                & $installer @arguments | Out-Null
+                $inspection=& $open -OfficePath $probe -Inspect -RegistryFixture $fixture -RegistryFixtureArchitecture $architecture | ConvertFrom-Json
+                $expectedDll=$hostSpec.Dll+$(if ($architecture -eq 'x86') {'.x86.dll'} else {'.dll'})
+                if ($inspection.Architecture -ne $architecture -or [IO.Path]::GetFileName($inspection.Dll) -ne $expectedDll -or $inspection.RuntimeRoot -ne $installedRoot) { throw 'Read-only launcher selected the wrong native runtime' }
+                if ($mode -eq 'copy') {
+                    if (-not (Test-Path -LiteralPath (Join-Path $installedRoot '.workproof-native') -PathType Leaf)) { throw 'Copied installation is missing its ownership marker' }
+                    $required=@($expectedDll,'workproof-engine.exe','workproof-desktop.exe','native-office-platform.ps1',$hostSpec.Open,$hostSpec.Installer,
+                        'verifier/verify-worker.js','verifier/wasm/workproof_protocol_bg.wasm','verifier/c2pa/pkg/workproof_c2pa_wasm_bg.wasm')
+                    foreach ($relative in $required) {
+                        $original=Join-Path $packageRoot $relative
+                        $copied=Join-Path $installedRoot $relative
+                        if (-not (Test-Path -LiteralPath $copied -PathType Leaf) -or
+                            (Get-FileHash -LiteralPath $original -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $copied -Algorithm SHA256).Hash) { throw ('Copied payload missing or changed: '+$relative) }
+                    }
+                    foreach ($file in (Get-ChildItem -LiteralPath $installedRoot -Recurse -File -Force)) {
+                        $relative=$file.FullName.Substring($installedRoot.Length+1)
+                        if ($relative -eq '.workproof-native') { continue }
+                        $original=Join-Path $packageRoot $relative
+                        if (-not (Test-Path -LiteralPath $original -PathType Leaf) -or
+                            (Get-FileHash -LiteralPath $original -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash) { throw ('Installed file differs from delivered package: '+$relative) }
+                    }
+                    $copiedOpen=Join-Path $installedRoot $hostSpec.Open
+                    $fromCopy=& $copiedOpen -OfficePath $probe -Inspect -RegistryFixture $fixture -RegistryFixtureArchitecture $architecture | ConvertFrom-Json
+                    if ($fromCopy.Dll -ne $inspection.Dll -or $fromCopy.RuntimeRoot -ne $installedRoot -or
+                        $fromCopy.Executable -ne (Join-Path $installedRoot 'workproof-desktop.exe')) { throw 'Copied launch entry resolves outside installed runtime' }
+                }
+                $mismatch=$arguments.Clone();$mismatch[$hostSpec.PathParameter]=$opposite
+                Expect-Rejected { & $installer @mismatch } '位数.*不一致'
+                # Rejected attempts must preserve the previously valid registration.
+                $again=& $open -OfficePath $probe -Inspect -RegistryFixture $fixture -RegistryFixtureArchitecture $architecture | ConvertFrom-Json
+                if ($again.Dll -ne $inspection.Dll) { throw 'Rejected architecture attempt changed the installed DLL' }
+                Expect-Rejected { & $open -OfficePath $opposite -Inspect -RegistryFixture $fixture -RegistryFixtureArchitecture $architecture } '位数.*不一致'
+                & $installer @arguments -Remove | Out-Null
+                Expect-Rejected { & $open -OfficePath $probe -Inspect -RegistryFixture $fixture -RegistryFixtureArchitecture $architecture } '没有找到.*加载项'
+                $checks+=($hostSpec.Name+' '+$architecture+' '+$mode+': native PE selection, installed payload and launcher, mismatch refusal, preserved registration and removal')
+            } finally {
+                Clear-Fixture $fixture
+                if ($mode -eq 'copy' -and (Test-Path -LiteralPath $installedRoot -PathType Container)) {
+                    $tempPrefix=[IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd('\')+'\'
+                    $resolvedCopy=[IO.Path]::GetFullPath($installedRoot)
+                    if (-not $resolvedCopy.StartsWith($tempPrefix,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolvedCopy) -notmatch '^workproof-office-copy-[a-f0-9]{32}$') { throw 'Refuse to remove a non-fixture copy directory' }
+                    Remove-Item -LiteralPath $resolvedCopy -Recurse -Force
+                }
+            }
+        }
     }
 }
 # Missing x86 payload must fail before registry writes; no fabricated PE or CLR probe is used.
