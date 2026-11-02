@@ -1,0 +1,34 @@
+{
+  "package": "wpsjs-rpc-sdk",
+  "version": "1.1.31",
+  "registry": "https://registry.npmjs.org/wpsjs-rpc-sdk/1.1.31",
+  "tarball": "https://registry.npmjs.org/wpsjs-rpc-sdk/-/wpsjs-rpc-sdk-1.1.31.tgz",
+  "sha256": "bf32e752c0a405b3ea0b185e978cbfc83afdb9391f38c3ad8309552e7d415eab",
+  "metadata_license": "ISC",
+  "repository": null,
+  "files": [
+    {
+      "name": "package/test/tst.html",
+      "bytes": 60,
+      "sha256": "413fb04449918008e6c50927f61b128d51b000c2a606afd411f6de5a203397f3"
+    },
+    {
+      "name": "package/wpsjsrpcsdk.js",
+      "bytes": 82192,
+      "sha256": "1eb3b0782563b6dd4f59e7c9fb836b24cd0d98c4c3b1a66628910220b20bd9f3"
+    },
+    {
+      "name": "package/package.json",
+      "bytes": 299,
+      "sha256": "860c528c99f8b7befcecc236a6601bba603622d742418445c03558cbba9f1db1"
+    },
+    {
+      "name": "package/README.md",
+      "bytes": 13360,
+      "sha256": "916f3690d33d67587d2205e1eb849d12800ff8bd09b22a6b3997ccaba18986e4"
+    }
+  ],
+  "status": "unresolved_notice_material",
+  "reason": "Published archive contains no LICENSE/COPYING/NOTICE or complete license and copyright notice. ISC metadata alone is not treated as distribution clearance.",
+  "inspection": "Static archive inspection only; SDK not installed, executed or added as a dependency."
+}

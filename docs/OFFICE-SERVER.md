@@ -34,6 +34,8 @@ WPS 推荐使用官方 publish 分发方式；`jsplugins.xml` 在部分新版本
 
 `wpsjs@2.2.3` 包内许可与 npm 声明有冲突，生成模板的分发条件尚待确认，因此本工作流不安装该工具、不包含上游模板或其示例加载项。正式 publish 页面仍待许可确认和真实宿主验收。官方推荐发布流程及版本范围见 [WPS 加载项开发说明](https://open.wps.cn/documents/app-integration-dev/wps365/client/wpsoffice/wps-integration-mode/wps-addin-development/wps-addin-development-instructions)。不能以本入口包宣称所有 WPS 版本可点击安装。
 
+独立发布入口的进一步核对：官方文档提供 `WpsAddonMgr.enable`、`verifyStatus`、`disable`，并允许整合发布页面；这些对象由 RPC SDK 提供，普通网页不能直接使用。独立 `wpsjs-rpc-sdk@1.1.31` 的官方 npm tarball 已作静态检查：只有 SDK、README、package.json 和测试 HTML 四个文件，元数据标 ISC，但没有完整许可或版权声明，也没有 repository 字段。因而目前仍未引入此 SDK。准确来源、归档及逐文件摘要见 [检查记录](licenses/wps-rpc-sdk-1.1.31-review.json)，接口依据见 [官方业务系统集成说明](https://open.wps.cn/documents/app-integration-dev/wps365/client/wpsoffice/wps-integration-mode/wps-addin-development/wps-addin-integration-business-system-development)。后续需补齐覆盖精确版本的许可材料或取得明确使用授权，再实现自有安装 UI；不能以包的 ISC 标签替代这一步。
+
 性能结果 `41180459986`：Windows CI 的关闭状态窗托盘模式工作集约 16.2 MB，3 秒采样内未测到明显空闲 CPU，128 事件批次端到端 p95 17.589 ms（包括 PowerShell、HTTP 和 SQLite 持久化开销）。该结果不是 Office/WPS 宿主性能数据，也不能替代用户机器测量。
 
 验证记录：HTTPS/HTTP 双监听、真实 Word XML 与资源、默认信任拒绝及 API 鉴权通过 [41186723953](https://github.com/W-Boat/WorkProof/actions/runs/41186723953)；Word 清单校验、只操作固定 ID 的安装/撤销、拒绝覆盖其他目录的安装和保留无关注册项通过 [41187531600](https://github.com/W-Boat/WorkProof/actions/runs/41187531600)。本机 HTTPS 已运行，公共清单已导出到私有运行目录 `office/manifest-word.xml`；证书 SHA-256 为 `A41F140979718BA6724112E0C617C6620E5165A0FB5E348E7112027D5DE59583`，有效至 2026-11-30。本机 Word 文件版本为 `16.0.20430.20182`，仍待明确证书信任确认与真实宿主操作；没有把注册表测试当作 Word 加载成功。
