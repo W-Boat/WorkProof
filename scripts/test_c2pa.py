@@ -10,6 +10,7 @@ parser.add_argument('fixture')
 parser.add_argument('--desktop-report',help='Write actual successful CLI reports for desktop compatibility tests.')
 parser.add_argument('--desktop-embed-report',help='Write actual CLI embedding reports, which do not establish CA trust.')
 parser.add_argument('--public-fixtures-out',help='Export only synthetic public validation files for manual UI acceptance; never private keys.')
+parser.add_argument('--browser-fixtures-out',help='Separate allowlisted synthetic assets for actual browser Wasm acceptance.')
 parser.add_argument('--trust-probe',help='Optional CI-only SDK trust-chain diagnostic executable for synthetic public certificates.')
 parser.add_argument('--without-network-trace',action='store_true',help='Explicitly skip syscall tracing on platforms without strace; report this as unmeasured.')
 options=parser.parse_args()
@@ -196,6 +197,20 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
         assert source.read_bytes()==original_jpeg and (folder/'full.wproof').read_bytes()==proof_bytes
         jpeg_results.append({'progressive':progressive,'segmented_app11_packets':len(packets),'metadata_preserved':True,'full_and_selective':True})
 
+    if options.browser_fixtures_out:
+        browser=pathlib.Path(options.browser_fixtures_out);browser.mkdir(parents=True,exist_ok=False)
+        assets={'full.png':signed,'selected.png':selected,'unsigned.png':original,
+                'changed.png':root/'changed.png','assertion-changed.png':root/'assertion-changed.png',
+                'synthetic-ca.pem':root/'ca.pem','wrong-ca.pem':root/'wrong.pem',
+                'baseline.jpg':root/'baseline/signed.jpg','baseline-selected.jpg':root/'baseline/selected.jpg',
+                'progressive.jpg':root/'progressive/signed.jpg','progressive-selected.jpg':root/'progressive/selected.jpg',
+                'changed.jpg':root/'baseline/metadata-changed.jpg'}
+        for name,source_path in assets.items():
+            payload=source_path.read_bytes();(browser/name).write_bytes(payload)
+            assert (browser/name).read_bytes()==payload
+        assert {p.name for p in browser.iterdir()}==set(assets)
+        (browser/'VALIDATION.json').write_text(json.dumps({'purpose':'synthetic browser acceptance only','source_commit':os.environ['GITHUB_SHA'],'build_run':os.environ['GITHUB_RUN_ID'],'private_keys_included':False,'synthetic_ca_lifetime_days':2,'files':sorted(assets)},indent=2),encoding='utf-8')
+        (browser/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in sorted(browser.iterdir()) if p.is_file()),encoding='utf-8')
     if options.public_fixtures_out:
         export=pathlib.Path(options.public_fixtures_out)
         export.mkdir(parents=True,exist_ok=False)

@@ -6,6 +6,7 @@ parser=argparse.ArgumentParser()
 parser.add_argument('tool');parser.add_argument('fixture')
 parser.add_argument('--desktop-report',type=pathlib.Path)
 parser.add_argument('--desktop-embed-report',type=pathlib.Path)
+parser.add_argument('--browser-fixtures-out',type=pathlib.Path)
 args=parser.parse_args()
 tool,fixture=(str(pathlib.Path(p).resolve()) for p in [args.tool,args.fixture])
 verified_reports=[];embedded_reports=[]
@@ -76,6 +77,18 @@ with tempfile.TemporaryDirectory(prefix='workproof-pdf-ci-') as directory:
     run(fixture,encrypted,root)
     embed(encrypted,root/'full.wproof',root/'encrypted-out.pdf',ok=False);assert not (root/'encrypted-out.pdf').exists()
     print('PASS PDF full/selective real signatures, explicit CA and wrong CA, exact original prefix, existing attachments, tampering/revisions, wrong proof, preexisting C2PA and encrypted refusal')
+    if args.browser_fixtures_out:
+        import hashlib
+        browser=args.browser_fixtures_out;browser.mkdir(parents=True,exist_ok=False)
+        assets={'full.pdf':root/'full.pdf','selected.pdf':root/'selected.pdf','unsigned.pdf':source,
+                'changed.pdf':root/'changed.pdf','extra.pdf':root/'extra.pdf','encrypted.pdf':encrypted,
+                'synthetic-ca.pem':root/'ca.pem','wrong-ca.pem':root/'wrong.pem'}
+        for name,source_path in assets.items():
+            payload=source_path.read_bytes();(browser/name).write_bytes(payload)
+            assert (browser/name).read_bytes()==payload
+        assert {p.name for p in browser.iterdir()}==set(assets)
+        (browser/'VALIDATION.json').write_text(json.dumps({'purpose':'synthetic browser PDF acceptance only','source_commit':os.environ['GITHUB_SHA'],'build_run':os.environ['GITHUB_RUN_ID'],'private_keys_included':False,'synthetic_ca_lifetime_days':2,'files':sorted(assets)},indent=2),encoding='utf-8')
+        (browser/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in sorted(browser.iterdir()) if p.is_file()),encoding='utf-8')
     # Export only actual CLI results, and only after every negative probe passed.
     for path,reports in [(args.desktop_report,verified_reports),(args.desktop_embed_report,embedded_reports)]:
         if path:

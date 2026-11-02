@@ -1,0 +1,52 @@
+name: Real browser embedded certificate verification
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tools/c2pa/**', 'tools/c2pa-wasm/**', 'scripts/test_c2pa.py', 'scripts/test_c2pa_pdf.py', '.github/workflows/c2pa-wasm.yml']
+permissions:
+  contents: read
+concurrency:
+  group: c2pa-browser-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            tools/c2pa -> target
+            tools/c2pa-wasm -> target
+      - name: Build locked native signer and browser verifier
+        run: |
+          cargo build --release --locked --manifest-path tools/c2pa/Cargo.toml --bins --examples
+          cargo build --release --locked --target wasm32-unknown-unknown --manifest-path tools/c2pa-wasm/Cargo.toml
+          cargo install wasm-bindgen-cli --version 0.2.130 --locked
+          wasm-bindgen tools/c2pa-wasm/target/wasm32-unknown-unknown/release/workproof_c2pa_wasm.wasm --target web --out-dir tools/c2pa-wasm/pkg
+      - name: Generate fresh allowlisted public fixtures with actual signatures
+        run: |
+          python -m pip install Pillow==12.0.0 pypdf==6.1.3
+          python scripts/test_c2pa.py tools/c2pa/target/release/workproof-c2pa tools/c2pa/target/release/examples/fixture --without-network-trace --browser-fixtures-out .ci-browser-images
+          python scripts/test_c2pa_pdf.py tools/c2pa/target/release/workproof-c2pa tools/c2pa/target/release/examples/fixture --browser-fixtures-out .ci-browser-pdf
+      - name: Verify signatures and failures inside actual Chromium workers
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          node tools/c2pa-wasm/test-browser.cjs .ci-browser-images .ci-browser-pdf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: real-browser-c2pa-validation
+          path: test-c2pa-wasm-results.json
+          if-no-files-found: error

@@ -1,0 +1,11 @@
+# Optional browser-local C2PA verifier (pending Actions acceptance)
+
+This separate workspace exports one asynchronous browser function, `verify_embedded(bytes, independentCaPem)`. It uses the official c2pa-rs 0.91.7 async Reader with Rust-native crypto and the same WorkProof verification library as the native CLI. PNG/JPEG normalization and strict incremental PDF reconstruction are shared, not duplicated in JavaScript. The SDK HTTP features remain disabled; remote manifests, OCSP and redirects are disabled in shared settings.
+
+The CA must be selected independently. A successful result requires the SDK signature/asset hash and explicit CA trust checks, then the unique WorkProof assertion, original asset byte binding and full/selective process proof checks. Extracting a manifest alone is never success. Reports do not authenticate human authorship, identity, creation time or revocation status.
+
+The browser client loads a same-origin module worker and local Wasm resources, transfers the chosen asset to that worker, and terminates it after success, failure, cancellation or timeout. The worker sends only the bounded verification summary back. There is no upload endpoint and no signing/private-key export. Asset limits are 96 MiB, independently selected CA 256 KiB. PDF format limits are inherited from the native tool. These limits are not a guarantee against every browser memory-exhaustion case.
+
+CI preparation: resolve this workspace's lockfile through the dedicated Actions lock workflow, then build for `wasm32-unknown-unknown` and generate bindings with the matching `wasm-bindgen-cli 0.2.130` using `--target web --out-dir tools/c2pa-wasm/pkg --out-name workproof_c2pa_wasm`. No local build is required. Distribute `client.mjs`, `worker.mjs` and the `pkg` folder together as optional static resources. Build and browser acceptance are still required before claiming delivery.
+
+Official API evidence: [official browser Reader](https://github.com/contentauth/c2pa-js/blob/main/packages/c2pa-wasm/src/wasm_reader.rs), [official workspace SDK selection](https://github.com/contentauth/c2pa-js/blob/main/Cargo.toml). The implementation uses the reviewed 0.91.7 crate source, not a runtime dependency on these mutable URLs.
