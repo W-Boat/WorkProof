@@ -24,6 +24,10 @@ on:
       - 'scripts/test_word_native_dll.ps1'
       - 'docs/WORD-NATIVE.md'
       - '.github/workflows/word-native.yml'
+      - '.github/actions/c2pa-resource/**'
+      - 'tools/c2pa/**'
+      - 'scripts/c2pa_notices.py'
+      - 'docs/licenses/c2pa-*/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -44,6 +48,7 @@ jobs:
         with:
           arch: x64
       - run: npm ci
+      - uses: ./.github/actions/c2pa-resource
       - name: Build the offline verifier and the VS Code extension for the same desktop
         run: |
           npm run build:web
@@ -90,6 +95,7 @@ jobs:
             -Vsix $vsix.FullName `
             -Docs docs `
             -Notices .ci-word-notices `
+            -C2pa apps/desktop/src-tauri/resources/c2pa `
             -Zip dist/workproof-native-word-windows-dev.zip
       - name: Register and unregister PowerPoint in isolated registry
         shell: pwsh

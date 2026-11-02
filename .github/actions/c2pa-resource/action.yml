@@ -1,0 +1,28 @@
+name: Build isolated image verification resource
+description: Package the optional C2PA CLI and its locked dependency notices outside the recorder graph.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Build isolated image tool
+      shell: bash
+      run: cargo build --release --locked --manifest-path tools/c2pa/Cargo.toml
+    - name: Collect exact dependency notices
+      shell: bash
+      run: python scripts/c2pa_notices.py
+    - name: Stage optional resource with provenance
+      shell: python
+      run: |
+        import hashlib,json,os,pathlib,shutil
+        base=pathlib.Path('apps/desktop/src-tauri/resources/c2pa')
+        base.mkdir(parents=True,exist_ok=True)
+        binary='workproof-c2pa'+('.exe' if os.name=='nt' else '')
+        shutil.copy2(pathlib.Path('tools/c2pa/target/release')/binary,base/binary)
+        shutil.copy2('LICENSE',base/'LICENSE')
+        shutil.copy2('tools/c2pa/Cargo.lock',base/'Cargo.lock')
+        shutil.copy2('docs/C2PA.md',base/'C2PA.md')
+        shutil.copytree('.ci-c2pa-notices',base/'third-party',dirs_exist_ok=True)
+        (base/'BUILD-INFO.json').write_text(json.dumps({'source_commit':os.environ['GITHUB_SHA'],'build_run':os.environ['GITHUB_RUN_ID'],'purpose':'optional local image verification CLI','signing_credentials_included':False},indent=2),encoding='utf-8')
+        (base/'SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(base).as_posix()+'\n' for p in sorted(base.rglob('*')) if p.is_file() and p.name!='SHA256SUMS'),encoding='utf-8')

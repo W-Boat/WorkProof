@@ -15,6 +15,7 @@ param(
     [string]$Vsix,
     [string]$Docs,
     [string]$Notices,
+    [string]$C2pa,
     [string]$Zip
 )
 $ErrorActionPreference = 'Stop'
@@ -42,6 +43,10 @@ if ($PowerPointAddIn) {
 }
 
 if ($Desktop) { Copy-Required $Desktop (Join-Path $Package 'workproof-desktop.exe') }
+if ($C2pa) {
+    if (-not (Test-Path -LiteralPath (Join-Path $C2pa 'workproof-c2pa.exe') -PathType Leaf)) { throw 'C2PA image checker is missing.' }
+    Copy-Item -LiteralPath $C2pa -Destination (Join-Path $Package 'c2pa') -Recurse -Force
+}
 if ($Vsix) { Copy-Required $Vsix (Join-Path $Package 'workproof.vsix') }
 if ($Verifier) {
     if (-not (Test-Path -LiteralPath (Join-Path $Verifier 'index.html') -PathType Leaf)) { throw 'The verifier build has no index.html' }

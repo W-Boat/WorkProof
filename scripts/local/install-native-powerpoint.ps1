@@ -202,7 +202,7 @@ try {
                     Copy-Item -LiteralPath $from -Destination (Join-Path $installDir $name) -Force
                 }
             }
-            foreach ($name in @('verifier', 'docs', 'third-party-notices')) {
+            foreach ($name in @('verifier', 'docs', 'third-party-notices', 'c2pa')) {
                 $from = Join-Path $source $name
                 if (Test-Path -LiteralPath $from -PathType Container) {
                     Copy-Item -LiteralPath $from -Destination $installDir -Recurse -Force
