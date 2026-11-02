@@ -3,7 +3,7 @@
 # The Blender extension distribution selects GPL-3.0-or-later; see README.md and COPYING.
 """Local Blender adapter. bpy stays on the main thread; transport uses a bounded queue."""
 bl_info = {"name":"WorkProof · 开源证人","author":"WorkProof contributors","version":(0,2,1),"blender":(4,2,0),"location":"View3D > Sidebar > WorkProof","category":"System"}
-import datetime,json,os,pathlib,queue,threading,time,urllib.request
+import datetime,hashlib,json,math,os,pathlib,queue,threading,time,urllib.request
 import bpy
 from bpy.app.handlers import persistent
 from .location import data_directory
@@ -21,6 +21,29 @@ def request(route,body):
 
 def metrics():
     return {'vertices':sum(len(m.vertices) for m in bpy.data.meshes),'edges':sum(len(m.edges) for m in bpy.data.meshes),'faces':sum(len(m.polygons) for m in bpy.data.meshes),'objects':len(bpy.data.objects),'modifiers':sum(len(o.modifiers) for o in bpy.data.objects),'viewport_changes':_runtime.viewport_changes if _runtime else 0}
+
+def structure_checkpoint():
+    """Main-thread transient state; only a domain-separated SHA-256 digest leaves bpy.
+
+    Pointer identities describe this running session, not persistent author identity.
+    Geometry, names and arbitrary modifier properties are deliberately not serialized.
+    """
+    if len(bpy.data.objects)>50000:raise RuntimeError('对象超过 50000，结构记录已暂停。')
+    rows=[];modifier_count=0
+    for obj in bpy.data.objects:
+        modifiers=[]
+        for index,modifier in enumerate(obj.modifiers):
+            modifier_count+=1
+            if modifier_count>200000:raise RuntimeError('修改器超过 200000，结构记录已暂停。')
+            modifiers.append([index,modifier.as_pointer(),modifier.type,bool(modifier.show_viewport),bool(modifier.show_render)])
+        matrix=[float(value) for row in obj.matrix_world for value in row]
+        if not all(math.isfinite(value) for value in matrix):raise RuntimeError('对象变换包含无效数值，结构记录已暂停。')
+        rows.append([obj.as_pointer(),obj.parent.as_pointer() if obj.parent else 0,obj.type,
+                     obj.data.as_pointer() if obj.data else 0,matrix,modifiers])
+    rows.sort(key=lambda row:row[0])
+    data=json.dumps(rows,separators=(',',':'),ensure_ascii=True,allow_nan=False).encode('ascii')
+    if len(data)>16*1024*1024:raise RuntimeError('结构摘要输入超过 16 MB，记录已暂停。')
+    return hashlib.sha256(b'workproof-blender-structure-v1-sha256\0'+data).hexdigest()
 
 def visible_viewports():
     """Main-thread, transient state only. Never send coordinates, rotations or pointers."""
@@ -53,8 +76,8 @@ class Runtime:
     def put(self,operation,payload):
         try:self.queue.put_nowait((operation,payload));return True
         except queue.Full:self.paused=True;self.last_error='离线队列已满，已暂停；继续时将记录缺口。';return False
-    def event(self,kind,values=None):
-        return self.put('event',{'elapsed_ms':int((time.monotonic()-self.started)*1000),'kind':kind,'inserted':0,'deleted':0,'chars':0,'checkpoint':'','metrics':values or {}})
+    def event(self,kind,values=None,checkpoint=''):
+        return self.put('event',{'elapsed_ms':int((time.monotonic()-self.started)*1000),'kind':kind,'inserted':0,'deleted':0,'chars':0,'checkpoint':checkpoint,'metrics':values or {}})
     def seal(self,filename,values):
         event={'elapsed_ms':int((time.monotonic()-self.started)*1000),'kind':'save','inserted':0,'deleted':0,'chars':0,'checkpoint':'','metrics':values}
         self.exported='';return self.put('seal',{'path':filename,'event':event})
@@ -113,8 +136,11 @@ def sample():
             _runtime.viewport_changes+=1
             _runtime.event('viewport',{'viewport_changes':_runtime.viewport_changes})
     if _runtime and not _runtime.paused and _dirty:
-        _dirty=False;values=metrics()
-        _runtime.event('mesh',values);_last_metrics=values
+        try:
+            values=metrics();checkpoint=structure_checkpoint()
+            _dirty=False;_runtime.event('mesh',values,checkpoint);_last_metrics=values
+        except Exception as error:
+            _runtime.paused=True;_runtime.last_error=str(error)
     return 1.0
 
 class WORKPROOF_OT_start(bpy.types.Operator):
@@ -123,7 +149,9 @@ class WORKPROOF_OT_start(bpy.types.Operator):
         global _runtime,_last_metrics
         if _runtime:self.report({'ERROR'},'请先停止当前记录');return {'CANCELLED'}
         if not bpy.data.filepath:self.report({'ERROR'},'请先保存当前 .blend 工程');return {'CANCELLED'}
-        _runtime=Runtime(bpy.data.filepath);_last_metrics=metrics();_runtime.event('start',_last_metrics);return {'FINISHED'}
+        try:checkpoint=structure_checkpoint()
+        except Exception as error:self.report({'ERROR'},str(error));return {'CANCELLED'}
+        _runtime=Runtime(bpy.data.filepath);_last_metrics=metrics();_runtime.event('start',_last_metrics,checkpoint);return {'FINISHED'}
     def invoke(self,context,event):return context.window_manager.invoke_confirm(self,event)
 class WORKPROOF_OT_pause(bpy.types.Operator):
     bl_idname='workproof.pause';bl_label='暂停 / 继续'
@@ -131,7 +159,9 @@ class WORKPROOF_OT_pause(bpy.types.Operator):
         if not _runtime:return {'CANCELLED'}
         if _runtime.paused:
             if bpy.data.filepath!=_runtime.filename:self.report({'ERROR'},'工程路径已改变，请停止后重新开始记录。');return {'CANCELLED'}
-            if not _runtime.event('gap',metrics()) or not _runtime.event('resume',metrics()):return {'CANCELLED'}
+            try:checkpoint=structure_checkpoint()
+            except Exception as error:self.report({'ERROR'},str(error));return {'CANCELLED'}
+            if not _runtime.event('gap',metrics()) or not _runtime.event('resume',metrics(),checkpoint):return {'CANCELLED'}
             _runtime.last_viewports=visible_viewports()
             _runtime.paused=False;_runtime.retry.set()
         else:_runtime.event('pause',metrics());_runtime.paused=True
@@ -155,7 +185,7 @@ class WORKPROOF_PT_panel(bpy.types.Panel):
             layout.operator('workproof.pause',icon='PAUSE');layout.operator('workproof.export',icon='EXPORT');layout.operator('workproof.stop',icon='CANCEL')
             if _runtime.exported:layout.label(text='证书已保存在工程旁边',icon='CHECKMARK')
             if _runtime.last_error:layout.label(text=_runtime.last_error[:90],icon='ERROR')
-        layout.label(text='网格统计、撤销、保存与视口变化采样。');layout.label(text='1 秒采样；不保存视口坐标或画面。')
+        layout.label(text='网格统计、对象结构摘要和视口变化。');layout.label(text='1 秒采样；不保存对象名称、坐标或画面。')
         layout.label(text='不代表真人认证或全部操作的完整记录。')
 
 CLASSES=(WORKPROOF_OT_start,WORKPROOF_OT_pause,WORKPROOF_OT_export,WORKPROOF_OT_stop,WORKPROOF_PT_panel)
