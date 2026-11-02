@@ -29,7 +29,7 @@ test('JPEG EXIF and simple XMP stay local and remain editable clues',async({page
   await page.goto('/');
   // Use the browser's actual JPEG encoder, then add synthetic metadata segments.
   const encoded=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=1;return c.toDataURL('image/jpeg').split(',')[1];});
-  const image=Buffer.from(encoded,'base64'),panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
+  const image=Buffer.from(encoded,'base64'),panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
   const xmp=(text:string)=>jpegSegment(225,Buffer.from('http://ns.adobe.com/xap/1.0/\0'+text));
   const xml='<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:tool="https://example.org/editable" tool:prompt="&lt;script&gt;fixture&lt;/script&gt;"><tool:workflow>editable workflow</tool:workflow></rdf:Description></rdf:RDF></x:xmpmeta>';
   async function scan(segments:Buffer[]){
@@ -68,7 +68,7 @@ test('JPEG EXIF and simple XMP stay local and remain editable clues',async({page
 });
 
 test('JPEG malformed segment bounds and repeated metadata have explicit limits',async({page})=>{
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
   async function scan(buffer:Buffer){
     await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'bounded.jpg',mimeType:'image/jpeg',buffer});await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
   }
@@ -85,7 +85,7 @@ test('JPEG malformed segment bounds and repeated metadata have explicit limits',
 
 test('IPTC generative source declarations are editable clues, distinct from ordinary algorithmic edits',async({page})=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
   const namespace='http://iptc.org/std/Iptc4xmpExt/2008-02-29/',prefix='http://cv.iptc.org/newscodes/digitalsourcetype/';
   const xml=(type:string,ns=namespace,resource=false)=>`<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:iptc="${ns}">${resource?`<iptc:DigitalSourceType rdf:resource="${prefix+type}"/>`:`<iptc:DigitalSourceType>${prefix+type}</iptc:DigitalSourceType>`}</rdf:Description></rdf:RDF></x:xmpmeta>`;
   async function scanPng(text:string){
@@ -113,7 +113,7 @@ test('IPTC generative source declarations are editable clues, distinct from ordi
 });
 test('optional PNG metadata stays local and distinguishes hints from conclusions',async({page})=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
   const scan=panel.getByRole('button',{name:'检查所选作品的元数据',exact:true});await expect(scan).toBeDisabled();
   const image=Buffer.concat([png.subarray(0,-12),chunk('tEXt',Buffer.from('prompt\0<script>alert(1)</script> test')),chunk('zTXt',Buffer.from('hidden\0\0not inflated')),png.subarray(-12)]);
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'metadata.png',mimeType:'image/png',buffer:image});await scan.click();
@@ -145,7 +145,7 @@ test('PPTX properties use the same bounded local scanner without reading slide t
   const external:string[]=[];
   page.on('request',request=>{if(new URL(request.url()).origin!=='http://127.0.0.1:4173')external.push(request.url());});
   await page.goto('/');
-  const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
+  const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
   const app='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft PowerPoint</Application></Properties>';
   const custom='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><property name="workflow"><vt:lpwstr>editable source clue</vt:lpwstr></property></Properties>';
   async function scan(parts:[string,string][]){
@@ -167,7 +167,7 @@ test('PPTX properties use the same bounded local scanner without reading slide t
 });
 test('DOCX properties remain local, distinguish editable hints and reject hostile containers',async({page})=>{
   const external:string[]=[];page.on('request',request=>{if(new URL(request.url()).origin!=='http://127.0.0.1:4173')external.push(request.url());});
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
   const scan=panel.getByRole('button',{name:'检查所选作品的元数据',exact:true});
   const app='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>WPS Office</Application></Properties>';
   const custom='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><property name="prompt"><vt:lpwstr>&lt;script&gt;example&lt;/script&gt;</vt:lpwstr></property></Properties>';
