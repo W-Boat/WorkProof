@@ -51,6 +51,28 @@ test('cancelled selections do not connect or overwrite a delivery',async()=>{
   const second=fixture();await second.recorder.start();second.state.cancelProof=true;await second.recorder.export();
   assert.equal(second.state.saveCalls,0);assert.equal(second.state.writes.length,0);
 });
+
+test('cancelled optional graph selection writes neither proof nor graph',async()=>{
+  const {recorder:r,state,host}=fixture();await r.start();
+  // Exercise selection cancellation before any file save; recording state already exists.
+  r.evolution=true;host.chooseGraph=async()=>null;
+  await r.export();
+  assert.equal(state.saveCalls,0);assert.deepEqual(state.writes,[]);
+  assert.match(r.message,/已取消结构文件保存/);
+  r.paused=true;state.cancelProof=true;await r.export();assert.match(r.message,/仍处于暂停状态/);
+});
+
+test('anonymous structure keeps groups and rejects cycles, missing parents and cached-depth overflow',()=>{
+  const {recorder:r}=fixture();
+  const graph=r.graphNodesFor({topology:[[301,null,0,'7',true],[302,301,0,'1',true]],groupIds:[301]});
+  assert.equal(graph[0].kind,'group');assert.equal(graph[1].kind,'layer');assert.equal(graph[1].parent,graph[0].id);
+  assert(graph.every(node=>node.id<301));
+  const chain=Array.from({length:256},(_,i)=>[1000+i,i?999+i:null,0,'7',true]);
+  assert.equal(r.graphNodesFor({topology:chain}).length,256);
+  assert.throws(()=>r.graphNodesFor({topology:[...chain,[1256,1255,0,'1',true]]}),/256/);
+  assert.throws(()=>r.graphNodesFor({topology:[[1,2,0,'7',true],[2,1,0,'7',true]]}),/结构关系无效/);
+  assert.throws(()=>r.graphNodesFor({topology:[[1,99,0,'1',true]]}),/结构关系无效/);
+});
 test('document switch while paused cannot contaminate an existing session',async()=>{
   const {recorder:r,state}=fixture();await r.start();await r.pause();state.id=9;
   await assert.rejects(()=>r.pause(),/活动文档已改变/);assert.equal(r.paused,true);assert.equal(state.writes.length,0);
@@ -109,7 +131,7 @@ function nativeFixture(){
   return {host:createHost(ps,storage),doc,entry,calls};
 }
 test('native API adapter counts nested visibility and excludes names',()=>{
-  const {host}=nativeFixture();assert.deepEqual(host.snapshot(),{id:17,history:99,metrics:{layers:3,groups:1,visible_layers:1},topology:[[101,null,0,'7',false],[102,null,1,'1',true],[103,101,0,'1',true]]});
+  const {host}=nativeFixture();assert.deepEqual(host.snapshot(),{id:17,history:99,metrics:{layers:3,groups:1,visible_layers:1},topology:[[101,null,0,'7',false],[102,null,1,'1',true],[103,101,0,'1',true]],groupIds:[101]});
 });
 
 test('native topology detects same-count reorder, reparent and visibility swap',()=>{

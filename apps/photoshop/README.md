@@ -28,6 +28,14 @@
 
 `apps/photoshop/dist` 是构建后的开发加载目录，ZIP 是源交付/开发包，不应改名为 `.ccx` 冒充正式安装器。包含本项目与打包哈希库的许可；Adobe API 模块由宿主提供，不作为 MIT 库打进包。
 
+## 可选的图层关系文件
+
+开始前勾选“另存图层关系与顺序”可导出 `.wgraph`。默认关闭，原有结构摘要路径保留。开启后仅分享会话内重新编号的图层/组、父子关系与顺序，不含 Photoshop 原始图层 ID、图层名、像素或可见性。关系本身可能透露作品组织方式，请按需交付。编号只比较相邻采样中仍存在的节点；未观测到的删除与重建不能据此判为同一持续身份。
+
+后台按真实事件序号请求本机 Rust 计算结构检查点，事件落盘确认后才收录快照。断线重试沿用原快照，已提交但丢失确认的事件不会重新采样。每会话 128 份快照、每份 10000 个节点、合计 50000 个节点、8 MiB 与 256 层限制；超过限制暂停并提示，仍可导出已提交记录。结构图不表示全部编辑历史。
+
+开启该选项后，导出时另外弹出一次 `.wgraph` 保存位置选择；取消则不写入本次证书。保存使用同一 UXP `getFileForSaving` 与 `Entry.write` 权限机制，不推断同目录权限。请同时交付所选 PSD 副本、`.wproof` 和 `.wgraph`。选择性披露证书须包含结构文件引用的全部事件。可使用 `workproof-engine inspect-evolution FILE.wproof FILE.wgraph` 或网页进行核对。新增 Actions 验收使用模拟 Adobe API 与真实 Rust 引擎，不代表真实 Adobe 主机验收。
+
 官方参考：
 
 - [UXP manifest 与权限](https://developer.adobe.com/uxp/guides/explanation/concepts/manifest/)

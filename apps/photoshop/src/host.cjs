@@ -21,7 +21,7 @@ function createHost(ps,storage){
   function snapshot(){
     const doc=ps.app.activeDocument;if(!doc)throw new Error('请先打开 Photoshop 文档。');
     const before=marker(),topology=[],seen=new Set();
-    let layers=0,groups=0,visible_layers=0;
+    let layers=0,groups=0,visible_layers=0;const groupIds=[];
     const stack=list(doc.layers).map((layer,order)=>({layer,visible:true,parent:null,order}));
     while(stack.length){
       const {layer,visible,parent,order}=stack.pop();
@@ -34,7 +34,7 @@ function createHost(ps,storage){
       const shown=visible&&layer.visible;
       if(shown)visible_layers++;
       if(layer.kind===ps.constants.LayerKind.GROUP){
-        groups++;const children=list(layer.layers);
+        groups++;groupIds.push(layer.id);const children=list(layer.layers);
         if(stack.length+layers+children.length>50_000)throw new Error('当前适配器最多统计 50000 个图层节点。');
         children.forEach((child,index)=>stack.push({layer:child,visible:shown,parent:layer.id,order:index}));
       }
@@ -42,7 +42,7 @@ function createHost(ps,storage){
     const position=marker();
     if(position.id!==doc.id||position.id!==before.id||position.history!==before.history)throw new Error('统计期间文档或历史状态已改变，请停止编辑后重试。');
     topology.sort((a,b)=>a[0]-b[0]);
-    return {...position,metrics:{layers,groups,visible_layers},topology};
+    return {...position,metrics:{layers,groups,visible_layers},topology,groupIds};
   }
   return {
     snapshot,marker,activeId:id,
@@ -58,6 +58,11 @@ function createHost(ps,storage){
     async chooseProof(name){
       const entry=await fs.getFileForSaving(name,{types:['wproof']});
       if(entry&&!entry.name.toLowerCase().endsWith('.wproof'))throw new Error('证书须使用 .wproof 扩展名。');
+      return entry;
+    },
+    async chooseGraph(name){
+      const entry=await fs.getFileForSaving(name,{types:['wgraph']});
+      if(entry&&!entry.name.toLowerCase().endsWith('.wgraph'))throw new Error('结构文件须使用 .wgraph 扩展名。');
       return entry;
     },
     async saveCopy(entry,documentId){

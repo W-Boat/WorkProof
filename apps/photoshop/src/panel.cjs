@@ -19,13 +19,14 @@ const recorder=new Recorder({host:createHost(ps,storage),request,hash:bytes=>Arr
   element('status').textContent=state.message;
   element('count').textContent=`${state.committed} 条已提交事件 · ${state.queued} 条待提交`;
   element('start').disabled=state.recording||state.busy;
+  element('evolution').disabled=state.recording||state.busy;
   element('pause').disabled=!state.recording||state.busy;
   element('pause').textContent=state.paused?'继续记录':'暂停记录';
-  element('export').disabled=!state.recording||state.paused||state.busy;
+  element('export').disabled=!state.recording||state.busy;
   element('stop').disabled=!state.recording||state.busy;
 }});
 async function safe(operation){try{await operation();}catch(error){recorder.error=error.message||String(error);recorder.paint();}}
-for(const [id,operation] of [['start',()=>recorder.start()],['pause',()=>recorder.pause()],['export',()=>recorder.export()],['stop',()=>recorder.stop()]])element(id).addEventListener('click',()=>void safe(operation));
+for(const [id,operation] of [['start',()=>{recorder.evolution=!!element('evolution').checked;return recorder.start();}],['pause',()=>recorder.pause()],['export',()=>recorder.export()],['stop',()=>recorder.stop()]])element(id).addEventListener('click',()=>void safe(operation));
 let interval;
 entrypoints.setup({panels:{workproof:{
   show(){if(!interval)interval=setInterval(()=>void safe(()=>recorder.sample()),1000);recorder.paint();},

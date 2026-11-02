@@ -24,7 +24,7 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
     }
     const approve=(ticket,value=true)=>harness.stdin.write(JSON.stringify({ticket,approve:value})+'\n');
     const calls=[];let callback;let nativeTicket;
-    const artifactPath=path.join(directory,'delivery.psd'),certificatePath=artifactPath+'.wproof';
+    const artifactPath=path.join(directory,'delivery.psd'),certificatePath=artifactPath+'.wproof',graphPath=artifactPath+'.wgraph';
     const entry=(filename)=>({name:path.basename(filename),nativePath:filename,
       async getMetadata(){const stat=fs.statSync(filename);return {size:stat.size,dateModified:new Date(stat.mtimeMs)};},
       async read(){const data=fs.readFileSync(filename);return data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);},
@@ -35,7 +35,7 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
       core:{async executeAsModal(fn){await fn({isCancelled:false});}}};
     // Deliberately synthetic file bytes. Only file binding and signing are exercised here.
     doc.saveAs={psd:async(file,options,asCopy)=>{assert.equal(asCopy,true);fs.writeFileSync(file.nativePath,'8BPS synthetic fixture '+doc.activeHistoryState.id);}};
-    const storage={formats:{binary:'binary',utf8:'utf8'},localFileSystem:{getFileForSaving:async name=>entry(name.endsWith('.wproof')?certificatePath:artifactPath)}};
+    const storage={formats:{binary:'binary',utf8:'utf8'},localFileSystem:{getFileForSaving:async name=>entry(name.endsWith('.wproof')?certificatePath:name.endsWith('.wgraph')?graphPath:artifactPath)}};
     let now=1000;
     const r=new Recorder({host:createHost(ps,storage),now:()=>now,sleep:()=>wait(25),hash:bytes=>Buffer.from(blake3(bytes)).toString('hex'),request:async(route,body,token)=>{
       calls.push({route,body});const result=await http(route,body,token);
@@ -110,6 +110,33 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
     const preserved=spawnSync(engine,['verify',artifactPath,certificatePath],{encoding:'utf8'});assert.equal(preserved.status,0,preserved.stderr);
     const result={adobe_host:'simulated UXP APIs, not real Photoshop',collector:'real Rust/Axum/SQLite',signature_and_file_binding:'passed via native CLI',native_desktop_approval:'real Rust approval function via CI-only stdin harness',origin_and_channel_isolation:'passed',source_and_session_scope:'passed',native_seal_and_global_status_denied:'passed',private_descriptors_excluded:'passed',desktop_revocation:'Word create/append/export denied; WPS unaffected; native grant revoked; exported proof preserved',events:certificate.records.length};
     result.evolution_checkpoint_authorization='Native and browser grants accepted only for their own sessions; cross-grant and revoked requests denied; preparation does not append events';
+    assert.equal(fs.existsSync(graphPath),false,'Default recording must not export structure');
+    let loseAck=false;
+    const graphRecorder=new Recorder({evolution:true,host:createHost(ps,storage),now:()=>now,sleep:()=>wait(25),hash:bytes=>Buffer.from(blake3(bytes)).toString('hex'),request:async(route,body,token)=>{
+      const response=await http(route,body,token);if(response.status!==200)throw Error(response.data.error);
+      if(route==='/v1/native-pairing')approve(response.data.ticket);
+      if(loseAck&&route.endsWith('/events')){loseAck=false;throw Error('Synthetic ACK loss after actual Rust commit');}
+      return response.data;
+    }});
+    await graphRecorder.start();assert.equal(graphRecorder.graphs.length,1);
+    doc.layers.reverse();doc.activeHistoryState.id++;now+=1000;loseAck=true;
+    await assert.rejects(()=>graphRecorder.sample(true),/ACK loss/);
+    assert.equal(graphRecorder.graphs.length,1);
+    const queuedNodes=JSON.parse(JSON.stringify(graphRecorder.graphPending.get(graphRecorder.pending[0]).nodes));
+    doc.layers.reverse();doc.activeHistoryState.id++;
+    await graphRecorder.flush();assert.deepEqual(graphRecorder.graphs.at(-1).nodes,queuedNodes);
+    await graphRecorder.export();
+    const graph=JSON.parse(fs.readFileSync(graphPath,'utf8'));
+    assert(graph.snapshots.length>=2);assert(graph.snapshots.some(s=>s.nodes.some(n=>n.kind==='group')));
+    for(const snapshot of graph.snapshots)for(const node of snapshot.nodes){assert.deepEqual(Object.keys(node),['id','parent','order','kind','relation']);assert(node.id<301);}
+    assert(!JSON.stringify(graph).includes('private'));
+    let inspected=spawnSync(engine,['inspect-evolution',certificatePath,graphPath],{encoding:'utf8'});assert.equal(inspected.status,0,inspected.stdout+inspected.stderr);
+    const selectedPath=path.join(directory,'graph.selected.wproof');
+    assert.equal(spawnSync(engine,['disclose',certificatePath,selectedPath,graph.snapshots.map(s=>s.seq).join(',')],{encoding:'utf8'}).status,0);
+    assert.equal(spawnSync(engine,['inspect-evolution',selectedPath,graphPath],{encoding:'utf8'}).status,0);
+    graph.snapshots[0].nodes[0].order+=10;fs.writeFileSync(graphPath,JSON.stringify(graph));
+    assert.equal(spawnSync(engine,['inspect-evolution',certificatePath,graphPath],{encoding:'utf8'}).status,2);
+    await graphRecorder.stop();result.opt_in_evolution='Default-off; full/selective real Rust verification; graph tamper denied; ACK-loss retry immutable; anonymous group/layer nodes';
     fs.writeFileSync('test-photoshop-results.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
   }finally{
     harness.stdin.end();harness.kill();

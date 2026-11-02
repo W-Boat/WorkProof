@@ -6,11 +6,32 @@ const MAP={make:'layer',delete:'layer',move:'layer',mergeLayersNew:'layer',merge
 const topology=s=>JSON.stringify(s.topology??null);
 const same=(a,b)=>a.id===b.id&&a.history===b.history&&JSON.stringify(a.metrics)===JSON.stringify(b.metrics)&&topology(a)===topology(b);
 class Recorder {
-  constructor({host,request,hash,now=Date.now,sleep=ms=>new Promise(r=>setTimeout(r,ms)),changed=()=>{}}){
+  constructor({host,request,hash,evolution=false,now=Date.now,sleep=ms=>new Promise(r=>setTimeout(r,ms)),changed=()=>{}}){
     Object.assign(this,{host,request,hash,now,sleep,changed});
     this.token='';this.session='';this.pending=[];this.next=0;this.committed=0;this.paused=true;this.busy=false;this.sampling=false;
     this.signals=new Set();this.revision=0;this.elapsed=0;this.error='';this.message='连接后仅在主动开始时记录当前文档。';
     this.notify=this.notify.bind(this);this.stopped=false;this.pauseAfterBusy=false;
+    this.evolution=evolution;this.resetGraphs();
+  }
+  resetGraphs(){this.graphs=[];this.graphPending=new WeakMap();this.identities=new Map();this.nextIdentity=1;this.graphCount=0;this.graphNodes=0;this.graphBytes=64;}
+  graphNodesFor(snapshot){
+    if(!Array.isArray(snapshot.topology)||snapshot.topology.length>10000)throw Error('结构补充最多支持 10000 个节点。');
+    const active=new Map();
+    for(const row of snapshot.topology){let id=this.identities.get(row[0]);if(id===undefined)id=this.nextIdentity++;active.set(row[0],id);}
+    const groups=new Set(snapshot.groupIds||[]);
+    const nodes=snapshot.topology.map(([id,parent,order])=>({id:active.get(id),parent:parent===null?null:active.get(parent),order,kind:groups.has(id)?'group':'layer',relation:parent===null?'root':'contains'}));
+    const parents=new Map(nodes.map(node=>[node.id,node.parent]));
+    const resolved=new Map();
+    for(const node of nodes){
+      let current=node.id,depth=0;const chain=[],seen=new Set();
+      while(current!==null){
+        if(resolved.has(current)){depth=resolved.get(current);break;}
+        if(!parents.has(current)||seen.has(current)||chain.length>=256)throw Error('结构关系无效或超过 256 层。');
+        seen.add(current);chain.push(current);current=parents.get(current);
+      }
+      for(let i=chain.length-1;i>=0;i--){if(++depth>256)throw Error('结构关系无效或超过 256 层。');resolved.set(chain[i],depth);}
+    }
+    this.identities=active;return nodes;
   }
   view(){return {recording:!!this.session,paused:this.paused,busy:this.busy,committed:this.committed,queued:this.pending.length,message:this.error||this.message};}
   paint(){this.changed(this.view());}
@@ -42,15 +63,31 @@ class Recorder {
       // BLAKE3 commitment enters the existing signed checkpoint field.
       const text=topology(snapshot);checkpoint=this.hash(Uint8Array.from(text,char=>char.charCodeAt(0)));
     }
-    this.pending.push({seq:this.next++,elapsed_ms:this.elapsed,kind,inserted:0,deleted:0,chars:0,checkpoint,metrics:{...snapshot.metrics}});this.paint();
+    let nodes;
+    if(this.evolution&&['start','layer','resume'].includes(kind)){
+      nodes=this.graphNodesFor(snapshot);
+      const bytes=JSON.stringify(nodes).length+512;
+      if(this.graphCount>=128||this.graphNodes+nodes.length>50000||this.graphBytes+bytes>8*1024*1024){this.paused=true;throw Error('结构补充已达容量上限，请导出已有记录后重新开始。');}
+      this.graphCount++;this.graphNodes+=nodes.length;this.graphBytes+=bytes;
+    }
+    const event={seq:this.next++,elapsed_ms:this.elapsed,kind,inserted:0,deleted:0,chars:0,checkpoint,metrics:{...snapshot.metrics}};
+    if(nodes)this.graphPending.set(event,{nodes});
+    this.pending.push(event);this.paint();
   }
   async flush(){
     if(this.delivering)return this.delivering;
     this.delivering=(async()=>{
       while(this.pending.length){
-        const batch=this.pending.slice(0,128);
+        const batch=this.pending.slice(0,this.evolution?1:128);
+        const graph=this.graphPending.get(batch[0]);
+        if(graph&&!graph.prepared){
+          const prepared=await this.api('/v1/sessions/'+this.session+'/evolution-checkpoint',{seq:batch[0].seq,event_kind:batch[0].kind,nodes:graph.nodes});
+          if(prepared.snapshot?.session_id!==this.session||prepared.snapshot.source!=='photoshop'||prepared.snapshot.seq!==batch[0].seq||prepared.snapshot.event_kind!==batch[0].kind||JSON.stringify(prepared.snapshot.nodes)!==JSON.stringify(graph.nodes)||!/^[a-f0-9]{64}$/.test(prepared.checkpoint))throw Error('本机引擎返回的结构绑定不一致。');
+          graph.prepared=prepared;batch[0].checkpoint=prepared.checkpoint;
+        }
         const result=await this.api('/v1/sessions/'+this.session+'/events',{events:batch});
         if(!Number.isSafeInteger(result.next_seq)||result.next_seq<batch[batch.length-1].seq+1)throw new Error('本机引擎未确认事件落盘。');
+        if(graph)this.graphs.push(graph.prepared.snapshot);
         this.pending.splice(0,batch.length);this.committed+=batch.length;this.paint();
       }
     })();
@@ -71,7 +108,7 @@ class Recorder {
       const result=await this.api('/v1/sessions',{source:'photoshop',file_name:this.artifact.name,started_at:new Date().toISOString()});
       if(this.stopped)throw new Error('插件已关闭，本次记录未启动。');
       this.session=result.session_id;this.started=this.now();this.lastSample=this.started;this.next=0;this.committed=0;this.pending=[];this.elapsed=0;
-      this.previous=current;this.signals.clear();this.paused=false;
+      this.resetGraphs();this.previous=current;this.signals.clear();this.paused=false;
       this.event('start',current);await this.flush();this.message='记录中。每秒合并动作信号，记录图层统计和结构摘要，不保存图像或图层名称。';
     }catch(error){
       this.paused=true;
@@ -119,14 +156,17 @@ class Recorder {
     }catch(error){this.paused=true;throw error;}finally{await this.finishBusy();}
   }
   async export(){
-    if(!this.session||this.paused||this.busy)throw new Error('请先开始或继续记录。');
+    if(!this.session||this.busy)throw new Error('请先开始记录。');
     this.busy=true;this.error='';this.paint();
     try{
       while(this.sampling)await this.sleep(20);
       await this.sample(true);
       const proofFile=await this.host.chooseProof(this.artifact.name+'.wproof');
-      if(!proofFile){this.message='已取消证书导出，继续记录。';return;}
-      if(this.stopped||this.paused)throw new Error('记录已停止或插件已关闭，请重新开始。');
+      if(!proofFile){this.message=this.paused?'已取消证书导出，记录仍处于暂停状态。':'已取消证书导出，继续记录。';return;}
+      const graphFile=this.evolution?await this.host.chooseGraph(this.artifact.name+'.wgraph'):null;
+      if(this.evolution&&!graphFile){this.message='已取消结构文件保存，未写入本次证书。';return;}
+      await this.flush();
+      if(this.stopped)throw new Error('记录已停止或插件已关闭，请重新开始。');
       const before=this.host.snapshot();this.check(before);const revision=this.revision;
       await this.host.saveCopy(this.artifact,this.documentId);
       if(this.stopped)throw new Error('插件已关闭，未写入证书。');
@@ -144,8 +184,9 @@ class Recorder {
       if(this.stopped)throw new Error('插件已关闭，未写入证书。');
       await this.host.assertArtifactUnchanged(this.artifact,stamp);
       await this.host.writeProof(proofFile,proof);
+      if(graphFile)await this.host.writeProof(graphFile,{format:'workproof-evolution/1',snapshots:this.graphs});
       await this.host.assertArtifactUnchanged(this.artifact,stamp);
-      this.message='PSD 副本和 .wproof 已写入你选择的位置。请交付这份副本。';
+      this.message=graphFile?'PSD 副本、.wproof 与 .wgraph 已保存到所选位置。请一并交付这三份文件。':'PSD 副本和 .wproof 已写入你选择的位置。请交付这份副本。';
     }finally{await this.finishBusy();}
   }
   async stop(){
