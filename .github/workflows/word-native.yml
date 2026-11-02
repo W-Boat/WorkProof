@@ -27,6 +27,8 @@ on:
       - 'docs/WORD-NATIVE.md'
       - '.github/workflows/word-native.yml'
       - '.github/actions/c2pa-resource/**'
+      - '.github/actions/c2pa-browser-resource/**'
+      - 'tools/c2pa-wasm/**'
       - 'tools/c2pa/**'
       - 'scripts/c2pa_notices.py'
       - 'docs/licenses/c2pa-*/**'
@@ -37,7 +39,7 @@ jobs:
   # Native in-proc COM add-in: no CLR, no Office.js sideload, no local HTTPS.
   native-addin:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,6 +53,7 @@ jobs:
           arch: x64
       - run: npm ci
       - uses: ./.github/actions/c2pa-resource
+      - uses: ./.github/actions/c2pa-browser-resource
       - name: Build the offline verifier and the VS Code extension for the same desktop
         run: |
           npm run build:web
