@@ -105,6 +105,7 @@ jobs:
         run: |
           python scripts/test_package_zip.py
           python scripts/verify_package_zip.py dist/workproof-native-word-windows-dev.zip
+          python -c "import pathlib; p=pathlib.Path('.ci-c2pa-public-fixtures'); expected={'full.png','selected.png','unsigned.png','synthetic-ca.pem','wrong-ca.pem','baseline.jpg','progressive.jpg','README.txt','VALIDATION.json','SHA256SUMS.txt'}; assert {f.name for f in p.iterdir()}==expected, 'Unexpected public fixture content; refuse publication'"
       - name: Register and unregister PowerPoint in isolated registry
         shell: pwsh
         run: |

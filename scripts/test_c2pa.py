@@ -2,7 +2,7 @@
 import argparse
 import io
 from PIL import Image
-import json, os, pathlib, shutil, struct, subprocess, sys, tempfile, zlib
+import hashlib, json, os, pathlib, shutil, struct, subprocess, sys, tempfile, zlib
 assert os.environ.get('GITHUB_ACTIONS') == 'true'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('tool')
@@ -202,6 +202,22 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
                             (root/'baseline/signed.jpg','baseline.jpg'),(root/'progressive/signed.jpg','progressive.jpg')]:
             (export/name).write_bytes(source.read_bytes())
         (export/'README.txt').write_text('SYNTHETIC CI VALIDATION ONLY\nNot real authorship, identity or public C2PA accreditation.\nThe synthetic CA expires after two days. All private keys are discarded.\nfull.png/baseline.jpg/progressive.jpg should pass using synthetic-ca.pem; selected.png discloses only three records.\nwrong-ca.pem must be rejected; unsigned.png has no embedded certificate.\nThese files are for manual UI acceptance, not real delivery.\n',encoding='utf-8')
+        (export/'VALIDATION.json').write_text(json.dumps({
+            'purpose':'synthetic public manual UI acceptance fixtures only',
+            'source_commit':os.environ.get('GITHUB_SHA'),
+            'build_run':os.environ.get('GITHUB_RUN_ID'),
+            'private_keys_included':False,
+            'synthetic_ca_lifetime_days':2,
+            'expected':{
+                'full.png':'full success with synthetic-ca.pem',
+                'selected.png':'selective success; 3 disclosed of 5 total',
+                'baseline.jpg':'full success with synthetic-ca.pem',
+                'progressive.jpg':'full success with synthetic-ca.pem',
+                'unsigned.png':'reject missing embedded manifest',
+                'wrong-ca.pem':'reject trust for every signed image'
+            }
+        },indent=2),encoding='utf-8')
+        (export/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in sorted(export.iterdir()) if p.is_file()),encoding='utf-8')
 
 pathlib.Path('test-c2pa-results.json').write_text(json.dumps({'real_c2pa_png':True,'real_c2pa_jpeg':jpeg_results,'explicit_ca':True,'full_and_selective':True,'tamper_rejected':True,'original_bytes_unchanged':True,'verification_network_calls':False if traces_performed else None,'network_trace_performed':bool(traces_performed),'network_traces':traces_performed,'synthetic_authority_only':True},indent=2))
 assert traces_performed == (3 if trace_enabled else 0)
