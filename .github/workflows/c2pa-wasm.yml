@@ -57,11 +57,13 @@ jobs:
         with:
           name: verifier-with-embedded-certificates
           path: apps/verifier/out/
+          include-hidden-files: true
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: c2pa-browser-runtime
           path: apps/verifier/public/c2pa/
+          include-hidden-files: true
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
