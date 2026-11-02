@@ -37,10 +37,19 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
     root=pathlib.Path(name);original=root/'original.png';original.write_bytes(png(b'\x14\x99\x88\xff'))
     snapshot=original.read_bytes();run(fixture,original,root)
     proof_snapshot=(root/'full.wproof').read_bytes()
-    run(openssl,'req','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'ca.key','-out',root/'ca.pem','-days','2','-subj','/CN=WorkProof synthetic C2PA CA','-addext','basicConstraints=critical,CA:TRUE','-addext','keyUsage=critical,keyCertSign,cRLSign')
-    run(openssl,'req','-new','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'signer.key','-out',root/'signer.csr','-subj','/CN=WorkProof synthetic C2PA signer')
+    print('Synthetic certificate provider:',run(openssl,'version').stdout.decode(errors='replace').strip(),flush=True)
+    run(openssl,'req','-x509','-sha256','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'ca.key','-out',root/'ca.pem','-days','2','-subj','/CN=WorkProof synthetic C2PA CA','-addext','basicConstraints=critical,CA:TRUE','-addext','keyUsage=critical,keyCertSign,cRLSign')
+    run(openssl,'req','-new','-sha256','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'signer.key','-out',root/'signer.csr','-subj','/CN=WorkProof synthetic C2PA signer')
     (root/'ext.cnf').write_text('basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=emailProtection\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n')
-    run(openssl,'x509','-req','-in',root/'signer.csr','-CA',root/'ca.pem','-CAkey',root/'ca.key','-CAcreateserial','-out',root/'signer.pem','-days','2','-extfile',root/'ext.cnf')
+    run(openssl,'x509','-req','-sha256','-in',root/'signer.csr','-CA',root/'ca.pem','-CAkey',root/'ca.key','-CAcreateserial','-out',root/'signer.pem','-days','2','-extfile',root/'ext.cnf')
+    # Do not inherit a provider's legacy digest defaults: the SDK trust path
+    # accepts ECDSA SHA-256/384/512, not SHA-1. Inspect actual certificates, not
+    # just the command line, and retain diagnostics from each native runner.
+    for certificate in ['ca.pem','signer.pem']:
+        details=run(openssl,'x509','-in',root/certificate,'-noout','-text').stdout.decode(errors='replace')
+        algorithms=[line.strip() for line in details.splitlines() if 'Signature Algorithm:' in line]
+        print(certificate,algorithms,flush=True)
+        assert algorithms and all(line.split(':',1)[1].strip()=='ecdsa-with-SHA256' for line in algorithms), algorithms
     (root/'chain.pem').write_bytes((root/'signer.pem').read_bytes()+(root/'ca.pem').read_bytes())
     signed=root/'signed.png'
     def embed(proof='full.wproof',destination=signed,source=original,consent=True,ok=True):
@@ -55,7 +64,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
     signed_snapshot=signed.read_bytes();embed(ok=False);assert signed.read_bytes()==signed_snapshot
     embed(source=signed,destination=root/'nested.png',ok=False);assert not (root/'nested.png').exists()
     # Independent wrong trust anchor; does not depend on any other workflow's fixture.
-    run(openssl,'req','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'wrong.key','-out',root/'wrong.pem','-days','2','-subj','/CN=Wrong synthetic CA','-addext','basicConstraints=critical,CA:TRUE')
+    run(openssl,'req','-x509','-sha256','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'wrong.key','-out',root/'wrong.pem','-days','2','-subj','/CN=Wrong synthetic CA','-addext','basicConstraints=critical,CA:TRUE')
     run(tool,'verify',signed,root/'wrong.pem',ok=False)
     # Change actual image pixels while retaining structurally valid chunks and valid CRCs.
     data=signed_snapshot;pos=8;changed=data[:8];assertion_changed=data[:8];found=False

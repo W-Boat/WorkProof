@@ -87,7 +87,14 @@ fn inspect(data:&[u8],roots:Option<&str>)->Result<(Report,bool)>{
     let state=reader.validation_state();
     if state==ValidationState::Invalid{return Err("C2PA_INTEGRITY_FAILED".into());}
     let trusted=state==ValidationState::Trusted;
-    if roots.is_some()&&!trusted{return Err("C2PA_EXPLICIT_CA_TRUST_FAILED".into());}
+    if roots.is_some()&&!trusted{
+        // Report SDK status codes for platform diagnostics without emitting
+        // certificate assertions, asset contents or any private key material.
+        if let Some(statuses)=reader.validation_status(){
+            for status in statuses{eprintln!("C2PA validation status: {}",status.code());}
+        }
+        return Err("C2PA_EXPLICIT_CA_TRUST_FAILED".into());
+    }
     let manifest=reader.active_manifest().ok_or("C2PA_MANIFEST_MISSING")?;
     let assertions:Vec<_>=manifest.assertions().iter().filter(|a|a.label()==LABEL).collect();
     if assertions.len()!=1{return Err("EXACTLY_ONE_WORKPROOF_ASSERTION_REQUIRED".into());}
