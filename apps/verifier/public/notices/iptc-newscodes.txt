@@ -1,0 +1,21 @@
+IPTC NewsCodes attribution for WorkProof image source declarations
+
+Copyright 2024 IPTC
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+WorkProof uses these standard concept URIs and adapts their definitions into
+short Chinese summaries. These summaries were translated/paraphrased, include
+an additional warning that metadata can be modified, and do not represent IPTC
+endorsement, signature validation or verification of a file's actual origin.
+
+Sources:
+https://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia
+https://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia
+https://cv.iptc.org/newscodes/digitalsourcetype/algorithmicallyEnhanced
+
+Only the first two concepts are treated as explicit generative-AI declarations.
+Algorithmically enhanced content (such as sharpening or noise reduction) is
+not by itself treated as a generative-AI declaration. No concept URI is fetched
+when inspecting a file. Metadata is editable, and missing metadata does not
+establish that no generative AI was used.

@@ -82,6 +82,35 @@ test('JPEG malformed segment bounds and repeated metadata have explicit limits',
   await scan(Buffer.concat([Buffer.from([255,216]),...Array(4097).fill(jpegSegment(224,Buffer.alloc(0))),Buffer.from([255,217])]));
   await expect(panel.getByRole('alert')).toContainText('数据段过多');await expect(panel.getByRole('status')).toHaveCount(0);
 });
+
+test('IPTC generative source declarations are editable clues, distinct from ordinary algorithmic edits',async({page})=>{
+  const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();
+  const namespace='http://iptc.org/std/Iptc4xmpExt/2008-02-29/',prefix='http://cv.iptc.org/newscodes/digitalsourcetype/';
+  const xml=(type:string,ns=namespace,resource=false)=>`<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:iptc="${ns}">${resource?`<iptc:DigitalSourceType rdf:resource="${prefix+type}"/>`:`<iptc:DigitalSourceType>${prefix+type}</iptc:DigitalSourceType>`}</rdf:Description></rdf:RDF></x:xmpmeta>`;
+  async function scanPng(text:string){
+    const body=Buffer.concat([Buffer.from('XML:com.adobe.xmp'),Buffer.from([0,0,0,0,0]),Buffer.from(text)]);
+    const image=Buffer.concat([png.subarray(0,-12),chunk('iTXt',body),png.subarray(-12)]);
+    await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'declared-source.png',mimeType:'image/png',buffer:image});
+    await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+  }
+  await scanPng(xml('trainedAlgorithmicMedia'));
+  await expect(panel.getByRole('status')).toContainText('使用生成式 AI 创建');await expect(panel.getByRole('status')).toContainText('尚未验证其真实性');
+  await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');
+  await panel.getByText('查看原始字段与位置',{exact:true}).click();await expect(panel.getByRole('status')).toContainText(prefix+'trainedAlgorithmicMedia');
+  await scanPng(xml('algorithmicallyEnhanced'));
+  await expect(panel.getByRole('status')).toContainText('例如锐化或降噪');await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
+  await scanPng(xml('trainedAlgorithmicMedia','https://example.org/unrecognized-namespace'));
+  await expect(panel.getByRole('status')).not.toContainText('使用生成式 AI 创建');await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
+  await scanPng('<!DOCTYPE x [<!ENTITY secret SYSTEM "https://example.org/private">]>'+xml('trainedAlgorithmicMedia'));
+  await expect(panel.getByRole('status')).toContainText('1 项');await expect(panel.getByRole('status')).not.toContainText('使用生成式 AI 创建');
+  const encoded=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=1;return canvas.toDataURL('image/jpeg').split(',')[1];});
+  const image=Buffer.from(encoded,'base64'),segment=jpegSegment(225,Buffer.from('http://ns.adobe.com/xap/1.0/\0'+xml('compositeWithTrainedAlgorithmicMedia',namespace,true)));
+  await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'declared-source.jpg',mimeType:'image/jpeg',buffer:Buffer.concat([image.subarray(0,2),segment,image.subarray(2)])});
+  await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+  await expect(panel.getByRole('status')).toContainText('使用生成式 AI 编辑');await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');
+  expect(external).toEqual([]);
+});
 test('optional PNG metadata stays local and distinguishes hints from conclusions',async({page})=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
   await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.locator('summary').click();

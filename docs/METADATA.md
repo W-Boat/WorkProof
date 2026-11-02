@@ -25,3 +25,15 @@ XMP 的 prompt、workflow、parameters、aigenerator 字段名仅提示检查可
 属性展示复用核验页已有 Panel、Tag、颜色与间距变量。常见字段显示中文名称，例如“编辑软件”“图片注释”“提示词”，原始字段及定位统一收在“查看原始字段与位置”中，保留复核依据。卡片自动适应窄屏；字段原值仍按可修改信息展示，不改写为来源事实。
 
 JPEG 的 Actions 浏览器用例使用浏览器实际编码的 JPEG 加合成 EXIF/XMP，覆盖大小端、中文 BOM 注释、普通软件名称、可修改提示字段、脚本转义、异常偏移、DTD 外链拒绝、嵌套属性跳过、段长度与数量限制、32 项显示上限、无外联与手机宽度。合成属性不是实际生成工具标记或真实来源证明，不能用作检测效果评估。
+
+## IPTC 数字来源类型
+
+标准 XMP 包中的 IPTC 扩展 `DigitalSourceType` 可作为文件自述来源线索读取。仅在命名空间精确为 `http://iptc.org/std/Iptc4xmpExt/2008-02-29/`，且值匹配官方完整 URI 时解释：`trainedAlgorithmicMedia` 表示声明使用生成式 AI 创建，`compositeWithTrainedAlgorithmicMedia` 表示声明使用生成式 AI 编辑；`algorithmicallyEnhanced` 的锐化/降噪等算法调整不作为生成式 AI 标记。假命名空间、未知 URI 或一般软件名称不自动推断为这些类型。
+
+支持 JPEG 标准 APP1 XMP 与 PNG 未压缩 iTXt 的精确 `XML:com.adobe.xmp` 关键字；PNG 与 JPEG 共用 XML 包限制，每包至多 64 KiB、最多 4 包，不解析压缩或扩展 XMP。现有 1 MiB 文字累计上限、32 项显示上限、取消与格式检查保持不变。只接受 Description 的标量属性、简单元素文本或无正文/子元素的单一 `rdf:resource`；URI 作为文本读取，绝不访问网络。数组/结构仍跳过。PNG 的 CRC 不在这个可修改线索功能中验证。
+
+界面保留“文件标注”“可被修改”“尚未验证真实性”的说明；来源类型的原始 URI 位于折叠的原始字段区。此读取不验证 C2PA、签名、身份、生成工具或使用比例，也不产生 AI 检测模型得分。删除或缺失标记不能用来证明未使用 AI。
+
+中文说明根据 IPTC NewsCodes 的定义改写，归属 IPTC，Copyright 2024 IPTC，使用 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)，原定义：[生成式 AI 创建](https://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia)、[生成式 AI 编辑](https://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia)、[普通算法调整](https://cv.iptc.org/newscodes/digitalsourcetype/algorithmicallyEnhanced)。读取标准字段不代表相关机构认可 WorkProof。
+
+新增 Actions 用例覆盖 PNG/JPEG 两种容器、精确命名空间、两类生成式声明与普通降噪的区分、`rdf:resource`、DTD 拒绝及无外联。全部使用合成标记，只验证字段解释；不提供现代模型检测率或中英文误报率证据。

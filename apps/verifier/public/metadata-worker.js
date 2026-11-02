@@ -1,5 +1,5 @@
 // Optional local PNG / DOCX / PPTX metadata inspection. No network or external relationships.
-importScripts('/docx-metadata.js','/jpeg-metadata.js');
+importScripts('/docx-metadata.js','/metadata-common.js','/jpeg-metadata.js');
 self.onmessage=async({data:{file}})=>{
   try{
     if(file.size>256*1024*1024)throw Error('文件超过 256 MB，请选择较小的文件。');
@@ -10,7 +10,7 @@ self.onmessage=async({data:{file}})=>{
     if(signature.join(',')!=='137,80,78,71,13,10,26,10')throw Error('目前只支持 PNG、JPEG、DOCX 和 PPTX 元数据检查；其他格式尚未分析。');
     const latin=value=>Array.from(value,b=>String.fromCharCode(b)).join('');
     const clean=value=>value.replace(/[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g,' ').slice(0,160);
-    const findings=[];let skipped=0,pos=8,total=0,ended=false,header=false;
+    const findings=[],xmp=[];let skipped=0,pos=8,total=0,ended=false,header=false;
     for(let count=0;pos<file.size;count++){
       if(count>=4096)throw Error('PNG 数据块过多，已停止分析。');
       const bytes=await read(pos,8);if(bytes.length!==8)throw Error('PNG 文件不完整。');
@@ -39,7 +39,10 @@ self.onmessage=async({data:{file}})=>{
             }
             if(text!==undefined){
               const hint=['parameters','prompt','workflow'].includes(field.toLowerCase());
-              if(findings.length<32)findings.push({field:clean(field),location:`${kind} @ ${pos}`,value:clean(text),hint});else skipped++;
+              if(kind==='iTXt'&&field==='XML:com.adobe.xmp'){
+                if(xmp.length>=4){skipped++;}
+                else{try{xmp.push(metadataXmpPacket(text,`${kind} @ ${pos}`));}catch{skipped++;}}
+              }else if(findings.length<32)findings.push({field:clean(field),location:`${kind} @ ${pos}`,value:clean(text),hint});else skipped++;
             }
           }
         }
@@ -48,6 +51,6 @@ self.onmessage=async({data:{file}})=>{
       if(kind==='IEND'){if(length!==0||pos!==file.size)throw Error('PNG 结束位置异常。');ended=true;break;}
     }
     if(!header||!ended)throw Error('PNG 文件不完整。');
-    self.postMessage({ok:true,findings,skipped});
+    self.postMessage({ok:true,format:'png',findings,xmp,skipped});
   }catch(error){self.postMessage({ok:false,message:error instanceof Error&&/[\u4e00-\u9fff]/.test(error.message)?error.message:'无法读取元数据，请重新选择文件。'});}
 };

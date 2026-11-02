@@ -73,8 +73,7 @@ async function jpegMetadata(file){
           else{
             try{
               const text=new TextDecoder('utf-8',{fatal:true}).decode(body.subarray(29));
-              if(/\0|<!DOCTYPE|<!ENTITY/i.test(text)||/<\?xml[^?]*encoding\s*=\s*['"](?!utf-8['"])/i.test(text))throw Error('XMP XML');
-              xmp.push({location,text});
+              xmp.push(metadataXmpPacket(text,location));
             }catch{skipped++;}
           }
         }else if(latin(body.subarray(0,35))==='http://ns.adobe.com/xmp/extension/\0'){skipped++;}
