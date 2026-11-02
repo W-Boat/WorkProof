@@ -11,18 +11,18 @@ import static org.junit.jupiter.api.Assumptions.*;
 class PrivateJobSpoolTest {
     @TempDir Path temporary;
     @Test void emptyDirectoryIsSealedBeforeWritingAndCheckedOnRecovery() throws Exception {
-        Path root=Files.createDirectory(temporary.resolve("private"));
+        Path root=PrivateJobSpool.createDirectory(temporary.resolve("private"));
         PrivateJobSpool.seal(root,true);PrivateJobSpool.verify(root,true);
-        Path input=Files.createFile(root.resolve("sample.proof"));
+        Path input=PrivateJobSpool.createFile(root.resolve("sample.proof"));
         PrivateJobSpool.seal(input,false);Files.writeString(input,"synthetic evidence");
         PrivateJobSpool.verify(input,false);assertEquals("synthetic evidence",Files.readString(input));
     }
     @Test void windowsAdditionalReaderFailsClosed() throws Exception {
-        Path root=Files.createDirectory(temporary.resolve("acl"));
+        Path root=PrivateJobSpool.createDirectory(temporary.resolve("acl"));
         AclFileAttributeView view=Files.getFileAttributeView(root,AclFileAttributeView.class,LinkOption.NOFOLLOW_LINKS);
         assumeTrue(view!=null,"Requires Windows ACL provider");
         UserPrincipal owner=Files.getOwner(root);
-        UserPrincipal everyone=view.getAcl().stream().map(AclEntry::principal).filter(p->!p.equals(owner)).findFirst().orElseThrow();
+        UserPrincipal everyone=Files.getFileAttributeView(temporary,AclFileAttributeView.class).getAcl().stream().map(AclEntry::principal).filter(p->!p.equals(owner)).findFirst().orElseThrow();
         PrivateJobSpool.seal(root,true);
         List<AclEntry> entries=new ArrayList<>(view.getAcl());
         entries.add(AclEntry.newBuilder().setType(AclEntryType.ALLOW).setPrincipal(everyone)

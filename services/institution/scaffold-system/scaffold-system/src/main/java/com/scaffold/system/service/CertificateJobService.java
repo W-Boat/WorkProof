@@ -75,7 +75,7 @@ public class CertificateJobService {
         if(index<0||index>=number(job,"expected_items"))throw new BusinessException("一次最多上传 20 份证书。");
         String token=UUID.randomUUID().toString();Path temporary=path(token,".tmp"),finalPath=path(token,".proof");boolean retained=false;
         try{
-            Files.createFile(temporary);privatePermissions(temporary,false);long bytes=0;MessageDigest hash=MessageDigest.getInstance("SHA-256");
+            PrivateJobSpool.createFile(temporary);long bytes=0;MessageDigest hash=MessageDigest.getInstance("SHA-256");
             try(var channel=FileChannel.open(temporary,StandardOpenOption.WRITE)){byte[] block=new byte[65536];for(int count;(count=input.read(block))!=-1;){bytes+=count;if(bytes>NativeCertificateInspector.MAX_PROOF_BYTES)throw new BusinessException("每份证书最多 32 MB。");hash.update(block,0,count);ByteBuffer buffer=ByteBuffer.wrap(block,0,count);while(buffer.hasRemaining())channel.write(buffer);}channel.force(true);}
             String digest=HexFormat.of().formatHex(hash.digest());var old=db.queryForList("SELECT proof_hash,proof_bytes FROM wp_certificate_job_item WHERE job_id=? AND item_index=?",id,index);
             if(!old.isEmpty()){if(!digest.equals(old.get(0).get("proof_hash"))||bytes!=number(old.get(0),"proof_bytes"))throw new BusinessException(409,"这个序号已经上传过不同证书，请新建任务。");return detail(id);}
@@ -112,9 +112,9 @@ public class CertificateJobService {
         if(!schema()||!(catalogEnabled&&summaries.schemaReady())||!Boolean.TRUE.equals(inspector.capabilities().get("configured")))return false;
         Path root=Path.of(folder);if(!root.isAbsolute()||Files.isSymbolicLink(root))return false;
         if(Files.exists(root,LinkOption.NOFOLLOW_LINKS))PrivateJobSpool.verify(root,true);
-        else{Files.createDirectories(root);privatePermissions(root,true);}spool=root.toRealPath();
-        Path lockPath=spool.resolve(".queue.lock");if(Files.exists(lockPath,LinkOption.NOFOLLOW_LINKS))PrivateJobSpool.verify(lockPath,false);
-        lockFile=FileChannel.open(lockPath,StandardOpenOption.CREATE,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS);privatePermissions(lockPath,false);directoryLock=lockFile.tryLock();if(directoryLock==null){lockFile.close();lockFile=null;spool=null;return false;}
+        else{Files.createDirectories(root.getParent());PrivateJobSpool.createDirectory(root);}spool=root.toRealPath();
+        Path lockPath=spool.resolve(".queue.lock");if(Files.exists(lockPath,LinkOption.NOFOLLOW_LINKS))PrivateJobSpool.verify(lockPath,false);else PrivateJobSpool.createFile(lockPath);
+        lockFile=FileChannel.open(lockPath,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS);directoryLock=lockFile.tryLock();if(directoryLock==null){lockFile.close();lockFile=null;spool=null;return false;}
         queueLock=source.getConnection();try(var statement=queueLock.createStatement();var rs=statement.executeQuery("SELECT CONCAT('wpjobs:',LEFT(SHA2(DATABASE(),256),40)),CONNECTION_ID()")){rs.next();lockName=rs.getString(1);lockOwner=rs.getLong(2);}
         try(var statement=queueLock.prepareStatement("SELECT GET_LOCK(?,0)")){statement.setString(1,lockName);try(var rs=statement.executeQuery()){rs.next();if(rs.getInt(1)!=1){release();return false;}}}
         // This exclusive database+directory lock supports one active queue instance.

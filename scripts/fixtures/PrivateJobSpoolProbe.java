@@ -14,18 +14,20 @@ public final class PrivateJobSpoolProbe {
     }
     public static void main(String[] args) throws Exception {
         Path base=Files.createTempDirectory("workproof-spool-probe-");
+        String originalUser=System.getProperty("user.name");
+        System.setProperty("user.name","workproof-spoofed-property-not-a-service-user");
         try {
-            Path root=Files.createDirectory(base.resolve("spool"));
+            Path root=PrivateJobSpool.createDirectory(base.resolve("spool"));
             AclFileAttributeView acl=Files.getFileAttributeView(root,AclFileAttributeView.class,LinkOption.NOFOLLOW_LINKS);
             UserPrincipal other=null;
             if(acl!=null) {
                 UserPrincipal owner=Files.getOwner(root);
-                other=acl.getAcl().stream().map(AclEntry::principal).filter(p->!p.equals(owner)).findFirst()
+                other=Files.getFileAttributeView(base,AclFileAttributeView.class).getAcl().stream().map(AclEntry::principal).filter(p->!p.equals(owner)).findFirst()
                     .orElseThrow(()->new AssertionError("Windows fixture needs another real ACL principal"));
             }
             PrivateJobSpool.seal(root,true);PrivateJobSpool.verify(root,true);
-            Path lock=Files.createFile(root.resolve(".queue.lock"));PrivateJobSpool.seal(lock,false);
-            Path proof=Files.createFile(root.resolve("test.proof"));PrivateJobSpool.seal(proof,false);
+            Path lock=PrivateJobSpool.createFile(root.resolve(".queue.lock"));
+            Path proof=PrivateJobSpool.createFile(root.resolve("test.proof"));
             Files.writeString(proof,"synthetic certificate");PrivateJobSpool.verify(proof,false);
             PrivateJobSpool.verify(lock,false);
             if(acl!=null) {
@@ -38,6 +40,16 @@ public final class PrivateJobSpoolProbe {
                     reject(()->PrivateJobSpool.verify(path,path.equals(root)));view.setAcl(original);
                 }
                 System.out.println("PASS Windows real ACL: exclusive owner, inherited other-principal grants rejected for directory, lock and recovered proof");
+                UserPrincipal serviceOwner=Files.getOwner(root),defaultOwner=Files.getOwner(base);
+                if(!serviceOwner.equals(defaultOwner)) {
+                    try {
+                        Files.setOwner(proof,defaultOwner);
+                        reject(()->PrivateJobSpool.verify(proof,false));
+                        reject(()->PrivateJobSpool.seal(proof,false));
+                        System.out.println("PASS Windows existing other-owner proof rejected without takeover");
+                    } catch(FileSystemException denied) { System.out.println("UNMEASURED other-owner mutation not permitted"); }
+                    finally { Files.setOwner(proof,serviceOwner); }
+                }
             } else {
                 for(Path path:List.of(root,proof,lock)) {
                     Files.setPosixFilePermissions(path,PosixFilePermissions.fromString(path.equals(root)?"rwxr-x---":"rw-r-----"));
@@ -50,6 +62,7 @@ public final class PrivateJobSpoolProbe {
             catch(UnsupportedOperationException|FileSystemException unavailable) { System.out.println("UNMEASURED symbolic-link creation unavailable: "+unavailable.getClass().getSimpleName()); }
             System.out.println("SCOPE filesystem privacy only; Windows full queue lifecycle and other-owner mutation still require integration acceptance");
         } finally {
+            if(originalUser==null)System.clearProperty("user.name");else System.setProperty("user.name",originalUser);
             try(var entries=Files.walk(base)) { for(Path path:entries.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(path); }
         }
     }

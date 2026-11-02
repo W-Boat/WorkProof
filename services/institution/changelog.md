@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-02 Windows 服务个人身份解析修正 待验收
+
+- 使用 JDK NTSystem 原生当前用户身份替代 Windows 临时文件默认 owner，避免提升权限时误把 Administrators 组当成个人服务账户；不使用 user.name。
+- 仅本次原子创建的新空对象可切换默认 owner 至服务用户并收紧 ACL；既有对象、恢复输入及锁文件不接管 owner。新增工具创建方法统一用于服务与真实权限探针。
+- 未本地编译、测试或更改数据库；完整 Windows JAR 队列验收仍未完成。
+
 ## 2026-11-02 私有队列暂存目录跨平台权限增量 待验收
 
 - 抽出 PrivateJobSpool，保留 POSIX 0700/0600，新增 Windows ACL 仅服务主体授权和 owner 校验。不支持的权限提供器或组 owner 拒绝启用。

@@ -12,11 +12,41 @@ final class PrivateJobSpool {
         // Read the owner assigned by the filesystem to a file created by this
         // process, rather than trusting user.name or a caller supplied owner.
         Path probe=Files.createTempFile("workproof-owner-", ".probe");
-        try { UserPrincipal owner=Files.getOwner(probe,LinkOption.NOFOLLOW_LINKS);
+        try { UserPrincipal owner;
+            if(Files.getFileAttributeView(probe,AclFileAttributeView.class,LinkOption.NOFOLLOW_LINKS)!=null) {
+                // NTSystem reads the native process identity; neither user.name
+                // nor the token's default file owner (possibly Administrators)
+                // identifies the individual service user reliably.
+                try {
+                    var token=new com.sun.security.auth.module.NTSystem();
+                    String sid=token.getUserSID(),name=token.getName(),domain=token.getDomain();
+                    if(sid==null||!sid.matches("S-1-[0-9-]+")||name==null||name.isBlank())throw new IOException("WINDOWS_SERVICE_TOKEN_INVALID");
+                    String account=domain==null||domain.isBlank()?name:domain+"\\"+name;
+                    owner=probe.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName(account);
+                } catch(LinkageError|SecurityException unavailable) { throw new IOException("WINDOWS_SERVICE_TOKEN_UNAVAILABLE",unavailable); }
+            } else owner=Files.getOwner(probe,LinkOption.NOFOLLOW_LINKS);
             if(owner instanceof GroupPrincipal)throw new IOException("INDIVIDUAL_SERVICE_OWNER_REQUIRED");
             return owner;
         }
         finally { Files.deleteIfExists(probe); }
+    }
+    static Path createDirectory(Path path) throws IOException {
+        Files.createDirectory(path);return initializeNew(path,true);
+    }
+    static Path createFile(Path path) throws IOException {
+        Files.createFile(path);return initializeNew(path,false);
+    }
+    private static Path initializeNew(Path path,boolean directory) throws IOException {
+        // Called only after atomic CREATE_NEW/createDirectory succeeded. Never
+        // used for existing or recovered paths, and never after content writes.
+        try {
+            AclFileAttributeView acl=Files.getFileAttributeView(path,AclFileAttributeView.class,LinkOption.NOFOLLOW_LINKS);
+            if(acl!=null&&!acl.getOwner().equals(owner()))acl.setOwner(owner());
+            seal(path,directory);return path;
+        } catch(IOException|RuntimeException failure) {
+            try { Files.deleteIfExists(path); } catch(IOException cleanup) { failure.addSuppressed(cleanup); }
+            throw failure;
+        }
     }
     private static final class Identity {
         static final UserPrincipal OWNER;

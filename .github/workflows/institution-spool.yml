@@ -28,6 +28,6 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Compile real permission helper and filesystem acceptance probe
-        run: javac -encoding UTF-8 -d .ci-spool-classes services/institution/scaffold-system/scaffold-system/src/main/java/com/scaffold/system/service/PrivateJobSpool.java scripts/fixtures/PrivateJobSpoolProbe.java
+        run: javac --add-modules jdk.security.auth -encoding UTF-8 -d .ci-spool-classes services/institution/scaffold-system/scaffold-system/src/main/java/com/scaffold/system/service/PrivateJobSpool.java scripts/fixtures/PrivateJobSpoolProbe.java
       - name: Check real service ownership, private permissions and rejection boundaries
-        run: java -ea -cp .ci-spool-classes com.scaffold.system.service.PrivateJobSpoolProbe
+        run: java --add-modules jdk.security.auth -ea -cp .ci-spool-classes com.scaffold.system.service.PrivateJobSpoolProbe
