@@ -27,9 +27,11 @@ runs:
         subprocess.run([sys.executable,'-m','pip','install','Pillow==12.0.0'],check=True)
         suffix='.exe' if os.name=='nt' else ''
         report=pathlib.Path('.ci-c2pa-desktop-report.json').resolve()
-        subprocess.run([sys.executable,'scripts/test_c2pa.py','tools/c2pa/target/release/workproof-c2pa'+suffix,'tools/c2pa/target/release/examples/fixture'+suffix,'--without-network-trace','--desktop-report',str(report),'--public-fixtures-out','.ci-c2pa-public-fixtures'],check=True)
+        embedded=pathlib.Path('.ci-c2pa-desktop-embed-report.json').resolve()
+        subprocess.run([sys.executable,'scripts/test_c2pa.py','tools/c2pa/target/release/workproof-c2pa'+suffix,'tools/c2pa/target/release/examples/fixture'+suffix,'--without-network-trace','--desktop-report',str(report),'--desktop-embed-report',str(embedded),'--public-fixtures-out','.ci-c2pa-public-fixtures'],check=True)
         with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as env:
             env.write('WORKPROOF_C2PA_REPORT='+str(report)+'\n')
+            env.write('WORKPROOF_C2PA_EMBED_REPORT='+str(embedded)+'\n')
     - name: Collect exact dependency notices
       shell: python
       run: |

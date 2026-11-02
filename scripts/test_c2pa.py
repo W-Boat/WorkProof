@@ -8,6 +8,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('tool')
 parser.add_argument('fixture')
 parser.add_argument('--desktop-report',help='Write actual successful CLI reports for desktop compatibility tests.')
+parser.add_argument('--desktop-embed-report',help='Write actual CLI embedding reports, which do not establish CA trust.')
 parser.add_argument('--public-fixtures-out',help='Export only synthetic public validation files for manual UI acceptance; never private keys.')
 parser.add_argument('--trust-probe',help='Optional CI-only SDK trust-chain diagnostic executable for synthetic public certificates.')
 parser.add_argument('--without-network-trace',action='store_true',help='Explicitly skip syscall tracing on platforms without strace; report this as unmeasured.')
@@ -18,6 +19,7 @@ if trace_enabled:
     assert shutil.which('strace'), 'strace is required by default; unsupported platforms must explicitly select --without-network-trace'
 traces_performed=0
 desktop_reports=[]
+desktop_embed_reports=[]
 openssl = shutil.which('openssl')
 assert openssl
 def run(*args, ok=True):
@@ -83,6 +85,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
         return run(*args,ok=ok)
     embed(consent=False,ok=False);assert not signed.exists()
     packaged=json.loads(embed().stdout);assert packaged['original_png_checked'] and not packaged['c2pa_trusted']
+    desktop_embed_reports.append(packaged)
     report=json.loads(run(tool,'verify',signed,root/'ca.pem').stdout)
     desktop_reports.append(report)
     assert report['c2pa_integrity_valid'] and report['c2pa_trusted'] and report['original_png_checked'] and report['workproof']['valid'] and report['workproof']['scope']=='full'
@@ -109,7 +112,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
     (root/'assertion-changed.png').write_bytes(assertion_changed);run(tool,'verify',root/'assertion-changed.png',root/'ca.pem',ok=False)
     proof=json.loads(proof_snapshot);proof['records'][1]['event']['elapsed_ms']+=1
     (root/'bad.wproof').write_text(json.dumps(proof));embed(proof='bad.wproof',destination=root/'bad.png',ok=False);assert not (root/'bad.png').exists()
-    selected=root/'selected.png';embed(proof='selected.wproof',destination=selected)
+    selected=root/'selected.png';desktop_embed_reports.append(json.loads(embed(proof='selected.wproof',destination=selected).stdout))
     partial=json.loads(run(tool,'verify',selected,root/'ca.pem').stdout)
     desktop_reports.append(partial)
     # The protocol always includes start/save boundary records, plus the selected edit.
@@ -155,6 +158,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
         proof_bytes=(folder/'full.wproof').read_bytes()
         args=[tool,'embed',source,folder/'full.wproof',root/'chain.pem',root/'signer.key',destination,'--allow-public-process']
         embedded=json.loads(run(*args).stdout)
+        desktop_embed_reports.append(embedded)
         assert embedded['original_jpeg_checked'] and embedded['original_asset_checked']
         assert not embedded['original_png_checked'] and embedded['media_type']=='image/jpeg'
         signed_bytes=destination.read_bytes()
@@ -182,7 +186,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
         run(tool,'embed',destination,nested/'full.wproof',root/'chain.pem',root/'signer.key',nested_output,'--allow-public-process',ok=False)
         assert not nested_output.exists()
         partial_output=folder/'selected.jpg'
-        run(tool,'embed',source,folder/'selected.wproof',root/'chain.pem',root/'signer.key',partial_output,'--allow-public-process')
+        desktop_embed_reports.append(json.loads(run(tool,'embed',source,folder/'selected.wproof',root/'chain.pem',root/'signer.key',partial_output,'--allow-public-process').stdout))
         partial_report=json.loads(run(tool,'verify',partial_output,root/'ca.pem').stdout)
         desktop_reports.append(partial_report)
         assert partial_report['workproof']['scope']=='selective' and partial_report['workproof']['disclosed_events']==3 and partial_report['workproof']['total_events']==1500
@@ -223,4 +227,8 @@ pathlib.Path('test-c2pa-results.json').write_text(json.dumps({'real_c2pa_png':Tr
 assert traces_performed == (3 if trace_enabled else 0)
 if options.desktop_report:
     pathlib.Path(options.desktop_report).write_text(json.dumps(desktop_reports,indent=2),encoding='utf-8')
+if options.desktop_embed_report:
+    assert len(desktop_embed_reports)==6
+    assert all(report['c2pa_trusted'] is False and report['trust_policy']=='not-verified' for report in desktop_embed_reports)
+    pathlib.Path(options.desktop_embed_report).write_text(json.dumps(desktop_embed_reports,indent=2),encoding='utf-8')
 print('PASS: real C2PA PNG and baseline/progressive JPEG packaging, exact original-byte binding, explicit CA trust, full/partial scope, tamper/wrong-root/overwrite rejection and verification; network syscall trace: '+('measured' if traces_performed else 'not performed'))
