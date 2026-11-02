@@ -39,8 +39,14 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
     snapshot=original.read_bytes();run(fixture,original,root)
     proof_snapshot=(root/'full.wproof').read_bytes()
     print('Synthetic certificate provider:',run(openssl,'version').stdout.decode(errors='replace').strip(),flush=True)
-    run(openssl,'req','-x509','-sha256','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'ca.key','-out',root/'ca.pem','-days','2','-subj','/CN=WorkProof synthetic C2PA CA','-addext','basicConstraints=critical,CA:TRUE','-addext','keyUsage=critical,keyCertSign,cRLSign')
-    run(openssl,'req','-new','-sha256','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'signer.key','-out',root/'signer.csr','-subj','/CN=WorkProof synthetic C2PA signer')
+    # OpenSSL 1.1 may load v3_ca from the runner's default openssl.cnf and
+    # append -addext values, producing duplicate Basic Constraints. Such a CA
+    # is correctly rejected. Own the complete fixture config instead of
+    # inheriting machine extensions or relaxing either verifier.
+    request_config=root/'request.cnf'
+    request_config.write_text('[req]\ndistinguished_name=dn\nprompt=no\ndefault_md=sha256\n[dn]\nCN=WorkProof synthetic CI\n[root_ca]\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid:always\n',encoding='ascii')
+    run(openssl,'req','-config',request_config,'-extensions','root_ca','-x509','-sha256','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'ca.key','-out',root/'ca.pem','-days','2','-subj','/CN=WorkProof synthetic C2PA CA')
+    run(openssl,'req','-config',request_config,'-new','-sha256','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'signer.key','-out',root/'signer.csr','-subj','/CN=WorkProof synthetic C2PA signer')
     (root/'ext.cnf').write_text('basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=emailProtection\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n')
     run(openssl,'x509','-req','-sha256','-in',root/'signer.csr','-CA',root/'ca.pem','-CAkey',root/'ca.key','-CAcreateserial','-out',root/'signer.pem','-days','2','-extfile',root/'ext.cnf')
     # Do not inherit a provider's legacy digest defaults: the SDK trust path
@@ -52,6 +58,10 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
         print(certificate,algorithms,flush=True)
         print('Synthetic public certificate '+certificate+':\n'+details,flush=True)
         assert algorithms and all(line.split(':',1)[1].strip()=='ecdsa-with-SHA256' for line in algorithms), algorithms
+        assert details.count('X509v3 Basic Constraints:')==1, 'Duplicate or missing Basic Constraints: '+certificate
+        assert details.count('X509v3 Key Usage:')==1, 'Duplicate or missing Key Usage: '+certificate
+        assert details.count('X509v3 Subject Key Identifier:')==1, 'Duplicate or missing SKI: '+certificate
+        assert details.count('X509v3 Authority Key Identifier:')==1, 'Duplicate or missing AKI: '+certificate
     independent_chain=subprocess.run([openssl,'verify','-CAfile',str(root/'ca.pem'),str(root/'signer.pem')],capture_output=True,timeout=60)
     print('OpenSSL synthetic chain verification:',independent_chain.returncode,
           independent_chain.stdout.decode(errors='replace'),independent_chain.stderr.decode(errors='replace'),flush=True)
@@ -76,7 +86,10 @@ with tempfile.TemporaryDirectory(prefix='workproof-c2pa-ci-') as name:
     signed_snapshot=signed.read_bytes();embed(ok=False);assert signed.read_bytes()==signed_snapshot
     embed(source=signed,destination=root/'nested.png',ok=False);assert not (root/'nested.png').exists()
     # Independent wrong trust anchor; does not depend on any other workflow's fixture.
-    run(openssl,'req','-x509','-sha256','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'wrong.key','-out',root/'wrong.pem','-days','2','-subj','/CN=Wrong synthetic CA','-addext','basicConstraints=critical,CA:TRUE')
+    run(openssl,'req','-config',request_config,'-extensions','root_ca','-x509','-sha256','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-nodes','-keyout',root/'wrong.key','-out',root/'wrong.pem','-days','2','-subj','/CN=Wrong synthetic CA')
+    # The negative anchor is independently valid, rather than malformed: only
+    # its identity and key differ from the deliberately trusted fixture root.
+    run(openssl,'verify','-CAfile',root/'wrong.pem',root/'wrong.pem')
     run(tool,'verify',signed,root/'wrong.pem',ok=False)
     # Change actual image pixels while retaining structurally valid chunks and valid CRCs.
     data=signed_snapshot;pos=8;changed=data[:8];assertion_changed=data[:8];found=False
