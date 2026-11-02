@@ -53,7 +53,7 @@ public class CertificateJobService {
     }
     private void event(String action,String username,boolean success){audit.record(new OperationLogEntry("证书后台任务",action,"BACKGROUND","/internal/certificate-jobs","[]",username,null,0,success?1:0,null));}
     public synchronized Map<String,Object> capabilities(){boolean ready=enabled&&schema()&&(catalogEnabled&&summaries.schemaReady())&&spool!=null&&held();return Map.of("ready",ready,"enabled",enabled,"maxFiles",20,"maxFileBytes",NativeCertificateInspector.MAX_PROOF_BYTES,"maxTotalBytes",MAX_TOTAL,"message",ready?"上传全部证书并提交后，关闭页面也会继续处理；结果只对提交账号可见。":"后台批量任务尚未准备好，请联系管理员核对 V4、私有目录及检查工具；原证书功能可继续使用。");}
-    private void requireReady(){if(!Boolean.TRUE.equals(capabilities().get("ready")))throw new ServiceException(503,"后台批量任务尚未准备好，请联系管理员。");}
+    private void requireReady(){try{if(spool!=null)PrivateJobSpool.verify(spool,true);}catch(IOException invalid){release();}if(!Boolean.TRUE.equals(capabilities().get("ready")))throw new ServiceException(503,"后台批量任务尚未准备好，请联系管理员。");}
     static String uuid(String value){try{String parsed=UUID.fromString(value).toString();if(!parsed.equals(value))throw new IllegalArgumentException();return parsed;}catch(Exception e){throw new BusinessException("任务编号格式不正确。");}}
     private long owner(){return auth.currentUser().userId();}
     private Map<String,Object> owned(String id,long user){var rows=db.queryForList("SELECT * FROM wp_certificate_job WHERE id=? AND owner_user_id=?",uuid(id),user);if(rows.isEmpty())throw new BusinessException(404,"找不到这项任务。");return rows.get(0);}
@@ -69,7 +69,7 @@ public class CertificateJobService {
         return detail(id);
     }
     private Path path(String token,String suffix){return spool.resolve(uuid(token)+suffix);}
-    private static void privatePermissions(Path path,boolean directory)throws IOException{try{Files.setPosixFilePermissions(path,java.nio.file.attribute.PosixFilePermissions.fromString(directory?"rwx------":"rw-------"));}catch(UnsupportedOperationException unsupported){throw new IOException("PRIVATE_POSIX_SPOOL_REQUIRED");}}
+    private static void privatePermissions(Path path,boolean directory)throws IOException{PrivateJobSpool.seal(path,directory);}
     public synchronized Map<String,Object> upload(String id,int index,InputStream input)throws Exception{
         requireReady();long user=owner();var job=owned(id,user);if(!"draft".equals(job.get("state"))||number(job,"cancel_requested")!=0)throw new BusinessException(409,"任务已提交或取消，不能再添加证书。");
         if(index<0||index>=number(job,"expected_items"))throw new BusinessException("一次最多上传 20 份证书。");
@@ -108,11 +108,13 @@ public class CertificateJobService {
 
     private boolean held(){try{if(queueLock==null||queueLock.isClosed()||!queueLock.isValid(1)||directoryLock==null||!directoryLock.isValid())return false;try(var statement=queueLock.prepareStatement("SELECT IS_USED_LOCK(?)")){statement.setString(1,lockName);try(var rows=statement.executeQuery()){return rows.next()&&rows.getLong(1)==lockOwner&&!rows.wasNull();}}}catch(Exception e){return false;}}
     private synchronized boolean initialize()throws Exception{
-        if(held())return true;if(queueLock!=null||directoryLock!=null)release();
+        if(held()){try{PrivateJobSpool.verify(spool,true);}catch(IOException invalid){release();throw invalid;}return true;}if(queueLock!=null||directoryLock!=null)release();
         if(!schema()||!(catalogEnabled&&summaries.schemaReady())||!Boolean.TRUE.equals(inspector.capabilities().get("configured")))return false;
         Path root=Path.of(folder);if(!root.isAbsolute()||Files.isSymbolicLink(root))return false;
-        Files.createDirectories(root);privatePermissions(root,true);spool=root.toRealPath();
-        lockFile=FileChannel.open(spool.resolve(".queue.lock"),StandardOpenOption.CREATE,StandardOpenOption.WRITE);directoryLock=lockFile.tryLock();if(directoryLock==null){lockFile.close();lockFile=null;spool=null;return false;}
+        if(Files.exists(root,LinkOption.NOFOLLOW_LINKS))PrivateJobSpool.verify(root,true);
+        else{Files.createDirectories(root);privatePermissions(root,true);}spool=root.toRealPath();
+        Path lockPath=spool.resolve(".queue.lock");if(Files.exists(lockPath,LinkOption.NOFOLLOW_LINKS))PrivateJobSpool.verify(lockPath,false);
+        lockFile=FileChannel.open(lockPath,StandardOpenOption.CREATE,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS);privatePermissions(lockPath,false);directoryLock=lockFile.tryLock();if(directoryLock==null){lockFile.close();lockFile=null;spool=null;return false;}
         queueLock=source.getConnection();try(var statement=queueLock.createStatement();var rs=statement.executeQuery("SELECT CONCAT('wpjobs:',LEFT(SHA2(DATABASE(),256),40)),CONNECTION_ID()")){rs.next();lockName=rs.getString(1);lockOwner=rs.getLong(2);}
         try(var statement=queueLock.prepareStatement("SELECT GET_LOCK(?,0)")){statement.setString(1,lockName);try(var rs=statement.executeQuery()){rs.next();if(rs.getInt(1)!=1){release();return false;}}}
         // This exclusive database+directory lock supports one active queue instance.
@@ -132,7 +134,8 @@ public class CertificateJobService {
         executingJob=id;executing=Thread.currentThread();
         try{
             Path input=path((String)item.get("spool_token"),".proof");if(Files.isSymbolicLink(input)||!Files.isRegularFile(input)||Files.size(input)!=number(item,"proof_bytes")||!hash(input).equals(item.get("proof_hash")))throw new IOException("SPOOL_CHANGED");
-            JsonNode report;try(var stream=Files.newInputStream(input)){report=inspector.inspect(stream);}
+            PrivateJobSpool.verify(input,false);
+            JsonNode report;try(var stream=Files.newInputStream(input,LinkOption.NOFOLLOW_LINKS)){report=inspector.inspect(stream);}
             complete(job,index,claim,item,report,null);
         }catch(Exception e){Thread.interrupted();if(!stopping)complete(job,index,claim,item,null,"CHECK_FAILED");}
         finally{executing=null;executingJob=null;Thread.interrupted();}

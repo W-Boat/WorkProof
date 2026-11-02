@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+CertificateJobService→PrivateJobSpool：私有暂存权限统一验证，POSIX权限及Windows ACL后端；新建空文件先限制再写入，既有目录/锁/恢复证据拒绝宽松权限及非服务owner。跨平台权限探针待CI，不代表Windows完整持久队列已验收。
+
 CertificateJobController→CertificateJobService：显式V4/POSIX私有spool的持久批量任务，数据库与目录独占锁、原件幂等、实际取消/重启恢复/权限重查及统一审计。CertificateJobsDialog复用Modal/Field/FilePicker/Checkbox/Tag/Button和原字节PUT，另保留页面内旧批量。默认关闭，尚待本次Actions。
 
 AiAnalysisDialog 按文件→语言→同意组织，完成后需换文件或语言才再发送；所有按钮/浮层/下载均继续复用管理端底座。Python运行环境许可原文在独立模型CI归档，不进入常驻引擎。

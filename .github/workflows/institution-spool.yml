@@ -1,0 +1,33 @@
+name: Institution private spool permissions
+on:
+  push:
+    paths:
+      - 'services/institution/scaffold-system/scaffold-system/src/main/java/com/scaffold/system/service/PrivateJobSpool.java'
+      - 'scripts/fixtures/PrivateJobSpoolProbe.java'
+      - '.github/workflows/institution-spool.yml'
+  pull_request:
+    paths:
+      - 'services/institution/scaffold-system/scaffold-system/src/main/java/com/scaffold/system/service/PrivateJobSpool.java'
+      - 'scripts/fixtures/PrivateJobSpoolProbe.java'
+      - '.github/workflows/institution-spool.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  filesystem-permissions:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile real permission helper and filesystem acceptance probe
+        run: javac -encoding UTF-8 -d .ci-spool-classes services/institution/scaffold-system/scaffold-system/src/main/java/com/scaffold/system/service/PrivateJobSpool.java scripts/fixtures/PrivateJobSpoolProbe.java
+      - name: Check real service ownership, private permissions and rejection boundaries
+        run: java -ea -cp .ci-spool-classes com.scaffold.system.service.PrivateJobSpoolProbe
