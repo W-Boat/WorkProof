@@ -1,6 +1,8 @@
 name: Prepare C2PA dependency lock
 on:
   workflow_dispatch:
+  push:
+    paths: ['tools/c2pa/Cargo.toml']
 permissions:
   contents: read
 jobs:
