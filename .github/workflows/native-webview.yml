@@ -1,0 +1,49 @@
+name: Native embedded verifier milestone acceptance
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/native-webview.yml', 'scripts/test_embedded_webview.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  installed-linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the verified embedded-window milestone artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api repos/${{ github.repository }}/actions/runs/41495885258 --jq .head_sha)" = '7ee35ed8bbe0bbc46cfb5e1f45982c16f0b10160'
+          test "$(gh api repos/${{ github.repository }}/actions/jobs/125453548991 --jq .conclusion)" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: workproof-linux-x64
+          run-id: 41495885258
+          github-token: ${{ github.token }}
+          path: .linux-artifact
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install the real DEB and native automation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y webkit2gtk-driver xvfb dbus-x11 fonts-noto-cjk
+          python3 - <<'PY'
+          import pathlib,subprocess
+          packages=list(pathlib.Path('.linux-artifact').rglob('*.deb'))
+          assert len(packages)==1
+          subprocess.run(['sudo','apt-get','install','-y',str(packages[0].resolve())],check=True)
+          PY
+          cargo install tauri-driver --version 2.1.0 --locked --root "$RUNNER_TEMP/workproof-webdriver"
+      - name: Exercise the actual installed milestone
+        env:
+          WORKPROOF_APPLICATION_COMMIT: 7ee35ed8bbe0bbc46cfb5e1f45982c16f0b10160
+        run: xvfb-run -a dbus-run-session -- python3 scripts/test_embedded_webview.py "$RUNNER_TEMP/workproof-webdriver/bin/tauri-driver"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: milestone-native-webview-ui
+          path: test-results/embedded-webview/
+          if-no-files-found: warn

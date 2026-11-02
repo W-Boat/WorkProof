@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         assert call('GET',f'/session/{session}/url')==url,'Navigation escaped verifier origin'
         screenshot('verifier.png')
         switch(workbench);click('#verify');assert len(handles())==2,'Repeated open created another verifier'
-        (evidence/'acceptance.json').write_text(json.dumps({'source_commit':os.environ['GITHUB_SHA'],'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm and IPC/navigation rejection. File picker/download/printing not covered.','url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','no workbench command access','navigation restriction','window reuse']},indent=2),encoding='utf-8')
+        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm and IPC/navigation rejection. File picker/download/printing not covered.','url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','no workbench command access','navigation restriction','window reuse']},indent=2),encoding='utf-8')
         print('PASS: installed native WebView opens and reuses local verifier; workbench commands unavailable')
     finally:
         if session:
