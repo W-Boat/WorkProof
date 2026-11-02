@@ -53,6 +53,12 @@ jobs:
         run: npm run build:web
       - name: Verify the actual user page with real PDF files and Wasm
         run: node tools/c2pa-wasm/test-ui.cjs
+      - name: Verify the same user flow on the native desktop static server
+        env:
+          WORKPROOF_TEST_WEB_ENGINE: target/release/workproof-engine
+        run: |
+          cargo build --release --locked -p workproof-engine --bin workproof-engine
+          node tools/c2pa-wasm/test-ui.cjs
       - name: Archive and verify all public site bytes including hidden notices
         run: python tools/c2pa-wasm/package.py
       - uses: actions/upload-artifact@v4

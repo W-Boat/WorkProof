@@ -1,6 +1,7 @@
 // Actions-only: actual exported Next page, native-signed files and real Wasm worker.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http');
 const {chromium}=require('@playwright/test');
+const {spawn}=require('node:child_process');
 assert.equal(process.env.GITHUB_ACTIONS,'true');
 const root=path.resolve('apps/verifier/out'),fixtures=path.resolve('.ci-browser-pdf');
 const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.wasm':'application/wasm','.css':'text/css','.json':'application/json','.svg':'image/svg+xml'};
@@ -12,8 +13,17 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type',types[path.extname(target)]||'application/octet-stream');res.end(fs.readFileSync(target));
 });
 (async()=>{
-  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  const origin=`http://127.0.0.1:${server.address().port}`,browser=await chromium.launch();
+  const engine=process.env.WORKPROOF_TEST_WEB_ENGINE;
+  let child;
+  if(engine){
+    child=spawn(path.resolve(engine),['serve-web',root],{stdio:'ignore'});
+    for(let attempt=0;;attempt++){
+      assert.equal(child.exitCode,null,'Native static server exited');
+      try{const response=await fetch('http://127.0.0.1:4173/c2pa/BUILD-INFO.json');if(response.ok)break;}catch{}
+      assert(attempt<100,'Native static server did not become ready');await new Promise(resolve=>setTimeout(resolve,100));
+    }
+  }else await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const origin=engine?'http://127.0.0.1:4173':`http://127.0.0.1:${server.address().port}`,browser=await chromium.launch();
   try{
     const context=await browser.newContext({serviceWorkers:'block'}),requests=[];
     await context.route('**/*',route=>{
@@ -37,5 +47,5 @@ const server=http.createServer((req,res)=>{
     await panel.getByText('所选 CA 无法确认这份签名，请向签发方核对可信来源。',{exact:true}).waitFor({timeout:90000});
     assert(requests.every(r=>r.method==='GET'&&r.url.startsWith(origin+'/')));
     console.log('PASS exported user page: real PDF Wasm verification, explicit trust consent, stale-result reset, wrong-root refusal and local GET resources only');
-  }finally{await browser.close();server.close();}
+  }finally{await browser.close();if(child){child.kill();await new Promise(resolve=>child.once('exit',resolve));}else server.close();}
 })().catch(error=>{console.error(error);server.close();process.exitCode=1;});
