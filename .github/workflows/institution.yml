@@ -144,9 +144,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force .local-launchers/scripts/local,.local-launchers/sql | Out-Null
           Copy-Item scripts/local/* .local-launchers/scripts/local/
-          Copy-Item services/institution/scaffold-system/sql/V[123]*.sql .local-launchers/sql/
+          Copy-Item services/institution/scaffold-system/sql/V[1234]*.sql .local-launchers/sql/
           Copy-Item docs/LOCAL-RUNTIME.md .local-launchers/README.md
-          Copy-Item docs/LOCAL-RUNTIME.md,docs/ALL-STAGES.md,docs/OFFICE-SERVER.md,docs/COMMERCIAL-LICENSE-AUDIT.md .local-launchers/
+          Copy-Item docs/LOCAL-RUNTIME.md,docs/INSTITUTION-JOBS.md,docs/ALL-STAGES.md,docs/OFFICE-SERVER.md,docs/COMMERCIAL-LICENSE-AUDIT.md .local-launchers/
           Copy-Item docs/licenses .local-launchers/licenses -Recurse
           Copy-Item LICENSE .local-launchers/WORKPROOF-LICENSE.txt
           Copy-Item services/institution/LICENSE .local-launchers/SCAFFOLD-LICENSE.txt

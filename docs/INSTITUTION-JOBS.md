@@ -25,6 +25,8 @@ WORKPROOF_VERIFIER_EXECUTABLE=/absolute/workproof-inspector
 
 V4 新增 `wp_certificate_job` 和 `wp_certificate_job_item`，不改原证书摘要表、账号或角色授权。准备检查核对所需字段及主键、owner/clientKey、spool token 唯一索引；不替代完整迁移/备份审计。现有 Windows V3 准备脚本不自动支持 V4，禁止以普通启动隐式迁移。
 
+Actions 的 Windows 启动包随附 `sql/V4__workproof_certificate_jobs.sql` 和本说明，供管理员在备份并核对结构后显式准备队列。包中包含 SQL 不表示已启用队列；普通 Start 和证书目录准备入口均不执行 V4，也不会自动设置上述队列配置。
+
 当前暂存目录要求 POSIX 私有权限（目录0700、文件0600）或已通过专项的 Windows 服务用户专属 ACL；不支持或无法验证权限时拒绝启用。Windows 完整队列仍待集成验收。目录及数据库同时独占锁，只允许一个活跃队列实例。运行中丢失专用数据库锁则拒绝结果提交，随后释放失效连接重新获取锁并恢复 running 项；不是多节点高可用队列。原子改名与文件 force 降低崩溃窗口，但不承诺任意文件系统/机器断电下硬件级持久性。
 
 ## API
