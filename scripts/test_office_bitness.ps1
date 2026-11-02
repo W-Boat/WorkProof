@@ -85,6 +85,17 @@ foreach ($hostSpec in $hosts) {
                         if (-not (Test-Path -LiteralPath $original -PathType Leaf) -or
                             (Get-FileHash -LiteralPath $original -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash) { throw ('Installed file differs from delivered package: '+$relative) }
                     }
+                    # A real Windows sharing violation must be rejected before any payload or marker changes.
+                    $markerPath=Join-Path $installedRoot '.workproof-native'
+                    $beforeMarker=[IO.File]::ReadAllText($markerPath)
+                    $lockedPath=Join-Path $installedRoot $expectedDll
+                    $beforeDll=(Get-FileHash -LiteralPath $lockedPath -Algorithm SHA256).Hash
+                    $held=[IO.File]::Open($lockedPath,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+                    try {
+                        Expect-Rejected { & $installer @arguments } '暂时无法更新加载项'
+                    } finally { $held.Dispose() }
+                    if ([IO.File]::ReadAllText($markerPath) -ne $beforeMarker -or
+                        (Get-FileHash -LiteralPath $lockedPath -Algorithm SHA256).Hash -ne $beforeDll) { throw 'Locked add-in rejection changed the existing installation' }
                     $copiedOpen=Join-Path $installedRoot $hostSpec.Open
                     $fromCopy=& $copiedOpen -OfficePath $probe -Inspect -RegistryFixture $fixture -RegistryFixtureArchitecture $architecture | ConvertFrom-Json
                     if ($fromCopy.Dll -ne $inspection.Dll -or $fromCopy.RuntimeRoot -ne $installedRoot -or

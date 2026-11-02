@@ -211,6 +211,20 @@ try {
         if ($installDir.TrimEnd('\') -ieq $source.TrimEnd('\')) {
             Write-Output '已在安装目录内运行，跳过复制。'
         } else {
+            # Check every add-in we are about to copy before stopping the engine or changing files.
+            # Open does not truncate or write; Office-loaded images normally deny this write access.
+            foreach ($name in $AddInNames) {
+                $from=Join-Path $source $name
+                $existing=Join-Path $installDir $name
+                if ((Test-Path -LiteralPath $from -PathType Leaf) -and (Test-Path -LiteralPath $existing -PathType Leaf)) {
+                    try {
+                        $probe=[IO.File]::Open($existing,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+                        $probe.Dispose()
+                    } catch {
+                        throw ('暂时无法更新加载项 '+$name+'。请先保存并退出 Word，再重新安装；若仍失败，请检查安装目录的写入权限。')
+                    }
+                }
+            }
             # Only our own binaries from a previous install are stopped; Word and other apps are untouched.
             if (-not $RegistryFixture) {
                 foreach ($name in @('workproof-desktop.exe', 'workproof-engine.exe')) {
