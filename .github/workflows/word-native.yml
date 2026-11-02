@@ -160,6 +160,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-native-word-windows-dev
+          include-hidden-files: true
           path: |
             ${{ runner.temp }}/workproof-native-word/
             dist/workproof-native-word-windows-dev.zip
