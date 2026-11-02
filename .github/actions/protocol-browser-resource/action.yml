@@ -3,17 +3,21 @@ description: Stage the locked protocol Wasm, labelled public demos and exact bui
 runs:
   using: composite
   steps:
+    - uses: ./.github/actions/wasm-bindgen-cli
+      id: bindgen
+      with:
+        version: '0.2.105'
     - name: Build and stage the shared proof and structure verifier
       shell: python
+      env:
+        BINDGEN_BINARY: ${{ steps.bindgen.outputs.binary }}
       run: |
         import hashlib,json,os,pathlib,subprocess
         def run(*args): subprocess.run(list(map(str,args)),check=True)
-        root=pathlib.Path(os.environ['RUNNER_TEMP'])/'workproof-protocol-bindgen'
         output=pathlib.Path('apps/verifier/public/wasm')
         run('rustup','target','add','wasm32-unknown-unknown')
         run('cargo','build','--locked','-p','workproof-protocol','--release','--target','wasm32-unknown-unknown')
-        run('cargo','install','wasm-bindgen-cli','--version','0.2.105','--locked','--root',root)
-        run(root/'bin'/('wasm-bindgen.exe' if os.name=='nt' else 'wasm-bindgen'),'target/wasm32-unknown-unknown/release/workproof_protocol.wasm','--target','web','--out-dir',output)
+        run(os.environ['BINDGEN_BINARY'],'target/wasm32-unknown-unknown/release/workproof_protocol.wasm','--target','web','--out-dir',output)
         run('cargo','run','--locked','-p','workproof-protocol','--example','generate_fixture','--','apps/verifier/public/demo')
         files=[]
         for name in ['workproof_protocol.js','workproof_protocol_bg.wasm','workproof_protocol.d.ts','workproof_protocol_bg.wasm.d.ts']:

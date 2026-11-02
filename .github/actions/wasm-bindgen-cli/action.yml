@@ -1,0 +1,59 @@
+name: Prepare a versioned wasm-bindgen CLI
+description: Cache only the native CLI for an exact runner image and Rust toolchain; generated evidence is never cached here.
+inputs:
+  version:
+    description: Exact wasm-bindgen CLI version matching the locked Wasm crate
+    required: true
+outputs:
+  binary:
+    description: Absolute path to the version-checked executable
+    value: ${{ steps.identity.outputs.binary }}
+runs:
+  using: composite
+  steps:
+    - name: Identify the native CLI toolchain and runner image
+      id: identity
+      shell: python
+      env:
+        BINDGEN_VERSION: ${{ inputs.version }}
+        BINDGEN_RUNNER_OS: ${{ runner.os }}
+        BINDGEN_RUNNER_ARCH: ${{ runner.arch }}
+      run: |
+        import hashlib,json,os,pathlib,platform,re,subprocess
+        version=os.environ['BINDGEN_VERSION']
+        if not re.fullmatch(r'0\.2\.[0-9]+',version):raise RuntimeError('An exact supported wasm-bindgen CLI version is required')
+        rust=subprocess.check_output(['rustc','-vV'],text=True).strip()
+        identity={key:os.environ.get(key,'') for key in ['BINDGEN_RUNNER_OS','BINDGEN_RUNNER_ARCH','ImageOS','ImageVersion']}
+        identity['rustc']=rust
+        identity['platform']=platform.platform()
+        identity['libc']=platform.libc_ver()
+        digest=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
+        root=pathlib.Path(os.environ['RUNNER_TEMP'])/('workproof-bindgen-cli-'+version)
+        binary=root/'bin'/('wasm-bindgen.exe' if os.name=='nt' else 'wasm-bindgen')
+        with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as output:
+            output.write(f'key=workproof-bindgen-cli-v1-{version}-{digest}\nroot={root}\nbinary={binary}\n')
+    - name: Restore only the native CLI binary
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.identity.outputs.binary }}
+        key: ${{ steps.identity.outputs.key }}
+        enableCrossOsArchive: false
+    - name: Install on cache miss and validate the exact CLI version
+      shell: python
+      env:
+        BINDGEN_VERSION: ${{ inputs.version }}
+        BINDGEN_ROOT: ${{ steps.identity.outputs.root }}
+        BINDGEN_BINARY: ${{ steps.identity.outputs.binary }}
+        BINDGEN_CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+      run: |
+        import os,pathlib,subprocess
+        binary=pathlib.Path(os.environ['BINDGEN_BINARY'])
+        version=os.environ['BINDGEN_VERSION']
+        if os.environ['BINDGEN_CACHE_HIT']!='true':
+            # --force replaces a prefix-only cache restore; only an exact key skips compilation.
+            subprocess.run(['cargo','install','wasm-bindgen-cli','--version',version,'--locked','--force','--root',os.environ['BINDGEN_ROOT']],check=True)
+        if binary.is_symlink() or not binary.is_file():raise RuntimeError('Missing native wasm-bindgen CLI')
+        actual=subprocess.check_output([str(binary),'--version'],text=True).strip()
+        if actual!='wasm-bindgen '+version:raise RuntimeError('Native wasm-bindgen CLI version mismatch: '+actual)
+        print('Using '+actual+'; exact cache hit: '+str(os.environ['BINDGEN_CACHE_HIT']=='true'))

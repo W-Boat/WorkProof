@@ -2,7 +2,7 @@ name: Real browser embedded certificate verification
 on:
   workflow_dispatch:
   push:
-    paths: ['tools/c2pa/**', 'tools/c2pa-wasm/**', 'apps/verifier/**', 'crates/proof/**', 'Cargo.lock', 'scripts/verifier_graph_notices.py', 'scripts/test_c2pa.py', 'scripts/test_c2pa_pdf.py', '.github/actions/protocol-browser-resource/**', '.github/workflows/c2pa-wasm.yml']
+    paths: ['tools/c2pa/**', 'tools/c2pa-wasm/**', 'apps/verifier/**', 'crates/proof/**', 'Cargo.lock', 'scripts/verifier_graph_notices.py', 'scripts/test_c2pa.py', 'scripts/test_c2pa_pdf.py', '.github/actions/protocol-browser-resource/**', '.github/actions/c2pa-browser-resource/**', '.github/actions/wasm-bindgen-cli/**', '.github/workflows/c2pa-wasm.yml']
 permissions:
   contents: read
 concurrency:

@@ -36,6 +36,7 @@ on:
       - '.github/actions/c2pa-resource/**'
       - '.github/actions/c2pa-browser-resource/**'
       - '.github/actions/protocol-browser-resource/**'
+      - '.github/actions/wasm-bindgen-cli/**'
       - 'tools/c2pa-wasm/**'
       - 'tools/c2pa/**'
       - 'scripts/c2pa_notices.py'

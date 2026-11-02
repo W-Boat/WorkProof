@@ -6,15 +6,19 @@ runs:
     - uses: Swatinem/rust-cache@v2
       with:
         workspaces: 'tools/c2pa-wasm -> target'
+    - uses: ./.github/actions/wasm-bindgen-cli
+      id: bindgen
+      with:
+        version: '0.2.130'
     - name: Build and stage the browser verification resource
       shell: python
+      env:
+        BINDGEN_BINARY: ${{ steps.bindgen.outputs.binary }}
       run: |
         import os,pathlib,subprocess,sys
         def run(*args): subprocess.run(list(map(str,args)),check=True)
-        root=pathlib.Path(os.environ['RUNNER_TEMP'])/'workproof-c2pa-bindgen'
         run('rustup','target','add','wasm32-unknown-unknown')
         run('cargo','build','--release','--locked','--target','wasm32-unknown-unknown','--manifest-path','tools/c2pa-wasm/Cargo.toml')
-        run('cargo','install','wasm-bindgen-cli','--version','0.2.130','--locked','--root',root)
-        run(root/'bin'/('wasm-bindgen.exe' if os.name=='nt' else 'wasm-bindgen'),'tools/c2pa-wasm/target/wasm32-unknown-unknown/release/workproof_c2pa_wasm.wasm','--target','web','--out-dir','tools/c2pa-wasm/pkg')
+        run(os.environ['BINDGEN_BINARY'],'tools/c2pa-wasm/target/wasm32-unknown-unknown/release/workproof_c2pa_wasm.wasm','--target','web','--out-dir','tools/c2pa-wasm/pkg')
         run(sys.executable,'scripts/c2pa_notices.py','--workspace','c2pa-wasm')
         run('node','tools/c2pa-wasm/stage.mjs')
