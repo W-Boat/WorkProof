@@ -121,6 +121,8 @@ jobs:
         run: docker build --platform linux/amd64 --label org.opencontainers.image.revision=${{ github.sha }} -t workproof-institution:local .ci-institution-server
       - name: Exercise the real server image and isolated new database
         run: python scripts/test_institution_server.py
+      - name: Verify authenticated byte encryption in the actual server image
+        run: docker run --rm --network none -v "$PWD/scripts/test_backup_crypto.py:/test_backup_crypto.py:ro" --entrypoint python3 workproof-institution:local /test_backup_crypto.py
       - name: Archive the verified image without any deployment secrets
         shell: python
         run: |
