@@ -167,6 +167,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: synthetic-image-ui-validation-only
+          include-hidden-files: true
           path: .ci-c2pa-public-fixtures/
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
