@@ -16,3 +16,5 @@ scripts/local/*.cmd text eol=crlf
 
 docs/licenses/office-supplemental/** -text -whitespace
 docs/licenses/office-npm-supplemental/** -text -whitespace
+docs/licenses/c2pa-supplemental/** -text -whitespace
+docs/licenses/c2pa-sdk/** -text -whitespace

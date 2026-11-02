@@ -1,9 +1,9 @@
 name: C2PA PNG and JPEG interoperability
 on:
   push:
-    paths: ['tools/c2pa/**', 'crates/proof/**', 'scripts/test_c2pa.py', 'scripts/c2pa_notices.py', 'docs/licenses/c2pa-*/**', '.github/workflows/c2pa.yml']
+    paths: ['tools/c2pa/**', 'crates/proof/**', 'scripts/test_c2pa.py', 'scripts/c2pa_notices.py', 'docs/licenses/c2pa-*/**', '.gitattributes', '.github/workflows/c2pa.yml']
   pull_request:
-    paths: ['tools/c2pa/**', 'crates/proof/**', 'scripts/test_c2pa.py', 'scripts/c2pa_notices.py', 'docs/licenses/c2pa-*/**', '.github/workflows/c2pa.yml']
+    paths: ['tools/c2pa/**', 'crates/proof/**', 'scripts/test_c2pa.py', 'scripts/c2pa_notices.py', 'docs/licenses/c2pa-*/**', '.gitattributes', '.github/workflows/c2pa.yml']
   workflow_dispatch:
 permissions:
   contents: read
