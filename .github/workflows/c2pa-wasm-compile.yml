@@ -1,0 +1,24 @@
+name: Compile isolated browser C2PA verifier
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tools/c2pa/**', 'tools/c2pa-wasm/**', 'crates/proof/**', '.github/workflows/c2pa-wasm-compile.yml']
+permissions:
+  contents: read
+concurrency:
+  group: c2pa-wasm-compile-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'tools/c2pa-wasm -> target'
+      - name: Build actual SDK for the browser target using reviewed lock
+        run: cargo build --release --locked --target wasm32-unknown-unknown --manifest-path tools/c2pa-wasm/Cargo.toml
