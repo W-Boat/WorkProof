@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "workproof"
-version = "0.2.1"
+version = "0.3.0"
 name = "WorkProof · 开源证人"
 tagline = "Record mesh evolution locally and export verifiable evidence"
 maintainer = "WorkProof contributors"

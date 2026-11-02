@@ -9,6 +9,13 @@ fn read_proof(path:&str)->Result<Vec<u8>,Box<dyn std::error::Error>>{
 #[tokio::main(worker_threads = 2)]
 async fn main()->Result<(),Box<dyn std::error::Error>> {
     let args:Vec<String>=std::env::args().collect();
+    if args.get(1).map(String::as_str)==Some("inspect-evolution"){
+        if args.len()!=4{return Err("Usage: workproof-engine inspect-evolution PROOF.wproof GRAPH.wgraph".into());}
+        let proof=read_proof(&args[2])?;let mut graph=vec![];
+        std::fs::File::open(&args[3])?.take(workproof_protocol::evolution::MAX_JSON_BYTES as u64+1).read_to_end(&mut graph)?;
+        let report=workproof_protocol::evolution::verify_json(&proof,&graph);println!("{}",serde_json::to_string(&report)?);
+        if !report.valid{std::process::exit(2);}return Ok(());
+    }
     if args.get(1).map(String::as_str)==Some("fingerprint") {
         if args.len()!=3{return Err("Usage: workproof-engine fingerprint FILE".into());}
         let mut file=std::fs::File::open(&args[2])?;let before=file.metadata()?;

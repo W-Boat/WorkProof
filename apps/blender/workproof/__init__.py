@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT OR GPL-3.0-or-later
 # The Blender extension distribution selects GPL-3.0-or-later; see README.md and COPYING.
 """Local Blender adapter. bpy stays on the main thread; transport uses a bounded queue."""
-bl_info = {"name":"WorkProof · 开源证人","author":"WorkProof contributors","version":(0,2,1),"blender":(4,2,0),"location":"View3D > Sidebar > WorkProof","category":"System"}
+bl_info = {"name":"WorkProof · 开源证人","author":"WorkProof contributors","version":(0,3,0),"blender":(4,2,0),"location":"View3D > Sidebar > WorkProof","category":"System"}
 import datetime,hashlib,json,math,os,pathlib,queue,threading,time,urllib.request
 import bpy
 from bpy.app.handlers import persistent
@@ -45,6 +45,52 @@ def structure_checkpoint():
     if len(data)>16*1024*1024:raise RuntimeError('结构摘要输入超过 16 MB，记录已暂停。')
     return hashlib.sha256(b'workproof-blender-structure-v1-sha256\0'+data).hexdigest()
 
+def evolution_nodes(runtime):
+    """Main-thread topology only; session-local IDs never expose bpy pointers or names."""
+    objects=list(bpy.data.objects)
+    if len(objects)>10000:raise RuntimeError('结构补充最多支持 10000 个节点，已暂停记录。')
+    active={}
+    def identity(key):
+        if key in active:return active[key]
+        value=runtime.identities.get(key)
+        if value is None:
+            if runtime.next_identity>50000:raise RuntimeError('本次结构标识已达上限，请导出后重新开始。')
+            value=runtime.next_identity;runtime.next_identity+=1
+        active[key]=value
+        return value
+    def object_key(obj):
+        uid=getattr(obj,'session_uid',None)
+        return ('object_uid',int(uid)) if isinstance(uid,int) and uid>0 else ('object_pointer',obj.as_pointer())
+    ids={obj.as_pointer():identity(object_key(obj)) for obj in objects}
+    rows=[];orders={}
+    for obj in objects:
+        parent=ids.get(obj.parent.as_pointer()) if obj.parent else None
+        order=orders.get(parent,0);orders[parent]=order+1
+        oid=ids[obj.as_pointer()]
+        rows.append({'id':oid,'parent':parent,'order':order,'kind':'mesh' if obj.type=='MESH' else 'object','relation':'contains' if parent is not None else 'root'})
+        if len(rows)>10000:raise RuntimeError('结构补充最多支持 10000 个节点，已暂停记录。')
+        for index,modifier in enumerate(obj.modifiers):
+            rows.append({'id':identity(('modifier',oid,modifier.as_pointer())),'parent':oid,'order':index,'kind':'modifier','relation':'modifies'})
+            if len(rows)>10000:raise RuntimeError('结构补充最多支持 10000 个节点，已暂停记录。')
+    parents={node['id']:node['parent'] for node in rows}
+    resolved={}
+    for node_id in parents:
+        chain=[];seen=set();current=node_id;depth=0
+        while current is not None:
+            if current in resolved:depth=resolved[current];break
+            if current in seen:raise RuntimeError('对象关系出现循环，已暂停记录。')
+            seen.add(current);chain.append(current)
+            if len(chain)>256:raise RuntimeError('对象关系超过 256 层，已暂停记录。')
+            current=parents[current]
+        for current in reversed(chain):
+            depth+=1
+            if depth>256:raise RuntimeError('对象关系超过 256 层，已暂停记录。')
+            resolved[current]=depth
+    # Retire absent IDs after every observed snapshot; IDs are never recycled.
+    runtime.identities=active
+    return rows
+
+
 def visible_viewports():
     """Main-thread, transient state only. Never send coordinates, rotations or pointers."""
     values={}
@@ -65,7 +111,8 @@ def visible_viewports():
     return values
 
 class Runtime:
-    def __init__(self,filename):
+    def __init__(self,filename,evolution=False):
+        self.evolution=evolution;self.identities={};self.next_identity=1;self.snapshots=[];self.snapshot_count=0;self.snapshot_nodes=0;self.snapshot_bytes=64
         self.filename=filename;self.queue=queue.Queue(maxsize=2048)
         self.closed=threading.Event();self.retry=threading.Event()
         self.session=None;self.seq=0;self.started=time.monotonic()
@@ -77,7 +124,16 @@ class Runtime:
         try:self.queue.put_nowait((operation,payload));return True
         except queue.Full:self.paused=True;self.last_error='离线队列已满，已暂停；继续时将记录缺口。';return False
     def event(self,kind,values=None,checkpoint=''):
-        return self.put('event',{'elapsed_ms':int((time.monotonic()-self.started)*1000),'kind':kind,'inserted':0,'deleted':0,'chars':0,'checkpoint':checkpoint,'metrics':values or {}})
+        nodes=evolution_nodes(self) if self.evolution and kind in ('start','mesh','resume') else None
+        if nodes is not None:
+            if self.snapshot_count>=128 or self.snapshot_nodes+len(nodes)>50000:raise RuntimeError('结构补充已达容量上限，请导出后重新开始。')
+            size=len(json.dumps(nodes,separators=(',',':')).encode())+512
+            if self.snapshot_bytes+size>8*1024*1024:raise RuntimeError('结构补充已达 8 MB，请导出后重新开始。')
+        payload={'elapsed_ms':int((time.monotonic()-self.started)*1000),'kind':kind,'inserted':0,'deleted':0,'chars':0,'checkpoint':checkpoint,'metrics':values or {}}
+        if nodes is not None:payload['_nodes']=nodes
+        accepted=self.put('event',payload)
+        if accepted and nodes is not None:self.snapshot_count+=1;self.snapshot_nodes+=len(nodes);self.snapshot_bytes+=size
+        return accepted
     def seal(self,filename,values):
         event={'elapsed_ms':int((time.monotonic()-self.started)*1000),'kind':'save','inserted':0,'deleted':0,'chars':0,'checkpoint':'','metrics':values}
         self.exported='';return self.put('seal',{'path':filename,'event':event})
@@ -86,11 +142,25 @@ class Runtime:
         if self.session is None:raise RuntimeError('记录会话尚未建立')
         endpoint='/v1/sessions/'+self.session
         if operation=='event':
-            request(endpoint+'/events',{'events':[dict(payload,seq=self.seq)]});self.seq+=1;self.committed+=1
+            if '_nodes' in payload and '_prepared' not in payload:
+                prepared=request(endpoint+'/evolution-checkpoint',{'seq':self.seq,'event_kind':payload['kind'],'nodes':payload['_nodes']})
+                snapshot=prepared['snapshot']
+                if snapshot.get('seq')!=self.seq or snapshot.get('session_id')!=self.session or snapshot.get('source')!='blender' or snapshot.get('nodes')!=payload['_nodes']:raise RuntimeError('结构补充响应不匹配')
+                candidate={'format':'workproof-evolution/1','snapshots':self.snapshots+[snapshot]}
+                if len(json.dumps(candidate,separators=(',',':')).encode())>8*1024*1024:raise RuntimeError('结构补充超过 8 MB，请停止并导出已有记录。')
+                payload['_prepared']=prepared
+            event={key:value for key,value in payload.items() if not key.startswith('_')}
+            if '_prepared' in payload:event['checkpoint']=payload['_prepared']['checkpoint']
+            request(endpoint+'/events',{'events':[dict(event,seq=self.seq)]})
+            if '_prepared' in payload:self.snapshots.append(payload['_prepared']['snapshot'])
+            self.seq+=1;self.committed+=1
         elif operation=='seal':
             proof=request(endpoint+'/seal',{'path':payload['path'],'event':dict(payload['event'],seq=self.seq)})
             output=pathlib.Path(payload['path']+'.wproof');temporary=output.with_name(output.name+'.tmp')
             temporary.write_text(json.dumps(proof,ensure_ascii=False,indent=2),encoding='utf-8');temporary.replace(output)
+            if self.evolution:
+                graph=pathlib.Path(payload['path']+'.wgraph');graph_tmp=graph.with_name(graph.name+'.tmp')
+                graph_tmp.write_text(json.dumps({'format':'workproof-evolution/1','snapshots':self.snapshots},separators=(',',':')),encoding='utf-8');graph_tmp.replace(graph)
             self.seq+=1;self.committed+=1;self.exported=str(output)
     def _work(self):
         pending=None
@@ -151,7 +221,11 @@ class WORKPROOF_OT_start(bpy.types.Operator):
         if not bpy.data.filepath:self.report({'ERROR'},'请先保存当前 .blend 工程');return {'CANCELLED'}
         try:checkpoint=structure_checkpoint()
         except Exception as error:self.report({'ERROR'},str(error));return {'CANCELLED'}
-        _runtime=Runtime(bpy.data.filepath);_last_metrics=metrics();_runtime.event('start',_last_metrics,checkpoint);return {'FINISHED'}
+        _runtime=Runtime(bpy.data.filepath,context.scene.workproof_evolution);_last_metrics=metrics()
+        try:_runtime.event('start',_last_metrics,checkpoint)
+        except Exception as error:
+            _runtime.close();_runtime=None;self.report({'ERROR'},str(error));return {'CANCELLED'}
+        return {'FINISHED'}
     def invoke(self,context,event):return context.window_manager.invoke_confirm(self,event)
 class WORKPROOF_OT_pause(bpy.types.Operator):
     bl_idname='workproof.pause';bl_label='暂停 / 继续'
@@ -161,7 +235,9 @@ class WORKPROOF_OT_pause(bpy.types.Operator):
             if bpy.data.filepath!=_runtime.filename:self.report({'ERROR'},'工程路径已改变，请停止后重新开始记录。');return {'CANCELLED'}
             try:checkpoint=structure_checkpoint()
             except Exception as error:self.report({'ERROR'},str(error));return {'CANCELLED'}
-            if not _runtime.event('gap',metrics()) or not _runtime.event('resume',metrics(),checkpoint):return {'CANCELLED'}
+            try:
+                if not _runtime.event('gap',metrics()) or not _runtime.event('resume',metrics(),checkpoint):return {'CANCELLED'}
+            except Exception as error:self.report({'ERROR'},str(error));return {'CANCELLED'}
             _runtime.last_viewports=visible_viewports()
             _runtime.paused=False;_runtime.retry.set()
         else:_runtime.event('pause',metrics());_runtime.paused=True
@@ -169,9 +245,14 @@ class WORKPROOF_OT_pause(bpy.types.Operator):
 class WORKPROOF_OT_export(bpy.types.Operator):
     bl_idname='workproof.export';bl_label='保存并导出过程证书'
     def execute(self,context):
-        if not _runtime or _runtime.paused:self.report({'ERROR'},'请先开始或继续记录');return {'CANCELLED'}
+        if not _runtime or _runtime.failed:self.report({'ERROR'},'请先开始记录；连接失败时请先恢复连接');return {'CANCELLED'}
         if bpy.data.filepath!=_runtime.filename:self.report({'ERROR'},'工程路径已改变');return {'CANCELLED'}
-        bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath);_runtime.seal(bpy.data.filepath,metrics());return {'FINISHED'}
+        try:
+            bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath)
+            if not _runtime.seal(bpy.data.filepath,metrics()):return {'CANCELLED'}
+        except Exception as error:
+            _runtime.paused=True;_runtime.last_error=str(error);self.report({'ERROR'},str(error));return {'CANCELLED'}
+        return {'FINISHED'}
 class WORKPROOF_OT_stop(bpy.types.Operator):
     bl_idname='workproof.stop';bl_label='停止记录'
     def execute(self,context):on_load();return {'FINISHED'}
@@ -179,11 +260,13 @@ class WORKPROOF_PT_panel(bpy.types.Panel):
     bl_label='WorkProof · 开源证人';bl_idname='WORKPROOF_PT_panel';bl_space_type='VIEW_3D';bl_region_type='UI';bl_category='WorkProof'
     def draw(self,context):
         layout=self.layout;layout.label(text='本地记录 · 不录屏 · 不保存网格内容',icon='SHIELD')
-        if not _runtime:layout.operator('workproof.start',icon='PLAY')
+        if not _runtime:
+            layout.prop(context.scene,'workproof_evolution',text='导出对象关系与修改器顺序（可选）')
+            layout.operator('workproof.start',icon='PLAY')
         else:
             layout.label(text=('已暂停' if _runtime.paused else '记录中')+' · '+str(_runtime.committed)+' 条已提交事件')
             layout.operator('workproof.pause',icon='PAUSE');layout.operator('workproof.export',icon='EXPORT');layout.operator('workproof.stop',icon='CANCEL')
-            if _runtime.exported:layout.label(text='证书已保存在工程旁边',icon='CHECKMARK')
+            if _runtime.exported:layout.label(text='证书与所选结构补充已保存在工程旁边' if _runtime.evolution else '证书已保存在工程旁边',icon='CHECKMARK')
             if _runtime.last_error:layout.label(text=_runtime.last_error[:90],icon='ERROR')
         layout.label(text='网格统计、对象结构摘要和视口变化。');layout.label(text='1 秒采样；不保存对象名称、坐标或画面。')
         layout.label(text='不代表真人认证或全部操作的完整记录。')
@@ -191,12 +274,14 @@ class WORKPROOF_PT_panel(bpy.types.Panel):
 CLASSES=(WORKPROOF_OT_start,WORKPROOF_OT_pause,WORKPROOF_OT_export,WORKPROOF_OT_stop,WORKPROOF_PT_panel)
 HANDLERS=((bpy.app.handlers.depsgraph_update_post,on_change),(bpy.app.handlers.undo_post,on_undo),(bpy.app.handlers.redo_post,on_redo),(bpy.app.handlers.save_post,on_save),(bpy.app.handlers.load_pre,on_load))
 def register():
+    bpy.types.Scene.workproof_evolution=bpy.props.BoolProperty(name='结构补充',description='另存对象关系和修改器顺序；可用于查看已披露快照，不含名称、坐标或完整操作历史',default=False,options={'SKIP_SAVE'})
     for cls in CLASSES:bpy.utils.register_class(cls)
     for handlers,fn in HANDLERS:
         if fn not in handlers:handlers.append(fn)
     if not bpy.app.timers.is_registered(sample):bpy.app.timers.register(sample,first_interval=1,persistent=True)
 def unregister():
     on_load()
+    del bpy.types.Scene.workproof_evolution
     if bpy.app.timers.is_registered(sample):bpy.app.timers.unregister(sample)
     for handlers,fn in HANDLERS:
         if fn in handlers:handlers.remove(fn)

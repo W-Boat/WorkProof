@@ -79,6 +79,21 @@ async fn start(State(shared):State<Shared>,headers:HeaderMap,Json(input):Json<St
     Ok(Json(serde_json::json!({"session_id":id,"next_seq":0})))
 }
 #[derive(Deserialize)] #[serde(deny_unknown_fields)] struct Batch {events:Vec<Event>}
+#[derive(Deserialize)] #[serde(deny_unknown_fields)]
+struct EvolutionInput {seq:u64,event_kind:String,nodes:Vec<evolution::Node>}
+async fn evolution_checkpoint(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<String>,Json(input):Json<EvolutionInput>)->ApiResult<serde_json::Value>{
+    let store=lock(&shared)?;authorize(&headers,&store)?;
+    if !master_authorized(&headers,&store)&&!pairing::allows(&headers,Some(&id),None){return Err(ApiError(StatusCode::FORBIDDEN,"ADAPTER_SESSION_DENIED".into()));}
+    let source:Option<String>=store.db.query_row("SELECT source FROM sessions WHERE id=?1",[&id],|r|r.get(0)).optional()?;
+    let source=source.ok_or_else(||bad("UNKNOWN_SESSION"))?;
+    let next:u64=store.db.query_row("SELECT COALESCE(MAX(seq)+1,0) FROM events WHERE session=?1",[&id],|r|r.get(0))?;
+    if input.seq!=next{return Err(bad("SEQUENCE_CONFLICT"));}
+    let snapshot=evolution::Snapshot{format:evolution::FORMAT.into(),session_id:id,source,seq:input.seq,event_kind:input.event_kind,nodes:input.nodes};
+    let checkpoint=evolution::checkpoint(&snapshot).map_err(bad)?;
+    // Preparation only. Existing event append supplies the atomic sequence/chain transaction.
+    // Raw node data is neither persisted nor logged by this endpoint.
+    Ok(Json(serde_json::json!({"snapshot":snapshot,"checkpoint":checkpoint})))
+}
 async fn append(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<String>,Json(batch):Json<Batch>)->ApiResult<serde_json::Value>{
     let mut store=lock(&shared)?;authorize(&headers,&store)?;
     if !master_authorized(&headers,&store)&&!pairing::allows(&headers,Some(&id),None){return Err(ApiError(StatusCode::FORBIDDEN,"ADAPTER_SESSION_DENIED".into()));}
@@ -166,6 +181,7 @@ pub async fn run(port:u16)->Result<(),Box<dyn std::error::Error>> {
         .route("/v1/pairing",post(pairing::request_pair)).route("/v1/pairing/{ticket}",get(pairing::poll_pair))
         .route("/v1/native-pairing",post(pairing::request_native)).route("/v1/native-pairing/{ticket}",get(pairing::poll_native))
         .route("/v1/sessions/{id}/events",post(append)).route("/v1/sessions/{id}/export",post(export))
+        .route("/v1/sessions/{id}/evolution-checkpoint",post(evolution_checkpoint).layer(DefaultBodyLimit::max(2*1024*1024)))
         .route("/v1/sessions/{id}/seal",post(seal))
         .layer(DefaultBodyLimit::max(256*1024)).layer(axum::middleware::from_fn(pairing::cors)).with_state(shared);
     println!("WorkProof collector listening on 127.0.0.1:{port}; pairing file: {}",dir.join("connection.json").display());

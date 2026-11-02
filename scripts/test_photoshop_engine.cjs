@@ -56,6 +56,14 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
     const engine=path.resolve(process.argv[3]);
     const verify=spawnSync(engine,['verify',artifactPath,certificatePath],{encoding:'utf8'});assert.equal(verify.status,0,verify.stderr);
     const foreign=(await http('/v1/sessions',{source:'vscode',file_name:'foreign.psd',started_at:new Date().toISOString()},info.token)).data.session_id;
+    const graphBody={seq:certificate.manifest.event_count,event_kind:'layer',nodes:[]};
+    const graphRoute='/v1/sessions/'+r.session+'/evolution-checkpoint';
+    const graphPrepared=await http(graphRoute,graphBody,nativeToken);
+    assert.equal(graphPrepared.status,200);assert.equal(graphPrepared.data.snapshot.source,'photoshop');
+    assert.equal(graphPrepared.data.snapshot.session_id,r.session);assert.equal(graphPrepared.data.snapshot.seq,graphBody.seq);
+    assert.match(graphPrepared.data.checkpoint,/^[a-f0-9]{64}$/);
+    assert.equal((await http(graphRoute,graphBody)).status,401);
+    assert.equal((await http('/v1/sessions/'+foreign+'/evolution-checkpoint',{...graphBody,seq:0},nativeToken)).status,403);
     assert.equal((await http('/v1/status',undefined,nativeToken)).status,403);
     assert.equal((await http('/v1/sessions',{source:'word',file_name:'other.docx',started_at:new Date().toISOString()},nativeToken)).status,403);
     assert.equal((await http('/v1/sessions/'+foreign+'/export',{artifact_hash:certificate.manifest.artifact_hash,artifact_bytes:certificate.manifest.artifact_bytes},nativeToken)).status,403);
@@ -79,10 +87,16 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
     let wpsToken;
     for(let i=0;i<100;i++){const p=await http('/v1/pairing/'+wps.data.ticket,undefined,'','https://wps.example');if(p.data.approved){wpsToken=p.data.token;break;}await wait(25);}
     assert(wpsToken);
+    const wordGraph='/v1/sessions/'+wordSession.data.session_id+'/evolution-checkpoint';
+    const startGraph={seq:0,event_kind:'start',nodes:[]};
+    assert.equal((await http(wordGraph,startGraph,browserToken,'https://word.example')).status,200);
+    assert.equal((await http(wordGraph,startGraph,wpsToken,'https://wps.example')).status,403);
+    assert.equal((await http(wordGraph,startGraph,nativeToken)).status,403);
     const beforeRevocation=(await http('/v1/status',undefined,info.token)).data;
     harness.stdin.write(JSON.stringify({revoke:browser.data.ticket})+'\n');
     for(let i=0;i<100;i++){const p=await http('/v1/pairing/'+browser.data.ticket,undefined,'','https://word.example');if(p.status===400)break;await wait(25);}
     assert.equal((await http('/v1/pairing/'+browser.data.ticket,undefined,'','https://word.example')).status,400);
+    assert.equal((await http(wordGraph,startGraph,browserToken,'https://word.example')).status,403);
     assert.equal((await http('/v1/sessions',{source:'word',file_name:'revoked.docx',started_at:new Date().toISOString()},browserToken,'https://word.example')).status,403);
     assert.equal((await http('/v1/sessions/'+wordSession.data.session_id+'/events',{events:[]},browserToken,'https://word.example')).status,403);
     assert.equal((await http('/v1/sessions/'+wordSession.data.session_id+'/export',{artifact_hash:certificate.manifest.artifact_hash,artifact_bytes:certificate.manifest.artifact_bytes},browserToken,'https://word.example')).status,403);
@@ -90,10 +104,12 @@ const {createHost}=require('../apps/photoshop/src/host.cjs');
     harness.stdin.write(JSON.stringify({revoke:nativeTicket})+'\n');
     for(let i=0;i<100;i++){const p=await http('/v1/native-pairing/'+nativeTicket);if(p.status===400)break;await wait(25);}
     assert.equal((await http('/v1/sessions/'+nativeSession+'/export',{artifact_hash:certificate.manifest.artifact_hash,artifact_bytes:certificate.manifest.artifact_bytes},nativeToken)).status,401);
+    assert.equal((await http('/v1/sessions/'+nativeSession+'/evolution-checkpoint',graphBody,nativeToken)).status,401);
     const afterRevocation=(await http('/v1/status',undefined,info.token)).data;
     assert.equal(afterRevocation.events,beforeRevocation.events);assert.equal(afterRevocation.sessions,beforeRevocation.sessions+1);
     const preserved=spawnSync(engine,['verify',artifactPath,certificatePath],{encoding:'utf8'});assert.equal(preserved.status,0,preserved.stderr);
     const result={adobe_host:'simulated UXP APIs, not real Photoshop',collector:'real Rust/Axum/SQLite',signature_and_file_binding:'passed via native CLI',native_desktop_approval:'real Rust approval function via CI-only stdin harness',origin_and_channel_isolation:'passed',source_and_session_scope:'passed',native_seal_and_global_status_denied:'passed',private_descriptors_excluded:'passed',desktop_revocation:'Word create/append/export denied; WPS unaffected; native grant revoked; exported proof preserved',events:certificate.records.length};
+    result.evolution_checkpoint_authorization='Native and browser grants accepted only for their own sessions; cross-grant and revoked requests denied; preparation does not append events';
     fs.writeFileSync('test-photoshop-results.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
   }finally{
     harness.stdin.end();harness.kill();

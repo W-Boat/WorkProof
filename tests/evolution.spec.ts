@@ -17,6 +17,10 @@ test('real Wasm binds structure snapshots, changes parents, rejects tampering an
   await expect(tree.getByText('属于 #1 · 同层顺序 1',{exact:true})).toBeVisible();
   await page.getByLabel('选择结构记录',{exact:true}).selectOption('1');
   await expect(tree.getByText('属于 #2 · 同层顺序 1',{exact:true})).toBeVisible();
+  await page.getByRole('region',{name:'查看结构变化（可选）'}).screenshot({path:'test-results/evolution-verified-desktop.png'});
+  await page.setViewportSize({width:390,height:844});
+  await expect(tree.getByText('属于 #2 · 同层顺序 1',{exact:true})).toBeVisible();
+  await page.getByRole('region',{name:'查看结构变化（可选）'}).screenshot({path:'test-results/evolution-verified-mobile.png'});
   const graph=JSON.parse(fs.readFileSync(fixture+'structure-demo.wgraph','utf8'));
   graph.snapshots[0].nodes[2].parent=2;
   await page.getByLabel('选择 .wgraph 结构文件',{exact:true}).setInputFiles({name:'changed.wgraph',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(graph))});
