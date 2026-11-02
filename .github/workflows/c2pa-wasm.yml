@@ -2,7 +2,7 @@ name: Real browser embedded certificate verification
 on:
   workflow_dispatch:
   push:
-    paths: ['tools/c2pa/**', 'tools/c2pa-wasm/**', 'apps/verifier/**', 'scripts/test_c2pa.py', 'scripts/test_c2pa_pdf.py', '.github/workflows/c2pa-wasm.yml']
+    paths: ['tools/c2pa/**', 'tools/c2pa-wasm/**', 'apps/verifier/**', 'crates/proof/**', 'Cargo.lock', 'scripts/verifier_graph_notices.py', 'scripts/test_c2pa.py', 'scripts/test_c2pa_pdf.py', '.github/workflows/c2pa-wasm.yml']
 permissions:
   contents: read
 concurrency:
@@ -27,6 +27,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
+            . -> target
             tools/c2pa -> target
             tools/c2pa-wasm -> target
       - name: Build locked native signer and browser verifier
@@ -49,6 +50,12 @@ jobs:
         run: |
           python scripts/c2pa_notices.py --workspace c2pa-wasm
           node tools/c2pa-wasm/stage.mjs
+      - name: Build ordinary certificate and structure verification for the same exported site
+        run: |
+          cargo build --locked -p workproof-protocol --release --target wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root "$RUNNER_TEMP/workproof-protocol-bindgen"
+          "$RUNNER_TEMP/workproof-protocol-bindgen/bin/wasm-bindgen" target/wasm32-unknown-unknown/release/workproof_protocol.wasm --target web --out-dir apps/verifier/public/wasm
+          cargo run --locked -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
       - name: Build the user verifier with the actual embedded verification runtime
         run: npm run build:web
       - name: Verify the actual user page with real PDF files and Wasm

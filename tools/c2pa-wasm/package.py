@@ -11,7 +11,10 @@ files={}
 for file in sorted(site.rglob('*')):
     assert not file.is_symlink(),'Unexpected symlink in public site'
     if file.is_file():files[file.relative_to(site).as_posix()]=file
-assert 'index.html' in files and 'c2pa/pkg/workproof_c2pa_wasm_bg.wasm' in files
+required={'index.html','verify-worker.js','wasm/workproof_protocol.js','wasm/workproof_protocol_bg.wasm',
+          'demo/essay.md','demo/essay.md.wproof','demo/structure-demo.txt','demo/structure-demo.txt.wproof','demo/structure-demo.wgraph',
+          'notices/graph/inventory.json','c2pa/pkg/workproof_c2pa_wasm_bg.wasm'}
+assert required<=files.keys(),'Missing public verifier entry resources: '+repr(sorted(required-files.keys()))
 assert 'SHA256SUMS.txt' not in files
 manifest=''.join(hashlib.sha256(file.read_bytes()).hexdigest()+'  '+name+'\n' for name,file in files.items())
 archive=root/'verifier-with-embedded-certificates.zip'

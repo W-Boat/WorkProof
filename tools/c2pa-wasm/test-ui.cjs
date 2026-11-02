@@ -32,6 +32,23 @@ const server=http.createServer((req,res)=>{
       return route.continue();
     });
     const page=await context.newPage();await page.goto(origin);
+    const demo=path.join(root,'demo');
+    await page.getByRole('button',{name:'先体验一份演示证据'}).click();
+    await page.getByText('证据核验通过',{exact:true}).waitFor({timeout:30000});
+    await page.getByLabel('选择最终作品',{exact:true}).setInputFiles(path.join(demo,'structure-demo.txt'));
+    await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles(path.join(demo,'structure-demo.txt.wproof'));
+    await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
+    await page.getByText('证据核验通过',{exact:true}).waitFor({timeout:30000});
+    await page.getByText('收到 .wgraph 结构文件？查看对象和图层怎样变化',{exact:true}).click();
+    await page.getByLabel('选择 .wgraph 结构文件',{exact:true}).setInputFiles(path.join(demo,'structure-demo.wgraph'));
+    await page.getByRole('button',{name:'核验并查看结构',exact:true}).click();
+    await page.getByText('结构与证书中的记录一致',{exact:true}).waitFor({timeout:30000});
+    await page.getByRole('button',{name:'打开关系图',exact:true}).click();
+    const graph=page.getByLabel('已核验的结构关系图',{exact:true});
+    await graph.locator('.react-flow__edge[data-id="1-3"]').waitFor();
+    await page.getByLabel('选择结构记录',{exact:true}).selectOption('1');
+    await graph.locator('.react-flow__edge[data-id="2-3"]').waitFor();
+    assert.equal(await graph.locator('.react-flow__edge[data-id="1-3"]').count(),0);
     const panel=page.getByRole('region',{name:'检查作品内嵌的创作证书'});
     await panel.getByText('作品中已经包含证书？从这里检查',{exact:true}).click();
     await panel.getByLabel('1. 选择带证书的作品',{exact:true}).setInputFiles(path.join(fixtures,'selected.pdf'));
@@ -46,6 +63,6 @@ const server=http.createServer((req,res)=>{
     await panel.getByRole('checkbox').check();await button.click();
     await panel.getByText('所选 CA 无法确认这份签名，请向签发方核对可信来源。',{exact:true}).waitFor({timeout:90000});
     assert(requests.every(r=>r.method==='GET'&&r.url.startsWith(origin+'/')));
-    console.log('PASS exported user page: real PDF Wasm verification, explicit trust consent, stale-result reset, wrong-root refusal and local GET resources only');
+    console.log('PASS exported user page: ordinary certificate Wasm, authenticated structure snapshots and React Flow edges, real PDF Wasm verification, explicit trust consent, stale-result reset, wrong-root refusal and local GET resources only');
   }finally{await browser.close();if(child){child.kill();await new Promise(resolve=>child.once('exit',resolve));}else server.close();}
 })().catch(error=>{console.error(error);server.close();process.exitCode=1;});
