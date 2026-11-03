@@ -1,0 +1,2728 @@
+{
+  "protocol": "workproof-ai-evaluation/1",
+  "dataset_sha256": "2dee08c686a7d282a591d983908585b04e604e5fc2da454418e21eb0432bfad1",
+  "policy_sha256": "9818594b51b3b381217604bec82fd43501bd84c8cdc79f74ccbe4d35225b7dae",
+  "engine_id": "mpu-en-v3",
+  "model_revision": "3ceb1d1bb7b9ca11585ce3f4299950e1c465b6d8",
+  "threshold": 0.5,
+  "score_kind": "uncalibrated_class_softmax",
+  "score_label": "AI",
+  "policy_mode": "published_fixed",
+  "decision_rule": "binary_argmax",
+  "calibration_dataset_sha256": null,
+  "declared_calibration_samples": 0,
+  "overall": {
+    "samples": 192,
+    "statuses": {
+      "completed": 189,
+      "unsupported": 3
+    },
+    "scored": 189,
+    "coverage": 0.984375,
+    "mixed_excluded_from_binary_metrics": 0,
+    "false_positive": {
+      "events": 35,
+      "count": 95,
+      "rate": 0.3684210526315789,
+      "wilson95": [
+        0.2783009458551568,
+        0.46876875244470445
+      ]
+    },
+    "false_negative": {
+      "events": 1,
+      "count": 94,
+      "rate": 0.010638297872340425,
+      "wilson95": [
+        0.0018803957480879353,
+        0.05782291296278563
+      ]
+    }
+  },
+  "groups": {
+    "language": {
+      "en": {
+        "samples": 192,
+        "statuses": {
+          "completed": 189,
+          "unsupported": 3
+        },
+        "scored": 189,
+        "coverage": 0.984375,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 35,
+          "count": 95,
+          "rate": 0.3684210526315789,
+          "wilson95": [
+            0.2783009458551568,
+            0.46876875244470445
+          ]
+        },
+        "false_negative": {
+          "events": 1,
+          "count": 94,
+          "rate": 0.010638297872340425,
+          "wilson95": [
+            0.0018803957480879353,
+            0.05782291296278563
+          ]
+        }
+      }
+    },
+    "generator": {
+      "deepseek-v3": {
+        "samples": 24,
+        "statuses": {
+          "completed": 23,
+          "unsupported": 1
+        },
+        "scored": 23,
+        "coverage": 0.9583333333333334,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 23,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.14311661845042686
+          ]
+        }
+      },
+      "gemini-2.5-flash": {
+        "samples": 24,
+        "statuses": {
+          "completed": 24
+        },
+        "scored": 24,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 24,
+          "rate": 0.0,
+          "wilson95": [
+            1.3877787807814457e-17,
+            0.13797620467498017
+          ]
+        }
+      },
+      "gpt-4o": {
+        "samples": 24,
+        "statuses": {
+          "completed": 24
+        },
+        "scored": 24,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 24,
+          "rate": 0.0,
+          "wilson95": [
+            1.3877787807814457e-17,
+            0.13797620467498017
+          ]
+        }
+      },
+      "human": {
+        "samples": 96,
+        "statuses": {
+          "completed": 95,
+          "unsupported": 1
+        },
+        "scored": 95,
+        "coverage": 0.9895833333333334,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 35,
+          "count": 95,
+          "rate": 0.3684210526315789,
+          "wilson95": [
+            0.2783009458551568,
+            0.46876875244470445
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        }
+      },
+      "qwen-max": {
+        "samples": 24,
+        "statuses": {
+          "completed": 23,
+          "unsupported": 1
+        },
+        "scored": 23,
+        "coverage": 0.9583333333333334,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        },
+        "false_negative": {
+          "events": 1,
+          "count": 23,
+          "rate": 0.043478260869565216,
+          "wilson95": [
+            0.007716666143453149,
+            0.20991155070258877
+          ]
+        }
+      }
+    },
+    "kind": {
+      "ai_original": {
+        "samples": 96,
+        "statuses": {
+          "completed": 94,
+          "unsupported": 2
+        },
+        "scored": 94,
+        "coverage": 0.9791666666666666,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        },
+        "false_negative": {
+          "events": 1,
+          "count": 94,
+          "rate": 0.010638297872340425,
+          "wilson95": [
+            0.0018803957480879353,
+            0.05782291296278563
+          ]
+        }
+      },
+      "human_original": {
+        "samples": 96,
+        "statuses": {
+          "completed": 95,
+          "unsupported": 1
+        },
+        "scored": 95,
+        "coverage": 0.9895833333333334,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 35,
+          "count": 95,
+          "rate": 0.3684210526315789,
+          "wilson95": [
+            0.2783009458551568,
+            0.46876875244470445
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        }
+      }
+    },
+    "domain": {
+      "academic": {
+        "samples": 32,
+        "statuses": {
+          "completed": 32
+        },
+        "scored": 32,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 4,
+          "count": 16,
+          "rate": 0.25,
+          "wilson95": [
+            0.10182067491213048,
+            0.49498316535508774
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        }
+      },
+      "news": {
+        "samples": 32,
+        "statuses": {
+          "completed": 32
+        },
+        "scored": 32,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 8,
+          "count": 16,
+          "rate": 0.5,
+          "wilson95": [
+            0.27999563610326017,
+            0.7200043638967398
+          ]
+        },
+        "false_negative": {
+          "events": 1,
+          "count": 16,
+          "rate": 0.0625,
+          "wilson95": [
+            0.01111934476464252,
+            0.28328737570298945
+          ]
+        }
+      },
+      "novel": {
+        "samples": 32,
+        "statuses": {
+          "completed": 32
+        },
+        "scored": 32,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 9,
+          "count": 16,
+          "rate": 0.5625,
+          "wilson95": [
+            0.331785563988119,
+            0.7690134759450765
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        }
+      },
+      "seo": {
+        "samples": 32,
+        "statuses": {
+          "completed": 32
+        },
+        "scored": 32,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 6,
+          "count": 16,
+          "rate": 0.375,
+          "wilson95": [
+            0.18481232558863633,
+            0.6135895945449727
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        }
+      },
+      "webtext": {
+        "samples": 32,
+        "statuses": {
+          "completed": 32
+        },
+        "scored": 32,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 5,
+          "count": 16,
+          "rate": 0.3125,
+          "wilson95": [
+            0.14164643854782039,
+            0.5559564416525933
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        }
+      },
+      "wiki": {
+        "samples": 32,
+        "statuses": {
+          "completed": 29,
+          "unsupported": 3
+        },
+        "scored": 29,
+        "coverage": 0.90625,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 3,
+          "count": 15,
+          "rate": 0.2,
+          "wilson95": [
+            0.07047549346981563,
+            0.45185448715169363
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 14,
+          "rate": 0.0,
+          "wilson95": [
+            1.3877787807814457e-17,
+            0.2153108027376358
+          ]
+        }
+      }
+    }
+  },
+  "samples": [
+    {
+      "id": "detectrlx-111707-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "90774656919cddb2057c7d1bd5200c91a1a7c76a23ebc33b0a5346ede69973b6",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.05222833529114723
+    },
+    {
+      "id": "detectrlx-111707-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "7fb6dd8e516a666379202b4427c07d3eb3ff0b6092ab3c616e79f595974e2cb9",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996875524520874
+    },
+    {
+      "id": "detectrlx-110289-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "91f2eb6e9e473bb6f03a17f8d3e7d182730fea48b479ca99dca3e15db671b310",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.031973421573638916
+    },
+    {
+      "id": "detectrlx-110289-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "e65006ac0fc1b90f4afd84972bcc051ddaeba7451cd144b5cdff96112fee7eeb",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996869564056396
+    },
+    {
+      "id": "detectrlx-111671-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "421006fd1f1f9c17fbebeaad799a5c2bc488e2a34d25e398f8032b1aa3760abd",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.08632829040288925
+    },
+    {
+      "id": "detectrlx-111671-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "dd86a86e6a362714ed52e009716e4dd9181e827a85e78815d56829d995cfbf30",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996389150619507
+    },
+    {
+      "id": "detectrlx-111760-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "ee45fe06d099cf97babe1b6154e1420c04dc1ea0ecc19d40afeafd37575394c5",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.044285036623477936
+    },
+    {
+      "id": "detectrlx-111760-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "6c9efa5f28a36d5207ad8180e3becca4ea8a5accda33ee5e82ea3e9dabc2eeea",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996851682662964
+    },
+    {
+      "id": "detectrlx-26420-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "f186ec6f1e576b99313f77a7ad5891c09f8d871f435829a05c2901476001d09c",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.000603659893386066
+    },
+    {
+      "id": "detectrlx-26420-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "8dc8e529386ee10f7e70fcbf20eacabda75bde43f14dd22e5533aaff1e8deced",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996923208236694
+    },
+    {
+      "id": "detectrlx-26588-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "46c63abe048140bdd387340230e2266e11c28cc3d47fadc4e6c86e307d1ea329",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.042225878685712814
+    },
+    {
+      "id": "detectrlx-26588-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "d61ec51c09e618960c3c20b73ea3aab80753aa29e7e1189922253e5a276a4671",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996874332427979
+    },
+    {
+      "id": "detectrlx-26493-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "663e401548b79fbc72aa4bc389bba44a61e73c6e4ae5bf2f782ded62396d3eaa",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9801933169364929
+    },
+    {
+      "id": "detectrlx-26493-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "174e3adeebfd1a8353a61c6c8c9eca68b37776a5a0daf1a9b79e0b9ed94ca236",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996366500854492
+    },
+    {
+      "id": "detectrlx-26522-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "681072d79b732cd539a77884c7ce78cfb84b74fcd941a5b6c1086e5017f3fd8b",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0018222983926534653
+    },
+    {
+      "id": "detectrlx-26522-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "bb5741e7d07520b05c2b4adca047ae67fb1c8b12e0e1c797a6e1dbe6d952e7eb",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996711015701294
+    },
+    {
+      "id": "detectrlx-29172-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "20ee2f0fc665e7e64d4fcce1deb14d1641ce042a641a3dab58f3ef3aef269259",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0024951202794909477
+    },
+    {
+      "id": "detectrlx-29172-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "4b03a3ee69afa70ad0a6ab9a7a36f94ceba7d5d55b8eed719897a72a8c8bbde5",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996885061264038
+    },
+    {
+      "id": "detectrlx-29073-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "0ac39dfd1c1b0289de50f6f94e87164f4789c58cd10a8289b10a71ca133d60c6",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.06532321125268936
+    },
+    {
+      "id": "detectrlx-29073-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "62eeff81ab4aedb9d39fa15d1a1a2e0563ad72019f37e2ccffaebb4927b05661",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996902942657471
+    },
+    {
+      "id": "detectrlx-29023-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "7e1b32553445469a16422fc5a112c792a770500583f0e706efbb1383162133c1",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9349731206893921
+    },
+    {
+      "id": "detectrlx-29023-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "15c32d5a6075e5ee69edd84c13fa5e72acf5df1348fee7d1bd818c13814703a2",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996778964996338
+    },
+    {
+      "id": "detectrlx-29184-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "804424b823993b903e1c359c0db99c235c7dfdb6888b96f20c51572659985c31",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996566772460938
+    },
+    {
+      "id": "detectrlx-29184-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "31a03cdfd1eb4161b0e4e0d8400ad1bd96f680884a193c90dacd8eafbd5f9c96",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996874332427979
+    },
+    {
+      "id": "detectrlx-31620-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "980082c2896a08cd3ad223d3935dffd9941ce81f528b9b2a7e17d97384831d92",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.5505526065826416
+    },
+    {
+      "id": "detectrlx-31620-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "93b2f9029244f1dac4286d8fa985d052a2076aa5ffc371a42c8ef4e60eb34668",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996927976608276
+    },
+    {
+      "id": "detectrlx-31670-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "877d4464b5cc61b905b60d15d93aa2837eb7c016b9322ca3be460db1e2aea0e3",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0012072502868250012
+    },
+    {
+      "id": "detectrlx-31670-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "fe256e9df4256518fe54c3436accdf4e4a593716d28ce4a2fb583701b21bf02d",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996942281723022
+    },
+    {
+      "id": "detectrlx-31779-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "5d405856051ef85963800e1c7c79ef4dddbb519b0b035b151c7347fac326915a",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996917247772217
+    },
+    {
+      "id": "detectrlx-31779-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "6659e5176e07adf4fbc593384bc72feb1ea2c27ed765901ce510e83e66c3c416",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996882677078247
+    },
+    {
+      "id": "detectrlx-31690-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "7164c0e1d2a686d654adeced141907a717b454b8ba23f1c2c62fefbbdd89adea",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.015084072016179562
+    },
+    {
+      "id": "detectrlx-31690-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "3720df15a77a45c1b5e04fd5989aa195d957a76a0f43d669db2033d3bfee5d42",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996925592422485
+    },
+    {
+      "id": "detectrlx-34303-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "db0f64ed0c8ccb618bde7ada259101e9355097212e4c3e9ab789cb0ca00b9b5f",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.002185133518651128
+    },
+    {
+      "id": "detectrlx-34303-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "bbdeba02769e5bfd7fb635921811125622e942de1cc293fbaeff3a9ff2e4829f",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996908903121948
+    },
+    {
+      "id": "detectrlx-34217-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "5973e0369179d5bafb3183a22a3241026d06c2e6627adc9073cd97c938c3240c",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9987210631370544
+    },
+    {
+      "id": "detectrlx-34217-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "aad232ca66a82893c4ce6f9952274e6d327fc2d25c4cc455906b311233750c36",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996809959411621
+    },
+    {
+      "id": "detectrlx-34360-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "d4816909cca6c30a42282d618f03f44542d653d95712dff0143309259e06924c",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996916055679321
+    },
+    {
+      "id": "detectrlx-34360-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "f88acbadc0d968494cc92f1baad08b6fab689d4706e160c50f720a8829b405c1",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999687910079956
+    },
+    {
+      "id": "detectrlx-34334-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "3618171f31c22d101b2c5f93e08d4437e56d7cdea43b7ef7d32e2d989da0fc1a",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.1471293717622757
+    },
+    {
+      "id": "detectrlx-34334-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "c3d2f1f7a74af7c3f8274ce2a23589980ec842bff05e763cc30ee7b1b9bf9602",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996875524520874
+    },
+    {
+      "id": "detectrlx-37008-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "94a25a6d6cd23a152a8bf595d83a713a2a7204f6f922215ccbefa913787615a4",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.010123138315975666
+    },
+    {
+      "id": "detectrlx-37008-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "d2729ee24e78a4efab3623f99ff722a8a9bf558b9259f03e65c17eae73c86bd2",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996939897537231
+    },
+    {
+      "id": "detectrlx-36846-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "e5442f7e37416a0ba1096f5a792d1755bbe531212c173c6ff2d0678691701db2",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9981063604354858
+    },
+    {
+      "id": "detectrlx-36846-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "8d10c77eb071db54f8acc11cec63ae69c123cfdae818480c11f5a314e76d3a7a",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996886253356934
+    },
+    {
+      "id": "detectrlx-36943-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "6f1a4e085eb8566983c6f0186540bb4fe71e802b976c6364a131cec6e51ff1cd",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.20048731565475464
+    },
+    {
+      "id": "detectrlx-36943-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "207fc1942f416429078a4bdd4020e4b7c3f7a28ccda3b15334f60bae47cc7e8d",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9992979764938354
+    },
+    {
+      "id": "detectrlx-36921-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "ac83e23342b175ac30c529e8c999daded09bd6dbbe70ad4f9e1de2fdd16b7c29",
+      "prediction": null,
+      "status": "unsupported"
+    },
+    {
+      "id": "detectrlx-36921-ai",
+      "language": "en",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "d64ff2b55044d1b079eab1ac3ff144ede96b312167d753f697665a9bba2b66c0",
+      "prediction": null,
+      "status": "unsupported"
+    },
+    {
+      "id": "detectrlx-110740-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "222a6bd824314aaa6c25069ae0741c71021fa03ced4791822ea9dad404615e82",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.997591495513916
+    },
+    {
+      "id": "detectrlx-110740-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "20b2861544ae16a03c0471471692d422c04aabeae4388fd15a988bfac0a4d998",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996845722198486
+    },
+    {
+      "id": "detectrlx-110784-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "eb193db475b8fd846f5387544ae78722ba94c55ad9b9e000e281d0713976fef4",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9911063313484192
+    },
+    {
+      "id": "detectrlx-110784-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "ee3a5789ce824ea1aa3062dd3d016679c8508cac9c55ac8a45feebe74d4fb8f7",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996788501739502
+    },
+    {
+      "id": "detectrlx-110776-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "7fae606d1934bedc9afefe2a071466218d442758e2de3b77335b09ab84c1c65a",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.005214453209191561
+    },
+    {
+      "id": "detectrlx-110776-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "3fffb15044a62e043f51747d9281d0ad67788fef7b32f711e3093d0e355283cb",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999683141708374
+    },
+    {
+      "id": "detectrlx-110788-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "e0f1b4f045c9423f24aabb6eaa5d1f0cf07afcca314bb895834ee1f60e8c6503",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.02508842945098877
+    },
+    {
+      "id": "detectrlx-110788-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "ac1d53a878903a9ecb3446d1dfe9b39cfb95d7bcce24dd14564c26d43aed7be7",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996790885925293
+    },
+    {
+      "id": "detectrlx-27283-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "5b57277f92e75a7bbe183c34a0ac7e4b16926e982a87974f9aaec77b951a6b41",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.02086709253489971
+    },
+    {
+      "id": "detectrlx-27283-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "598880dd24b7420cf1f975f82c0327b880762a0dac3f61ae893efa287ca5bf88",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996904134750366
+    },
+    {
+      "id": "detectrlx-27139-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "d6d0adb9fec57b62e1be06be58a784184725551e52253fe0679ef0dd47c448b5",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.001050430815666914
+    },
+    {
+      "id": "detectrlx-27139-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "014c901dcaf2021692746e00ea7938b14070ef64ab3519a903abb15507623aac",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.99968421459198
+    },
+    {
+      "id": "detectrlx-27151-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "c51395cf025d084d8e05ab0f0a7714b4559f4ad41f0b6feba53ce341deaf4f53",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996851682662964
+    },
+    {
+      "id": "detectrlx-27151-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "bb1e01b78c7d5792198747984f4b7cd260f5a486850249499afb44ac3ce94816",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996689558029175
+    },
+    {
+      "id": "detectrlx-27298-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "9cb84955830b321000fc0824b9f651eee3c47edf13a1c4b919723962372627b3",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996705055236816
+    },
+    {
+      "id": "detectrlx-27298-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "fbd1715aebc1ae1df1660fab7321e72e71f08ff1b0f127f55f6e73f0daebbdad",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996851682662964
+    },
+    {
+      "id": "detectrlx-29818-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "399553c950ec79c74e32c4d30fd95c3cb25a9ca80d36109605f015efd9d87633",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.171244814991951
+    },
+    {
+      "id": "detectrlx-29818-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "396fefa0f6741a996ef334e99ee8117ef0da270954684e147784a535517d5693",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996919631958008
+    },
+    {
+      "id": "detectrlx-29882-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "107639d7a5538da48181f45bdf3c9e3570fbe2c051d298e5c4086a04ff2a4511",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996067881584167
+    },
+    {
+      "id": "detectrlx-29882-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "4b5bf7c7adec42b29e81eccba06fece8023298d90867040e808582e6c2efe7b9",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996856451034546
+    },
+    {
+      "id": "detectrlx-29651-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "d2a07c987af3d3a292649855329db3d1b927c1d46d9a6a1e28956b25d47dc405",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.8941569924354553
+    },
+    {
+      "id": "detectrlx-29651-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "d1b3e9075c2e973adb0e0ebdb93abacefc448dd88e2a31f19cfe8a66a96a4773",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994563460350037
+    },
+    {
+      "id": "detectrlx-29775-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "4498b0527034e085fd2cbeda20da84394c522ff8666a32d8a1eef9290b6c95ff",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.8508394956588745
+    },
+    {
+      "id": "detectrlx-29775-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "2efe19896d4655d08540dc3fc5d7da582f68f273fb0df47299b7188dc9e9d8c8",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999686598777771
+    },
+    {
+      "id": "detectrlx-32263-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "098a7a61d86100ea1a10bbb43e2997ae333f601d94dd4252360c36f207c4f290",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996854066848755
+    },
+    {
+      "id": "detectrlx-32263-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "ec6cb4d38719cd4c57dba32f49678b0af994082d9b42ef93d4a6d1170b36917b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996788501739502
+    },
+    {
+      "id": "detectrlx-32451-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "4672cde4622722de650d4b7dd5f8b1f6356d6a947b65636b7a24273c41f347e9",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.001288272556848824
+    },
+    {
+      "id": "detectrlx-32451-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "6084e6a342f8baa8bc9efd8329050675caa226b7ac6afd001032eb76b234aa45",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996860027313232
+    },
+    {
+      "id": "detectrlx-32406-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "6706381eae1134735beaf4318211a620d1f521da0b22108a971e04d687db3142",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.00510015245527029
+    },
+    {
+      "id": "detectrlx-32406-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "be5501d0c1152a24de5cfe2381f1a5a1d6c41afc8696f41c3738ab6505902513",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996894598007202
+    },
+    {
+      "id": "detectrlx-32370-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "69090757556943bf844bea4f58e3fb0f7712b04b4d0871af4d0599907506d706",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.17265215516090393
+    },
+    {
+      "id": "detectrlx-32370-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "cf5ffe461ee718900aca4982c7da703080df585cc34995dc262d2519897e965c",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996936321258545
+    },
+    {
+      "id": "detectrlx-34880-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "442eab8f03d13e53276bffed66e5011a8733b2ec85fcb17ee55adeec936b3296",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.08246199041604996
+    },
+    {
+      "id": "detectrlx-34880-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "70e3d6e816586ec8a27e028c96258f4ffad1159ad7f01e09d90a71873ba28122",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996902942657471
+    },
+    {
+      "id": "detectrlx-35043-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "dbf6d314c0ff890a9accbbb44ef9bb9810b3520df1145d113b1f533d887083a2",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0007537808851338923
+    },
+    {
+      "id": "detectrlx-35043-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "bc6457d72ee513cbfa0190d7b01797cc947110786ac04b30e9aadc9dc8f06112",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996758699417114
+    },
+    {
+      "id": "detectrlx-34932-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "8f64f9e9287a4ae8a1282f9c72916682b8815c509e433270e39131b3ee06b1e8",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0006215565954335034
+    },
+    {
+      "id": "detectrlx-34932-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "4801e39437fc495df60c04eb4f5631787837a4ac0aa8ea9029f790a4e39f3bb5",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996911287307739
+    },
+    {
+      "id": "detectrlx-34938-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "9476c8c9cdf13033714bf8524e8f88e132b93b23f55b120c27d411d4c8272c46",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.05686784163117409
+    },
+    {
+      "id": "detectrlx-34938-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "6dcefe55cb36c65ca2d6c56b3ce890487285ca36612609818159faa9d8ffd2ef",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996784925460815
+    },
+    {
+      "id": "detectrlx-37468-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "57242ac0ea7f977f6bf442c0217d09aea3762c998742a0ae214ece6c2ae12508",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.04431108385324478
+    },
+    {
+      "id": "detectrlx-37468-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "a5b4bf570162865a7f382d29f2e670d33774dd1394a35ad15980ea604017d021",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996935129165649
+    },
+    {
+      "id": "detectrlx-37663-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "e5ad4a545c00668d8d25f36c9eb3acbfddf509763d075a940e4182d5a53bf049",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.000588349939789623
+    },
+    {
+      "id": "detectrlx-37663-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "0d730d987faf3692bcb74776ba3cc24e43c675fce8e04e80c6ba4d688792ffab",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9989500641822815
+    },
+    {
+      "id": "detectrlx-37655-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "89dca0327dabbcc79fd9a9974f8995318206da792d2b69d041b6fc33168d2e94",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0006516366847790778
+    },
+    {
+      "id": "detectrlx-37655-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "c31f43115717f59778b4e3c440a73d2739e27e103a4261ee768cbfe4ef0f58f3",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995633959770203
+    },
+    {
+      "id": "detectrlx-37700-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "017e82e470a6a4f59ae50a1fb89ee9dd6632b9b048932b3a87709b0b357bf831",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.06151191517710686
+    },
+    {
+      "id": "detectrlx-37700-ai",
+      "language": "en",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "b837a92dcd39982c8d152d677b53ed2712459c54b22ade43f82d0bdb1416ebeb",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996956586837769
+    },
+    {
+      "id": "detectrlx-111440-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "dc88ec72d55c4c5caffa6d3eb591cc8b4ec5fdc4b397adbc21da4275d731ce25",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.001935228006914258
+    },
+    {
+      "id": "detectrlx-111440-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "cd44f43040f4712b34aa2d10c51ecbed47c33ab25c7a4d838153bd50edbd46d9",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996813535690308
+    },
+    {
+      "id": "detectrlx-111344-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "7360bad840c61712bd62276d0323efec16c5afe24bf9e48e9f09b7d7069e908d",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.025247512385249138
+    },
+    {
+      "id": "detectrlx-111344-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "99e55e55bf1f9748e360513525cb20700b087a1ad8f8d7a5847c19050968253f",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996869564056396
+    },
+    {
+      "id": "detectrlx-111451-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "0e75b354cb4b260a4ced36b0d5428bb5ff86b82df7eae90c09599e04ef35e695",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.00221300614066422
+    },
+    {
+      "id": "detectrlx-111451-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "23452d6b03f94e2d66ec09d955971be957cee6314d582c426e7d1bc2d426d041",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996911287307739
+    },
+    {
+      "id": "detectrlx-111437-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "020aa6148913a2f17f4d7c4677f962a9a5d77959f5981afb814a9f3cded4f15e",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9574785828590393
+    },
+    {
+      "id": "detectrlx-111437-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "a167e1d600a4ad8ff0a9805a88aeb17daaf3f980acb96447643b02a11bdf6521",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996922016143799
+    },
+    {
+      "id": "detectrlx-27925-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "00b41eb24f9578fbb410088b7077c84fb9474e84389cffa7c794a04cfff2f9ac",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9989452958106995
+    },
+    {
+      "id": "detectrlx-27925-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "f555f4bb39562b212f3495755973beb8ef6233e16a6c29fa4c10a9f823c96de1",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996715784072876
+    },
+    {
+      "id": "detectrlx-27705-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "66cfc666180cf2e2f316eef926ac958fd8895102e3a572623ca2a3da868232e6",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9632697701454163
+    },
+    {
+      "id": "detectrlx-27705-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "0a621f264f02f19a3d2b5d0e02d4dba73721759a36317189801b396f489f6ec8",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999284565448761
+    },
+    {
+      "id": "detectrlx-27903-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "bf9282bf715a28c78da0f30dbc09ed9e1266ec61f64e77307e1a6458a858d440",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9811326861381531
+    },
+    {
+      "id": "detectrlx-27903-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "6d976587595d42dc88b4681d7bac96530e56d0355116cc1c7f9fb66b28104e54",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999693751335144
+    },
+    {
+      "id": "detectrlx-27781-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "8c2a11ba8d1209b3f3aa2c531d784c71931fef6ba4d1430220522f63d93704ae",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0014965649461373687
+    },
+    {
+      "id": "detectrlx-27781-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "fe79436ca0582f6299dccd2f172a3865b2b78fbdb057f0e9ba3b5ed0c314f180",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999484658241272
+    },
+    {
+      "id": "detectrlx-30516-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "bc901fe12aabd429810cc9677429a2a34043e583b8b3b943295b26f78bfe3b35",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0005591883673332632
+    },
+    {
+      "id": "detectrlx-30516-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "3a0c5d4123dc639a9352c50df763d823f0aac675bebb881b3b8c3c216225774e",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996916055679321
+    },
+    {
+      "id": "detectrlx-30324-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "db012f6e33ade4e00bd699b36d312c64287d19952ddb41099e9a915138c4cf04",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.31334811449050903
+    },
+    {
+      "id": "detectrlx-30324-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "13f1b8f202ba4cba48d1d3a78b985fbd7bbfb55b2171b433490a70a0c93e08d7",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996814727783203
+    },
+    {
+      "id": "detectrlx-30313-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "5e9be54ed211c40e7e44f0f7da4fe762c1f6c8c5a807e3f40a109a0cfec7a393",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.125732421875
+    },
+    {
+      "id": "detectrlx-30313-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "9f204c8e7c2d0d03bfafac5f6f4a22aa1ada7fef73bff7f5018fa70f39d3d8f2",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999687910079956
+    },
+    {
+      "id": "detectrlx-30463-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "6e4b49c3a92e4de8fab22972ff05608745a87f13ced1418e17133258750d501d",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9975455403327942
+    },
+    {
+      "id": "detectrlx-30463-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "a45efb3eec4b056f8981a14acfb7c88f806535acf6be471878c9af69c118e12c",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996845722198486
+    },
+    {
+      "id": "detectrlx-33105-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "671c6eaa92cfbe7ecebf8c2f665ed5407a439e569551e895f7aba14fed9ff346",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9471959471702576
+    },
+    {
+      "id": "detectrlx-33105-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "4e31a7425cf7286f2ea95f3efba3e25675c0ad9484b543e1c0ebecb47c86ee56",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996858835220337
+    },
+    {
+      "id": "detectrlx-33030-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "331e28d20e2aa1768f38f9248526e5597419f0e927f4fe3c4bed824cae2f8ae2",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.07221858948469162
+    },
+    {
+      "id": "detectrlx-33030-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "235925bea8ff845b9839e60b57b8bfa9c0e3d18783e8b67ba47564fbe0c23183",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996912479400635
+    },
+    {
+      "id": "detectrlx-33126-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "9d114bffe1438a1d6693453446766fd64a0871ed5a70336056c0adc52c66d74e",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0005632153479382396
+    },
+    {
+      "id": "detectrlx-33126-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "f7228a48d5bc0b2fc006e1e38e43e8d2ed13a3b29c12d6b4aae51dd05c2330a4",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996887445449829
+    },
+    {
+      "id": "detectrlx-33049-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "921fd1d4784c03e255c4a5141793697dea87b6efceaaf8d4ba436900201c6dd0",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.6126091480255127
+    },
+    {
+      "id": "detectrlx-33049-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "f567a0c8a5a1757dfe24327c44d08695f307b70abd48436519323d996b5bc42f",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996931552886963
+    },
+    {
+      "id": "detectrlx-35587-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "84eb02e8efef24d0cc0353e739a6ccfecc1fee44ed70ebc2b83aa1f6bb3669a2",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996540546417236
+    },
+    {
+      "id": "detectrlx-35587-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "19fccfb0c01a122d1a201f08a7c9121396dc069e557c7ae63ea394ca47ce5091",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996877908706665
+    },
+    {
+      "id": "detectrlx-35733-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "c57b7e87866879092d770ed5e4d580b7fad7badfc599cf78167066568eb06d07",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.06760847568511963
+    },
+    {
+      "id": "detectrlx-35733-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "1e875b5ccef4583c93b7c14465d5bb75795da018c11e9c652392469ba68d1541",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996923208236694
+    },
+    {
+      "id": "detectrlx-35688-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "3c953840c767d6398be80b2177a824b6a8b0a89569b0fe365f38715e3ddb9777",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9509683847427368
+    },
+    {
+      "id": "detectrlx-35688-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "2a8c19057f399065678e18fb6bee624c1a6562bd64fc244b6d8ffb8f93c5000e",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999688982963562
+    },
+    {
+      "id": "detectrlx-35564-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "375ba4e80fdb545032d0ad78226abebfa31f254e24b5e8661fca09eae0c62d77",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9867781400680542
+    },
+    {
+      "id": "detectrlx-35564-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "33a5c4b5d95670f1353329c9090a7fca50af496129eb21db51a780590b355b6d",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996763467788696
+    },
+    {
+      "id": "detectrlx-38149-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "4a3c4c9f8b8fe6ca5c1c97f94edf1bcc4a9626e5c6defdf7379cc86e78b9b49b",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.028618913143873215
+    },
+    {
+      "id": "detectrlx-38149-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "bbfb4108997e9a613828d7765c2819304ec201e770e533023a970544878cf322",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999698281288147
+    },
+    {
+      "id": "detectrlx-38222-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "99fc92b00c1704229056454a80bb8cf55f608d9f6f5008375f28002260ed7472",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.06736205518245697
+    },
+    {
+      "id": "detectrlx-38222-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "abe15f7989b69bbd406f0fc4afe2ac1c635a50824819f5d23767f6a5576a74ca",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996898174285889
+    },
+    {
+      "id": "detectrlx-38234-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "cdd81c17f2114c2332aba87cc3724c09798ca6140d294a3408b8c86753423856",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0015404028818011284
+    },
+    {
+      "id": "detectrlx-38234-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "478e6f2a7380a619798709fb5bc68fad8da37dc3b4894c15de977be487c34f0b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996914863586426
+    },
+    {
+      "id": "detectrlx-38316-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "022a65d672b7f2f1abe81395dc31892c1314006c61a6266cc1493f3011085013",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.15652869641780853
+    },
+    {
+      "id": "detectrlx-38316-ai",
+      "language": "en",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "e435c97ce68f7dbe0716105366004e7d74c256c816064e37ee45741003a603a9",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996920824050903
+    },
+    {
+      "id": "detectrlx-109836-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "f47f79625542f503a295dc497b0fe76c0fa96d9a625845fd160705e0f6a41e65",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.04493751749396324
+    },
+    {
+      "id": "detectrlx-109836-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "f3654da9c3cc8f1da15e566f1136d6b98e96433c0ab0d2083e94f932c512d386",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996896982192993
+    },
+    {
+      "id": "detectrlx-109770-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "7a21267720b743fa2b63414d7efc852962a69983ed2607badb8d55306084977b",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.12090426683425903
+    },
+    {
+      "id": "detectrlx-109770-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "1044d45dfb24c8ca27ed9a4b4d16082e420da7ad9eff59883de79db549b26190",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996912479400635
+    },
+    {
+      "id": "detectrlx-109847-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "1dcd9649ca3d21100061b956dd6675765a819ee59926e485a4ab4c1b5b7b5df8",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.24562637507915497
+    },
+    {
+      "id": "detectrlx-109847-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "383ad8ce21941a73f4bde9e0599b7b0f408d019b58ed65b3803c9e20a38c0137",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996881484985352
+    },
+    {
+      "id": "detectrlx-109837-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "af2913a9f354d3ae386f8d2e6b1094a0b1dbf56fc048fda547efad9f2bbe8811",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994571805000305
+    },
+    {
+      "id": "detectrlx-109837-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "7d90e8058b2c9956a15f197d0cb09c0e3cc16469fb6714cf45d19682e88239a7",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996908903121948
+    },
+    {
+      "id": "detectrlx-28456-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "a627003bd708611f2ff40b730f98b95e85a04159afbf79bec2a21a1fd3e68814",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999629020690918
+    },
+    {
+      "id": "detectrlx-28456-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "234343b95005476c8ac448ece4bc515f9777db10aa2024013bfa932f6d75adf0",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996938705444336
+    },
+    {
+      "id": "detectrlx-28587-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "616d8565fa74c0f63016a2479f12e4fd34ac21d2594dcbea1e7fcff24190ad08",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0005749878473579884
+    },
+    {
+      "id": "detectrlx-28587-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "a940f2751144337975570b46e424ab1890e14aacc51ccb5faf53c81b2de0db5c",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.3720564842224121
+    },
+    {
+      "id": "detectrlx-28410-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "a4227f95e20faaf2df87c1d8a9c33c2a23cdd23c0462c1283ada344695c81be8",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0007105656550265849
+    },
+    {
+      "id": "detectrlx-28410-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "7a3efce4c183e03a56da17d5ab0456b73d91a6c694c42f431e65d6631427493d",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9680595993995667
+    },
+    {
+      "id": "detectrlx-28589-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "1e70d448867948d5c9a139d572bcc4b4bb15ae9bfc298ce1292a087bba3f4c75",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9985262155532837
+    },
+    {
+      "id": "detectrlx-28589-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "abcdc93847a23a5ae14bd4d759c582199d3104b56ec75335880c87abf2765dfb",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994328618049622
+    },
+    {
+      "id": "detectrlx-31027-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "b166a1b45bbbe0d6995bf4e6f1c1b3400bfbc0e35cba4a8fc24b539bc30441be",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.8483310341835022
+    },
+    {
+      "id": "detectrlx-31027-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "7dec5a74966e8d6c28b7e2c57bb9576dead9e57135cb91787879b528e73a19ac",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999686598777771
+    },
+    {
+      "id": "detectrlx-30978-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "c33bb495154fb15266c180d138ea9066a3b119f1982372f71fbd30dc81a442fc",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9892998933792114
+    },
+    {
+      "id": "detectrlx-30978-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "10fcbe0bce02c727a659d619d54cdfee4e428a10ba16ab0923e100abb2aed0eb",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995470643043518
+    },
+    {
+      "id": "detectrlx-31160-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "92789c874e0d8e45c67317cdba5e4e624240de1409167579e4a1f391232afbfb",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.026769442483782768
+    },
+    {
+      "id": "detectrlx-31160-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "3b76efa1055e3f5af96499e65e81def919627e7e2c6af6b946f43ac71c77b0a5",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996258020401001
+    },
+    {
+      "id": "detectrlx-31028-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "7421c1ebe37f8f697aa9fdf9abbf4323e39c713ef2bf25f317f6414960c9b410",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9990886449813843
+    },
+    {
+      "id": "detectrlx-31028-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "1e71b262acaaab9e4fcafce123cf26d73fcb261938a8124e26a34648a76fd469",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996871948242188
+    },
+    {
+      "id": "detectrlx-33623-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "6ceecf4a8c6d6ead71cf9e3dd5fe06314826ba3ef9b68acf4e73585582cc38e7",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.028713153675198555
+    },
+    {
+      "id": "detectrlx-33623-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "175aeb7850ab625ab8d2a76f190d38b680075838748e7a426cc64a056f3d70e5",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996858835220337
+    },
+    {
+      "id": "detectrlx-33564-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "911b0260f32f19a8306d5bed4eae27db2558a74ff9207e70d23df420af9fc4c7",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999670147895813
+    },
+    {
+      "id": "detectrlx-33564-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "d24de9243c5cd92eedacf29223a6edaf6264b3563d87ea8ab6fd57c64b011b30",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999675989151001
+    },
+    {
+      "id": "detectrlx-33778-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "d4232a28bc9231a038cd24d20f53afa612be92ec45cedf34bb535145d5198f05",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.04198620840907097
+    },
+    {
+      "id": "detectrlx-33778-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "e302ffc051ac95010d513e035e338677c4c0628bc3a8384495be082db7ec7a53",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996894598007202
+    },
+    {
+      "id": "detectrlx-33611-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "2f6ba7530c029e997fd7824760af65d5bc1de1e8769aaf88da0d780ae4fa2073",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.008731807582080364
+    },
+    {
+      "id": "detectrlx-33611-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "1d36434c80340483658d982a7ad5cd9f8532d4a2532a783b4fb9fbe2949767af",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996852874755859
+    },
+    {
+      "id": "detectrlx-36158-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "7b54c52a7bde79ef1fedef66dc19cf6525a277a956d23285c058f0ffea70112b",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.004803710151463747
+    },
+    {
+      "id": "detectrlx-36158-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "cff1d9b2dd445590ad8a873253d1413f47602768f91bc7e5b0eec5e7079d100c",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996905326843262
+    },
+    {
+      "id": "detectrlx-36191-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "1580e7ef40d340343c88dbaa585fd8d0db64488c4a419f6e12b6cd00eb03de2f",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.39688536524772644
+    },
+    {
+      "id": "detectrlx-36191-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "26ce913e3ed32844313d0f420abc6c3e3c1ec0cbec42148915f2e55c773b9380",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996837377548218
+    },
+    {
+      "id": "detectrlx-36261-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "a63f157dcecc2a244a9d2933974a0624c34bc99e27e74af1657720ae0d288566",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.07778090983629227
+    },
+    {
+      "id": "detectrlx-36261-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "bce5c92e52afd49ae606916a9ad1d130187c412d3d0ff0cbfff3956d29179618",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999686598777771
+    },
+    {
+      "id": "detectrlx-36343-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "b6eeda85fe317373cdf8342f2871d95bcf40fab3c996a8d4c8c419d6a2226813",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.000943116785492748
+    },
+    {
+      "id": "detectrlx-36343-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "8dbc4b8338a9941da9ab601620a59402fcffb129fb89e4c134cc8952291150b8",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996758699417114
+    },
+    {
+      "id": "detectrlx-38801-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "bb5838523a4d866204d888bc3bfe0b45bcc5f2362ea53fcddb52698c1c31248c",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.934800922870636
+    },
+    {
+      "id": "detectrlx-38801-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "e8edc847e7570f9d2fab75cb7b4efccbc882fdaa9962ff0ee0dce8e74da33d10",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996963739395142
+    },
+    {
+      "id": "detectrlx-38914-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "94e4d18ce147017eb9b51f86a3164c388f2a9d328e0a8e73f07f6ce6f2532731",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.1470525860786438
+    },
+    {
+      "id": "detectrlx-38914-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "5b4e6c2d225bd9ba860380395d45cdfb976bac5817181fcd57caa71146e1837e",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996930360794067
+    },
+    {
+      "id": "detectrlx-38785-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "639d97b72ca96dc59fdbb28a09c857db8b4c74a04f55095a07506e10346e383c",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996727705001831
+    },
+    {
+      "id": "detectrlx-38785-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "8fe141fed4fa50e8eedbbe5cc4b5dba0d50dc124dcea350c658ec21cf3a17857",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996856451034546
+    },
+    {
+      "id": "detectrlx-38873-human",
+      "language": "en",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "16b380626550ecbed22baac83d4ef3abed2817b8194f95eba1a9511266ee2937",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.005532606039196253
+    },
+    {
+      "id": "detectrlx-38873-ai",
+      "language": "en",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "737fdbaf28fe7eb05b903a7a7f803dfaec0f708627fb3e96365b9374822ba811",
+      "prediction": null,
+      "status": "unsupported"
+    }
+  ],
+  "limitations": [
+    "Provenance and independent calibration are supplied declarations, not externally verified facts.",
+    "Only exact UTF-8 hashes in the supplied calibration manifest were checked for overlap; completeness and semantic independence are not verified.",
+    "Fixed-threshold binary evaluation; scores are not AI proportions or authorship probabilities.",
+    "Published fixed policies reproduce upstream decisions and do not imply independent calibration or a target false-positive rate.",
+    "Mixed texts are excluded from binary rates. Errors and unsupported inputs are coverage gaps, not human predictions.",
+    "Wilson intervals assume independent Bernoulli samples; related documents or shared prompts may violate this assumption.",
+    "This report does not itself certify modern-model coverage, dataset quality, licensing clearance or production readiness."
+  ]
+}

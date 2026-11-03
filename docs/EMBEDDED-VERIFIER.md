@@ -1,5 +1,7 @@
 # 桌面内的核验页
 
+扩展验收已通过：[41508432610](https://github.com/W-Boat/WorkProof/actions/runs/41508432610)，实际应用 e4583b5、测试脚本 3eab125。实际文件输入、改动字节拒绝、原文件重选、窄窗布局与 PageDown 滚动均已检查；不代表操作系统选文件对话框、下载或打印已验收。下文“待本次 Actions”保留当时状态，以本段为准。
+
 工作台的“在 WorkProof 内核验作品”打开独立的内嵌核验窗口，再次点击会恢复并聚焦现有窗口。页面复用随安装包提供的核验站点、Wasm 和组件，从本机随机回环端口加载，不依赖公网部署。工作台仍提供“在浏览器打开核验页”，供用户选择完整浏览器的分享、下载或打印体验。
 
 内嵌窗口只能在该核验站点的精确回环来源内导航，不允许它打开额外窗口。所有桌面自定义命令同时检查调用窗口；核验窗口不能审批连接、启动宿主、安装插件、读取记录状态或调用原生文件签署/选择入口。没有给本机 HTTP 页面增加远程 IPC capability。导航回调依据 [Tauri WebviewWindowBuilder](https://docs.rs/tauri/2.12.5/tauri/webview/struct.WebviewWindowBuilder.html#method.on_navigation)。

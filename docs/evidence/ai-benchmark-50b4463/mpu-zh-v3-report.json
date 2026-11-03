@@ -1,0 +1,2725 @@
+{
+  "protocol": "workproof-ai-evaluation/1",
+  "dataset_sha256": "fad64e39ea8e96cf7d342d1228ae2ba7c7296ae39ac7b15d1cd6c230e38b11b3",
+  "policy_sha256": "51ed50c991ee6dde7c2448bdfea7cea98b55ed0ad69bf134c092adff2028eef7",
+  "engine_id": "mpu-zh-v3",
+  "model_revision": "47695ff451b32c225dd938f4f478f7fdc6aa6bb0",
+  "threshold": 0.5,
+  "score_kind": "uncalibrated_class_softmax",
+  "score_label": "AI",
+  "policy_mode": "published_fixed",
+  "decision_rule": "binary_argmax",
+  "calibration_dataset_sha256": null,
+  "declared_calibration_samples": 0,
+  "overall": {
+    "samples": 192,
+    "statuses": {
+      "completed": 189,
+      "insufficient_input": 3
+    },
+    "scored": 189,
+    "coverage": 0.984375,
+    "mixed_excluded_from_binary_metrics": 0,
+    "false_positive": {
+      "events": 13,
+      "count": 93,
+      "rate": 0.13978494623655913,
+      "wilson95": [
+        0.083547228757091,
+        0.22460032688792245
+      ]
+    },
+    "false_negative": {
+      "events": 0,
+      "count": 96,
+      "rate": 0.0,
+      "wilson95": [
+        3.469446951953614e-18,
+        0.038475587857675686
+      ]
+    }
+  },
+  "groups": {
+    "language": {
+      "zh": {
+        "samples": 192,
+        "statuses": {
+          "completed": 189,
+          "insufficient_input": 3
+        },
+        "scored": 189,
+        "coverage": 0.984375,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 13,
+          "count": 93,
+          "rate": 0.13978494623655913,
+          "wilson95": [
+            0.083547228757091,
+            0.22460032688792245
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 96,
+          "rate": 0.0,
+          "wilson95": [
+            3.469446951953614e-18,
+            0.038475587857675686
+          ]
+        }
+      }
+    },
+    "generator": {
+      "deepseek-v3": {
+        "samples": 24,
+        "statuses": {
+          "completed": 24
+        },
+        "scored": 24,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 24,
+          "rate": 0.0,
+          "wilson95": [
+            1.3877787807814457e-17,
+            0.13797620467498017
+          ]
+        }
+      },
+      "gemini-2.5-flash": {
+        "samples": 24,
+        "statuses": {
+          "completed": 24
+        },
+        "scored": 24,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 24,
+          "rate": 0.0,
+          "wilson95": [
+            1.3877787807814457e-17,
+            0.13797620467498017
+          ]
+        }
+      },
+      "gpt-4o": {
+        "samples": 24,
+        "statuses": {
+          "completed": 24
+        },
+        "scored": 24,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 24,
+          "rate": 0.0,
+          "wilson95": [
+            1.3877787807814457e-17,
+            0.13797620467498017
+          ]
+        }
+      },
+      "human": {
+        "samples": 96,
+        "statuses": {
+          "completed": 93,
+          "insufficient_input": 3
+        },
+        "scored": 93,
+        "coverage": 0.96875,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 13,
+          "count": 93,
+          "rate": 0.13978494623655913,
+          "wilson95": [
+            0.083547228757091,
+            0.22460032688792245
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        }
+      },
+      "qwen-max": {
+        "samples": 24,
+        "statuses": {
+          "completed": 24
+        },
+        "scored": 24,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 24,
+          "rate": 0.0,
+          "wilson95": [
+            1.3877787807814457e-17,
+            0.13797620467498017
+          ]
+        }
+      }
+    },
+    "kind": {
+      "ai_original": {
+        "samples": 96,
+        "statuses": {
+          "completed": 96
+        },
+        "scored": 96,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 96,
+          "rate": 0.0,
+          "wilson95": [
+            3.469446951953614e-18,
+            0.038475587857675686
+          ]
+        }
+      },
+      "human_original": {
+        "samples": 96,
+        "statuses": {
+          "completed": 93,
+          "insufficient_input": 3
+        },
+        "scored": 93,
+        "coverage": 0.96875,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 13,
+          "count": 93,
+          "rate": 0.13978494623655913,
+          "wilson95": [
+            0.083547228757091,
+            0.22460032688792245
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 0,
+          "rate": null,
+          "wilson95": null
+        }
+      }
+    },
+    "domain": {
+      "academic": {
+        "samples": 32,
+        "statuses": {
+          "completed": 29,
+          "insufficient_input": 3
+        },
+        "scored": 29,
+        "coverage": 0.90625,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 3,
+          "count": 13,
+          "rate": 0.23076923076923078,
+          "wilson95": [
+            0.08179528718498569,
+            0.5025637594672749
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        }
+      },
+      "news": {
+        "samples": 32,
+        "statuses": {
+          "completed": 32
+        },
+        "scored": 32,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 2,
+          "count": 16,
+          "rate": 0.125,
+          "wilson95": [
+            0.03497748774324047,
+            0.36022827265758695
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        }
+      },
+      "novel": {
+        "samples": 32,
+        "statuses": {
+          "completed": 32
+        },
+        "scored": 32,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        }
+      },
+      "seo": {
+        "samples": 32,
+        "statuses": {
+          "completed": 32
+        },
+        "scored": 32,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 1,
+          "count": 16,
+          "rate": 0.0625,
+          "wilson95": [
+            0.01111934476464252,
+            0.28328737570298945
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        }
+      },
+      "webtext": {
+        "samples": 32,
+        "statuses": {
+          "completed": 32
+        },
+        "scored": 32,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 1,
+          "count": 16,
+          "rate": 0.0625,
+          "wilson95": [
+            0.01111934476464252,
+            0.28328737570298945
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        }
+      },
+      "wiki": {
+        "samples": 32,
+        "statuses": {
+          "completed": 32
+        },
+        "scored": 32,
+        "coverage": 1.0,
+        "mixed_excluded_from_binary_metrics": 0,
+        "false_positive": {
+          "events": 6,
+          "count": 16,
+          "rate": 0.375,
+          "wilson95": [
+            0.18481232558863633,
+            0.6135895945449727
+          ]
+        },
+        "false_negative": {
+          "events": 0,
+          "count": 16,
+          "rate": 0.0,
+          "wilson95": [
+            0,
+            0.1936076805344365
+          ]
+        }
+      }
+    }
+  },
+  "samples": [
+    {
+      "id": "detectrlx-109197-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "fa43517f2007d6a5c18052a167c004c48c416ef68fc73063541351cf95ced7b7",
+      "prediction": null,
+      "status": "insufficient_input"
+    },
+    {
+      "id": "detectrlx-109197-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "5dbc6dec5080a72c690a329a1238da252bd5911f972b4c62e30989148154fa3b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996668100357056
+    },
+    {
+      "id": "detectrlx-109070-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "95603362775b571c969dc271f37d0cfb1521c1cefa29e52428d77cd8ab0d2822",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.09133028984069824
+    },
+    {
+      "id": "detectrlx-109070-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "f660df0494d5a2dce630cdc9fd23ff74b17f310c5d3137f29d5b5e42a5acc0d7",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997095465660095
+    },
+    {
+      "id": "detectrlx-109175-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "36cca4fdcd0b8c2bc84d014871803ada0ccb3947b8e458daeeb17a170dd63e76",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.06506924331188202
+    },
+    {
+      "id": "detectrlx-109175-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "dabfcfb4bbedb5950e98eeb22aef0378bf8694a092c6ff188980450b26b929f7",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9989687204360962
+    },
+    {
+      "id": "detectrlx-109132-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "49b398c12e526bac4e4ef381718001f30ada903052c300325d10575b4098c2c4",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.02426493912935257
+    },
+    {
+      "id": "detectrlx-109132-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "146878df1ba45a972faaa2e1c2121d261697521f75ff3ddcea8f0ba159d0962f",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997369647026062
+    },
+    {
+      "id": "detectrlx-13531-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "8690f534720d738f650c6ed41359e4d26f1dc3a7c27c7b73cb8718cfd4152572",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.014198759570717812
+    },
+    {
+      "id": "detectrlx-13531-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "adaad35202744b4557a2d69949c5c18594c2b814269f289cca710ef377be1991",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994438290596008
+    },
+    {
+      "id": "detectrlx-13525-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "8df8d78e8d837005e1fc3851c1252a95962f2a9dfb9661d8f5f7e39fcdf5e8f4",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.01926255039870739
+    },
+    {
+      "id": "detectrlx-13525-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "b0ba2346bd2b97ef544dca70a513d4080c3d81539cba6d493067aa3c8178f2ea",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9954557418823242
+    },
+    {
+      "id": "detectrlx-13515-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "8f8095145f6a0842fd66575e74b2a4a9801728410a4e583a69ee5d594de6deac",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.02616390958428383
+    },
+    {
+      "id": "detectrlx-13515-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "cabd0b57be31564b922f0cb46bcf0d02aa30bcfde5b9da57437f0f856aa7d3ec",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997305274009705
+    },
+    {
+      "id": "detectrlx-13509-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "8cd4b77b5b394793184bc46f3ecaab83df9885e4afe8a207c677b634a3e3f027",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.18597419559955597
+    },
+    {
+      "id": "detectrlx-13509-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "af4a10c751d90bf2e9e032db8b9c40c58321bbbd13c7ef45f977b4bac20223d7",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.8849291205406189
+    },
+    {
+      "id": "detectrlx-16166-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "b285e9ce9ba305f9d8eef9d0d2f719f30b083fdbd980fa4550564da349013fe9",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.016071166843175888
+    },
+    {
+      "id": "detectrlx-16166-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "a2bc9436949431c1b2a641dcf82e8c4d1b363b608145670d5251562e8b227c74",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997726082801819
+    },
+    {
+      "id": "detectrlx-16074-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "5ace45ad095cf3d879077d37e90e7fb5f9e9dd7ee50b6210f6b56637e28e5352",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.012621079571545124
+    },
+    {
+      "id": "detectrlx-16074-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "91ad1dd925ec8563f0dd7cc6a98d86790ea1a20e8e34dcca1c646db551f4c98a",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9991716146469116
+    },
+    {
+      "id": "detectrlx-16172-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "801f464c81d7d0ed0713d653ddfa0eeb126ef7c3bf9eebff9f5bfedb34e7de02",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.23236967623233795
+    },
+    {
+      "id": "detectrlx-16172-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "6412e1c22aa3ab00016f0135a95f3059ad0e6066a691080481318f7b25135d16",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9963898062705994
+    },
+    {
+      "id": "detectrlx-16212-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "ce51cbaef4d5c35d74b3a95960f60809c19e2ab64ce26afba2ba49974ec184f7",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.031126994639635086
+    },
+    {
+      "id": "detectrlx-16212-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "c24b7ec20968cbca6e1c92e727117a211ee409ff05e2ffc00c2254a30a3573c6",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997753500938416
+    },
+    {
+      "id": "detectrlx-18848-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "1265e84063cc3242654ae708a36981464177c22039b69f36e0f04f448db9ea1f",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.036401260644197464
+    },
+    {
+      "id": "detectrlx-18848-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "46ad4c8ef6dece89e07b258770f33fcd198c1ed18d1042dbc5b59446db1c2feb",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9947580695152283
+    },
+    {
+      "id": "detectrlx-18809-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "e483d51c7ac90713135c98eb78742d47c3437428f611788cd053415cc3f8807b",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.00974468607455492
+    },
+    {
+      "id": "detectrlx-18809-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "fbeca15701bb94fe019378f8f9de58b43901008ab8efd92103abe9847737944b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995531439781189
+    },
+    {
+      "id": "detectrlx-18735-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "a9ae97742c586de65d892b810054baf70ebb8b727bb06e52c7a91d673374a568",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.02206980623304844
+    },
+    {
+      "id": "detectrlx-18735-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "11785662062a5212b2e4c27fd5db5f556c009b19901222d9f8ea1fc65f2487ad",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997233748435974
+    },
+    {
+      "id": "detectrlx-18806-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "75753780d1b3f2f52b863400cbdbd6102fb897b94b8875cc20403b3265f9d919",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.053555961698293686
+    },
+    {
+      "id": "detectrlx-18806-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "c8c42a923cc405ffedf2ad66d8fd9cb5c227b713e53f4c8a7342f0d69854a2fa",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997509121894836
+    },
+    {
+      "id": "detectrlx-21395-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "4f40dbbfb2ef462234d80a0ae9d20a0d99b347697ae5ec6e1cec1f60979f4064",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.2845184803009033
+    },
+    {
+      "id": "detectrlx-21395-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "0f49688a0123ccb4718ae1475ee13713538a5a9b0bc5b34df42e9a4f6c51e561",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9983943104743958
+    },
+    {
+      "id": "detectrlx-21216-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "8e1279f4c97307f42d06b6fdde9decac704f804965b195112dddb52760140150",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.1513584405183792
+    },
+    {
+      "id": "detectrlx-21216-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "5ed72dc5afb847a610f550efcb9854898e3a0631331301b86b352b5e7523187b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9400185346603394
+    },
+    {
+      "id": "detectrlx-21304-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "f609009e3ee4306b657431b621f79fdf9b53015394b095bbac7a0f8d9533f95d",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.03365630656480789
+    },
+    {
+      "id": "detectrlx-21304-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "a05551a93d2b1d161f2db881dda8a4349639534cba034136ade36f09b09cf239",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996598958969116
+    },
+    {
+      "id": "detectrlx-21241-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "0fa56da1d3335f1c8f24ce8ae5f717fad6541bb3027eb9cc1daadc2c6db8752b",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.011211511678993702
+    },
+    {
+      "id": "detectrlx-21241-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "0165beb44b97d80a060f8171f0a1d982d6f422535712244c1a10be459732a225",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.7489333748817444
+    },
+    {
+      "id": "detectrlx-23838-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "237bb7c298c04bf91065a4c095c6df776ad63116c96eedb60d329e62fbe635a6",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9151639938354492
+    },
+    {
+      "id": "detectrlx-23838-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "0ad7719c5b4af41f34725fa523b851b325d4f7c8b1cde63dd1199dd5aba1d9bb",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9934161901473999
+    },
+    {
+      "id": "detectrlx-23928-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "6f5b2239d84e73be00de44307ae593e160d0dc7e2abbbfbff507de5879c2d4cf",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9619534015655518
+    },
+    {
+      "id": "detectrlx-23928-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "0ac8f922ee488dd055ed38ca365749b9d35896f4bfc0ba7fcb0a1df5278371f7",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9992006421089172
+    },
+    {
+      "id": "detectrlx-23843-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "c0b73e385bd734716b1d48c0f591ea8d1989352dce57166c0b1fa4fbab2396cd",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.07371830940246582
+    },
+    {
+      "id": "detectrlx-23843-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "938c145f937307cf813e495655616536afa2cac84ced9185052d700ede758110",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.994529664516449
+    },
+    {
+      "id": "detectrlx-23984-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "88aa6d331b7ddcc7d75b4b508fbf1e880e6455cdd6bd2b15d91d34fbac43a0cb",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.04766075685620308
+    },
+    {
+      "id": "detectrlx-23984-ai",
+      "language": "zh",
+      "generator": "deepseek-v3",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "42aabc28f84e4a15ca4741b9a4f19f7c5309b399bf18ff07df85ece1c8b3a10b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997588992118835
+    },
+    {
+      "id": "detectrlx-108204-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "5a9315277414f32fec912eeb51654fa026de33e38934dc36ec59aa30ef82b617",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.21219053864479065
+    },
+    {
+      "id": "detectrlx-108204-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "b96479e707bbda3588d4dfe3b5f77af14eb1504ab26673ea35e47a99cf712386",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9990823268890381
+    },
+    {
+      "id": "detectrlx-108199-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "1e126924f91b0559d68546218d5c644b1afe4a62d45cde5813cc85aa046e2220",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.02068350836634636
+    },
+    {
+      "id": "detectrlx-108199-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "35469c4c28e1bab5447409660e9e6fe3b80f71d7edb27a888cc46c8cfd41dee7",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.995810866355896
+    },
+    {
+      "id": "detectrlx-108213-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "b44a24509d9df4a734d242bbcb660cd013bbe95ddf7293a661f7b5f11b40a66c",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9954671859741211
+    },
+    {
+      "id": "detectrlx-108213-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "d22415837f13d90e4569f5c2fc65fe487d6b0276e50c10f63113efd2b9b4b4bd",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995019435882568
+    },
+    {
+      "id": "detectrlx-108157-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "f4d35effaf4d4c3b093a2aa58341db59adc574f44930e97b56a62d798bca7145",
+      "prediction": null,
+      "status": "insufficient_input"
+    },
+    {
+      "id": "detectrlx-108157-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "0ddf8fef51bacd80c0d9d311f960de0618172723d1e823786e89b3dded887b64",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995220899581909
+    },
+    {
+      "id": "detectrlx-14256-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "70810869fad3d3fa6348e8839c6477efa3124fe8ce711a9b4fad45bfc73f18f5",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.018878167495131493
+    },
+    {
+      "id": "detectrlx-14256-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "9612afa6abd8e8f364965b629b5a204cc8a48432186a0646f7e65b61f077ebe0",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997431635856628
+    },
+    {
+      "id": "detectrlx-14095-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "5b67c02985710fdfaafcef272d6a4d59d23465fddccc6d430a4e15623188bc9b",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.3389052152633667
+    },
+    {
+      "id": "detectrlx-14095-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "153b668e61d5fabf824a277b1f44a3f0168f85d1e8dea859cd31d4b1beecd0c5",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9969039559364319
+    },
+    {
+      "id": "detectrlx-14157-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "908557789816b970b7de8409e818bda1bb0fc1428a49a4bde171005bdcc98beb",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.035858895629644394
+    },
+    {
+      "id": "detectrlx-14157-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "392f065a6a061b30b87efa6e1a44a82487117565a86e9e827c0853c9fc5bdb26",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9993096590042114
+    },
+    {
+      "id": "detectrlx-14124-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "033a11efe0ceb1362cf2fa36cf1b59e6079413ef4430d01929ba6a0e71298b53",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9960480332374573
+    },
+    {
+      "id": "detectrlx-14124-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "bae1eb17a07ef04043711ecbf6ea1d7562534e448c2310a4d8be07572d400661",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994484782218933
+    },
+    {
+      "id": "detectrlx-16855-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "79afbc0b3f28d7a1a16a29dffdd4372ff923900e57833208f6f84282b59bad27",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.008626902475953102
+    },
+    {
+      "id": "detectrlx-16855-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "52ccaca37b06a62f92d9b56f0e029cc42c4908335f280264703d305d1193ed5e",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996614456176758
+    },
+    {
+      "id": "detectrlx-16869-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "37dcf37a1a4862df31ed6ca5f53c2c7ea8151cf6471ef042b11ac25a35ddf4eb",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.011142291128635406
+    },
+    {
+      "id": "detectrlx-16869-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "5f262fb3a8b8265e3974b7f912813e43220711340adb5b98697b9edcb94405a5",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9988356232643127
+    },
+    {
+      "id": "detectrlx-16875-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "ef486204494d80b875b3c8d17975033e899de4a2a98b9fc6b92b2a00d2ef397a",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.012015743181109428
+    },
+    {
+      "id": "detectrlx-16875-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "8e4df2fbd1b5b5810ef31e3fc831bd8c66f418e55f232c365ba5b6ba400bb603",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.99951171875
+    },
+    {
+      "id": "detectrlx-16767-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "0a8807b904a1686b0348662262199e408379fd9b79d3e34310193f43f255aa39",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.020755045115947723
+    },
+    {
+      "id": "detectrlx-16767-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "de9e09a7e336a5a12ec6e9a4e2d3c9960be451f3a8f24db245e6f3990be9a3b0",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997544884681702
+    },
+    {
+      "id": "detectrlx-19266-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "897068f98b372dc3398871f5f146520d762901e23dca3c8e97f90e2e5daf3214",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.017557157203555107
+    },
+    {
+      "id": "detectrlx-19266-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "fd7f8c33af1591fc03716f6f0184b86d3e9001ba45112a077222c370ac813448",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996566772460938
+    },
+    {
+      "id": "detectrlx-19343-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "ca351e97fdaafbea7f3f3ffe6a5c648ff318a0d4e6720fab94e849d4beb07e5a",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.01169492769986391
+    },
+    {
+      "id": "detectrlx-19343-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "4191d96fb39f35c0245e2181405eb90d1181d71fd90ebdf83924471ee2ada5ec",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997649788856506
+    },
+    {
+      "id": "detectrlx-19340-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "c5ead0c8e66008d1c547c4d12abd8d1d4083f80dec1ed4fb541748b0d2844b97",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.010474184527993202
+    },
+    {
+      "id": "detectrlx-19340-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "62d4ad52408cb9c42952f0cab18a6112a27ee97981d6b16ee6ab823aa2065c4b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995217323303223
+    },
+    {
+      "id": "detectrlx-19255-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "2d48e93c7e0948a887a389f1dee746fcf028dd0161654a97e5418ed40f909cf8",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.015764018520712852
+    },
+    {
+      "id": "detectrlx-19255-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "7ddfccaa8e086f93f5dd1ae5f8020da7f0355bbe31c06ba38db2454f5213e939",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997631907463074
+    },
+    {
+      "id": "detectrlx-22068-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "cafb961a2310b3d1288660a5556825271652c6956273801e2ed76245393a58c5",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.991306483745575
+    },
+    {
+      "id": "detectrlx-22068-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "84f4770b512fdf69ded8603b7fc30ab8c4e842637408081c50b84db45d4fce80",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994194507598877
+    },
+    {
+      "id": "detectrlx-21888-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "756ec50ea62bd83bff527077cb32bc306be46d7abdbc9d70ba40a4a575977241",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.010534263215959072
+    },
+    {
+      "id": "detectrlx-21888-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "e5622fb843cc64494f98d20a03e2eeea550c35820859b601e5d1b225cba954da",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996683597564697
+    },
+    {
+      "id": "detectrlx-21944-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "fe6de2ea849e3d211352373418f1aac3d9a89b624b6d9af76b5b011cd80ea3dd",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.32974717020988464
+    },
+    {
+      "id": "detectrlx-21944-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "72f2f3f0b995a919643367a242389e061b10fb62558f09686a2896596c81d718",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999618649482727
+    },
+    {
+      "id": "detectrlx-21862-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "c49ddec498474559f24e54cdaa0e15270706d75b4fde8c2c1a97925bd55b1503",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.017834985628724098
+    },
+    {
+      "id": "detectrlx-21862-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "4bd7de8a703ead1eb314e3f81179c4b868551f69f099685662222f0bcf84b098",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994052648544312
+    },
+    {
+      "id": "detectrlx-24673-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "f1b619ec57f41b2fe3db6229781ce25f9b08a8ddb65a23f8e7c8eef62dcd3d35",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.03597167879343033
+    },
+    {
+      "id": "detectrlx-24673-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "dfef60f3ae73bc404edebcb95bda15bdf57c7991d83bca90506a21984edae82c",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996840953826904
+    },
+    {
+      "id": "detectrlx-24574-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "e68a49f0a48e7656edfb26ce05c1b54f88d41fa6357a44853e9eae40544c9bfc",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.025239622220396996
+    },
+    {
+      "id": "detectrlx-24574-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "78f25d496d6384f943e8bb424207b66747a62a0ca919c1c86328941946b3e76b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997391104698181
+    },
+    {
+      "id": "detectrlx-24510-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "aca84e6255e360a870aa13ea064f2c7648a78794d751ac8e92ccea8e246a2a19",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.01889774575829506
+    },
+    {
+      "id": "detectrlx-24510-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "bfd280ff275feb24c4f7fd4b5bc8d97ddc33fdbd270f57e124d3be60a3d62796",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9952800273895264
+    },
+    {
+      "id": "detectrlx-24479-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "9721877c0dbd2b24d2ca47529615e565e28606f978da8cf8f7770e435cb84820",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9725586175918579
+    },
+    {
+      "id": "detectrlx-24479-ai",
+      "language": "zh",
+      "generator": "gemini-2.5-flash",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "d10c1482f62eb1604bb266d2dd8f1acb0c77161b85ddc72c5c23513338c4f230",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996095299720764
+    },
+    {
+      "id": "detectrlx-108821-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "955dc09d9e10b9ace9a3a700473e6fe999e20c8a3202a06e2bc5c5541d841fad",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.5791558623313904
+    },
+    {
+      "id": "detectrlx-108821-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "e3511d97051782deca1d87fbffe1c0f5b2f34be7c093df681a5c63525ad4765a",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9960302710533142
+    },
+    {
+      "id": "detectrlx-108854-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "0dd0cd2cb3ed6713ea05fecde03cb2625b2886021c529eec89e6ede7b946cf28",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.03471619635820389
+    },
+    {
+      "id": "detectrlx-108854-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "ca7fe798ae849aa7115ec2bf094dc9b5f8386a17dbc8df48ac8aa2c7783939e6",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997308850288391
+    },
+    {
+      "id": "detectrlx-108918-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "3a1b08b7a0443b0519ebd693153b570634620de369c2a07311dffdace1a20b77",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.03604543209075928
+    },
+    {
+      "id": "detectrlx-108918-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "d57cf1323d2a4e6a407ed991bfcb902d4a9eddcd4440e798059e7a0f21c72060",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995577931404114
+    },
+    {
+      "id": "detectrlx-108866-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "2dd3fa263fd4b64091c55d1c920f6545e72159966bca398af1008f1c2b8615df",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.6608801484107971
+    },
+    {
+      "id": "detectrlx-108866-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "dd6df482f9be2f693166b119edb71ee77a17bdd8c959e92e53cd4f848cd355b5",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994193315505981
+    },
+    {
+      "id": "detectrlx-14832-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "d40d89b757d0e93003ddad830af7cdbb2c77e54d2cbf7f2b03bcd70b70bf1735",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.7704868912696838
+    },
+    {
+      "id": "detectrlx-14832-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "c0dc3d4a8a7edff6c0740b74518dbd7a5a9938a008bda7ceca5819e8c72aec97",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996176958084106
+    },
+    {
+      "id": "detectrlx-14767-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "d9bf31abcf9f5406ad40a598315bf8bb95be0f6e74aee160f25095cc42de55a8",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.02088185027241707
+    },
+    {
+      "id": "detectrlx-14767-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "1a3fd540fe1dad9eab4e2fa8baada261715d5288c8bc670cf103d7f93984db38",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9968637228012085
+    },
+    {
+      "id": "detectrlx-14871-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "8a9cb41a6642a318f6c2bfabe51cd0c19ac7f6815750a9728a57520ddb775244",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.1681012362241745
+    },
+    {
+      "id": "detectrlx-14871-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "b189b69d133bbf183cd5ff765e9cd81951916b42dfbc70ebf4013d3e17a021c5",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996987581253052
+    },
+    {
+      "id": "detectrlx-14762-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "93e75773f5c79049b48dca5906bd617f1df4acfdd3f86503a47ee54b7f3aa847",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.013938109390437603
+    },
+    {
+      "id": "detectrlx-14762-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "acc7b34e8b2b78a1cc8737affd0e38a6c8a8bbd45b0216f418c702fb1afa6ad3",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.997870683670044
+    },
+    {
+      "id": "detectrlx-17522-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "0f93c99fd06ae9ab494431f3f397872660a527fc0017ff0b1bb07b426b5556ae",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.053786490112543106
+    },
+    {
+      "id": "detectrlx-17522-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "a124fd88b7a5cad2b7eedf1750f395c6f62826e994208a01a65547c544e935c9",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999468982219696
+    },
+    {
+      "id": "detectrlx-17414-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "63444ec9c29679dd77d95b6a5f3ab95fb82b9d28c209f4f6626b53e66e658646",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.018135789781808853
+    },
+    {
+      "id": "detectrlx-17414-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "059567a2a0e6821f73bf1a40dba5548481bbdca13296fb9f20a078f5c9535ae3",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997203946113586
+    },
+    {
+      "id": "detectrlx-17356-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "b2c8ef92329f3cea7e07c73de333f3b6ffaac25bab3387303954df820a7edf6d",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.05085630714893341
+    },
+    {
+      "id": "detectrlx-17356-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "780001db80c893e186f3e0daee8406c098a910ff82724d7d0f2d9f681122e406",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997695088386536
+    },
+    {
+      "id": "detectrlx-17459-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "85a8515a2a81e8d6ba9bc18ef6442b9e3f90f61f09d493b728f5e8d285eb10aa",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.010354784317314625
+    },
+    {
+      "id": "detectrlx-17459-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "08bef8e44d0719365912b1c39706722d2aa0a957e1b5a70a77a0cfa63a5654ef",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997027516365051
+    },
+    {
+      "id": "detectrlx-19998-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "cb786a4127052db56941c7f636c835d778bfd1436c67ca9c5b3d3bafbc9d8496",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.014771563932299614
+    },
+    {
+      "id": "detectrlx-19998-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "a077b2ed810f30ba1212c64bd5613088c98d8cf3468c12e323eb1b48376e0cdd",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995107650756836
+    },
+    {
+      "id": "detectrlx-20133-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "86a0789ba4d4755d1a9129d92e0d74b28d6859fdf99dd8ebf26b6131e902a8e9",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.37852656841278076
+    },
+    {
+      "id": "detectrlx-20133-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "3809cefc05bec635e11430412407e599880bc67f9b4f03a86ed0494ba6e41b90",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996544122695923
+    },
+    {
+      "id": "detectrlx-19983-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "576b4c8c96d6419b9cd98c253aef11176689a2a7e33badac4a4630c02a77c02f",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.3106483221054077
+    },
+    {
+      "id": "detectrlx-19983-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "744d1fc2d04a3e0c1ade60d5ed6eca57b8f72687667f2658b100c9471f8845d2",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997448325157166
+    },
+    {
+      "id": "detectrlx-19965-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "bfe5ae98adcf9333ad9e863b623fdc1c5e6059876e4e89dc69c1e20b852ee326",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.009068104438483715
+    },
+    {
+      "id": "detectrlx-19965-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "5854619579bcaa9502da569e7dd2a52e1c68bad9ab94a735fc97c5f49d579eb0",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997044205665588
+    },
+    {
+      "id": "detectrlx-22746-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "c67c41104faef45bb760e6555e91e5ff3aed58670c86e85d1ea68aa3c5b650ef",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.16998109221458435
+    },
+    {
+      "id": "detectrlx-22746-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "82c2e2da8c8ddf78966ce836ab989a90e433df5b2181648de5a62b316b9612eb",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995179176330566
+    },
+    {
+      "id": "detectrlx-22706-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "bf7c016644f4f337233fe0c88becae3b95bd43fbc21adb966bf285fd579a1ddf",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.022796569392085075
+    },
+    {
+      "id": "detectrlx-22706-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "cd4def73868504b60c2000359810c368803ef606f42e56d5f182a70e74ca101d",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9981620907783508
+    },
+    {
+      "id": "detectrlx-22512-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "a0357a84e4132fa7b6865ff3410b7b060d813b3955096ae33e9c5d2fbc89e182",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.43653208017349243
+    },
+    {
+      "id": "detectrlx-22512-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "955786997633e7d156e0039f7280089152945983ce442f48c5d1a0e4e9ed8aa4",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994398951530457
+    },
+    {
+      "id": "detectrlx-22687-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "ec22e4749b9f1d654d16cf30f58c7fc98ca1cb0a8128166479beaca0a7fd8ca8",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.05792723596096039
+    },
+    {
+      "id": "detectrlx-22687-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "ff352f8cd9a5d83a5aee9bbbe6bdb3fbbffe448cba67a4bb4e32898bc6857c46",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995618462562561
+    },
+    {
+      "id": "detectrlx-25242-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "b283e2f8cb3a637563d8d4896ea0caa3d331b644ef9302d6b9ad7e5545e49da5",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.7814051508903503
+    },
+    {
+      "id": "detectrlx-25242-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "441dd5eea7bc59493aad05d0203b5af786a96d4d32768367467713b4ce7218f2",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996172189712524
+    },
+    {
+      "id": "detectrlx-25189-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "0bec6ba389a5d566474fb4327c7bf63ea6e395e52b51dcef12f88cf8b132168f",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9494073390960693
+    },
+    {
+      "id": "detectrlx-25189-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "9fc83a26010700b3ff1be674964489e6827533c5fa70ef0996c754dd8541f75b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997397065162659
+    },
+    {
+      "id": "detectrlx-25324-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "87501953506c01c99d3dd0e1075b813f6a40c47115ee59fec4d7fb653c5a56e8",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.16965755820274353
+    },
+    {
+      "id": "detectrlx-25324-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "5f5900d8fb166663abc30515f5cc6fb6f3c11b38ec8c328ae8974e28ad1e35be",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997000694274902
+    },
+    {
+      "id": "detectrlx-25215-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "a46cd9f7613bbbfda03d6a49736c3944df5be41e452529e3a678fcebfb25f3ea",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.05513446778059006
+    },
+    {
+      "id": "detectrlx-25215-ai",
+      "language": "zh",
+      "generator": "gpt-4o",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "d39df8914d0485d922a728e6e4af90855c1cb5c038192d1124931eba856a2541",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996126294136047
+    },
+    {
+      "id": "detectrlx-107215-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "0d59d853a84da8fde8ac6f746d70a1ed94caae9b3ab5d6a8b3777fa63f718f7f",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.031066536903381348
+    },
+    {
+      "id": "detectrlx-107215-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "def27613abfc6340f697981cf6d3072db342f598aa596695db41847d9fb29e23",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997443556785583
+    },
+    {
+      "id": "detectrlx-107026-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "1e7445827870f5f7050c3014e039ea6cee1ab5ed384d2fabf2947113b354f050",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.32064419984817505
+    },
+    {
+      "id": "detectrlx-107026-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "ea9281406b2beeecca4f104967e8d97cde08c33a7174c9ae0c19b22401499435",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9967923760414124
+    },
+    {
+      "id": "detectrlx-107121-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "a9a322a74d838628da1fe2c2cbf6c90e7576dfce7c90f090cfad9af895e151b9",
+      "prediction": null,
+      "status": "insufficient_input"
+    },
+    {
+      "id": "detectrlx-107121-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "b1c92a77de5da359f1f0e68e34e56d1f5727d18048636c688b739a90fccc4b8a",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996465444564819
+    },
+    {
+      "id": "detectrlx-107206-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "academic",
+      "input_hash": "d15614e55b37930241f6906caff6420f51c25cc74ffdfc71964660a44c75653c",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.06675048172473907
+    },
+    {
+      "id": "detectrlx-107206-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "academic",
+      "input_hash": "38f5377c350072498408ea91b97014d5bd5ee340bafc0845d465fd523903de1f",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994192123413086
+    },
+    {
+      "id": "detectrlx-15417-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "54aa10a929b4bc43f25c1a231b0ab903de0f7cc721afc66f00558d736e20d91d",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.02737976424396038
+    },
+    {
+      "id": "detectrlx-15417-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "bb0676f7a4e43e7d4e0c284feb6482d4d974e3ac3c12f1a55bdd543e24835437",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997405409812927
+    },
+    {
+      "id": "detectrlx-15537-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "663eb45bc27b3dd87f3e90747fa37b20fc35806697891e42286bf6be962afe2d",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.2867739200592041
+    },
+    {
+      "id": "detectrlx-15537-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "e0fd09a32321567aad9c4549558e0c4f8b033c8f83c0f91af267ac7c63dbe7fb",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997286200523376
+    },
+    {
+      "id": "detectrlx-15383-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "fbe6228b46c35eaebf1c82465626ee1c328288a02f94a8b6c29cdb4a0923d07b",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.014592627063393593
+    },
+    {
+      "id": "detectrlx-15383-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "3c2742984b7f64e8ed79dc016093aa252648834b88b10f9b8171b76048cadb9d",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994914531707764
+    },
+    {
+      "id": "detectrlx-15508-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "news",
+      "input_hash": "1e55c777ed4ddc7fe5c63d167c30daaa5f1f229c852682013df375db5bcdba7d",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.09406473487615585
+    },
+    {
+      "id": "detectrlx-15508-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "news",
+      "input_hash": "49b921c9b1767f557b423c8a17103958965daa7816f14296d85ea83a8e3045ac",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996428489685059
+    },
+    {
+      "id": "detectrlx-18061-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "bb961d770fbde09523eca08ba121a5e4686301afb23557c90c5a755e02159848",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.016794653609395027
+    },
+    {
+      "id": "detectrlx-18061-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "75bb2c1b5ea66c8d1051759373707478a46d7e2f685b11ca27f69c838067ce68",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994974136352539
+    },
+    {
+      "id": "detectrlx-18174-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "8124779971eb5fcb309d177656dc6a2c7140c913f53a75f9b4a971b97f6da07e",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.011503859423100948
+    },
+    {
+      "id": "detectrlx-18174-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "201ea1f326eb80f6c22cbf77f13a0a88efa802a81529b8befdee9e78fdaba09b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995386600494385
+    },
+    {
+      "id": "detectrlx-17966-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "0276b3282042cbfcacb3dd46a8e005242c8e1b8e0c7ef0c6dd1c9fa8e6357766",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.00965031236410141
+    },
+    {
+      "id": "detectrlx-17966-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "ca54171b70b88f5f3863d6cc6ca096110326854300ed72bede4ac2494c9f8a26",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997637867927551
+    },
+    {
+      "id": "detectrlx-18036-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "novel",
+      "input_hash": "12b7309948f7859264169b633b779b75d64749229a3b4ae2c5d469abed136077",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.08748703449964523
+    },
+    {
+      "id": "detectrlx-18036-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "novel",
+      "input_hash": "f89e46e997f64849d2fbd028ef72fcf23dcb634a899a400af032f7690bf3a706",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9997668862342834
+    },
+    {
+      "id": "detectrlx-20785-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "7a8f248e5660fe2fcd6bd40fa6a307dda793f7ff2adf8e6173e59fd540f91d03",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.010344547219574451
+    },
+    {
+      "id": "detectrlx-20785-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "c7e64c36d4a6a5f425df4eb608c3133fa45c66495cde5ae3d67437c68d9b0b12",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994621872901917
+    },
+    {
+      "id": "detectrlx-20739-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "18e2c76b88f0a738489d8520cd5d33a4b51231dc723fad1db2a0562f054ee235",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9794719219207764
+    },
+    {
+      "id": "detectrlx-20739-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "312cd55cd6393e82bbcb5c86b79e7ba9cb40cbf02e52ead9f901a307dbd38dcd",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995608925819397
+    },
+    {
+      "id": "detectrlx-20629-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "89211272ca8fa15421f4bfdfda9e8848eb64ba1796402ffe4a432fe53eaaf223",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.15388217568397522
+    },
+    {
+      "id": "detectrlx-20629-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "7e81c667fd7ca77a3091688a15b7b5cd41c1b49104f6ead44650ede8ae0e050a",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999568521976471
+    },
+    {
+      "id": "detectrlx-20756-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "seo",
+      "input_hash": "1652391fc9ffe0f8b047cd4f65da4a932b6b27e286e8b954f9355badba9e448d",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.010090877301990986
+    },
+    {
+      "id": "detectrlx-20756-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "seo",
+      "input_hash": "92df55ed9b1f30637b230159ad8bb1bd2b5d233db2e6ccc168c8f3166c34ccec",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9994246959686279
+    },
+    {
+      "id": "detectrlx-23394-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "4014642c97fdc2c9cffb5db4639a0c2977c064ec15da36f8a336bb5564f1846d",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.01611330918967724
+    },
+    {
+      "id": "detectrlx-23394-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "20982a39b701a5014f7ccb1192edde0d51b07daaa8142690a49a827172b3cb2b",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995502829551697
+    },
+    {
+      "id": "detectrlx-23279-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "574c0ad869ecab57a191f9107ac7ba7958ecf29924f0b0c78a91c2b37ba9b734",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.04488223046064377
+    },
+    {
+      "id": "detectrlx-23279-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "0ffdb245eb3b442f2e27884e7eb8ce1c940627c032c9e75324d247af7e0b7f3a",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.999358594417572
+    },
+    {
+      "id": "detectrlx-23225-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "3ce0d38fe99789725e1440bf789b1f94168157ea0bb28a398d943c93a3bc5382",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.017020104452967644
+    },
+    {
+      "id": "detectrlx-23225-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "1935671d1136781215c17136b73411449eef43d802604b3dbd99c59f19804719",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9992560744285583
+    },
+    {
+      "id": "detectrlx-23374-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "webtext",
+      "input_hash": "51c6c79daa54d76f06d7da60c949d58597cf975b7fee528977f36df74b5a94bc",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.06505358964204788
+    },
+    {
+      "id": "detectrlx-23374-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "webtext",
+      "input_hash": "bfe565142c1233744bd079f24ff7f84f418fffac0df2bb02367cbd23d0fd7760",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9995869994163513
+    },
+    {
+      "id": "detectrlx-25911-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "b8ab99ead2cea865dc148d69ae2d84db1837b0aff16ff21d2ef8dde37b6d8d57",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.060519009828567505
+    },
+    {
+      "id": "detectrlx-25911-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "c0fb1002833c0cb4ede7b020c06432251636bb82efd94043603fa798667d2dc6",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9990283250808716
+    },
+    {
+      "id": "detectrlx-25958-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "3ad9bc9f2614fb788f583c76aec806b1d43533cf3531f4eccfaad77aa6f09f07",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.0470861978828907
+    },
+    {
+      "id": "detectrlx-25958-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "6ae3fe67fec0142ebae6efb933378fffb6ea5df11c7a9ab0a33cf37b90bd4f80",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9996345043182373
+    },
+    {
+      "id": "detectrlx-25909-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "d69c845387e6fb0fe6b523a7ca70e830ed309b4c23763748540eafd7aacce26f",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.8639996647834778
+    },
+    {
+      "id": "detectrlx-25909-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "d363a62293be74b5e73824d01fa7dfcb9a31a91a650899a4550a7d127ff087d4",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9993966817855835
+    },
+    {
+      "id": "detectrlx-25987-human",
+      "language": "zh",
+      "generator": "human",
+      "kind": "human_original",
+      "truth": "human",
+      "domain": "wiki",
+      "input_hash": "a91efb949ac5290a6e52065e9f35ca966229f91ee87f0bc7e796bcf81f3638b5",
+      "prediction": "human",
+      "status": "completed",
+      "score": 0.025355614721775055
+    },
+    {
+      "id": "detectrlx-25987-ai",
+      "language": "zh",
+      "generator": "qwen-max",
+      "kind": "ai_original",
+      "truth": "ai",
+      "domain": "wiki",
+      "input_hash": "025315e2f99643d5b44b699972ea3131f82811c5a8c350bde6fccf8b3ca3f213",
+      "prediction": "ai",
+      "status": "completed",
+      "score": 0.9987499713897705
+    }
+  ],
+  "limitations": [
+    "Provenance and independent calibration are supplied declarations, not externally verified facts.",
+    "Only exact UTF-8 hashes in the supplied calibration manifest were checked for overlap; completeness and semantic independence are not verified.",
+    "Fixed-threshold binary evaluation; scores are not AI proportions or authorship probabilities.",
+    "Published fixed policies reproduce upstream decisions and do not imply independent calibration or a target false-positive rate.",
+    "Mixed texts are excluded from binary rates. Errors and unsupported inputs are coverage gaps, not human predictions.",
+    "Wilson intervals assume independent Bernoulli samples; related documents or shared prompts may violate this assumption.",
+    "This report does not itself certify modern-model coverage, dataset quality, licensing clearance or production readiness."
+  ]
+}

@@ -2,6 +2,10 @@
 
 ## 当前状态（2026-11-03）
 
+首轮真实中英文基准 `50b4463` 的[三模型 Actions](https://github.com/W-Boat/WorkProof/actions/runs/41507079186)全部完成：每配置 192 份、完成 189 份；人工误报中文 MPU 13/93、英文 MPU 35/95、Desklib 31/95。固定上游规则、未独立校准，不能单独用于判定学术不端，完整分母/区间/范围见[实测报告](AI-BENCHMARK-RESULTS.md)。这只完成第一轮有限样本评估，不代表多类独立方法、现代模型全面覆盖或真实作业误报校准完成。
+
+内嵌 Linux [扩展验收 41508432610](https://github.com/W-Boat/WorkProof/actions/runs/41508432610)通过实际文件输入、改动拒绝、原文件重选、480 像素窄窗与键盘滚动；应用源码 e4583b5，测试源码 3eab125，仍不覆盖操作系统原生选文件对话框、下载、打印和其他平台。结果自动定位与“查看核验结果”流程 ba9c6e1 已提交，待新网页回归。
+
 本轮 UI 与来源线索：JPEG EXIF/注释/简单 XMP 的本机读取已通过 `46e43f0` 的 [48 项浏览器回归](https://github.com/W-Boat/WorkProof/actions/runs/41500803947)；中文属性卡片 `2bf862d` 的 [网页回归](https://github.com/W-Boat/WorkProof/actions/runs/41501143636)及特殊字段名补强 `d04efcf` 的 [回归](https://github.com/W-Boat/WorkProof/actions/runs/41501648469)也已通过。随后折叠范围说明导致旧测试匹配两个 summary，已在 `482ee1c` 用明确入口名称修正，新增 PNG/JPEG IPTC 来源自述识别一起复验中，未记为通过。Linux 实际安装的内嵌 WebView [验收](https://github.com/W-Boat/WorkProof/actions/runs/41498967934)通过打开、真实 Wasm、调用隔离、导航拒绝和窗口复用；系统文件选择/下载/打印及其他平台仍未据此验收。
 
 Desklib 英文分类器、独立 sigmoid 类型与机构选择已经通过[真实模型及 Java](https://github.com/W-Boat/WorkProof/actions/runs/41502727303)、[常规机构](https://github.com/W-Boat/WorkProof/actions/runs/41502727546)与[显式三模型网页](https://github.com/W-Boat/WorkProof/actions/runs/41503104263)验收，未据此称作独立统计方法或证明检测效果。DetectRL-X 近期中英文数据候选已固定来源版本及摘要，尚未运行效果评估，完整许可及原始语料权利仍待核查；近期中英文误报评估仍未完成。
