@@ -18,6 +18,8 @@ const {chromium,expect}=require('@playwright/test');
     await context.addInitScript(({origin,token,user})=>{if(location.origin===origin){localStorage.setItem('scaffold.token',token);localStorage.setItem('scaffold.user',JSON.stringify(user));localStorage.setItem('scaffold.expiresAt',String(Date.now()+3600000));}},{origin,token,user});
     page=await context.newPage();await page.goto(origin+'/');await page.getByRole('button',{name:'AI 辅助分析',exact:true}).click();
     const dialog=page.getByRole('dialog',{name:'AI 辅助分析',exact:true}),submit=dialog.getByRole('button',{name:'发送并分析',exact:true});await expect(submit).toBeDisabled();
+    await expect(dialog.getByText('支持 DOCX、TXT、Markdown，最多 8 MB。中文至少 80 个汉字，英文至少 80 个单词。',{exact:true})).toBeVisible();
+    await expect(dialog.getByText('中文选中文模型，英文选英文模型。英文有两个模型可分别参考；它们都在比较文字写法，不是两种独立证据，分数不合并。',{exact:true})).toBeVisible();
     const text='这是一段用于机构流程验收的合成文字，只检查真实模型和页面是否连通。分数不是创作比例，也不能单独证明作者身份或学术不端。临时文档不应出现在操作日志或模型报告中。'.repeat(2);
     await dialog.getByLabel('选择文档',{exact:true}).setInputFiles({name:'synthetic.txt',mimeType:'text/plain',buffer:Buffer.from(text)});await expect(submit).toBeDisabled();
     await dialog.getByText('我同意将所选文档发送给机构服务器进行辅助分析',{exact:true}).click();
