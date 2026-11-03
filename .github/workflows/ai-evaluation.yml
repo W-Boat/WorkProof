@@ -1,7 +1,7 @@
 name: AI evaluation contract and metrics
 on:
   push:
-    paths: ['tools/ai-assessment/evaluate.py', 'tools/ai-assessment/test_evaluate.py', 'tools/ai-assessment/benchmark_data.py', 'tools/ai-assessment/test_benchmark_data.py', '.github/workflows/ai-evaluation.yml']
+    paths: ['tools/ai-assessment/evaluate.py', 'tools/ai-assessment/test_evaluate.py', 'tools/ai-assessment/benchmark_data.py', 'tools/ai-assessment/test_benchmark_data.py', 'tools/ai-assessment/calibrate.py', 'tools/ai-assessment/test_calibrate.py', '.github/workflows/ai-evaluation.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,3 +18,4 @@ jobs:
         run: |
           python tools/ai-assessment/test_evaluate.py
           python tools/ai-assessment/test_benchmark_data.py
+          python tools/ai-assessment/test_calibrate.py
