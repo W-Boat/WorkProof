@@ -321,9 +321,11 @@ for role in a.ROOTS:
                 mounts=[m for m in applications[0]['Mounts'] if m['Destination']=='/opt/workproof-ai/models']
                 assert len(mounts)==1 and mounts[0]['Type']=='volume' and mounts[0]['Name']==args.ai_model_volume and mounts[0]['RW'] is False
                 TEST_PHASE = 'ai-reactivated-inference'
-                text=('This synthetic paragraph exercises an explicitly reactivated classifier after an isolated deployment restore. It is not an accuracy benchmark and cannot establish authorship. ')*3
+                text=('This synthetic paragraph exercises an explicitly reactivated classifier after an isolated deployment restore. It is not an accuracy benchmark and cannot establish authorship. ')*4
                 if args.ai_engine=='mpu-zh-v3':
                     text='这是一段用于持续集成的合成文字，只检查恢复后重新启用的中文检测模型是否能够加载和返回数值。这不是准确率测试，不代表模型能够确认作者身份，也不能单独用于判断学术不端。模型输出必须结合来源、修改过程和人工判断。'*2
+                    assert len(re.findall(r'[\u4e00-\u9fff]',text))>=80
+                else:assert len(text.split())>=80
                 sample=text.encode()
                 status,payload=request(base,'/api/workproof/analysis/tasks/'+args.ai_engine+'/txt?consent=true',sample,actor)
                 assert status==200
