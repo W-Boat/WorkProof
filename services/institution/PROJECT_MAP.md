@@ -1,12 +1,12 @@
 # 通用后台管理脚手架项目地图
 
-AiAnalysisService → detector.py → Desklib 本地适配：新增固定英文 desklib-en-v1.01，安全张量严格匹配本地模型参数；接口逐引擎校验 softmax/sigmoid 得分类型。MPU 与 Desklib 都属于监督分类方法，不合并分数。页面继续复用 Select/Field/FormDialog，显式下载模型后方可配置使用；源码接入待本次 Actions，许可及近期误报评估未完成。
+AiAnalysisService → detector.py → Desklib 本地适配：新增固定英文 desklib-en-v1.01，安全张量严格匹配本地模型参数；接口逐引擎校验 softmax/sigmoid 得分类型。MPU 与 Desklib 都属于监督分类方法，不合并分数。页面继续复用 Select/Field/FormDialog，显式下载模型后方可配置使用；真实模型与网页接入已通过 41502727303 / 41503104263；9361ae5 单输出提示更新的常规回归 41561755724 已通过，真实模型网页复验 41561757332 完成业务检查后归档。首轮有限基准已观察到明显人工误报，独立校准与扩大评估、完整许可审查仍未完成。
 
 CertificateJobService→PrivateJobSpool：私有暂存权限统一验证，POSIX权限及Windows ACL后端；新建空文件先限制再写入，既有目录/锁/恢复证据拒绝宽松权限及非服务owner。跨平台权限探针待CI，不代表Windows完整持久队列已验收。
 
 CertificateJobController→CertificateJobService：显式V4/POSIX私有spool的持久批量任务，数据库与目录独占锁、原件幂等、实际取消/重启恢复/权限重查及统一审计。CertificateJobsDialog复用Modal/Field/FilePicker/Checkbox/Tag/Button和原字节PUT，另保留页面内旧批量。默认关闭，尚待本次Actions。
 
-AiAnalysisDialog 按文件→语言→同意组织，完成后需换文件或语言才再发送；所有按钮/浮层/下载均继续复用管理端底座。Python运行环境许可原文在独立模型CI归档，不进入常驻引擎。
+AiAnalysisDialog 按文件→模型→同意组织，完成后需换文件或语言才再发送；所有按钮/浮层/下载均继续复用管理端底座。Python运行环境许可原文在独立模型CI归档，不进入常驻引擎。
 
 - AiAnalysisService 的固定引擎描述统一模型/语言/revision，校验实际报告版本；AiAnalysisDialog 使用已有 downloadBlob 保存独立辅助记录，不更改原证书。
 
