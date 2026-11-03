@@ -45,6 +45,9 @@ def select_file(selector,path):
     element=call('POST',f'/session/{session}/element',{'using':'css selector','value':selector})
     identifier=element['element-6066-11e4-a52e-4f735466cecf']
     call('POST',f'/session/{session}/element/{identifier}/value',{'text':str(path.resolve())})
+    def displayed():
+        assert execute("const input=document.querySelector(arguments[0]);const card=input.closest('.upload-field')||input.closest('button');return card?.querySelector('strong')?.textContent===arguments[1]",[selector,path.name])
+    wait(displayed)
 
 def click_text(text):
     element=execute('return Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes('+json.dumps(text)+'))')
@@ -55,7 +58,9 @@ def screenshot(name):
 with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporary:
     env=dict(os.environ,WORKPROOF_DATA_DIR=temporary+'/engine',XDG_CONFIG_HOME=temporary+'/config',XDG_DATA_HOME=temporary+'/data',WEBKIT_DISABLE_DMABUF_RENDERER='1')
     env.pop('WORKPROOF_HEADLESS',None)
-    driver=subprocess.Popen([sys.argv[1]],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+    # Synthetic CI session only: preserve native-driver diagnostics for failures.
+    driver_log=(evidence/'native-driver.log').open('wb')
+    driver=subprocess.Popen([sys.argv[1]],env=env,stdout=driver_log,stderr=subprocess.STDOUT,start_new_session=True)
     try:
         wait(lambda:call('GET','/status'))
         value=call('POST','/session',{'capabilities':{'alwaysMatch':{'browserName':'wry','tauri:options':{'application':'/usr/bin/workproof-desktop'}}}})
@@ -121,6 +126,9 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         switch(workbench);click('#verify');assert len(handles())==2,'Repeated open created another verifier'
         (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
         print('PASS: installed native WebView verifies filesystem input, rejects changed bytes, scrolls and reuses the local verifier; workbench commands unavailable')
+    except Exception as error:
+        (evidence/'failure.json').write_text(json.dumps({'exception_type':type(error).__name__,'driver_exit_code':driver.poll(),'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Synthetic CI installed-package session; diagnostic record is not acceptance.'},indent=2),encoding='utf-8')
+        raise
     finally:
         if session:
             try:screenshot('last-ui.png');call('DELETE',f'/session/{session}')
@@ -129,3 +137,4 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         except ProcessLookupError:pass
         try:driver.wait(timeout=5)
         except subprocess.TimeoutExpired:os.killpg(driver.pid,signal.SIGKILL);driver.wait()
+        driver_log.close()
