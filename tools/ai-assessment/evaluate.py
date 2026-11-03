@@ -16,6 +16,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 KINDS = {'human_original', 'ai_original', 'paraphrased', 'mixed', 'translated'}
 TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,95}\Z')
 SHA = re.compile(r'[a-f0-9]{64}\Z')
+INPUT_REASONS = {'LANGUAGE_NOT_SUPPORTED_BY_SELECTED_ENGINE', 'AT_LEAST_80_WORDS_OR_CHINESE_CHARACTERS_REQUIRED', 'TEXT_EXCEEDS_512_TOKENS_NO_SILENT_TRUNCATION'}
 
 
 def digest(raw):
@@ -122,6 +123,7 @@ def metrics(records):
     ai = [r for r in scored if r['truth'] == 'ai']
     return {'samples': len(records), 'statuses': {s: sum(r['status'] == s for r in records) for s in sorted({r['status'] for r in records})},
             'scored': len(scored), 'coverage': len(scored) / len(records) if records else None,
+            'input_limit_reasons': {reason: sum(r.get('reason') == reason for r in records) for reason in sorted({r['reason'] for r in records if 'reason' in r})},
             'mixed_excluded_from_binary_metrics': sum(r['truth'] == 'mixed' for r in scored),
             'false_positive': wilson(sum(r['prediction'] == 'ai' for r in human), len(human)),
             'false_negative': wilson(sum(r['prediction'] == 'human' for r in ai), len(ai))}
@@ -143,6 +145,8 @@ def evaluate(rows, dataset_hash, policy, policy_hash, predict):
             status = value.get('status')
             require(status in {'completed', 'not_configured', 'unsupported', 'insufficient_input', 'timeout', 'cancelled', 'error'}, 'INVALID_STATUS')
             record['status'] = status
+            if status in {'unsupported', 'insufficient_input'} and value.get('reason') in INPUT_REASONS:
+                record['reason'] = value['reason']
             if status == 'completed':
                 require(value.get('score_kind') == policy['score_kind'] and value.get('calibration') is None, 'WRONG_SCORE_KIND')
                 scores = value.get('raw_scores', {})

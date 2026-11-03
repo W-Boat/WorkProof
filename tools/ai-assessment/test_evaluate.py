@@ -41,6 +41,16 @@ class EvaluationTests(unittest.TestCase):
         self.assertAlmostEqual(ev.wilson(5,10)['wilson95'][0],.236593,places=5)
         self.assertIsNone(ev.wilson(0,0)['rate'])
 
+    def test_input_limit_reasons_are_allowlisted_and_never_counted_as_human(self):
+        rows=[self.sample('too-long'),self.sample('private-reason')]
+        def predict(row):
+            return dict(protocol='workproof-ai-assessment/1',engine_id='fixture',model_revision='fixed',input_hash=ev.digest(row['text'].encode()),network_used=False,status='unsupported',reason='TEXT_EXCEEDS_512_TOKENS_NO_SILENT_TRUNCATION' if row['id']=='too-long' else 'PRIVATE_INPUT_OR_PATH')
+        report=ev.evaluate(rows,'d'*64,self.policy(),'e'*64,predict)
+        self.assertEqual(report['overall']['input_limit_reasons'],{'TEXT_EXCEEDS_512_TOKENS_NO_SILENT_TRUNCATION':1})
+        self.assertNotIn('PRIVATE_INPUT_OR_PATH',json.dumps(report))
+        self.assertIsNone(report['overall']['false_positive']['rate'])
+        self.assertEqual(report['overall']['coverage'],0)
+
     def test_ambiguous_dataset_labels_and_nested_provenance_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path=pathlib.Path(directory)/'data.jsonl'
