@@ -1,5 +1,7 @@
 # 桌面平台与首次使用
 
+最新开发包 `50a00c5` 已通过[完整 Actions 41567780689](https://github.com/W-Boat/WorkProof/actions/runs/41567780689)五任务。Windows 安装器已下载至 `E:/work/WorkProof-Delivery/WorkProof-Desktop-Windows-50a00c5-setup.exe`，大小 10,794,803 字节，SHA256 为 `d0459019c297a6909d53565b7b36f4d056f58415906f6cff6d0745c24c3266c0`。来源 artifact `13200328302` 的 ZIP 摘要 `4d19d901cce9efbd18e3b5f1f16ef1957e80e99878277d8efb5ca8fa78707e60` 与 GitHub 一致；包内桌面程序确认为 x64 PE。仅提取交付，未执行安装或替换当前软件。该版 Linux 内嵌网页真实结果流程已通过，范围见[易用性](USABILITY.md)；构建通过不代表 Windows 实机 UI 或全新电脑安装流程已完成。
+
 ## 三步使用
 
 1. 打开 WorkProof，选择你用来创作的软件。

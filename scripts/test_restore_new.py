@@ -23,7 +23,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'deploy/
 import restore_new as restore
 
 TEST_PHASE = 'preflight'
-TEST_PHASES = {'preflight', 'guard-checks', 'restore', 'ready-stopped', 'explicit-start',
+TEST_PHASES = {'preflight', 'guard-checks', 'restore', 'ready-stopped', 'database-start', 'explicit-start',
                'row-comparison', 'login', 'private-readback', 'refusal-existing-project',
                'refusal-wrong-passphrase', 'refusal-existing-volume', 'source-check', 'cleanup', 'completed'}
 RESTORE_PHASES = {'preflight', 'authenticate', 'create-owned-volumes', 'install-private-volumes',
@@ -129,6 +129,19 @@ def main():
             # Product performs no application startup. This explicit acceptance
             # step starts only the verified disposable target, on another port.
             compose = ['docker', 'compose', '--file', str(state / 'compose.json'), '--project-name', project]
+            # Compare the restored snapshot before application startup can add
+            # audit rows or run background work. Login is verified afterwards.
+            TEST_PHASE = 'database-start'
+            restore.run(compose + ['up', '--detach', '--no-deps', 'database'])
+            database_deadline = time.monotonic() + 120
+            while time.monotonic() < database_deadline:
+                if restore.inspect(target_db)['State'].get('Health', {}).get('Status') == 'healthy':
+                    break
+                time.sleep(1)
+            else:
+                raise AssertionError('Restored database did not become healthy')
+            TEST_PHASE = 'row-comparison'
+            assert rows(target_db) == source_rows, 'Every restored SQL row must match stopped source'
             TEST_PHASE = 'explicit-start'
             restore.run(compose + ['up', '--detach', 'database', 'cache', 'app'])
             base = 'http://127.0.0.1:18082'
@@ -142,8 +155,6 @@ def main():
                 time.sleep(1)
             else:
                 raise AssertionError('Explicitly started restored application did not become healthy')
-            TEST_PHASE = 'row-comparison'
-            assert rows(target_db) == source_rows, 'Every restored SQL row must match stopped source'
             TEST_PHASE = 'login'
             account = json.loads((state / 'stage/initial_account/account.json').read_text())
             captcha = json.loads(request(base, '/api/auth/captcha')[1])['data']
