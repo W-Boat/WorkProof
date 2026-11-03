@@ -166,7 +166,7 @@ jobs:
               reference=compose['services'][name]['image']
               installed=json.loads(subprocess.check_output(['docker','image','inspect',reference]))[0]
               dependencies[name]={'reference':reference,'image_id':installed['Id'],'repository_digests':installed.get('RepoDigests') or [],'bundled':False}
-          (output/'BUILD-INFO.json').write_text(json.dumps({'schema':'workproof.server-package.v1','source_commit':os.environ['GITHUB_SHA'],'build_run':os.environ['GITHUB_RUN_ID'],'image_id':image['Id'],'platform':'linux/amd64','control_tools':required_tools,'runtime_dependencies':dependencies,'scope':'New database only; catalog/jobs/AI disabled; no deployment secrets included; database/cache images must be prepared separately'},indent=2)+'\n',encoding='utf-8')
+          (output/'BUILD-INFO.json').write_text(json.dumps({'schema':'workproof.server-package.v1','source_commit':os.environ['GITHUB_SHA'],'build_run':os.environ['GITHUB_RUN_ID'],'image_id':image['Id'],'platform':'linux/amd64','control_tools':required_tools,'runtime_dependencies':dependencies,'scope':'V1/V2 new deployment; explicit V3 catalog preparation and restore supported; catalog disabled until prepared; jobs/AI disabled; no deployment secrets included; database/cache images must be prepared separately'},indent=2)+'\n',encoding='utf-8')
           lines=[]
           for file in sorted(output.iterdir()):
               if file.is_file():

@@ -185,7 +185,7 @@ try:
     preserved=run('run','--rm','-T','--entrypoint','python3','initialize','-c',connection_code+"cur.execute('SELECT id FROM setup_sentinel');print(cur.fetchone()[0]);cur.execute('SHOW TABLES');assert len(cur.fetchall())==1;db.close()")
     assert preserved.stdout.strip()=='73'
     checks.append('Nonempty database refused before schema import; original table and row preserved')
-    (root/'test-institution-server-results.json').write_text(json.dumps({'scope':'Linux amd64 new deployment only; catalog/jobs/AI disabled; no production or user database touched','checks':checks},indent=2)+'\n',encoding='utf-8')
+    (root/'test-institution-server-results.json').write_text(json.dumps({'scope':'Linux amd64 V1/V2 new deployment plus explicit V3 catalog preparation and restore; catalog initially disabled, explicitly enabled after backup; jobs/AI disabled; no production or user database touched','checks':checks},indent=2)+'\n',encoding='utf-8')
     print('PASS: real server image, explicit initialization, login, API, inspector, restart and isolation checks')
 finally:
     assert re.fullmatch(r'workproof-server-ci-[0-9a-f]{12}',project)
