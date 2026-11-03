@@ -30,9 +30,18 @@ class CoordinatorError(Exception):
 
 
 def run(args, **kwargs):
+    diagnostic=kwargs.pop('collector_diagnostic',False)
     if kwargs.pop('capture_output',False):
         kwargs['stdout']=subprocess.PIPE
-    return subprocess.run(args, check=True, stderr=subprocess.DEVNULL, **kwargs)
+    try:
+        return subprocess.run(args,check=True,stderr=subprocess.PIPE if diagnostic else subprocess.DEVNULL,**kwargs)
+    except subprocess.CalledProcessError as error:
+        if diagnostic:
+            match=re.search(rb'COLLECTOR_STAGE=(preflight|inventory|encrypt|verify)\b',(error.stderr or b'')[-65536:])
+            if match:
+                global PHASE
+                PHASE='collector-'+match.group(1).decode('ascii')
+        raise
 
 
 def inspect(target):
@@ -194,7 +203,7 @@ def _backup(output, password):
             PHASE = 'collect-and-encrypt'
             helper['started'] = True
             run(['docker', 'start', '--attach', '--interactive', created],
-                input=password + b'\n', stdout=subprocess.DEVNULL)
+                input=password + b'\n', stdout=subprocess.DEVNULL,collector_diagnostic=True)
             PHASE = 'verify-services'
             current_db = service('database')
             if (stopped(service('app')) != baseline or current_db['Id'] != database['Id'] or

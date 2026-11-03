@@ -9,6 +9,8 @@ import sys
 import backup_crypto
 import snapshot_archive as archive
 
+PHASE='preflight'
+
 
 def inventory(root):
     entries, identities = [], {}
@@ -96,15 +98,19 @@ def collect(source, stage):
 
 
 def main():
+    global PHASE
     operation, commit, image = sys.argv[1:]
     password = backup_crypto._stdin_password()
     lock = os.open('/source/app_config/.setup.lock', os.O_RDONLY | os.O_NOFOLLOW)
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        PHASE='inventory'
         collect('/source', '/stage')
+        PHASE='encrypt'
         archive.create_encrypted_snapshot('/stage', '/output/candidate', password,
             source_commit=commit, image_id=image,
             backup_time=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
+        PHASE='verify'
         archive.verify_encrypted_snapshot('/output/candidate', password, work_dir='/output')
     finally:
         os.close(lock)
@@ -114,5 +120,6 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:
+        print('COLLECTOR_STAGE='+PHASE,file=sys.stderr)
         print('Backup collection failed; application must remain stopped.', file=sys.stderr)
         sys.exit(1)
