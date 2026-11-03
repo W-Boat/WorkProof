@@ -15,6 +15,18 @@ test('completed verification focuses its result and repeat viewing does not rest
   await expect(result).toBeFocused();await expect(result).toContainText('证据核验未通过');
   await page.getByRole('button',{name:'清空重新核验',exact:true}).click();
   await expect(result).toHaveCount(0);await expect(page.getByRole('button',{name:'开始本地核验',exact:true})).toBeDisabled();
+  await expect(page.locator('.uploads .upload').first()).toBeFocused();
+});
+
+test('invalid certificate focuses a readable error with the selected files retained',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
+  await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'my-work.txt',mimeType:'text/plain',buffer:Buffer.from('original work')});
+  await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles({name:'broken.wproof',mimeType:'application/json',buffer:Buffer.from('{')});
+  await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
+  const error=page.getByRole('region',{name:'核验作品与证书'}).getByRole('alert');
+  await expect(error).toBeFocused();await expect(error).toContainText('暂时无法完成核验');
+  await expect(page.locator('.uploads')).toContainText('my-work.txt');await expect(page.locator('.uploads')).toContainText('broken.wproof');
+  await expect(page.getByRole('button',{name:'开始本地核验',exact:true})).toBeEnabled();
 });
 
 test('explicit demo clears an unrelated recipient fingerprint and runs real verification',async({page})=>{

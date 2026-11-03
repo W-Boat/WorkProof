@@ -19,8 +19,13 @@ export default function Page(){
   const demoRequest=useRef<AbortController|null>(null);
   const worker=useRef<Worker|null>(null),disclosureWorker=useRef<Worker|null>(null);const reduced=useReducedMotion();
   const resultHeading=useRef<HTMLDivElement|null>(null);
+  const errorMessage=useRef<HTMLDivElement|null>(null),returnToUpload=useRef(false);
   const focusResult=useCallback(()=>{const target=resultHeading.current;if(!target)return;target.focus({preventScroll:true});target.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});},[reduced]);
   useEffect(()=>{if(stage==='done'&&result)focusResult();},[stage,result,focusResult]);
+  useEffect(()=>{
+    const target=stage==='error'?errorMessage.current:returnToUpload.current&&stage==='idle'&&!artifact&&!proofFile?document.querySelector<HTMLInputElement>('input[aria-label="选择最终作品"]')?.closest('button'):null;
+    if(!target)return;returnToUpload.current=false;target.focus({preventScroll:true});target.scrollIntoView({block:'center',behavior:reduced?'auto':'smooth'});
+  },[stage,artifact,proofFile,reduced,error]);
   const [selection,setSelection]=useState(''),[disclosureBusy,setDisclosureBusy]=useState(false),[disclosureError,setDisclosureError]=useState('');
   const [expectedId,setExpectedId]=useState(''),[shareMessage,setShareMessage]=useState('');
   function stopVerification(){const active=worker.current;worker.current=null;active?.terminate();}
@@ -123,14 +128,14 @@ export default function Page(){
       <details className="fingerprint-input"><summary>收到证书指纹？核对是否为同一张证书（可选）</summary><label className="field"><span className="field-label">发送者提供的完整证书指纹</span><TextInput aria-label="发送者提供的完整证书指纹" value={expectedId} onChange={e=>{invalidate();setExpectedId(e.target.value);}} placeholder="粘贴 64 位指纹；不一致时核验不会通过" maxLength={128} disabled={stage==='working'}/></label><p>请从可信渠道取得指纹。仅检查证书自带签名，无法识别别人重新签发的替代证书。</p></details>
       <div className="verify-actions"><Button variant="ghost" onClick={demo} disabled={demoBusy||stage==='working'}>{demoBusy?<LoaderCircle size={15} className="spin"/>:<Activity size={15}/>}先体验一份演示证据<ArrowUpRight size={13}/></Button>{stage==='working'?<Button onClick={invalidate}><X size={15}/>取消核验</Button>:<Button variant="primary" disabled={!artifact||!proofFile} onClick={stage==='done'?focusResult:()=>verify()}><ShieldCheck size={16}/>{stage==='done'?'查看核验结果':'开始本地核验'}</Button>}</div>
       {stage==='working'&&<div className="progress" role="status"><span>{phase}</span><span>{progress}%</span><div><i style={{width:`${progress}%`}}/></div></div>}
-      {stage==='error'&&<div className="error-box" role="alert"><AlertTriangle size={18}/><div><strong>暂时无法完成核验</strong><p>{error}</p></div></div>}
+      {stage==='error'&&<div ref={errorMessage} tabIndex={-1} className="error-box" role="alert"><AlertTriangle size={18}/><div><strong>暂时无法完成核验</strong><p>{error}</p></div></div>}
     </Panel>
     {result&&m&&r?<motion.div initial={reduced?false:{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:.22}} className="result">
       <div id="verification-result" ref={resultHeading} tabIndex={-1} role="status" className={`result-banner ${r.valid?'success':'failure'}`}><span>{r.valid?<ShieldCheck size={21}/>:<AlertTriangle size={21}/>}<strong>{r.valid?(partial?'部分证据核验通过':'证据核验通过'):'证据核验未通过'}</strong>{m.demo&&<Tag tone="neutral">演示数据</Tag>}</span><span>{r.valid?(partial?'所选事件属于已签名记录集；完整链未核验':'文件、记录链与签名一致'):'请检查文件配对及证据完整性'}</span></div>
       <div className="result-grid"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId}/><VerificationChecks proof={result.proof} report={r}/></div>
       {result.certificateMatch===false&&<p className="error-box" role="alert">证书指纹不一致：这不是发送者指定的证书。请向发送者确认，勿作为有效交付凭据。</p>}
       {result.certificateMatch===true&&<p className="caption">证书指纹一致：与发送者提供的证书相符。</p>}
-      <div className="export-row"><span><LockKeyhole size={13}/>本次核验未上传作品或证书</span><div><Button disabled={!r.valid} onClick={exportImage}><ArrowDownToLine size={15}/>保存证书图片</Button><Button disabled={!r.valid} onClick={()=>window.print()}><FileText size={15}/>打印 / PDF</Button><Button variant="ghost" onClick={()=>{invalidate();setArtifact(null);setProofFile(null);setExpectedId('');}} aria-label="清空重新核验"><RotateCcw size={16}/>核验另一份作品</Button></div></div>
+      <div className="export-row"><span><LockKeyhole size={13}/>本次核验未上传作品或证书</span><div><Button disabled={!r.valid} onClick={exportImage}><ArrowDownToLine size={15}/>保存证书图片</Button><Button disabled={!r.valid} onClick={()=>window.print()}><FileText size={15}/>打印 / PDF</Button><Button variant="ghost" onClick={()=>{returnToUpload.current=true;invalidate();setArtifact(null);setProofFile(null);setExpectedId('');}} aria-label="清空重新核验"><RotateCcw size={16}/>核验另一份作品</Button></div></div>
       {r.valid&&<Panel title="分享可复核的签名证书" className="share-panel"><p>把签名证书和作品原文件发给对方，对方即可重新核验。证书图片方便展示，复核时仍需 .wproof 文件。</p><p>{partial?'此证书仅包含已披露的事件。':'此证书包含完整过程记录。如需减少公开内容，请先在下方导出部分证据，再载入核验后分享。'}</p><label className="field"><span className="field-label">证书指纹 · 用于识别证书是否被替换</span><code className="share-fingerprint" tabIndex={0}>{result.certificateId}</code></label><div className="share-actions"><Button variant="primary" onClick={shareCertificate}>分享签名证书</Button><Button onClick={()=>{if(proofFile)download(proofFile,proofFile.name);}}>下载签名证书</Button><Button onClick={copyFingerprint}>复制指纹与核验说明</Button></div><p role="status">{shareMessage}</p><p className="caption">请经可信渠道发送指纹。当前不生成公网链接；本机地址无法供他人远程访问。签名可以查出内容改动，签名者身份仍未经认证。</p></Panel>}
       {r.valid&&<TimestampPanel key={result.certificateId} signature={result.proof.signature}/>}
       {r.valid&&!partial&&m.protocol==='workproof/3'&&<DisclosurePanel selection={selection} busy={disclosureBusy} error={disclosureError} onChange={setSelection} onExport={exportDisclosure}/>}
