@@ -1,0 +1,77 @@
+name: Separate calibration and untouched bilingual evaluation
+on:
+  push:
+    paths: ['.github/workflows/ai-calibration.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  calibrate-and-evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - engine: mpu-en-v3
+            language: en
+          - engine: mpu-zh-v3
+            language: zh
+          - engine: desklib-en-v1.01
+            language: en
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      CALIBRATION_ENGINE: ${{ matrix.engine }}
+      CALIBRATION_LANGUAGE: ${{ matrix.language }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check metric, freezing and source-group split fixtures
+        run: |
+          python tools/ai-assessment/test_evaluate.py
+          python tools/ai-assessment/test_calibrate.py
+          python tools/ai-assessment/test_calibration_data.py
+      - name: Freeze both partitions before inference and exclude first experiment inputs
+        run: python tools/ai-assessment/calibration_data.py --output "$RUNNER_TEMP/workproof-separate-inputs" --per-cell 8
+      - name: Archive non-text selection evidence before scoring
+        run: |
+          mkdir -m 700 calibration-results
+          cp "$RUNNER_TEMP/workproof-separate-inputs/selection-receipt.json" calibration-results/
+          cp "$RUNNER_TEMP/workproof-separate-inputs/calibration-$CALIBRATION_LANGUAGE-manifest.json" calibration-results/
+          cp "$RUNNER_TEMP/workproof-separate-inputs/heldout-$CALIBRATION_LANGUAGE-manifest.json" calibration-results/
+          cp "$RUNNER_TEMP/workproof-separate-inputs/$CALIBRATION_ENGINE-policy.json" calibration-results/upstream-policy.json
+      - name: Prepare explicit fixed CPU model
+        run: |
+          pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r tools/ai-assessment/requirements.txt
+          pip check
+          python tools/ai-assessment/detector.py prepare --engine "$CALIBRATION_ENGINE" --model-dir "$RUNNER_TEMP/workproof-calibration-model"
+          cp "$RUNNER_TEMP/workproof-calibration-model/workproof-model.json" calibration-results/model-receipt.json
+      - name: Score calibration samples only
+        run: python tools/ai-assessment/evaluate.py --dataset "$RUNNER_TEMP/workproof-separate-inputs/calibration-$CALIBRATION_LANGUAGE.jsonl" --policy "calibration-results/upstream-policy.json" --model-dir "$RUNNER_TEMP/workproof-calibration-model" --output calibration-results/calibration-report.json
+      - name: Freeze threshold under a predeclared five percent empirical calibration budget
+        run: |
+          python tools/ai-assessment/calibrate.py --calibration-report calibration-results/calibration-report.json --heldout-manifest "$RUNNER_TEMP/workproof-separate-inputs/heldout-$CALIBRATION_LANGUAGE-manifest.json" --source "https://huggingface.co/datasets/WUJUNCHAO/DetectRL-X/blob/ccc9a0a74793dd3448e0da1650b430f5df1b0402/README.md" --max-false-positive 0.05 --output calibration-results/frozen-policy.json
+      - name: Evaluate held-out samples exactly once under the frozen policy
+        run: python tools/ai-assessment/evaluate.py --dataset "$RUNNER_TEMP/workproof-separate-inputs/heldout-$CALIBRATION_LANGUAGE.jsonl" --policy calibration-results/frozen-policy.json --model-dir "$RUNNER_TEMP/workproof-calibration-model" --output calibration-results/heldout-report.json
+      - name: Record actual held-out coverage and rates without setting an accuracy pass mark
+        run: |
+          python - <<'PY'
+          import json,pathlib
+          report=json.loads(pathlib.Path('calibration-results/heldout-report.json').read_text())
+          assert report['policy_mode']=='independent_calibration'
+          assert report['overall']['samples']==384
+          print(json.dumps({'engine':report['engine_id'],'threshold':report['threshold'],'overall':report['overall']},indent=2))
+          assert report['overall']['false_positive']['count']>0 and report['overall']['false_negative']['count']>0
+          assert not any(report['overall']['statuses'].get(status,0) for status in ('error','timeout','not_configured'))
+          print('Held-out measurements recorded, not a guaranteed target error rate or production clearance.')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: separate-calibration-${{ matrix.engine }}
+          path: calibration-results/*.json
+          if-no-files-found: warn
+          # Selected text and model weights stay ephemeral; only evidence is public.
