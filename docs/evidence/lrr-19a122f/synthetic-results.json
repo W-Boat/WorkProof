@@ -1,0 +1,113 @@
+{
+  "schema": "workproof-lrr-smoke/1",
+  "source_commit": "19a122fc89b532cc8f0cb8325e94651e046f61e5",
+  "accuracy_evaluated": false,
+  "reports": [
+    {
+      "language": "en",
+      "case": "short_synthetic",
+      "synthetic_sha256": "51f6abdb8a325883d1ae473a3fcacad6227d50b2aa48d9d4ad4b60425e1ab4f7",
+      "result": {
+        "protocol": "workproof-lrr-experiment/1",
+        "engine_id": "workproof-qwen3-lrr-experiment",
+        "method_family": "causal_likelihood_rank_ratio",
+        "model": "Qwen/Qwen3-0.6B-Base",
+        "model_revision": "da87bfb608c14b7cf20ba1ce41287e8de496c0cd",
+        "score_kind": "negative_log_likelihood_log_rank_ratio",
+        "direction": "higher",
+        "calibration": null,
+        "network_used": false,
+        "max_tokens": 512,
+        "limitations": [
+          "Experimental adaptation; Qwen and Chinese detection accuracy unvalidated.",
+          "Ratio is not an AI probability, content percentage or authorship verdict."
+        ],
+        "status": "completed",
+        "statistics": {
+          "value": 1.824970077300887,
+          "scored_tokens": 105,
+          "negative_log_likelihood_sum": 161.20441722869873,
+          "log_rank_sum": 88.33263582442869,
+          "tie_policy": "one_plus_strictly_greater_count"
+        },
+        "input_tokens": 106,
+        "add_special_tokens": false,
+        "first_token_scored": false,
+        "truncated": false,
+        "elapsed_seconds": 3.291600592000009,
+        "peak_rss_kib": 3999584
+      }
+    },
+    {
+      "language": "zh",
+      "case": "short_synthetic",
+      "synthetic_sha256": "b97492fbf73233c7f7cb5c6d88b881bfa1047bf5b776197572ea5c77eca7b80c",
+      "result": {
+        "protocol": "workproof-lrr-experiment/1",
+        "engine_id": "workproof-qwen3-lrr-experiment",
+        "method_family": "causal_likelihood_rank_ratio",
+        "model": "Qwen/Qwen3-0.6B-Base",
+        "model_revision": "da87bfb608c14b7cf20ba1ce41287e8de496c0cd",
+        "score_kind": "negative_log_likelihood_log_rank_ratio",
+        "direction": "higher",
+        "calibration": null,
+        "network_used": false,
+        "max_tokens": 512,
+        "limitations": [
+          "Experimental adaptation; Qwen and Chinese detection accuracy unvalidated.",
+          "Ratio is not an AI probability, content percentage or authorship verdict."
+        ],
+        "status": "completed",
+        "statistics": {
+          "value": 1.672097787589238,
+          "scored_tokens": 107,
+          "negative_log_likelihood_sum": 267.4545707702637,
+          "log_rank_sum": 159.95151285731242,
+          "tie_policy": "one_plus_strictly_greater_count"
+        },
+        "input_tokens": 108,
+        "add_special_tokens": false,
+        "first_token_scored": false,
+        "truncated": false,
+        "elapsed_seconds": 3.2185377649999936,
+        "peak_rss_kib": 3999320
+      }
+    },
+    {
+      "language": "en",
+      "case": "maximum_token_budget",
+      "synthetic_sha256": "b02f74dd89d25d06174cf4947f6075db91cf61773631e1b311945c7fef398dcd",
+      "result": {
+        "protocol": "workproof-lrr-experiment/1",
+        "engine_id": "workproof-qwen3-lrr-experiment",
+        "method_family": "causal_likelihood_rank_ratio",
+        "model": "Qwen/Qwen3-0.6B-Base",
+        "model_revision": "da87bfb608c14b7cf20ba1ce41287e8de496c0cd",
+        "score_kind": "negative_log_likelihood_log_rank_ratio",
+        "direction": "higher",
+        "calibration": null,
+        "network_used": false,
+        "max_tokens": 512,
+        "limitations": [
+          "Experimental adaptation; Qwen and Chinese detection accuracy unvalidated.",
+          "Ratio is not an AI probability, content percentage or authorship verdict."
+        ],
+        "status": "completed",
+        "statistics": {
+          "value": 4.361874029330063,
+          "scored_tokens": 511,
+          "negative_log_likelihood_sum": 57.220420837402344,
+          "log_rank_sum": 13.118311178324143,
+          "tie_policy": "one_plus_strictly_greater_count"
+        },
+        "input_tokens": 512,
+        "add_special_tokens": false,
+        "first_token_scored": false,
+        "truncated": false,
+        "elapsed_seconds": 6.928017022999995,
+        "peak_rss_kib": 3999128
+      }
+    }
+  ],
+  "scope": "Real fixed model, synthetic bilingual inference and resource budgets; no detector accuracy, threshold or production integration claim."
+}
