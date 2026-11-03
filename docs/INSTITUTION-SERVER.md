@@ -1,5 +1,13 @@
 # 机构服务器部署
 
+## 停服加密备份编排增量（待 Actions）
+
+`9c26c6a` 新增 Linux Docker 主机端 `backup_coordinator.py` 与镜像内 `backup_collect.py`。仅供拥有部署管理员权限的 Linux root 在排除其他写入者的维护窗口使用；源为同一 Compose 项目的已有应用/数据库和专用配置卷，目标必须是 root 所有、0700 私有目录中的新文件。镜像须有完整源码标签，协调器记录并复查应用、数据库、镜像、卷及重启状态，停止应用后执行原生 SQL 导出并保留停止状态。工具不自动重启应用、不恢复现有或新数据库，也不恢复缓存。
+
+只复制受限归档认可的文件，保留身份/权限并复查源清单，核对应用与数据库秘密一致；私有暂存交给固定镜像内的加密及认证工具，认证后才独占发布，拒绝覆盖。口令从终端或显式 `--password-stdin` 的一行 UTF-8 输入读取，不从参数或环境变量取得。管理员、Docker daemon 或有权修改部署的其他进程仍可绕过维护锁；工具不能隔离并发特权写入。故障信息要求保持应用停止并检查现场，不能盲目删除状态或重新初始化。
+
+新增隔离 CI 使用临时 Compose 项目实际调用协调器，再在镜像内认证输出、核对受限路径、拒绝覆盖、检查暂存清理和停止状态。源码尚待本次实际验收；数据库导出/采集/发布失败注入和完整新部署恢复仍未完成。本增量暂不作为生产备份操作指南，下文“编排待实现”是此前状态，以本段范围为准。没有在用户本机运行 Docker、构建或修改数据库。
+
 本说明对应 `deploy/institution/` 的单机 Docker Compose 部署。源码已准备，实际支持范围以该版本 Actions 容器验收结果为准。首版目标为 Linux amd64 容器，可由 Linux Docker Engine 或支持 Linux 容器的 Docker Desktop 运行；不把 Windows 原生容器、ARM、所有服务器系统列为已验收。
 
 服务使用同提交构建的机构 JAR（包含 Vue 与 Office 页面）及独立 Rust `workproof-inspector`。用户不需要 Maven、Node、Java、Python 或本地编译；需要 Docker Engine 与 Compose v2，以及拉取 MySQL/Valkey 镜像的网络。Docker Desktop 自身授权、MySQL、Valkey、Temurin 和镜像中的系统软件分别适用其原始条款，项目 MIT 声明不覆盖全部镜像。现有商业许可审查缺口仍见[商业审查](COMMERCIAL-LICENSE-AUDIT.md)。
