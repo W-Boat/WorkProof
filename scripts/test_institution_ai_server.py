@@ -170,7 +170,8 @@ def main():
             assert not service('app')['State']['Running']
             PHASE='restore'
             restored=subprocess.run([sys.executable,str(workspace/'scripts/test_restore_new.py'),'--input',str(output/'after-ai.enc'),
-                '--expected-image',args.ai_image,'--expected-commit',args.expected_commit,'--source-project',project,'--password-stdin'],
+                '--expected-image',args.ai_image,'--expected-commit',args.expected_commit,'--source-project',project,
+                '--ai-base-image',args.base_image,'--ai-model-volume',model_volume,'--ai-engine',args.engine,'--password-stdin'],
                 input=password+b'\n',stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=900)
             if restored.returncode!=0:
                 # Relay only fixed phase identifiers, never child logs or inputs.

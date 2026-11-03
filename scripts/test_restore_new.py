@@ -5,6 +5,7 @@ selects a deployment implicitly. Creates and cleans only randomly named fixtures
 whose exact ownership labels are verified. No secrets enter diagnostic output.
 """
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -27,7 +28,8 @@ TEST_PHASE = 'preflight'
 TEST_PHASES = {'preflight', 'guard-checks', 'restore', 'ready-stopped', 'database-start', 'explicit-start',
                'row-comparison', 'login', 'private-readback', 'refusal-existing-project',
                'refusal-wrong-passphrase', 'refusal-existing-volume', 'source-check', 'cleanup', 'completed',
-               'jobs-ready', 'jobs-submit', 'jobs-complete', 'jobs-running-recovery', 'ai-disabled'}
+               'jobs-ready', 'jobs-submit', 'jobs-complete', 'jobs-running-recovery', 'ai-disabled',
+               'ai-reactivation', 'ai-reactivated-start', 'ai-reactivated-inference'}
 RESTORE_PHASES = {'preflight', 'authenticate', 'create-owned-volumes', 'install-private-volumes',
                   'start-new-database', 'import-new-database', 'verify-restored-database'}
 
@@ -105,7 +107,15 @@ def main():
         parser.add_argument('--' + option, required=True)
     parser.add_argument('--password-stdin', action='store_true', required=True)
     parser.add_argument('--jobs-fixture')
+    parser.add_argument('--ai-base-image')
+    parser.add_argument('--ai-model-volume')
+    parser.add_argument('--ai-engine',choices=('mpu-en-v3','mpu-zh-v3','desklib-en-v1.01'))
     args = parser.parse_args()
+    ai_options=(args.ai_base_image,args.ai_model_volume,args.ai_engine)
+    assert all(ai_options) or not any(ai_options), 'AI reactivation options must be explicit together'
+    if all(ai_options):
+        assert re.fullmatch('sha256:[0-9a-f]{64}',args.ai_base_image)
+        assert args.ai_model_volume==args.source_project+'_ai_models'
     jobs_fixture=read_jobs_fixture(args.jobs_fixture) if args.jobs_fixture else None
     assert re.fullmatch('workproof-server-ci-[0-9a-f]{12}', args.source_project), 'Only isolated CI source accepted'
     raw = sys.stdin.buffer.read(1026)
@@ -255,6 +265,84 @@ for role in a.ROOTS:
                     data=b'Synthetic disabled-engine refusal fixture.', token=result['data']['token'])
                 refused = json.loads(payload)
                 assert status == 503 and refused['code'] == 503 and not refused.get('data')
+            if all(ai_options):
+                TEST_PHASE = 'ai-reactivation'
+                assert (state/'stage/app_config/ai.json').is_file() and not has_jobs
+                restore.run(compose+['stop','--timeout','60','app'])
+                def ai_receipt():
+                    return restore.run(['docker','run','--rm','--network','none','--user','10001:10001',
+                        '--entrypoint','python3','--mount',
+                        f'type=volume,src={project}_app_config,dst=/private/config,readonly',args.expected_image,
+                        '-c',"import pathlib,sys;sys.stdout.buffer.write(pathlib.Path('/private/config/ai.json').read_bytes())"],capture=True)
+                original_ai=ai_receipt()
+                # Use a fresh interpreter and private deployment directory: the
+                # coordinator resolves Compose relative to its own __file__.
+                # This prevents reuse of the source coordinator module/path.
+                control=state/'ai-reactivation';control.mkdir(mode=0o700)
+                workspace=pathlib.Path(__file__).resolve().parent.parent
+                for name in ('backup_coordinator.py','dump-database.sh'):
+                    shutil.copyfile(workspace/'deploy/institution'/name,control/name)
+                shutil.copyfile(state/'compose.json',control/'compose.yaml')
+                override=control/'activation.json'
+                env=dict(os.environ,COMPOSE_PROJECT_NAME=project)
+                checked=subprocess.run([sys.executable,str(workspace/'deploy/institution-ai/reactivate_ai.py'),
+                    '--deployment-dir',str(control),'--project',project,'--backup',str(control/'before-reactivation.enc'),
+                    '--base-image',args.ai_base_image,'--ai-image',args.expected_image,'--expected-commit',args.expected_commit,
+                    '--override-output',str(override),'--model-volume',args.ai_model_volume,
+                    '--model-source-project',args.source_project,'--synthetic-self-test','--password-stdin'],
+                    input=password+b'\n',stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env,timeout=720)
+                assert checked.returncode==0, 'Restored project offline AI revalidation failed'
+                assert ai_receipt()==original_ai
+                assert not any(value['State']['Running'] for value in restore.owned_containers(project,token)
+                    if value['Config']['Labels'].get('com.docker.compose.service')=='app')
+                activation=json.loads(override.read_text())
+                assert activation['volumes']['ai_models']['name']==args.ai_model_volume
+                assert activation['services']['app']['volumes'][0]['read_only'] is True
+                TEST_PHASE = 'ai-reactivated-start'
+                enabled=compose+['--file',str(override)]
+                restore.run(enabled+['up','--detach','app'])
+                deadline=time.monotonic()+180
+                while time.monotonic()<deadline:
+                    try:
+                        if request(base,'/api/health')[0]==200:break
+                    except (urllib.error.URLError,TimeoutError,ConnectionError):pass
+                    time.sleep(1)
+                else:raise AssertionError('Reactivated restored application not healthy')
+                captcha=json.loads(request(base,'/api/auth/captcha')[1])['data']
+                result=json.loads(request(base,'/api/auth/login',{'username':'admin','password':account['password'],
+                    'captchaUuid':captcha['uuid'],'captcha':captcha['code']})[1])
+                actor=result['data']['token']
+                status,payload=request(base,'/api/workproof/analysis/capabilities',token=actor)
+                assert status==200
+                assert {e['id'] for e in json.loads(payload)['data']['engines'] if e['configured']}=={args.ai_engine}
+                applications=[value for value in restore.owned_containers(project,token)
+                    if value['Config']['Labels'].get('com.docker.compose.service')=='app']
+                assert len(applications)==1 and applications[0]['Image']==args.expected_image
+                mounts=[m for m in applications[0]['Mounts'] if m['Destination']=='/opt/workproof-ai/models']
+                assert len(mounts)==1 and mounts[0]['Type']=='volume' and mounts[0]['Name']==args.ai_model_volume and mounts[0]['RW'] is False
+                TEST_PHASE = 'ai-reactivated-inference'
+                text=('This synthetic paragraph exercises an explicitly reactivated classifier after an isolated deployment restore. It is not an accuracy benchmark and cannot establish authorship. ')*3
+                if args.ai_engine=='mpu-zh-v3':
+                    text='这是一段用于持续集成的合成文字，只检查恢复后重新启用的中文检测模型是否能够加载和返回数值。这不是准确率测试，不代表模型能够确认作者身份，也不能单独用于判断学术不端。模型输出必须结合来源、修改过程和人工判断。'*2
+                sample=text.encode()
+                status,payload=request(base,'/api/workproof/analysis/tasks/'+args.ai_engine+'/txt?consent=true',sample,actor)
+                assert status==200
+                task=json.loads(payload)['data']['id'];deadline=time.monotonic()+135
+                while time.monotonic()<deadline:
+                    status,payload=request(base,'/api/workproof/analysis/tasks/'+task,token=actor)
+                    assert status==200
+                    assessment=json.loads(payload)['data']
+                    if assessment['state'] in ('done','failed','cancelled','timeout','cleanup_failed'):break
+                    time.sleep(.5)
+                assert assessment['state']=='done'
+                report=assessment['report']
+                assert report['status']=='completed' and report['engine_id']==args.ai_engine
+                prepared_model=json.loads(original_ai)['engines'][args.ai_engine]
+                assert report['model']==prepared_model['model'] and report['model_revision']==prepared_model['revision']
+                assert report['network_used'] is False and report['artifact_hash']==hashlib.sha256(sample).hexdigest()
+                assert text not in json.dumps(report)
+                assert ai_receipt()==original_ai
+                print('PASS restored project explicit offline AI reactivation: source model volume reused read-only, receipt unchanged, original login and real consented synthetic inference')
             if (state / 'stage/app_config/catalog.json').exists():
                 status, payload = request(base, '/api/workproof/certificates/status', token=result['data']['token'])
                 assert status == 200 and json.loads(payload)['data']['ready'] is True

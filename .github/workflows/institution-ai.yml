@@ -89,3 +89,17 @@ jobs:
           SOURCE_COMMIT: ${{ steps.base.outputs.source_commit }}
           ENGINE: ${{ matrix.engine }}
         run: sudo env GITHUB_ACTIONS=true TEST_WORKSPACE="$GITHUB_WORKSPACE" python3 scripts/test_institution_ai_server.py --base-image "$BASE_IMAGE_ID" --ai-image "$AI_IMAGE_ID" --expected-commit "$SOURCE_COMMIT" --engine "$ENGINE"
+      - name: Package the exact accepted optional runtime and original installed notices
+        env:
+          BASE_IMAGE_ID: ${{ steps.base.outputs.base_image }}
+          AI_IMAGE_ID: ${{ steps.ai.outputs.ai_image }}
+          SOURCE_COMMIT: ${{ steps.base.outputs.source_commit }}
+          BASE_RUN: ${{ inputs.base_run_id }}
+          ENGINE: ${{ matrix.engine }}
+        run: python3 scripts/package_institution_ai.py --base-image "$BASE_IMAGE_ID" --ai-image "$AI_IMAGE_ID" --source-commit "$SOURCE_COMMIT" --base-run-id "$BASE_RUN" --engine "$ENGINE" --output "$RUNNER_TEMP/institution-ai-runtime-$ENGINE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: institution-ai-runtime-${{ matrix.engine }}-linux-amd64
+          path: ${{ runner.temp }}/institution-ai-runtime-${{ matrix.engine }}/
+          if-no-files-found: error
+          compression-level: 0

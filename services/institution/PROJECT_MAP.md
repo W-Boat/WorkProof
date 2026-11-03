@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- 可选 AI 后续验收：`test_restore_new.py` 明确接收基础镜像/原模型卷/引擎 → 恢复默认关闭证明 → 新私有控制目录及独立 CLI 复核 → 恢复项目只读复用原模型卷、原记录不变、原账号登录、实际推理；`package_institution_ai.py` 在成功后导出/再加载精确 CPU 镜像并复用原许可证收集器，逐文件摘要与候选包；新链路尚待 Actions。
+
 - `reactivate_ai.py` → 停服身份及原模型卷归属 → 新加密备份 → 无网络 `_revalidate`（只读配置/模型，复用原运行时校验及合成推理）→ 新私有激活 override；不改准备记录、不下载、不自动启动。源码新增，真实验收待运行。首次可选镜像任务 `41618443135` 构建和边界测试通过，完整临时服务创建失败，不能算部署通过。
 
 - `deploy/institution-ai/prepare_ai.py` → 现有停服加密备份 → 无应用配置的显式模型下载 → 离线服务身份推理 → `ai_runtime.py` 成功记录与源部署专用 override；`entrypoint.py` 显式激活后复用 `AiAnalysisService`。普通归档只含记录，不含模型卷，恢复保持关闭。独立 `institution-ai.yml` 核对既有基础镜像产物后构建可选 CPU 层，新增链路待验收。
