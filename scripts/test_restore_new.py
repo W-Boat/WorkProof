@@ -120,6 +120,14 @@ def main():
             values = restore.owned_containers(project, token)
             assert len(values) == 1 and not values[0]['State']['Running']
             assert values[0]['Config']['Labels']['com.docker.compose.service'] == 'database'
+            pinned = json.loads((state / 'compose.json').read_text())['services']
+            assert set(record['runtime_image_ids']) == {'database', 'cache', 'app'}
+            assert record['runtime_image_ids']['app'] == args.expected_image
+            for name, service in pinned.items():
+                assert service['image'] == record['runtime_image_ids'][name]
+                assert re.fullmatch('sha256:[0-9a-f]{64}', service['image'])
+                assert service['pull_policy'] == 'never'
+            assert values[0]['Image'] == record['runtime_image_ids']['database']
             target_db = values[0]['Id']
             volume_ids = restore.run(['docker', 'volume', 'ls', '--quiet', '--filter',
                                      'label=com.docker.compose.project=' + project], capture=True).decode().splitlines()
@@ -183,6 +191,9 @@ for role in a.ROOTS:
             result = json.loads(request(base, '/api/auth/login', {'username': 'admin', 'password': account['password'],
                 'captchaUuid': captcha['uuid'], 'captcha': captcha['code']})[1])
             assert (result.get('data') or {}).get('token'), 'Restored original credentials did not log in'
+            for value in restore.owned_containers(project, token):
+                service = value['Config']['Labels']['com.docker.compose.service']
+                assert value['Image'] == record['runtime_image_ids'][service]
             # Stop the disposable target app before taking the refusal baseline:
             # asynchronous audit writes must settle before equality comparisons.
             restore.run(compose + ['stop', '--timeout', '60', 'app'])

@@ -283,6 +283,20 @@ def restore_new(input_path, project, state_dir, password, expected_image, expect
     image = inspect(expected_image, 'image')
     if image['Id'] != expected_image or image['Config']['Labels'].get('org.opencontainers.image.revision') != expected_commit:
         raise RestoreNewError('Installed image and expected source disagree')
+    canonical = json.loads(run(['docker', 'compose', '--file', str(pathlib.Path(__file__).with_name('compose.yaml')),
+                                '--project-name', project, 'config', '--format', 'json'], capture=True))
+    services = {name: canonical['services'][name] for name in ('database', 'cache', 'app')}
+    services['app']['image'] = expected_image
+    runtime_images = {}
+    for name, service in services.items():
+        # Resolve only images already installed by the administrator. Persist
+        # immutable IDs so a later startup cannot silently follow changed tags.
+        identity = inspect(service['image'], 'image')['Id']
+        if not re.fullmatch('sha256:[0-9a-f]{64}', identity):
+            raise RestoreNewError('Invalid installed runtime image identity')
+        runtime_images[name] = identity
+        service['image'] = identity
+        service['pull_policy'] = 'never'
     source_parent, source = _path_parent(input_path)
     try:
         info = os.stat(source.name, dir_fd=source_parent, follow_symlinks=False)
@@ -302,7 +316,8 @@ def restore_new(input_path, project, state_dir, password, expected_image, expect
         os.close(parent)
     token = secrets.token_hex(32)
     record = {'format': 'workproof-new-restore/1', 'project': project, 'owner': token,
-              'image_id': expected_image, 'source_commit': expected_commit, 'status': 'in-progress', 'phase': PHASE}
+              'image_id': expected_image, 'source_commit': expected_commit, 'runtime_image_ids': runtime_images,
+              'status': 'in-progress', 'phase': PHASE}
     marker = state / 'state.json'
     _json_write(marker, record)
     old_signals = _set_cancel_handlers(_cancel)
@@ -332,13 +347,9 @@ def restore_new(input_path, project, state_dir, password, expected_image, expect
                   f'type=bind,src={pathlib.Path(__file__).absolute()},dst=/opt/workproof/restore_new.py,readonly']
         mounts += [f'type=volume,src={project}_{role},dst=/target/{role}' for role in ROLES]
         helper(expected_image, token, state, mounts, ['/opt/workproof/restore_new.py', '_install'])
-        canonical = json.loads(run(['docker', 'compose', '--file', str(pathlib.Path(__file__).with_name('compose.yaml')),
-                                    '--project-name', project, 'config', '--format', 'json'], capture=True))
-        services = {name: canonical['services'][name] for name in ('database', 'cache', 'app')}
         for service in services.values():
             service['labels'] = {**(service.get('labels') or {}), LABEL: token}
             service.pop('profiles', None)
-        services['app']['image'] = expected_image
         document = {'name': project, 'services': services,
                     'volumes': {role: {'external': True, 'name': project + '_' + role} for role in ROLES},
                     'networks': {'default': {'name': project + '_default', 'labels': {LABEL: token}}}}
@@ -356,6 +367,8 @@ def restore_new(input_path, project, state_dir, password, expected_image, expect
         if len(databases) != 1 or len(values) != 1:
             raise RestoreNewError('Unexpected new project containers')
         database = databases[0]['Id']
+        if databases[0]['Image'] != runtime_images['database']:
+            raise RestoreNewError('New database runtime image differs from pinned identity')
         deadline = time.monotonic() + 200
         while time.monotonic() < deadline:
             value = inspect(database)
