@@ -1,0 +1,47 @@
+{
+  "source_commit": "414f65491c613d196c0f998c7b421fe8e89f5477",
+  "run": 41628627615,
+  "job": 125892226507,
+  "artifact_id": 13232590979,
+  "artifact_sha256": "aefdb67b7696fa244a22cb2299af504c55751829bc4e06de965fcf022f31c3d9",
+  "language": "zh",
+  "samples_per_partition": 384,
+  "exact_overlap": 0,
+  "frozen_threshold_recomputed": 2.0499272868436247,
+  "overall": {
+    "samples": 384,
+    "completed": 380,
+    "statuses": {
+      "completed": 380,
+      "insufficient_input": 3,
+      "unsupported": 1
+    },
+    "false_positive": {
+      "count": 10,
+      "total": 188,
+      "rate": 0.05319148936170213,
+      "wilson95": [
+        0.029145921355217902,
+        0.09513096314750945
+      ]
+    },
+    "false_negative": {
+      "count": 152,
+      "total": 192,
+      "rate": 0.7916666666666666,
+      "wilson95": [
+        0.7287803154660303,
+        0.8431108493283631
+      ]
+    }
+  },
+  "production_enabled": false,
+  "finding": "High heldout false-negative rate; this model/method adaptation is not supported for production detection by this result.",
+  "files": {
+    "calibration-report.json": "53ed0f49de44d18a820c717fd51100f8ef19310a4807e794f8826b889d65c8dc",
+    "frozen-policy.json": "c571a76c996db7c032a72065cea0e9277fa50cbed3c79bdc00a8bec42450d565",
+    "heldout-report.json": "28231ef53e5cde027d4fee7afc8000d6b0205ddcbf50236846d41d3d8d705932",
+    "selection-receipt.json": "4009a07ef88f9cfa0a91d1e4a321de61fbd97be831b62bc66b660d5275ad1147"
+  },
+  "scope": "Read-only archive review and recalculation from public score records; no local model or test execution."
+}
