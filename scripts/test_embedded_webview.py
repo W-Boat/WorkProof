@@ -92,7 +92,9 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             (files/name).write_bytes(body)
         click('button[aria-label="清空重新核验"]')
         if result_flow:
-            assert execute("return document.activeElement===document.querySelector('.uploads .upload')"),'Clear did not restore file-selection focus'
+            def upload_focused():
+                assert execute("return document.activeElement===document.querySelector('.uploads .upload')"),'Clear did not restore file-selection focus'
+            wait(upload_focused)
         select_file('input[aria-label="选择最终作品"]',files/'essay.md')
         select_file('input[aria-label="选择 .wproof 证书"]',files/'essay.md.wproof')
         def selected():assert execute("return Array.from(document.querySelectorAll('.upload-copy strong')).map(e=>e.textContent).includes('essay.md.wproof')")
