@@ -2,7 +2,9 @@
 
 ## 当前状态（2026-11-03）
 
-恢复暂存 `9b208c9` 的[机构 Actions](https://github.com/W-Boat/WorkProof/actions/runs/41566906201)全部通过（含镜像内 9 项真实加密提取用例）。只向全新私有 stage 写入，未执行 SQL、未创建部署；完整新部署恢复仍未完成。备份此前成功记录保留，另一次 verify-services 拒绝已促使挂载身份比较改为顺序无关，`50a00c5` 正在复验，不能只凭单次成功宣称所有故障路径稳健。
+`50a00c5` 的[机构 Actions](https://github.com/W-Boat/WorkProof/actions/runs/41567780644)三任务全部成功，实际服务器、停服加密备份及镜像内 9 项恢复暂存检查通过。归档认证和提取只向全新私有目录写入，不执行 SQL。随后 `10390a6` 新增完整新项目恢复及隔离验收，覆盖私有卷、空数据库导入、保持停止、显式启动登录和逐行比较；该提交目前仅在本地，尚未推送或运行 Actions，不能称为整套恢复已通过。此前 verify-services 拒绝记录仍保留，不凭后续成功断言所有故障路径稳健。详见[服务器部署与恢复范围](INSTITUTION-SERVER.md)。
+
+独立校准协议已实现，见[流程说明](AI-CALIBRATION.md)。[真实模型运行 41564917019](https://github.com/W-Boat/WorkProof/actions/runs/41564917019)仍在执行；两种 MPU 已进入留出集，Desklib 仍在校准集。每模型每批预先固定 384 份记录，先冻结阈值再评估，未获得完整报告前不填写新误报指标，也不将第一轮查看过的样本冒充留出集。
 
 用户页流程 `5fe2c4e` 的[网页专项](https://github.com/W-Boat/WorkProof/actions/runs/41563038383)已通过，52 项浏览器用例全部成功，含结果定位/错误与清空焦点、多文件拖放、核验取消、主题、手机布局及真实 Wasm。源码 ba9c6e1 后的旧按钮断言与全页 alert 定位已修正；本次为网页专项，桌面任务跳过，不代表新版桌面安装包已验收。机构 `9361ae5` 的[真实模型网页](https://github.com/W-Boat/WorkProof/actions/runs/41561757332)和[常规回归](https://github.com/W-Boat/WorkProof/actions/runs/41561755724)全部通过，含 Desklib 单分数说明及原报告保留两值。下文待验收语句为当时状态，以本段为准。
 
