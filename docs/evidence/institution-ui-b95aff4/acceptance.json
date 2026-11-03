@@ -1,0 +1,23 @@
+{
+  "source_commit": "b95aff45f68c131029d1e72b904fdd20be835db2",
+  "real_model_run": 41637655085,
+  "baseline_run": 41637646903,
+  "conclusion": "success",
+  "artifact_id": 13231827930,
+  "artifact_digest": "sha256:7488abcf3efd23e4a1e45bdea46fc922187c72eedcc968da49990cff881b4031",
+  "downloaded_archive_bytes": 57420158,
+  "screenshot_sha256": "38c82f407b8d10935f88ea17160fbc17b9a022e1a7531fbb3a0e07ce23432170",
+  "checks": [
+    "Completed inputs collapsed; model selector hidden until expanding change-input section",
+    "Readable export visible in completed result",
+    "Change file resets result and consent; changing English model via explicit disclosure tested",
+    "Actual Chinese MPU, English MPU and English Desklib page/report downloads",
+    "390px document no horizontal overflow",
+    "Downloaded screenshot visually inspected: result and readable button appear without preceding full input/consent block"
+  ],
+  "limits": [
+    "Synthetic fixtures; no detector accuracy conclusion",
+    "Screenshot records version/report details manually opened by test; ordinary result starts collapsed",
+    "No user-installed deployment upgraded"
+  ]
+}
