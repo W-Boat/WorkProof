@@ -142,6 +142,28 @@ def main():
                 raise AssertionError('Restored database did not become healthy')
             TEST_PHASE = 'row-comparison'
             assert rows(target_db) == source_rows, 'Every restored SQL row must match stopped source'
+            # Read back every installed private volume object and compare its
+            # content/ownership/mode to the authenticated stage, without logging it.
+            verify = """import hashlib,os,pathlib,stat
+import snapshot_archive as a
+s=pathlib.Path('/stage')
+for role in a.ROOTS:
+ expected={p.relative_to(s/role).as_posix() for p in (s/role).rglob('*')}
+ actual={p.relative_to(pathlib.Path('/target')/role).as_posix() for p in (pathlib.Path('/target')/role).rglob('*')}
+ assert actual==expected
+ for source in [s/role,*sorted((s/role).rglob('*'))]:
+  target=pathlib.Path('/target')/source.relative_to(s)
+  x,y=source.lstat(),target.lstat()
+  assert (x.st_uid,x.st_gid,stat.S_IMODE(x.st_mode),stat.S_ISDIR(x.st_mode))==(y.st_uid,y.st_gid,stat.S_IMODE(y.st_mode),stat.S_ISDIR(y.st_mode))
+  if source.is_file():assert source.read_bytes()==target.read_bytes()
+"""
+            mounts = [f'type=bind,src={state / "stage"},dst=/stage,readonly']
+            TEST_PHASE = 'private-readback'
+            mounts += [f'type=volume,src={project}_{role},dst=/target/{role},readonly' for role in restore.ROLES]
+            command = ['docker', 'run', '--rm', '--network', 'none', '--user', '0:0', '--entrypoint', 'python3']
+            for mount in mounts:
+                command += ['--mount', mount]
+            restore.run(command + [args.expected_image, '-c', verify])
             TEST_PHASE = 'explicit-start'
             restore.run(compose + ['up', '--detach', 'database', 'cache', 'app'])
             base = 'http://127.0.0.1:18082'
@@ -161,30 +183,13 @@ def main():
             result = json.loads(request(base, '/api/auth/login', {'username': 'admin', 'password': account['password'],
                 'captchaUuid': captcha['uuid'], 'captcha': captcha['code']})[1])
             assert (result.get('data') or {}).get('token'), 'Restored original credentials did not log in'
-            # A successful login can update user/login audit rows. Later refusal
-            # checks must preserve this target state, rather than the pre-login DB.
+            # Stop the disposable target app before taking the refusal baseline:
+            # asynchronous audit writes must settle before equality comparisons.
+            restore.run(compose + ['stop', '--timeout', '60', 'app'])
+            applications = [value for value in restore.owned_containers(project, token)
+                            if value['Config']['Labels'].get('com.docker.compose.service') == 'app']
+            assert len(applications) == 1 and not applications[0]['State']['Running']
             post_login_rows = rows(target_db)
-            # Read back every installed private volume object and compare its
-            # content/ownership/mode to the authenticated stage, without logging it.
-            verify = """import hashlib,os,pathlib,stat
-import snapshot_archive as a
-s=pathlib.Path('/stage')
-for role in a.ROOTS:
- for source in [s/role,*sorted((s/role).rglob('*'))]:
-  target=pathlib.Path('/target')/source.relative_to(s)
-  x,y=source.lstat(),target.lstat()
-  assert (x.st_uid,x.st_gid,stat.S_IMODE(x.st_mode),stat.S_ISDIR(x.st_mode))==(y.st_uid,y.st_gid,stat.S_IMODE(y.st_mode),stat.S_ISDIR(y.st_mode))
-  if source.is_file():assert source.read_bytes()==target.read_bytes()
-"""
-            # Application may now create job lock files. Source files must remain
-            # identical; additional runtime files are not used as backup evidence.
-            mounts = [f'type=bind,src={state / "stage"},dst=/stage,readonly']
-            TEST_PHASE = 'private-readback'
-            mounts += [f'type=volume,src={project}_{role},dst=/target/{role},readonly' for role in restore.ROLES]
-            command = ['docker', 'run', '--rm', '--network', 'none', '--user', '0:0', '--entrypoint', 'python3']
-            for mount in mounts:
-                command += ['--mount', mount]
-            restore.run(command + [args.expected_image, '-c', verify])
             # Reusing a project is rejected before any destination-state write.
             refused_state = parent / 'must-not-exist'
             TEST_PHASE = 'refusal-existing-project'
