@@ -2,6 +2,10 @@
 
 ## 当前状态（2026-11-03）
 
+V3 显式目录准备 `843fd8e` 的[机构 Actions 41583908029](https://github.com/W-Boat/WorkProof/actions/runs/41583908029)三任务全部通过，含真实目录 API、启用目录后的备份/新部署恢复及 4 项记录/加密归档测试。V4 批量任务源码 `6b7f7e9` 已接通显式准备、真实任务、草稿保留、`.proof`/`.tmp` 备份和恢复后显式提交，正在由[机构 Actions 41584947048](https://github.com/W-Boat/WorkProof/actions/runs/41584947048)验证。V4 尚不能称为通过；运行中任务强杀后的整套备份恢复、孤立文件原始过期时钟仍未证明。
+
+打包补强 `fb70de6` 的[机构 Actions 41582489993](https://github.com/W-Boat/WorkProof/actions/runs/41582489993)已全部通过，替代下方当时“正在运行”的状态。已实际下载核对的服务器归档仍为 588e1b3，详见[交付核对](INSTITUTION-DELIVERY-588e1b3.md)；不能用后续代码更新冒充该归档已经升级。
+
 `50a00c5` 的[机构 Actions](https://github.com/W-Boat/WorkProof/actions/runs/41567780644)三任务全部成功，实际服务器、停服加密备份及镜像内 9 项恢复暂存检查通过。归档认证和提取只向全新私有目录写入，不执行 SQL。随后新增完整新项目恢复及隔离验收，覆盖私有卷、空数据库导入、保持停止、显式启动登录、逐行比较及运行镜像固定。Git 推送已恢复，源码 `588e1b3` 的[机构 Actions 41581718623](https://github.com/W-Boat/WorkProof/actions/runs/41581718623)三任务全部成功，完整新项目恢复已在随机 Linux amd64 Docker/V1/V2 范围通过，不扩大为生产恢复、全部故障或跨版本升级。后续打包增量的[机构 Actions 41582489993](https://github.com/W-Boat/WorkProof/actions/runs/41582489993)正在运行。此前 verify-services 拒绝记录仍保留，不凭后续成功断言所有故障路径稳健。详见[服务器部署与恢复范围](INSTITUTION-SERVER.md)。
 
 独立校准的[真实模型运行 41564917019](https://github.com/W-Boat/WorkProof/actions/runs/41564917019)三任务全部成功。留出集人工误报：中文 MPU 12/188、英文 MPU 10/191、Desklib 英文 10/191；AI 漏报分别为 2/192、15/192、27/192，详见[原报告与限制](AI-CALIBRATION-RESULTS.md)。每模型每批预先固定 384 份记录，先冻结阈值再评估，不将第一轮查看过的样本冒充留出集，也不自动启用生产阈值。这仍只覆盖监督分类方法及有限来源，不代表所有 AI 方法接入完成。
