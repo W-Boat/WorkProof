@@ -1,4 +1,8 @@
-# 中文 AI 可选运行环境包核对
+# 三模型可选运行环境与配套基础包核对
+
+三份候选运行环境现均完成本地外层和全文件摘要核验，并与配套基础包交叉核对源码、基础任务和精确镜像 ID。每份只按其记录的单个引擎完成实际服务验收，不能扩大为三个模型在同一实例同时启用已验收。以下早期下载未完成状态保留为历史。
+
+Desklib 包完成断点续传后，重新核对了整个文件而非只核对续传部分：`E:/work/WorkProof-Delivery/institution-ai-runtime-desklib-cf1ab54.zip`，artifact `13226741794`，552,837,603字节，SHA256 `3a467c388742da4b788262bf278f021a0d8a3e715a4b65badf509ad7db12c38a` 与 GitHub一致；9项包内摘要全部匹配，单引擎 `desklib-en-v1.01`、源码和基础镜像对应，见[检查记录](evidence/institution-ai-cf1ab54/desklib-package-inspection.json)。没有在本地加载镜像、下载模型、推理或改动部署。
 
 英文 MPU 候选包也已本地核验：`E:/work/WorkProof-Delivery/institution-ai-runtime-en-cf1ab54.zip`，artifact `13227191055`，552,864,100字节，外层 SHA256 `e5c91a1c5d7a64a5567564ca3163c8969b1b52bc9578326882a38ba022238234` 与 GitHub 一致，9项包内摘要全部匹配。记录的英文引擎、源码和基础镜像与配套基础包一致，见[英文包检查](evidence/institution-ai-cf1ab54/en-package-inspection.json)。它与中文包同样不含模型和私有部署配置；Desklib候选包仍在续传，未验收其本地归档。
 

@@ -34,7 +34,7 @@
 ## 目前哪些结果有证据
 
 - 基础服务、证书目录、持久任务、备份和新项目恢复已有 Linux amd64 Docker 验收，具体范围见[基础包记录](INSTITUTION-DELIVERY-6592819.md)。
-- 三种模型的准备、真实接口检测、取消清理、恢复默认关闭、恢复项目重新启用，以及候选运行环境打包，已在[任务 41626918967](https://github.com/W-Boat/WorkProof/actions/runs/41626918967)全部通过。中文候选包完整下载及全部包内摘要已核对，见[交付记录](INSTITUTION-AI-DELIVERY-cf1ab54.md)；它必须匹配同源码基础镜像，未安装到现有部署。英文两个候选包尚未完成本地下载核验。
+- 三种模型的准备、真实接口检测、取消清理、恢复默认关闭、恢复项目重新启用，以及候选运行环境打包，已在[任务 41626918967](https://github.com/W-Boat/WorkProof/actions/runs/41626918967)全部通过。三个候选包和同源码基础包的完整下载及全部包内摘要均已核对，见[交付记录](INSTITUTION-AI-DELIVERY-cf1ab54.md)；它们未安装到现有部署，不含权重。每包只按其所列单引擎验收，不保证同实例同时启用三个模型。
 - 实际中英文模型误报见[独立评估](AI-CALIBRATION-RESULTS.md)。LRR 的[独立中英文评估](https://github.com/W-Boat/WorkProof/actions/runs/41628627615)仍在运行，运行速度通过检查不代表识别准确。
 
 分析结果只是辅助线索，应与创作过程、来源和人工复核一起使用，不能由分数单独认定作弊。商业分发仍需遵守[逐项许可审查](COMMERCIAL-LICENSE-AUDIT.md)中记录的条件和未解决项。
