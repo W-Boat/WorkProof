@@ -2,6 +2,8 @@
 
 ## 当前状态（2026-11-03）
 
+恢复暂存 `9b208c9` 的[机构 Actions](https://github.com/W-Boat/WorkProof/actions/runs/41566906201)全部通过（含镜像内 9 项真实加密提取用例）。只向全新私有 stage 写入，未执行 SQL、未创建部署；完整新部署恢复仍未完成。备份此前成功记录保留，另一次 verify-services 拒绝已促使挂载身份比较改为顺序无关，`50a00c5` 正在复验，不能只凭单次成功宣称所有故障路径稳健。
+
 用户页流程 `5fe2c4e` 的[网页专项](https://github.com/W-Boat/WorkProof/actions/runs/41563038383)已通过，52 项浏览器用例全部成功，含结果定位/错误与清空焦点、多文件拖放、核验取消、主题、手机布局及真实 Wasm。源码 ba9c6e1 后的旧按钮断言与全页 alert 定位已修正；本次为网页专项，桌面任务跳过，不代表新版桌面安装包已验收。机构 `9361ae5` 的[真实模型网页](https://github.com/W-Boat/WorkProof/actions/runs/41561757332)和[常规回归](https://github.com/W-Boat/WorkProof/actions/runs/41561755724)全部通过，含 Desklib 单分数说明及原报告保留两值。下文待验收语句为当时状态，以本段为准。
 
 首轮真实中英文基准 `50b4463` 的[三模型 Actions](https://github.com/W-Boat/WorkProof/actions/runs/41507079186)全部完成：每配置 192 份、完成 189 份；人工误报中文 MPU 13/93、英文 MPU 35/95、Desklib 31/95。固定上游规则、未独立校准，不能单独用于判定学术不端，完整分母/区间/范围见[实测报告](AI-BENCHMARK-RESULTS.md)。这只完成第一轮有限样本评估，不代表多类独立方法、现代模型全面覆盖或真实作业误报校准完成。
