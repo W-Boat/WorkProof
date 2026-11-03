@@ -24,11 +24,37 @@ PHASES={'preflight','backup','begin','download','offline-test','verify-stopped'}
 LABEL='org.workproof.ai-preparation'
 
 
+def offline_smoke(runtime,engines,allowed):
+    """Exercise the selected immutable models as the service user, without network."""
+    for engine in engines:
+        text=('This synthetic paragraph is used only to exercise a reference classifier in continuous integration. It is not a benchmark and its score must not be interpreted as evidence of authorship. ')*3
+        if allowed[engine]['language']=='zh':
+            text='这是一段用于持续集成的合成文字，只检查中文检测模型是否能够安全加载和返回数值。这不是准确率测试，不代表模型能够确认作者身份，也不能单独用于判断学术不端。模型输出必须结合来源、修改过程和人工判断。'*2
+        env={'PATH':'/usr/bin:/bin','HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1','HF_HUB_DISABLE_TELEMETRY':'1','DO_NOT_TRACK':'1'}
+        def service_identity():
+            os.setgroups([]);os.setgid(10001);os.setuid(10001)
+        result=subprocess.run([str(runtime.PYTHON),str(runtime.ROOT/'detector.py'),'infer','--engine',engine,
+            '--model-dir',str(runtime.MODEL_ROOT/engine)],input=json.dumps({'text':text,'language':allowed[engine]['language']}).encode(),
+            stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,check=True,timeout=120,preexec_fn=service_identity)
+        if len(result.stdout)>65536:raise ValueError('Inference output exceeds limit')
+        report=runtime.decode(result.stdout)
+        if (report.get('protocol')!='workproof-ai-assessment/1' or report.get('status')!='completed' or
+                report.get('engine_id')!=engine or report.get('network_used') is not False or
+                report.get('model')!=allowed[engine]['model'] or report.get('model_revision')!=allowed[engine]['revision'] or
+                report.get('score_kind')!=allowed[engine]['score_kind'] or report.get('calibration','missing') is not None):raise ValueError('Offline smoke inference failed')
+        scores=report.get('raw_scores')
+        if (type(scores) is not dict or set(scores)!={'Human','AI'} or
+                any(type(score) not in (int,float) or not math.isfinite(score) or not 0<=score<=1 for score in scores.values()) or
+                abs(sum(scores.values())-1)>0.0001):raise ValueError('Invalid offline smoke scores')
+
+
 def internal(operation,identity,engines):
     import ai_runtime as runtime
     sys.path.insert(0,'/opt/workproof')
     import manage
     runtime.verify_runtime()
+    if operation=='revalidate' and engines=='record':
+        engines=','.join(runtime.read_receipt(manage.CONFIG/runtime.CONFIG_RECORD)['engines'])
     engines=engines.split(',')
     allowed=runtime.catalogue()
     if len(engines)!=len(set(engines)) or not engines or any(engine not in allowed for engine in engines):raise ValueError('Explicit known engines required')
@@ -39,6 +65,23 @@ def internal(operation,identity,engines):
     if not re.fullmatch('[0-9a-f]{40}',identity['sourceCommit']) or not runtime.digest(identity['backupSha256']):raise ValueError('Invalid preparation provenance')
     runtime_data=runtime.file_bytes(runtime.ROOT/'runtime.json',1024**2,0,0o444)
     if runtime.decode(runtime_data)['baseImageId']!=identity['baseImageId']:raise ValueError('Runtime base differs')
+    if operation=='revalidate':
+        # Both mounted volumes are read-only. Do not rewrite the original receipt
+        # or create setup locks/markers merely to activate an existing runtime.
+        if any(os.path.lexists(manage.CONFIG/name) for name in
+                (runtime.PENDING,'.initializing','.catalog-preparing.json','.jobs-preparing.json')):
+            raise ValueError('Incomplete preparation')
+        before=runtime.file_bytes(manage.CONFIG/runtime.CONFIG_RECORD,128*1024,10001,0o600)
+        receipt=runtime.read_receipt(manage.CONFIG/runtime.CONFIG_RECORD)
+        if (any(receipt[key]!=identity[key] for key in ('baseImageId','aiImageId','sourceCommit')) or
+                set(receipt['engines'])!=set(engines)):
+            raise ValueError('Existing preparation identity differs')
+        runtime.activation_environment(manage.CONFIG/runtime.CONFIG_RECORD,identity['aiImageId'])
+        offline_smoke(runtime,engines,allowed)
+        runtime.activation_environment(manage.CONFIG/runtime.CONFIG_RECORD,identity['aiImageId'])
+        if runtime.file_bytes(manage.CONFIG/runtime.CONFIG_RECORD,128*1024,10001,0o600)!=before:
+            raise ValueError('Preparation receipt changed')
+        return
     if operation=='download':
         # This online helper has no application configuration or sample mounted.
         if set(os.listdir(runtime.MODEL_ROOT)):raise ValueError('Model destination is not new and empty')
@@ -77,27 +120,7 @@ def internal(operation,identity,engines):
                 return
             if operation!='finish' or manage.read_json(pending,0)!=request:raise ValueError('Pending preparation differs')
             models=runtime.model_inventory(runtime.MODEL_ROOT,engines)
-            for engine in engines:
-                # Deliberately synthetic smoke input, never an accuracy benchmark.
-                text=('This synthetic paragraph is used only to exercise a reference classifier in continuous integration. It is not a benchmark and its score must not be interpreted as evidence of authorship. ')*3
-                if allowed[engine]['language']=='zh':
-                    text='这是一段用于持续集成的合成文字，只检查中文检测模型是否能够安全加载和返回数值。这不是准确率测试，不代表模型能够确认作者身份，也不能单独用于判断学术不端。模型输出必须结合来源、修改过程和人工判断。'*2
-                env={'PATH':'/usr/bin:/bin','HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1','HF_HUB_DISABLE_TELEMETRY':'1','DO_NOT_TRACK':'1'}
-                def service_identity():
-                    os.setgroups([]);os.setgid(10001);os.setuid(10001)
-                result=subprocess.run([str(runtime.PYTHON),str(runtime.ROOT/'detector.py'),'infer','--engine',engine,
-                    '--model-dir',str(runtime.MODEL_ROOT/engine)],input=json.dumps({'text':text,'language':allowed[engine]['language']}).encode(),
-                    stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,check=True,timeout=120,preexec_fn=service_identity)
-                if len(result.stdout)>65536:raise ValueError('Inference output exceeds limit')
-                report=runtime.decode(result.stdout)
-                if (report.get('protocol')!='workproof-ai-assessment/1' or report.get('status')!='completed' or
-                        report.get('engine_id')!=engine or report.get('network_used') is not False or
-                        report.get('model')!=allowed[engine]['model'] or report.get('model_revision')!=allowed[engine]['revision'] or
-                        report.get('score_kind')!=allowed[engine]['score_kind'] or report.get('calibration','missing') is not None):raise ValueError('Offline smoke inference failed')
-                scores=report.get('raw_scores')
-                if (type(scores) is not dict or set(scores)!={'Human','AI'} or
-                        any(type(score) not in (int,float) or not math.isfinite(score) or not 0<=score<=1 for score in scores.values()) or
-                        abs(sum(scores.values())-1)>0.0001):raise ValueError('Invalid offline smoke scores')
+            offline_smoke(runtime,engines,allowed)
             value={'format':runtime.FORMAT,'status':'prepared','active':True,'baseImageId':identity['baseImageId'],
                 'aiImageId':identity['aiImageId'],'sourceCommit':identity['sourceCommit'],
                 'runtimeSha256':request['runtimeSha256'],'engines':models,'preparedAt':int(time.time())}
@@ -197,7 +220,7 @@ def prepare(args,password):
 
 
 def main():
-    if sys.argv[1:2] and sys.argv[1] in ('_begin','_download','_finish'):
+    if sys.argv[1:2] and sys.argv[1] in ('_begin','_download','_finish','_revalidate'):
         internal(sys.argv[1][1:],*sys.argv[2:]);return
     parser=argparse.ArgumentParser(description=__doc__)
     for name in ('deployment-dir','project','backup','base-image','ai-image','expected-commit','override-output'):parser.add_argument('--'+name,required=True)

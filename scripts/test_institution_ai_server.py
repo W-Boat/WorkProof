@@ -22,7 +22,7 @@ import urllib.request
 from types import SimpleNamespace
 
 PHASE='preflight'
-PHASES={'preflight','new-deployment','default-disabled','prepare','activate','infer','cancel','backup','restore','tamper','cleanup'}
+PHASES={'preflight','new-deployment','new-credentials','new-infrastructure','new-initialization','new-account','new-start','default-disabled','prepare','activate','infer','cancel','backup','restore','reactivate','tamper','cleanup'}
 
 
 def run(command,**kwargs):
@@ -62,7 +62,8 @@ def main():
             if source.is_file() and source.suffix in ('.py','.sh'):
                 shutil.copyfile(source,deployment/source.name)
         template=workspace/'deploy/institution/compose.yaml'
-        canonical=json.loads(run(['docker','compose','--file',str(template),'--project-name',project,'config','--format','json']))
+        canonical=json.loads(run(['docker','compose','--file',str(template),'--project-name',project,'--profile','tools','config','--format','json']))
+        assert {'prepare','initialize','account','app','database','cache'}<=set(canonical['services'])
         for service in canonical['services'].values():
             if service['image']=='workproof-institution:local':service['image']=args.base_image
             service['pull_policy']='never'
@@ -74,6 +75,8 @@ def main():
         import backup_coordinator as backup
         spec=importlib.util.spec_from_file_location('optional_ai_prepare',workspace/'deploy/institution-ai/prepare_ai.py')
         prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
+        spec=importlib.util.spec_from_file_location('optional_ai_reactivate',workspace/'deploy/institution-ai/reactivate_ai.py')
+        reactivate=importlib.util.module_from_spec(spec);spec.loader.exec_module(reactivate)
         def service(name):
             identity=run(compose+['ps','--all','--quiet',name]).decode().strip()
             value=inspect(identity)
@@ -107,10 +110,15 @@ def main():
         try:
             PHASE='new-deployment'
             created=True
+            PHASE='new-credentials'
             run(compose+['run','--rm','-T','prepare'])
+            PHASE='new-infrastructure'
             run(compose+['up','--detach','database','cache'])
+            PHASE='new-initialization'
             run(compose+['run','--rm','-T','initialize'])
+            PHASE='new-account'
             account=json.loads(run(compose+['run','--rm','-T','account']))
+            PHASE='new-start'
             run(compose+['up','--detach','app']);token=login()
             PHASE='default-disabled'
             assert request('/api/workproof/analysis/capabilities')[0]==401
@@ -165,6 +173,38 @@ def main():
                 '--expected-image',args.ai_image,'--expected-commit',args.expected_commit,'--source-project',project,'--password-stdin'],
                 input=password+b'\n',stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=900)
             assert restored.returncode==0, 'AI-disabled restored deployment acceptance failed'
+            PHASE='reactivate'
+            config_volume=backup.volume(service('app'),'/private/config')
+            def receipt_bytes():
+                # Read only this fixture's private receipt; never print or upload.
+                return run(['docker','run','--rm','--network','none','--user','10001:10001','--entrypoint','python3',
+                    '--mount',f'type=volume,src={config_volume},dst=/private/config,readonly',args.ai_image,
+                    '-c',"from pathlib import Path;import sys;sys.stdout.buffer.write(Path('/private/config/ai.json').read_bytes())"])
+            before_receipt=receipt_bytes()
+            reactivated_override=private/'ai-reactivated.json'
+            def reactivation_arguments(target,archive):
+                return SimpleNamespace(deployment_dir=str(deployment),project=project,backup=str(output/archive),
+                    base_image=args.base_image,ai_image=args.ai_image,expected_commit=args.expected_commit,
+                    override_output=str(target),model_volume=model_volume,model_source_project=project,
+                    synthetic_self_test=True)
+            reactivate.reactivate(reactivation_arguments(reactivated_override,'before-reactivation.enc'),password)
+            assert receipt_bytes()==before_receipt and not service('app')['State']['Running']
+            reactivated_bytes=reactivated_override.read_bytes()
+            reactivated_config=json.loads(reactivated_bytes)
+            assert reactivated_config['services']['app']['image']==args.ai_image
+            assert reactivated_config['services']['app']['environment']['WORKPROOF_AI_ACTIVATE']=='1'
+            assert reactivated_config['volumes']['ai_models']['name']==model_volume
+            reactivated=compose+['--file',str(reactivated_override)]
+            run(reactivated+['up','--detach','app']);token=login()
+            caps=request('/api/workproof/analysis/capabilities',token=token)[1]['data']
+            assert {entry['id'] for entry in caps['engines'] if entry['configured']}=={args.engine}
+            run(reactivated+['stop','--timeout','60','app'])
+            assert receipt_bytes()==before_receipt
+            try:reactivate.reactivate(reactivation_arguments(reactivated_override,'refused-overwrite.enc'),password)
+            except Exception:pass
+            else:raise AssertionError('Existing activation override was replaced')
+            assert reactivated_override.read_bytes()==reactivated_bytes and receipt_bytes()==before_receipt
+            assert not service('app')['State']['Running']
             PHASE='tamper'
             # Change one small tokenizer/config file only inside this owned model
             # volume, while application is stopped. No runtime or source mutation.
@@ -179,7 +219,13 @@ def main():
                 '--mount',f'type=volume,src={config_volume},dst=/private/config,readonly',args.ai_image,'-c',validate],
                 stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=180)
             assert refused.returncode!=0 and not service('app')['State']['Running']
-            print('PASS optional CPU AI Compose: default disabled, explicit download/offline preparation, real consented HTTP inference, cancellation and cleanup, encrypted backup, restored AI disabled, tampered model refusal; synthetic inputs only')
+            refused_override=private/'refused-tampered-ai.json'
+            try:reactivate.reactivate(reactivation_arguments(refused_override,'before-tampered-reactivation.enc'),password)
+            except Exception:pass
+            else:raise AssertionError('Tampered model was reactivated')
+            assert not refused_override.exists() and receipt_bytes()==before_receipt
+            assert not service('app')['State']['Running']
+            print('PASS optional CPU AI Compose: default disabled, explicit download/offline preparation, real consented HTTP inference, cancellation and cleanup, encrypted backup, restored AI disabled, explicit offline reactivation without receipt mutation, existing override refusal, tampered model reactivation refusal; synthetic inputs only')
         finally:
             original_phase=PHASE;PHASE='cleanup'
             if created:
@@ -207,5 +253,10 @@ def main():
 backup_roles={'app_config','initial_account','mysql_root_secret','mysql_app_secret','app_data','mysql_data','cache_data'}
 if __name__=='__main__':
     try:main()
-    except BaseException:
-        print('AI_SERVER_TEST_PHASE='+(PHASE if PHASE in PHASES else 'unknown'),file=sys.stderr);sys.exit(1)
+    except BaseException as error:
+        # No command arguments, server messages or fixture credentials in logs.
+        kind=type(error).__name__
+        if kind not in ('AssertionError','CalledProcessError','TimeoutExpired','ValueError','CoordinatorError'):
+            kind='other'
+        code=str(error.returncode) if isinstance(error,subprocess.CalledProcessError) else 'none'
+        print('AI_SERVER_TEST_PHASE='+(PHASE if PHASE in PHASES else 'unknown')+'; type='+kind+'; exit='+code,file=sys.stderr);sys.exit(1)
