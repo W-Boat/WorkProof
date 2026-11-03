@@ -1,0 +1,12 @@
+{
+  "model": "yuchuantian/AIGC_detector_zhv3",
+  "revision": "47695ff451b32c225dd938f4f478f7fdc6aa6bb0",
+  "sha256": {
+    "pytorch_model.bin": "83b065f6302b98d296cdcad6e8f944013faa3cdc89de3d72aca5ecc8e0eaaded",
+    "config.json": "74dfcf54a25f4847f97e285f60c03d3ceaccba87484c41ab4144e6acc4d7ecf4",
+    "special_tokens_map.json": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3",
+    "tokenizer_config.json": "988cf0a4f56217ba915002e24de6d4621188f16942e5768d4eaf6564b166e1f0",
+    "vocab.txt": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c",
+    "README.md": "4bcf87ecfbbb8e07a01b21415a970c8b53a5283bf6872b657040d3f45c9241f7"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "engine_id": "mpu-zh-v3",
+  "model_revision": "47695ff451b32c225dd938f4f478f7fdc6aa6bb0",
+  "score_kind": "uncalibrated_class_softmax",
+  "score_label": "AI",
+  "threshold": 0.5,
+  "policy_mode": "published_fixed",
+  "decision_rule": "binary_argmax",
+  "threshold_source": "https://huggingface.co/spaces/yuchuantian/AIGC_text_detector/blob/191c98291f204cae3e52db965ab0f944c9005067/app.py",
+  "calibration_dataset_sha256": null,
+  "calibration_input_sha256": []
+}
