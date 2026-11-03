@@ -3,12 +3,13 @@ import {test,expect} from '@playwright/test';
 test('dropping multiple files preserves the selected work and explains how to continue',async({page})=>{
   await page.goto('/');await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'original.txt',mimeType:'text/plain',buffer:Buffer.from('selected work')});
   const upload=page.locator('.uploads .upload').first();
+  const message=page.locator('.uploads .upload-field').first().getByRole('alert');
   const transfer=await page.evaluateHandle(()=>{const files=new DataTransfer();files.items.add(new File(['a'],'first.txt'));files.items.add(new File(['b'],'second.txt'));return files;});
   await upload.dispatchEvent('drop',{dataTransfer:transfer});
-  await expect(page.getByRole('alert')).toContainText('请一次只选择一份文件');await expect(upload).toContainText('original.txt');
+  await expect(message).toContainText('请一次只选择一份文件');await expect(upload).toContainText('original.txt');
   await expect(upload.locator('input')).toHaveCount(0);
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'replacement.txt',mimeType:'text/plain',buffer:Buffer.from('new work')});
-  await expect(page.getByRole('alert')).toHaveCount(0);await expect(upload).toContainText('replacement.txt');
+  await expect(message).toHaveCount(0);await expect(upload).toContainText('replacement.txt');
   await transfer.dispose();
 });
 
