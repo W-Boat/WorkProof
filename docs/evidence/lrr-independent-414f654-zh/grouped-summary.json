@@ -1,0 +1,99 @@
+{
+  "source": "heldout-report.json",
+  "threshold": 2.0499272868436247,
+  "scope": "Post-hoc descriptive groups only; no threshold or model selection change. Small correlated groups are not population estimates.",
+  "groups": {
+    "domain": {
+      "academic": {
+        "samples": 64,
+        "scored": 61,
+        "human_fp": 3,
+        "human_total": 29,
+        "ai_fn": 12,
+        "ai_total": 32
+      },
+      "news": {
+        "samples": 64,
+        "scored": 64,
+        "human_fp": 1,
+        "human_total": 32,
+        "ai_fn": 25,
+        "ai_total": 32
+      },
+      "novel": {
+        "samples": 64,
+        "scored": 63,
+        "human_fp": 3,
+        "human_total": 31,
+        "ai_fn": 29,
+        "ai_total": 32
+      },
+      "seo": {
+        "samples": 64,
+        "scored": 64,
+        "human_fp": 0,
+        "human_total": 32,
+        "ai_fn": 32,
+        "ai_total": 32
+      },
+      "webtext": {
+        "samples": 64,
+        "scored": 64,
+        "human_fp": 1,
+        "human_total": 32,
+        "ai_fn": 29,
+        "ai_total": 32
+      },
+      "wiki": {
+        "samples": 64,
+        "scored": 64,
+        "human_fp": 2,
+        "human_total": 32,
+        "ai_fn": 25,
+        "ai_total": 32
+      }
+    },
+    "generator": {
+      "deepseek-v3": {
+        "samples": 48,
+        "scored": 48,
+        "human_fp": 0,
+        "human_total": 0,
+        "ai_fn": 37,
+        "ai_total": 48
+      },
+      "gemini-2.5-flash": {
+        "samples": 48,
+        "scored": 48,
+        "human_fp": 0,
+        "human_total": 0,
+        "ai_fn": 41,
+        "ai_total": 48
+      },
+      "gpt-4o": {
+        "samples": 48,
+        "scored": 48,
+        "human_fp": 0,
+        "human_total": 0,
+        "ai_fn": 40,
+        "ai_total": 48
+      },
+      "human": {
+        "samples": 192,
+        "scored": 188,
+        "human_fp": 10,
+        "human_total": 188,
+        "ai_fn": 0,
+        "ai_total": 0
+      },
+      "qwen-max": {
+        "samples": 48,
+        "scored": 48,
+        "human_fp": 0,
+        "human_total": 0,
+        "ai_fn": 34,
+        "ai_total": 48
+      }
+    }
+  }
+}
