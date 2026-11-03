@@ -1,0 +1,24 @@
+{
+  "source_commit": "fe8e3775bf3b185b8f7a7c9bc4cf47e264555bf8",
+  "baseline_run": 41634102837,
+  "real_model_run": 41634144103,
+  "real_model_job": 125910931835,
+  "conclusion": "success",
+  "downloaded_job_log_sha256": "aef7ea9a9996b6829db8d0fbea8dddb915996cc841b390bd4c52219e69a465f6",
+  "checks": [
+    "Actual fixed Chinese MPU, English MPU and English Desklib through authenticated bundled Vue/Java",
+    "Explicit consent, real inference, cancellation and unsupported short input",
+    "Chinese TXT explanation download includes artifact fingerprint and exact model version",
+    "Readable explanation excludes input text and distinguishes editable explanation from signed certificate",
+    "Desklib explanation does not present Human complement as a second independent score",
+    "Original JSON report download retained",
+    "390px viewport no horizontal document overflow",
+    "Full baseline/server-image acceptance also successful"
+  ],
+  "limits": [
+    "Synthetic workflow inputs are not a new accuracy evaluation",
+    "No LRR production integration or evaluation result claimed",
+    "No user deployment upgraded by this workflow",
+    "Whole dialog usability and all desktop/Office hosts not established by this browser check"
+  ]
+}

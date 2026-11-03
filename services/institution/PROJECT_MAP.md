@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- 中文辅助说明导出在 `fe8e377` 的常规及三模型真实浏览器专项 `41634102837` / `41634144103` 已成功，精确范围见 `docs/evidence/institution-ui-fe8e377/acceptance.json`。下文早期“待验收”保留为历史状态，不影响此源码/任务范围的结果。
+
 - `utils/analysisReport.ts` → `AiAnalysisDialog.vue` 统一 Button/downloadBlob → 中文 TXT 辅助说明；保留 JSON 导出，单输出模型只列生成样本参考值，明确可修改/非签名证书；真实浏览器下载验收待 Actions。
 
 - `AiAnalysisDialog.vue` 继续使用统一组件，说明文件最低长度、同类模型之间的关系及结果后的人工复核步骤；`test_institution_ai_ui.cjs` 检查关键提示。LRR未接入正式API/界面，独立评估仍在进行。
