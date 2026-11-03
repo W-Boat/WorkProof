@@ -1,0 +1,63 @@
+{
+  "zip_sha256": "af51a3e3ed2f22174c8e7c19ad04d53fdb69f149abb6c5ee5a074041864b92e9",
+  "files_verified": 26,
+  "build": {
+    "schema": "workproof.server-package.v1",
+    "source_commit": "cf1ab548e6edce10c46257185ce92a64233d5274",
+    "build_run": "41625621375",
+    "image_id": "sha256:13e8579cf7ab22d1a8395db3ceabce514eb62ce7184ce9806447b0edc7e0abfc",
+    "platform": "linux/amd64",
+    "control_tools": [
+      "compose.yaml",
+      "backup_coordinator.py",
+      "backup_collect.py",
+      "backup_crypto.py",
+      "snapshot_archive.py",
+      "restore_snapshot.py",
+      "restore_new.py",
+      "catalog_receipt.py",
+      "catalog_prepare.py",
+      "jobs_receipt.py",
+      "jobs_prepare.py",
+      "entrypoint.py",
+      "manage.py",
+      "ai_runtime.py",
+      "ai-engines.json"
+    ],
+    "runtime_dependencies": {
+      "database": {
+        "reference": "mysql:8.4.13",
+        "image_id": "sha256:0f1a0ccadda3a1734d1db557e203ec58621d56fa248525016e85fe4f631311ec",
+        "repository_digests": [
+          "mysql@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902"
+        ],
+        "bundled": false
+      },
+      "cache": {
+        "reference": "valkey/valkey:8.0",
+        "image_id": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+        "repository_digests": [
+          "valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f"
+        ],
+        "bundled": false
+      }
+    },
+    "scope": "V1/V2 new deployment; explicit V3 catalog and V4 jobs preparation and restore; catalog/jobs disabled until separately prepared; AI disabled; no deployment secrets included; database/cache images must be prepared separately"
+  },
+  "acceptance": {
+    "scope": "Linux amd64 V1/V2 new deployment plus explicit V3 catalog and V4 jobs preparation and restore; modules initially disabled and separately enabled after backup; AI disabled; no production or user database touched",
+    "checks": [
+      "Explicit new deployment; random credentials; no implicit app initialization",
+      "Real Vue/Office resources, protected API, random login and default-password refusal",
+      "Actual inspector accepts signed proof and rejects tampering; nonroot Java; private database/cache ports",
+      "Repeated preparation/import rejected; credentials and database retained across app restart",
+      "Generated passwords and JWT absent from ordinary service logs",
+      "Native MySQL dump/import preserves every row including NULL, UTF-8 and binary; app remains stopped",
+      "Actual stopped host coordinator publishes authenticated encrypted snapshot, preserves existing output, cleans staging and keeps app stopped; no deployment restore claim",
+      "Actual new-project restore: authenticated SQL/private volumes, stopped ready state, explicit startup and original login, every-row comparison, collision and wrong-password refusal, source unchanged",
+      "Explicit V3 preparation after authenticated backup, enabled catalog API and enabled new-project restore; no automatic migration or ordinary grants",
+      "Explicit V4 preparation, real native job lifecycle and retained draft restart, proof/tmp backup, new-project restore and explicit restored draft submission; no automatic submission of temporary files",
+      "Nonempty database refused before schema import; original table and row preserved"
+    ]
+  }
+}
