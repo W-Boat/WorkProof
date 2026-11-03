@@ -30,6 +30,10 @@
 
 ## 另两项候选保留调查
 
+DNA-GPT 后续源码核查：官方 `DNA-GPT-dist.py` 当前演示不能直接导入到机构服务。它在模块级修改TLS校验并下载语言资源；生成流程依赖外部API，生成返回变量前后不一致；分词器保留英文字母/数字，不能据此支持中文。依据是[官方演示源文件](https://github.com/Xianjun-Yang/DNA-GPT/blob/main/DNA-GPT-dist.py)，不是本地运行结果。该来源使用浮动main，仅为调查记录，接入前还需固定提交、归档原许可与版权。
+
+因此下一步若选择再生成方法，需要明确采用哪个现代模型、是否本地运行、分词与长度规则、生成次数、随机种子和资源上限，再在新校准/未观察留出样本上测量。不能加载原演示来绕过TLS、使用用户未同意的外部服务，或沿用原模型阈值宣称中文有效。当前未复制或执行该演示，没有要求用户提供API密钥，也没有把它加入已支持列表。
+
 [Binoculars 代码许可证](https://github.com/ahans30/Binoculars/blob/main/LICENSE.md)是 BSD-3-Clause，但 [README](https://github.com/ahans30/Binoculars/blob/main/README.md)同时写有 implementation 用于 academic purposes 的表述，不能忽略这项冲突。[官方实现](https://github.com/ahans30/Binoculars/blob/main/binoculars/detector.py)默认两个 Falcon 7B 模型，BF16 权重合计约 28 GB 的估算不适合当前 CPU runner。换成现代小模型需重新验证方法和阈值，不能直接沿用 Falcon 的结果。
 
 [DNA-GPT 官方许可证](https://github.com/Xianjun-Yang/DNA-GPT/blob/main/LICENSE)为 MIT；其[论文](https://arxiv.org/abs/2305.17359)采用截断再生成与 n-gram 差异，属于另一种方法。多次生成可能超出现有 CPU 服务期限，中文效果也需独立评估。源码原文许可不等于所选生成模型、数据和整个部署链的权利已全部核清。
