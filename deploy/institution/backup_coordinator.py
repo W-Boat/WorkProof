@@ -5,6 +5,7 @@ Privileged administrators must exclude all concurrent writers/Compose operations
 Only a verified encrypted candidate is published; private scratch is removed on exit.
 """
 import argparse
+import contextlib
 import fcntl
 import getpass
 import json
@@ -12,6 +13,9 @@ import os
 import pathlib
 import re
 import resource
+import secrets
+import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -50,7 +54,55 @@ def stopped(container):
             state['StartedAt'], state['FinishedAt'], container['Mounts'])
 
 
+@contextlib.contextmanager
+def owned_stage(parent):
+    """Terminate our exact helper before deleting plaintext it could still access."""
+    base = pathlib.Path(tempfile.mkdtemp(prefix='.workproof-backup-', dir=parent))
+    token = secrets.token_hex(32)
+    helper = {'id': None, 'token': token, 'started': False}
+    try:
+        yield base, helper
+    finally:
+        # Repeated TERM must not interrupt the ownership/termination sequence.
+        previous = {kind:signal.signal(kind,signal.SIG_IGN) for kind in (signal.SIGTERM,signal.SIGINT)}
+        safe = not helper['started']
+        try:
+            if helper['id'] is not None:
+                identity = helper['id']
+                found = run(['docker', 'ps', '--all', '--no-trunc', '--quiet', '--filter',
+                             'id=' + identity], capture_output=True).stdout.decode().strip()
+                if not found:
+                    safe = True
+                elif found == identity:
+                    current = inspect(identity)
+                    if current['Id'] != identity or current['Config']['Labels'].get('org.workproof.backup-owner') != token:
+                        raise CoordinatorError('Helper ownership could not be verified')
+                    run(['docker', 'rm', '--force', identity], stdout=subprocess.DEVNULL)
+                    remaining = run(['docker', 'ps', '--all', '--no-trunc', '--quiet', '--filter',
+                                     'id=' + identity], capture_output=True).stdout.strip()
+                    safe = not remaining
+            if safe:
+                shutil.rmtree(base)
+            else:
+                raise CoordinatorError('Helper termination unconfirmed; private staging retained')
+        except Exception:
+            # Deliberately retain root-private scratch when daemon state is unknown.
+            raise CoordinatorError('Helper cleanup failed; private staging retained') from None
+        finally:
+            for kind,handler in previous.items():signal.signal(kind,handler)
+
+
 def backup(output, password):
+    def terminate(signum, frame):
+        raise CoordinatorError('Backup cancelled')
+    previous = {kind:signal.signal(kind,terminate) for kind in (signal.SIGTERM,signal.SIGINT)}
+    try:
+        return _backup(output, password)
+    finally:
+        for kind,handler in previous.items():signal.signal(kind,handler)
+
+
+def _backup(output, password):
     if not isinstance(password,bytes) or not 16 <= len(password) <= 1024 or any(x in password for x in (b'\n',b'\r',b'\0')):
         raise CoordinatorError('Invalid passphrase')
     if os.name != 'posix' or os.geteuid() != 0:
@@ -102,8 +154,7 @@ def backup(output, password):
         baseline = stopped(service('app'))
         if baseline[:2] != (app['Id'], image):
             raise CoordinatorError('Application identity changed before stop')
-        with tempfile.TemporaryDirectory(prefix='.workproof-backup-', dir=output.parent) as scratch:
-            base = pathlib.Path(scratch)
+        with owned_stage(output.parent) as (base, helper):
             stage, encrypted = base / 'stage', base / 'encrypted'
             stage.mkdir(mode=0o700); encrypted.mkdir(mode=0o700)
             sql = stage / 'database.sql'
@@ -112,7 +163,9 @@ def backup(output, password):
                 run(['docker', 'exec', '-i', database['Id'], 'bash', '-s'], stdin=script, stdout=stream,
                     preexec_fn=lambda: resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024**3, 8 * 1024**3)))
                 stream.flush(); os.fsync(stream.fileno())
-            command = ['docker', 'run', '--rm', '-i', '--network', 'none', '--user', '0:0', '--read-only',
+            command = ['docker', 'create', '--rm', '-i', '--network', 'none', '--user', '0:0', '--read-only',
+                       '--cidfile', str(base / 'helper.cid'), '--label',
+                       'org.workproof.backup-owner=' + helper['token'],
                        '--entrypoint', 'python3']
             for role, name in volumes.items():
                 command += ['--mount', f'type=volume,src={name},dst=/source/{role},readonly']
@@ -120,7 +173,18 @@ def backup(output, password):
                         '--mount', f'type=bind,src={stage},dst=/stage',
                         '--mount', f'type=bind,src={encrypted},dst=/output',
                         image, '/opt/workproof/backup_collect.py', 'collect', commit, image]
-            run(command, input=password + b'\n', stdout=subprocess.DEVNULL)
+            # Creation never executes the helper. Cancellation before this returns
+            # cannot leave a process writing into scratch; no start was submitted.
+            created = run(command, capture_output=True).stdout.decode().strip()
+            if not re.fullmatch('[0-9a-f]{64}', created) or (base / 'helper.cid').read_text().strip() != created:
+                raise CoordinatorError('Invalid owned helper identity')
+            helper['id'] = created
+            current = inspect(created)
+            if current['Id'] != created or current['Config']['Labels'].get('org.workproof.backup-owner') != helper['token']:
+                raise CoordinatorError('Helper identity mismatch')
+            helper['started'] = True
+            run(['docker', 'start', '--attach', '--interactive', created],
+                input=password + b'\n', stdout=subprocess.DEVNULL)
             current_db = service('database')
             if (stopped(service('app')) != baseline or current_db['Id'] != database['Id'] or
                     current_db['Mounts'] != database['Mounts'] or

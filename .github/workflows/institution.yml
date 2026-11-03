@@ -123,7 +123,9 @@ jobs:
       - name: Exercise the real server image and isolated new database
         run: python scripts/test_institution_server.py
       - name: Check coordinator container and volume identity guards
-        run: python scripts/test_backup_coordinator.py
+        run: |
+          python scripts/test_backup_coordinator.py
+          sudo python3 scripts/test_backup_failures.py
       - name: Verify authenticated byte encryption in the actual server image
         run: docker run --rm --network none -v "$PWD/scripts/test_backup_crypto.py:/test_backup_crypto.py:ro" --entrypoint python3 workproof-institution:local /test_backup_crypto.py
       - name: Verify restricted encrypted snapshots without restoring data
