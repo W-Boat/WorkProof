@@ -23,7 +23,7 @@ export default function Page(){
   const focusResult=useCallback(()=>{const target=resultHeading.current;if(!target)return;target.focus({preventScroll:true});target.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});},[reduced]);
   useEffect(()=>{if(stage==='done'&&result)focusResult();},[stage,result,focusResult]);
   useEffect(()=>{
-    const target=stage==='error'?errorMessage.current:returnToUpload.current&&stage==='idle'&&!artifact&&!proofFile?document.querySelector<HTMLInputElement>('input[aria-label="选择最终作品"]')?.closest('button'):null;
+    const target=stage==='error'?errorMessage.current:returnToUpload.current&&stage==='idle'&&!artifact&&!proofFile?document.querySelector<HTMLButtonElement>('.uploads .upload'):null;
     if(!target)return;returnToUpload.current=false;target.focus({preventScroll:true});target.scrollIntoView({block:'center',behavior:reduced?'auto':'smooth'});
   },[stage,artifact,proofFile,reduced,error]);
   const [selection,setSelection]=useState(''),[disclosureBusy,setDisclosureBusy]=useState(false),[disclosureError,setDisclosureError]=useState('');
