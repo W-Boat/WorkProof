@@ -70,6 +70,8 @@ def main():
     account=json.loads(backup.run(['docker','run','--rm','--network','none','--user','0:0','--entrypoint','python3','--mount',
         f'type=volume,src={account_name},dst=/account,readonly',args.expected_image,'-c',"import pathlib;print(pathlib.Path('/account/account.json').read_text())"],capture_output=True).stdout)
     def start_login(invocation=None):
+        global PHASE
+        PHASE='startup'
         backup.run((invocation or compose)+['up','--detach','app'])
         deadline=time.monotonic()+150
         while time.monotonic()<deadline:
@@ -78,8 +80,10 @@ def main():
             except (urllib.error.URLError,TimeoutError,ConnectionError):pass
             time.sleep(1)
         else:raise AssertionError('Jobs application unhealthy')
+        PHASE='login'
         captcha=request('/api/auth/captcha')[1]['data']
         token=request('/api/auth/login',{'username':'admin','password':account['password'],'captchaUuid':captcha['uuid'],'captcha':captcha['code']})[1]['data']['token']
+        PHASE='ready'
         for _ in range(40):
             value=request('/api/workproof/certificate-jobs/capabilities',token=token)[1]['data']
             if value['ready'] and value['enabled']:return token
@@ -95,11 +99,16 @@ def main():
     try:
         PHASE='lifecycle';token=start_login()
         body={'clientKey':str(uuid.uuid4()),'consent':True,'expectedItems':1}
+        PHASE='create'
         job=api(body=body);identity=job['id'];assert api(body=body)['id']==identity
+        PHASE='upload'
         api('/'+identity+'/items/0',proof,'PUT')
+        PHASE='overwrite-refusal'
         code,value=request(prefix+'/'+identity+'/items/0',b'changed',token,'PUT')
         assert code==409 and value['code']==409
+        PHASE='submit'
         api('/'+identity+'/submit',{},'POST')
+        PHASE='complete'
         for _ in range(100):
             result=api('/'+identity)
             if result['state']=='completed' and not result['cleanupPending']:break
@@ -218,5 +227,5 @@ def main():
 if __name__=='__main__':
     try:main()
     except BaseException:
-        safe=PHASE if PHASE in {'preflight','prepare','receipt','lifecycle','retained-restart','retained-backup','running-fixture','running-window'} else 'unknown'
+        safe=PHASE if PHASE in {'preflight','prepare','receipt','lifecycle','retained-restart','retained-backup','running-fixture','running-window','startup','login','ready','create','upload','overwrite-refusal','submit','complete'} else 'unknown'
         print('JOBS_TEST_PHASE='+safe,file=sys.stderr);sys.exit(1)
