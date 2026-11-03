@@ -1,0 +1,27 @@
+{
+  "source_commit": "cf1ab548e6edce10c46257185ce92a64233d5274",
+  "base_run": 41625621375,
+  "ai_run": 41626918967,
+  "all_model_jobs": "success",
+  "artifacts": [
+    {
+      "id": 13227191055,
+      "name": "institution-ai-runtime-mpu-en-v3-linux-amd64",
+      "bytes": 552864100,
+      "digest": "sha256:e5c91a1c5d7a64a5567564ca3163c8969b1b52bc9578326882a38ba022238234"
+    },
+    {
+      "id": 13226851651,
+      "name": "institution-ai-runtime-mpu-zh-v3-linux-amd64",
+      "bytes": 552841598,
+      "digest": "sha256:12b930a7c2ea35c1c80a58a48d18abb8c8a7c51a5bd083a6e35bfa4cfa34960d"
+    },
+    {
+      "id": 13226741794,
+      "name": "institution-ai-runtime-desklib-en-v1.01-linux-amd64",
+      "bytes": 552837603,
+      "digest": "sha256:3a467c388742da4b788262bf278f021a0d8a3e715a4b65badf509ad7db12c38a"
+    }
+  ],
+  "scope": "Three actual selected-engine Linux amd64 server runs, cross-project restored offline activation and inference, exact CPU image export/config/layer validation/reload and installed distribution notices. No accuracy or commercial clearance claim. Remote artifact metadata only; local ZIP download and all-file verification outstanding."
+}
