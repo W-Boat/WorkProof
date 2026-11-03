@@ -118,6 +118,31 @@ try:
     identifier=run('ps','--all','-q','app').stdout.strip()
     assert subprocess.check_output(['docker','inspect','--format','{{.State.Running}}',identifier],text=True).strip()=='false'
     checks.append('Native MySQL dump/import preserves every row including NULL, UTF-8 and binary; app remains stopped')
+    # Exercise the host coordinator against this disposable Compose deployment.
+    # Output is root-private; no password, SQL or config becomes a public artifact.
+    private_backup=subprocess.check_output(['sudo','mktemp','-d','/tmp/workproof-server-backup-ci.XXXXXXXX'],text=True).strip()
+    assert re.fullmatch(r'/tmp/workproof-server-backup-ci\.[A-Za-z0-9]{8}',private_backup)
+    backup_password=secrets.token_urlsafe(32).encode()
+    backup_env=['sudo','env','COMPOSE_PROJECT_NAME='+project]
+    try:
+        destination=private_backup+'/deployment.wproofbackup'
+        backed=subprocess.run([*backup_env,'python3',str(context/'backup_coordinator.py'),'--password-stdin','--output',destination],input=backup_password+b'\n',capture_output=True,timeout=240)
+        assert backed.returncode==0, 'Actual encrypted backup coordinator failed'
+        assert backup_password not in backed.stdout+backed.stderr
+        inspect_backup="import pathlib,os,json,sys;import snapshot_archive as s;p=pathlib.Path('/private-backup/deployment.wproofbackup');assert p.stat().st_mode & 0o777 == 0o600;password=sys.stdin.buffer.read().rstrip(b'\\n');m=s.verify_encrypted_snapshot(p,password,work_dir='/private-backup');print(json.dumps({'format':m.get('format'),'source_commit':m.get('source_commit'),'paths':[e['path'] for e in m['entries']]}))"
+        verified=subprocess.run(['docker','run','--rm','-i','--user','0:0','--network','none','--mount','type=bind,src='+private_backup+',dst=/private-backup','--entrypoint','python3','workproof-institution:local','-c',inspect_backup],input=backup_password+b'\n',capture_output=True,timeout=120)
+        assert verified.returncode==0, 'Encrypted coordinator output did not authenticate and verify'
+        inventory=json.loads(verified.stdout)
+        assert {'database.sql','app_config/application.json','initial_account/account.json','mysql_root_secret/password','mysql_app_secret/password'}<=set(inventory['paths'])
+        assert subprocess.check_output(['docker','inspect','--format','{{.State.Running}}',identifier],text=True).strip()=='false'
+        repeated=subprocess.run([*backup_env,'python3',str(context/'backup_coordinator.py'),'--password-stdin','--output',destination],input=backup_password+b'\n',capture_output=True,timeout=30)
+        assert repeated.returncode!=0, 'Backup coordinator overwrote an existing snapshot'
+        listing=subprocess.check_output(['sudo','find',private_backup,'-mindepth','1','-maxdepth','1','-printf','%f\\n'],text=True).splitlines()
+        assert listing==['deployment.wproofbackup'], 'Private staging plaintext remained after backup'
+        checks.append('Actual stopped host coordinator publishes authenticated encrypted snapshot, preserves existing output, cleans staging and keeps app stopped; no deployment restore claim')
+    finally:
+        cleanup="import pathlib,shutil,sys; p=pathlib.Path(sys.argv[1]);assert p.parent==pathlib.Path('/tmp') and p.name.startswith('workproof-server-backup-ci.');shutil.rmtree(p)"
+        subprocess.run(['sudo','python3','-c',cleanup,private_backup],check=True,capture_output=True)
     # Recreate only this random CI project to exercise a genuinely nonempty database,
     # independently of the already-initialized marker refusal above.
     assert re.fullmatch(r'workproof-server-ci-[0-9a-f]{12}',project)

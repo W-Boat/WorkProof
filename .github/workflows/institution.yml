@@ -119,9 +119,11 @@ jobs:
           for name in ['V1__init_schema.sql','V2__seed_data.sql']:
               shutil.copy2(root/'services/institution/scaffold-system/sql'/name,context/'sql'/name)
       - name: Build the precompiled Linux amd64 server image
-        run: docker build --platform linux/amd64 --label org.opencontainers.image.revision=${{ github.sha }} -t workproof-institution:local .ci-institution-server
+        run: docker build --platform linux/amd64 --build-arg SOURCE_COMMIT=${{ github.sha }} --label org.opencontainers.image.revision=${{ github.sha }} -t workproof-institution:local .ci-institution-server
       - name: Exercise the real server image and isolated new database
         run: python scripts/test_institution_server.py
+      - name: Check coordinator container and volume identity guards
+        run: python scripts/test_backup_coordinator.py
       - name: Verify authenticated byte encryption in the actual server image
         run: docker run --rm --network none -v "$PWD/scripts/test_backup_crypto.py:/test_backup_crypto.py:ro" --entrypoint python3 workproof-institution:local /test_backup_crypto.py
       - name: Verify restricted encrypted snapshots without restoring data

@@ -5,6 +5,10 @@ set +x
 set -euo pipefail
 export MYSQL_PWD
 MYSQL_PWD="$(cat /private/mysql-root/password)"
+# Confirm the mounted application secret is still accepted by this database.
+# A stale config/secret pair must not be packaged as a recoverable deployment.
+MYSQL_PWD="$(cat /private/mysql-app/password)" mysql --host=127.0.0.1 --user=workproof \
+  --database=workproof --batch --skip-column-names --execute='SELECT 1' >/dev/null
 facts="$(mysql --host=127.0.0.1 --user=root --batch --skip-column-names --execute="SELECT COUNT(*),COALESCE(SUM(ENGINE <> 'InnoDB'),0) FROM information_schema.TABLES WHERE TABLE_SCHEMA='workproof' AND TABLE_TYPE='BASE TABLE'")"
 [[ "$facts" =~ ^[0-9]+$'\t'[0-9]+$ ]] || { echo 'Unexpected database inventory' >&2; exit 1; }
 IFS=$'\t' read -r tables unsupported <<< "$facts"
