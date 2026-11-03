@@ -5,6 +5,8 @@ import json
 import os
 import pathlib
 import re
+import secrets
+import tempfile
 import sys
 import time
 import urllib.error
@@ -67,8 +69,8 @@ def main():
     account_name=args.project+'_initial_account'
     account=json.loads(backup.run(['docker','run','--rm','--network','none','--user','0:0','--entrypoint','python3','--mount',
         f'type=volume,src={account_name},dst=/account,readonly',args.expected_image,'-c',"import pathlib;print(pathlib.Path('/account/account.json').read_text())"],capture_output=True).stdout)
-    def start_login():
-        backup.run(compose+['up','--detach','app'])
+    def start_login(invocation=None):
+        backup.run((invocation or compose)+['up','--detach','app'])
         deadline=time.monotonic()+150
         while time.monotonic()<deadline:
             try:
@@ -118,6 +120,75 @@ def main():
         assert query("SELECT proof_hash FROM wp_certificate_job_item WHERE job_id='"+retained+"';").strip().decode()==hashlib.sha256(proof).hexdigest()
     finally:
         backup.run(compose+['stop','--timeout','60','app'])
+    PHASE='running-fixture'
+    # CI instrumentation is outside app_data and never enters a delivery image.
+    # Keep files until the killed source has been backed up; no source restart.
+    owned_fixture=tempfile.TemporaryDirectory(prefix='workproof-running-ci-')
+    fixture_root=pathlib.Path(owned_fixture.name);fixture_root.chmod(0o700)
+    fixture_container=None
+    try:
+        native=backup.run(['docker','run','--rm','--network','none','--entrypoint','python3',args.expected_image,
+            '-c',"import pathlib,sys;sys.stdout.buffer.write(pathlib.Path('/opt/workproof/workproof-inspector').read_bytes())"],capture_output=True).stdout
+        assert 0<len(native)<=128*1024**2
+        expected_hash=backup.run(['docker','run','--rm','--network','none','--entrypoint','python3',args.expected_image,
+            '-c',"import pathlib,hashlib;print(hashlib.sha256(pathlib.Path('/opt/workproof/workproof-inspector').read_bytes()).hexdigest())"],capture_output=True).stdout.decode().strip()
+        assert hashlib.sha256(native).hexdigest()==expected_hash
+        real=fixture_root/'real-inspector';real.write_bytes(native);real.chmod(0o555)
+        gate=fixture_root/'gate';gate.mkdir(mode=0o700);os.chown(gate,10001,10001)
+        wrapper=fixture_root/'workproof-inspector'
+        wrapper.write_text("#!/usr/bin/python3\nimport os,pathlib,time\ng=pathlib.Path('/ci-inspector-gate')\n(g/'entered').write_text(str(time.monotonic()))\ndeadline=time.monotonic()+10\nwhile not (g/'release').exists() and time.monotonic()<deadline:time.sleep(.02)\nos.execv('/ci-real-inspector',['/ci-real-inspector'])\n",encoding='utf-8')
+        wrapper.chmod(0o555)
+        fixture_token=secrets.token_hex(32)
+        override=fixture_root/'override.json'
+        override.write_text(json.dumps({'services':{'app':{'restart':'no','labels':{'org.workproof.running-fixture':fixture_token},'volumes':[
+            {'type':'bind','source':str(wrapper),'target':'/opt/workproof/workproof-inspector','read_only':True},
+            {'type':'bind','source':str(real),'target':'/ci-real-inspector','read_only':True},
+            {'type':'bind','source':str(gate),'target':'/ci-inspector-gate'}]}}}),encoding='utf-8')
+        override.chmod(0o600)
+        fixture_compose=compose+['--file',str(override)]
+        token=start_login(fixture_compose)
+        fixture_container=service('app')['Id']
+        def pinned_fixture():
+            value=backup.inspect(fixture_container)
+            assert value['Id']==fixture_container and value['Image']==args.expected_image
+            labels=value['Config']['Labels']
+            assert labels['com.docker.compose.project']==args.project and labels['com.docker.compose.service']=='app'
+            assert labels['org.workproof.running-fixture']==fixture_token
+            assert value['HostConfig']['RestartPolicy']['Name']=='no'
+            mounts={entry['Destination']:entry for entry in value['Mounts']}
+            for destination,source,read_only in [('/opt/workproof/workproof-inspector',wrapper,True),('/ci-real-inspector',real,True),('/ci-inspector-gate',gate,False)]:
+                mount=mounts[destination]
+                assert mount['Type']=='bind' and mount['Source']==str(source) and mount['RW']==(not read_only)
+            return value
+        pinned_fixture()
+        running_job=api(body={'clientKey':str(uuid.uuid4()),'consent':True,'expectedItems':1})['id']
+        assert re.fullmatch('[0-9a-f-]{36}',running_job)
+        api('/'+running_job+'/items/0',proof,'PUT')
+        PHASE='running-window'
+        started=time.monotonic();api('/'+running_job+'/submit',{},'POST')
+        def running_row():
+            return query("SELECT state,claim_token,attempts,cleanup_state,spool_token,proof_hash,proof_bytes FROM wp_certificate_job_item WHERE job_id='"+running_job+"' AND item_index=0;").strip().decode().split('\t')
+        while time.monotonic()-started<8:
+            row=running_row()
+            if len(row)==7 and row[0]=='running' and row[1]!='NULL' and int(row[2])>=1 and row[3]=='retained' and (gate/'entered').is_file():break
+            time.sleep(.05)
+        else:raise AssertionError('No bounded real running inspector window')
+        assert time.monotonic()-float((gate/'entered').read_text())<8
+        assert time.monotonic()-started<8 and pinned_fixture()['State']['Running']
+        backup.run(['docker','kill','--signal','KILL',fixture_container])
+        killed=pinned_fixture()
+        assert not killed['State']['Running'] and not killed['State']['Restarting']
+        assert running_row()==row
+        assert re.fullmatch('[0-9a-f-]{36}',row[4]) and row[5]==hashlib.sha256(proof).hexdigest() and int(row[6])==len(proof)
+        read_proof="import pathlib,hashlib;f=pathlib.Path('/data/jobs')/"+repr(row[4]+'.proof')+";assert f.stat().st_size=="+str(len(proof))+";assert hashlib.sha256(f.read_bytes()).hexdigest()=="+repr(row[5])
+        backup.run(['docker','run','--rm','--network','none','--user','0:0','--entrypoint','python3','--mount',f'type=volume,src={data},dst=/data,readonly',args.expected_image,'-c',read_proof])
+    except BaseException:
+        # Cleanup stops only the pinned fixture container after ownership checks.
+        if fixture_container:
+            value=pinned_fixture()
+            if value['State']['Running']:backup.run(['docker','stop','--time','60',fixture_container])
+        owned_fixture.cleanup()
+        raise
     PHASE='retained-backup'
     # Simulate only the on-disk residual of interrupted upload, never a queued
     # database item. Archive must retain it without promoting it to .proof.
@@ -126,7 +197,12 @@ def main():
     backup.run(['docker','run','--rm','--network','none','--user','10001:10001','--entrypoint','python3','--mount',
         f'type=volume,src={data},dst=/var/lib/workproof',args.expected_image,'-c',fixture])
     output=pathlib.Path(args.backup).with_name('after-jobs.enc')
-    backup.backup(output,password)
+    try:
+        backup.backup(output,password)
+        assert running_row()==row and not pinned_fixture()['State']['Running']
+        backup.run(['docker','run','--rm','--network','none','--user','0:0','--entrypoint','python3','--mount',f'type=volume,src={data},dst=/data,readonly',args.expected_image,'-c',read_proof])
+    finally:
+        owned_fixture.cleanup()
     verify="import sys,snapshot_archive as a;v=a.verify_encrypted_snapshot('/backup/after-jobs.enc',sys.stdin.buffer.readline().rstrip(b'\\n'),work_dir='/backup');p={e['path'] for e in v['entries']};assert 'app_config/jobs.json' in p;assert any(n.endswith('.proof') for n in p);assert any(n.endswith('.tmp') for n in p)"
     backup.run(['docker','run','--rm','-i','--network','none','--user','0:0','--entrypoint','python3','--mount',
         f'type=bind,src={output.parent},dst=/backup',args.expected_image,'-c',verify],input=password+b'\n')
@@ -135,12 +211,12 @@ def main():
     record=pathlib.Path(args.backup).with_name('jobs-fixture.json')
     with record.open('x') as target:
         os.fchmod(target.fileno(),0o600)
-        json.dump({'jobId':retained,'temporaryToken':temporary_token},target)
-    print('PASS explicit backed V4 preparation; unchanged source security/catalog; real native job lifecycle; retained draft restart; authenticated proof/tmp backup; app stopped')
+        json.dump({'jobId':retained,'temporaryToken':temporary_token,'runningJobId':running_job},target)
+    print('PASS explicit backed V4 preparation; real native lifecycle; retained draft restart; pinned running-item SIGKILL and stopped authenticated proof/tmp backup; no source restart')
 
 
 if __name__=='__main__':
     try:main()
     except BaseException:
-        safe=PHASE if PHASE in {'preflight','prepare','receipt','lifecycle','retained-restart','retained-backup'} else 'unknown'
+        safe=PHASE if PHASE in {'preflight','prepare','receipt','lifecycle','retained-restart','retained-backup','running-fixture','running-window'} else 'unknown'
         print('JOBS_TEST_PHASE='+safe,file=sys.stderr);sys.exit(1)

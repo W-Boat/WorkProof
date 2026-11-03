@@ -27,7 +27,7 @@ TEST_PHASE = 'preflight'
 TEST_PHASES = {'preflight', 'guard-checks', 'restore', 'ready-stopped', 'database-start', 'explicit-start',
                'row-comparison', 'login', 'private-readback', 'refusal-existing-project',
                'refusal-wrong-passphrase', 'refusal-existing-volume', 'source-check', 'cleanup', 'completed',
-               'jobs-ready', 'jobs-submit', 'jobs-complete'}
+               'jobs-ready', 'jobs-submit', 'jobs-complete', 'jobs-running-recovery'}
 RESTORE_PHASES = {'preflight', 'authenticate', 'create-owned-volumes', 'install-private-volumes',
                   'start-new-database', 'import-new-database', 'verify-restored-database'}
 
@@ -91,7 +91,7 @@ def read_jobs_fixture(path):
         raw=source.read(4097)
         assert len(raw)<=4096
     value=json.loads(raw,object_pairs_hook=restore._unique_json,parse_constant=restore._nonfinite_json)
-    assert type(value) is dict and set(value)=={'jobId','temporaryToken'}
+    assert type(value) is dict and set(value)=={'jobId','temporaryToken','runningJobId'}
     for item in value.values():
         assert isinstance(item,str) and re.fullmatch('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',item)
     return value
@@ -183,6 +183,21 @@ def main():
                 raise AssertionError('Restored database did not become healthy')
             TEST_PHASE = 'row-comparison'
             assert rows(target_db) == source_rows, 'Every restored SQL row must match stopped source'
+            if has_jobs:
+                running_id=jobs_fixture['runningJobId']
+                running_sql="SELECT state,attempts,cleanup_state,spool_token,proof_hash,proof_bytes FROM wp_certificate_job_item WHERE job_id='"+running_id+"' AND item_index=0"
+                def raw_query(database,sql):
+                    command='export MYSQL_PWD="$(cat /private/mysql-root/password)"; exec mysql --user=root --database=workproof --batch --skip-column-names --execute="'+sql+'"'
+                    return restore.run(['docker','exec',database,'bash','-ec',command],capture=True).strip()
+                source_running=raw_query(source_ids[0],running_sql)
+                assert raw_query(target_db,running_sql)==source_running
+                running_fields=source_running.decode().split('\t')
+                assert len(running_fields)==6 and running_fields[0]=='running' and int(running_fields[1])>=1 and running_fields[2]=='retained'
+                assert re.fullmatch('[0-9a-f-]{36}',running_fields[3]) and re.fullmatch('[0-9a-f]{64}',running_fields[4])
+                source_proof_check="import pathlib,hashlib;f=pathlib.Path('/data/jobs')/"+repr(running_fields[3]+'.proof')+";assert f.stat().st_size=="+str(int(running_fields[5]))+";assert hashlib.sha256(f.read_bytes()).hexdigest()=="+repr(running_fields[4])
+                source_app=restore.inspect(source_apps[0])
+                source_data=[mount['Name'] for mount in source_app['Mounts'] if mount['Destination']=='/var/lib/workproof' and mount['Type']=='volume']
+                assert len(source_data)==1
             # Read back every installed private volume object and compare its
             # content/ownership/mode to the authenticated stage, without logging it.
             verify = """import hashlib,os,pathlib,stat
@@ -241,6 +256,19 @@ for role in a.ROOTS:
                     if capability['enabled'] and capability['ready']:break
                     time.sleep(.5)
                 else:raise AssertionError('Restored Java jobs not ready')
+                TEST_PHASE='jobs-running-recovery'
+                deadline=time.monotonic()+45
+                while time.monotonic()<deadline:
+                    recovered=jobs_api('/'+jobs_fixture['runningJobId'])
+                    if recovered['state']=='completed' and not recovered['cleanupPending']:break
+                    time.sleep(.3)
+                else:raise AssertionError('Restored running item did not automatically recover')
+                assert len(recovered['items'])==1 and recovered['items'][0]['state']=='saved'
+                assert recovered['items'][0]['cleanupState']=='deleted' and recovered['items'][0]['catalogId'] is not None
+                recovered_fields=raw_query(target_db,running_sql).decode().split('\t')
+                assert recovered_fields[0]=='saved' and int(recovered_fields[1])>=2 and recovered_fields[2]=='deleted'
+                # No submit call has been made for runningJobId. Only the retained
+                # draft below receives explicit submit after recovery is verified.
                 job=jobs_fixture['jobId'];temporary_token=jobs_fixture['temporaryToken']
                 original=jobs_api('/'+job)
                 assert original['state']=='draft' and original['totalItems']==1 and original['expectedItems']==1
@@ -312,6 +340,10 @@ for role in a.ROOTS:
             TEST_PHASE = 'source-check'
             assert rows(source_ids[0]) == source_rows
             assert not restore.inspect(source_apps[0])['State']['Running']
+            if has_jobs:
+                assert raw_query(source_ids[0],running_sql)==source_running
+                restore.run(['docker','run','--rm','--network','none','--user','0:0','--entrypoint','python3','--mount',
+                    f'type=volume,src={source_data[0]},dst=/data,readonly',args.expected_image,'-c',source_proof_check])
             print('PASS new-project authenticated SQL/private-volume restore; stopped ready state; explicit startup and original login; every SQL row; existing-project/volume and wrong-passphrase refusal; source untouched')
         finally:
             # Preserve the primary failing phase when cleanup succeeds. Cleanup
