@@ -1,0 +1,12 @@
+{
+  "engine_id": "desklib-en-v1.01",
+  "model_revision": "5fdea974cd4287c61674951ec78803aa274e2fb7",
+  "score_kind": "uncalibrated_binary_sigmoid",
+  "score_label": "AI",
+  "threshold": 0.5,
+  "policy_mode": "published_fixed",
+  "decision_rule": "threshold_gte",
+  "threshold_source": "https://huggingface.co/desklib/ai-text-detector-v1.01/blob/5fdea974cd4287c61674951ec78803aa274e2fb7/README.md",
+  "calibration_dataset_sha256": null,
+  "calibration_input_sha256": []
+}
