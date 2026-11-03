@@ -125,7 +125,7 @@ jobs:
           shutil.copy2(jars[0],context/'app.jar')
           shutil.copy2(root/'target/release/workproof-inspector',context/'workproof-inspector')
           (context/'sql').mkdir()
-          for name in ['V1__init_schema.sql','V2__seed_data.sql']:
+          for name in ['V1__init_schema.sql','V2__seed_data.sql','V3__workproof_certificate_catalog.sql','V4__workproof_certificate_jobs.sql']:
               shutil.copy2(root/'services/institution/scaffold-system/sql'/name,context/'sql'/name)
       - name: Build the precompiled Linux amd64 server image
         run: docker build --platform linux/amd64 --build-arg SOURCE_COMMIT=${{ github.sha }} --label org.opencontainers.image.revision=${{ github.sha }} -t workproof-institution:local .ci-institution-server
