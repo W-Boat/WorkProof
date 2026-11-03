@@ -197,7 +197,8 @@ def coherence(stage):
     import catalog_receipt
     import jobs_receipt
     if (os.path.lexists(stage / 'app_config' / catalog_receipt.PENDING) or
-            os.path.lexists(stage / 'app_config' / jobs_receipt.PENDING)):
+            os.path.lexists(stage / 'app_config' / jobs_receipt.PENDING) or
+            os.path.lexists(stage / 'app_config/.ai-preparing.json')):
         raise RestoreNewError('Catalog preparation incomplete')
     config = _read_private_json(stage / 'app_config/application.json')
     initialized = _read_private_json(stage / 'app_config/initialized.json')

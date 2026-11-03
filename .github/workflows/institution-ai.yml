@@ -1,0 +1,91 @@
+name: Optional institution CPU AI deployment
+on:
+  workflow_dispatch:
+    inputs:
+      base_run_id:
+        description: Successful institution.yml run containing the exact source server artifact
+        required: true
+        type: string
+      source_commit:
+        description: Full lowercase source commit of the successful base run
+        required: true
+        type: string
+      engine:
+        description: Explicit public model download and synthetic real inference acceptance
+        required: true
+        type: choice
+        default: all
+        options: [all, mpu-en-v3, mpu-zh-v3, desklib-en-v1.01]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  selection:
+    runs-on: ubuntu-24.04
+    outputs:
+      engines: ${{ steps.select.outputs.engines }}
+    steps:
+      - id: select
+        env:
+          BASE_RUN: ${{ inputs.base_run_id }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          ENGINE: ${{ inputs.engine }}
+        shell: python
+        run: |
+          import json,os,re
+          assert re.fullmatch('[1-9][0-9]{0,19}',os.environ['BASE_RUN'])
+          assert re.fullmatch('[0-9a-f]{40}',os.environ['SOURCE_COMMIT'])
+          allowed=['mpu-en-v3','mpu-zh-v3','desklib-en-v1.01']
+          selected=allowed if os.environ['ENGINE']=='all' else [os.environ['ENGINE']]
+          assert all(value in allowed for value in selected)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('engines='+json.dumps(selected)+'\n')
+  optional-cpu:
+    needs: selection
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: ${{ fromJSON(needs.selection.outputs.engines) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+          persist-credentials: false
+      - name: Import exact verified base artifact and immutable dependencies
+        id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_RUN: ${{ inputs.base_run_id }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: python3 scripts/prepare_ai_ci_base.py --run-id "$BASE_RUN" --source-commit "$SOURCE_COMMIT"
+      - name: Build only the optional CPU layer
+        env:
+          BASE_IMAGE_ID: ${{ steps.base.outputs.base_image }}
+        run: |
+          docker build --platform linux/amd64 --file deploy/institution-ai/Dockerfile --build-arg BASE_IMAGE=workproof-institution:ai-base --build-arg BASE_IMAGE_ID="$BASE_IMAGE_ID" --tag workproof-institution:optional-ai .
+      - name: Verify derived image identity and exact base layer ancestry
+        id: ai
+        env:
+          BASE_IMAGE_ID: ${{ steps.base.outputs.base_image }}
+          SOURCE_COMMIT: ${{ steps.base.outputs.source_commit }}
+        shell: python
+        run: |
+          import json,os,re,subprocess
+          def image(ref):return json.loads(subprocess.check_output(['docker','image','inspect',ref]))[0]
+          base=image(os.environ['BASE_IMAGE_ID']);ai=image('workproof-institution:optional-ai')
+          assert ai['Os']=='linux' and ai['Architecture']=='amd64'
+          assert re.fullmatch('sha256:[0-9a-f]{64}',ai['Id'])
+          assert ai['Config']['Labels']['org.workproof.ai.base-image']==base['Id']
+          assert ai['Config']['Labels']['org.opencontainers.image.revision']==os.environ['SOURCE_COMMIT']
+          assert ai['RootFS']['Layers'][:len(base['RootFS']['Layers'])]==base['RootFS']['Layers']
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('ai_image='+ai['Id']+'\n')
+      - name: Verify model inventory and receipt boundaries without downloading models
+        run: docker run --rm --network none --user 0:0 --env GITHUB_ACTIONS=true --mount "type=bind,src=$GITHUB_WORKSPACE/scripts/test_institution_ai_runtime.py,dst=/acceptance.py,readonly" --entrypoint python3 workproof-institution:optional-ai /acceptance.py
+      - name: Actual explicitly selected model and isolated server lifecycle
+        env:
+          BASE_IMAGE_ID: ${{ steps.base.outputs.base_image }}
+          AI_IMAGE_ID: ${{ steps.ai.outputs.ai_image }}
+          SOURCE_COMMIT: ${{ steps.base.outputs.source_commit }}
+          ENGINE: ${{ matrix.engine }}
+        run: sudo env GITHUB_ACTIONS=true TEST_WORKSPACE="$GITHUB_WORKSPACE" python3 scripts/test_institution_ai_server.py --base-image "$BASE_IMAGE_ID" --ai-image "$AI_IMAGE_ID" --expected-commit "$SOURCE_COMMIT" --engine "$ENGINE"

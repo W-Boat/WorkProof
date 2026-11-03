@@ -5,6 +5,7 @@ import os
 import pathlib
 import stat
 import sys
+import subprocess
 import catalog_receipt
 import jobs_receipt
 
@@ -20,7 +21,7 @@ def main():
     if os.getuid() != 10001:
         raise RuntimeError('The application must run as UID 10001')
     directory = pathlib.Path('/private/config')
-    if ((directory / '.initializing').exists() or os.path.lexists(directory / catalog_receipt.PENDING)
+    if (os.path.lexists(directory / '.ai-preparing.json') or (directory / '.initializing').exists() or os.path.lexists(directory / catalog_receipt.PENDING)
             or os.path.lexists(directory / jobs_receipt.PENDING)):
         raise RuntimeError('Initialization is incomplete; preserve the database and inspect the preparation record')
     initialized = private_json(directory / 'initialized.json')
@@ -72,6 +73,15 @@ def main():
                        WORKPROOF_VERIFIER_EXECUTABLE='/opt/workproof/workproof-inspector',
                        WORKPROOF_CATALOG_ENABLED='true' if catalog else 'false', WORKPROOF_JOBS_ENABLED='true' if jobs else 'false',
                        WORKPROOF_JOBS_SPOOL=jobs_receipt.SPOOL, WORKPROOF_AI_ENABLED='false')
+    if os.environ.get('WORKPROOF_AI_ACTIVATE')=='1':
+        code="import ai_runtime as a,json,os;print(json.dumps(a.activation_environment('/private/config/ai.json',os.environ['WORKPROOF_AI_IMAGE_ID'])))"
+        checked=subprocess.run(['/opt/workproof-ai/venv/bin/python','-c',code],
+                               stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,check=True,timeout=180)
+        if len(checked.stdout)>4096:raise RuntimeError('Invalid AI activation result')
+        values=json.loads(checked.stdout)
+        if set(values)!={'WORKPROOF_AI_ENABLED','WORKPROOF_AI_PYTHON','WORKPROOF_AI_SCRIPT','WORKPROOF_AI_MODELS'}:
+            raise RuntimeError('Invalid AI activation settings')
+        environment.update(values)
     os.execvpe('java', ['java', '-Xms96m', '-Xmx384m', '-Djava.io.tmpdir=/tmp', '-jar', '/opt/workproof/app.jar',
                       '--server.address=0.0.0.0', '--server.port=8080'], environment)
 

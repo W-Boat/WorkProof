@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- `deploy/institution-ai/prepare_ai.py` → 现有停服加密备份 → 无应用配置的显式模型下载 → 离线服务身份推理 → `ai_runtime.py` 成功记录与源部署专用 override；`entrypoint.py` 显式激活后复用 `AiAnalysisService`。普通归档只含记录，不含模型卷，恢复保持关闭。独立 `institution-ai.yml` 核对既有基础镜像产物后构建可选 CPU 层，新增链路待验收。
+
 - `jobs_prepare.py` → 加密备份 → 原始 V4 → `jobs_receipt.py`（依赖 V3 记录字节摘要）；`entrypoint.py`/`restore_new.py` 核对结构、固定私有 spool 和数据库保留输入后启用任务。`snapshot_archive.py` 验证记录依赖并保留 UUID `.tmp`，不把残留当作工作项；完整新增链路待 Actions。
 
 - `catalog_prepare.py` → 既有 `backup_coordinator.py` 完成加密备份 → 镜像内原始 V3 与严格 schema 校验 → `catalog_receipt.py` 私有记录；`entrypoint.py` 只读核对记录/结构后启用目录。`snapshot_archive.py` 和 `restore_new.py` 同步处理成功记录，拒绝未完成迁移；普通启动不迁移，V4/AI 不随此启用。完整新链待 Actions。

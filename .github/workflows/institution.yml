@@ -1,7 +1,7 @@
 name: Institution backend baseline
 on:
   push:
-    paths: ['deploy/institution/**', 'services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution*.py', 'scripts/test_backup_crypto.py', 'scripts/test_snapshot_archive.py', 'scripts/test_restore_snapshot.py', 'scripts/test_restore_new.py', 'scripts/test_catalog_server.py', 'scripts/test_catalog_receipt.py', 'scripts/test_jobs_server.py', 'scripts/test_jobs_receipt.py', 'scripts/test_backup_coordinator.py', 'scripts/test_backup_failures.py', 'scripts/test_institution*.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml', '!services/institution/*.md', '!services/institution/**/*.md']
+    paths: ['deploy/institution/**', 'deploy/institution-ai/**', 'services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution*.py', 'scripts/test_backup_crypto.py', 'scripts/test_snapshot_archive.py', 'scripts/test_restore_snapshot.py', 'scripts/test_restore_new.py', 'scripts/test_catalog_server.py', 'scripts/test_catalog_receipt.py', 'scripts/test_jobs_server.py', 'scripts/test_jobs_receipt.py', 'scripts/test_backup_coordinator.py', 'scripts/test_backup_failures.py', 'scripts/test_institution*.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml', '!services/institution/*.md', '!services/institution/**/*.md']
   workflow_dispatch:
     inputs:
       ai_models:
@@ -120,6 +120,8 @@ jobs:
           root=pathlib.Path('.')
           context=root/'.ci-institution-server'
           shutil.copytree(root/'deploy/institution',context)
+          shutil.copy2(root/'deploy/institution-ai/ai_runtime.py',context/'ai_runtime.py')
+          shutil.copy2(root/'tools/ai-assessment/engines.json',context/'ai-engines.json')
           jars=list((root/'services/institution/scaffold-system/scaffold-admin/target').glob('scaffold-admin-*.jar'))
           assert len(jars)==1,'Expected exactly one bootable JAR'
           shutil.copy2(jars[0],context/'app.jar')
@@ -143,6 +145,8 @@ jobs:
         run: docker run --rm --user 0 --network none -v "$PWD/scripts/test_catalog_receipt.py:/test_catalog_receipt.py:ro" --entrypoint python3 workproof-institution:local /test_catalog_receipt.py
       - name: Check jobs records, catalog dependency and interrupted upload archives
         run: docker run --rm --user 0 --network none -v "$PWD/scripts/test_jobs_receipt.py:/test_jobs_receipt.py:ro" --entrypoint python3 workproof-institution:local /test_jobs_receipt.py
+      - name: Check optional AI inventory boundaries without model downloads
+        run: docker run --rm --user 0 --network none --env GITHUB_ACTIONS=true -v "$PWD/scripts/test_institution_ai_runtime.py:/acceptance.py:ro" --entrypoint python3 workproof-institution:local /acceptance.py
       - name: Archive the verified image without any deployment secrets
         shell: python
         run: |
@@ -150,8 +154,10 @@ jobs:
           output=pathlib.Path('dist/institution-server-linux-amd64');output.mkdir(parents=True)
           for source in pathlib.Path('deploy/institution').iterdir():
               if source.is_file():shutil.copy2(source,output/source.name)
+          shutil.copy2('deploy/institution-ai/ai_runtime.py',output/'ai_runtime.py')
+          shutil.copy2('tools/ai-assessment/engines.json',output/'ai-engines.json')
           required_tools=['compose.yaml','backup_coordinator.py','backup_collect.py','backup_crypto.py',
-                          'snapshot_archive.py','restore_snapshot.py','restore_new.py','catalog_receipt.py','catalog_prepare.py','jobs_receipt.py','jobs_prepare.py','entrypoint.py','manage.py']
+                          'snapshot_archive.py','restore_snapshot.py','restore_new.py','catalog_receipt.py','catalog_prepare.py','jobs_receipt.py','jobs_prepare.py','entrypoint.py','manage.py','ai_runtime.py','ai-engines.json']
           assert all((output/name).is_file() for name in required_tools),'Incomplete server control package'
           shutil.copy2('docs/INSTITUTION-SERVER.md',output/'README.md')
           shutil.copy2('LICENSE',output/'WORKPROOF-LICENSE.txt')

@@ -239,6 +239,13 @@ for role in a.ROOTS:
             result = json.loads(request(base, '/api/auth/login', {'username': 'admin', 'password': account['password'],
                 'captchaUuid': captcha['uuid'], 'captcha': captcha['code']})[1])
             assert (result.get('data') or {}).get('token'), 'Restored original credentials did not log in'
+            if (state / 'stage/app_config/ai.json').exists():
+                status, payload = request(base, '/api/workproof/analysis/capabilities', token=result['data']['token'])
+                capabilities = json.loads(payload)['data']
+                assert status == 200 and capabilities['enabled'] is False
+                assert all(engine['configured'] is False for engine in capabilities['engines'])
+                restored_compose = json.loads((state / 'compose.json').read_text())
+                assert 'WORKPROOF_AI_ACTIVATE' not in restored_compose['services']['app'].get('environment', {})
             if (state / 'stage/app_config/catalog.json').exists():
                 status, payload = request(base, '/api/workproof/certificates/status', token=result['data']['token'])
                 assert status == 200 and json.loads(payload)['data']['ready'] is True
