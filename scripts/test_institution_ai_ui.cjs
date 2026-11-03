@@ -30,6 +30,13 @@ const {chromium,expect}=require('@playwright/test');
       await expect(dialog.getByText('文档 SHA-256：'+crypto.createHash('sha256').update(text).digest('hex'),{exact:true})).toBeVisible();
       await expect(dialog.getByText('更接近生成样本的模型得分',{exact:true})).toBeVisible();
       await dialog.getByText('模型版本与报告',{exact:true}).click();
+      const readableEvent=page.waitForEvent('download');await dialog.getByRole('button',{name:'保存中文说明',exact:true}).click();
+      const readableDownload=await readableEvent;assert(readableDownload.suggestedFilename().endsWith('.txt'));
+      const readableStream=await readableDownload.createReadStream();const readableChunks=[];for await(const chunk of readableStream)readableChunks.push(chunk);
+      const readable=Buffer.concat(readableChunks).toString('utf8');
+      assert(readable.includes('不是签名创作证书')&&readable.includes(crypto.createHash('sha256').update(text).digest('hex')));
+      assert(readable.includes('模型参考得分（未校准）')&&readable.includes('47695ff451b32c225dd938f4f478f7fdc6aa6bb0'));
+      assert(!readable.includes(text)&&!readable.includes('100% 人类'));
       const downloadEvent=page.waitForEvent('download');await dialog.getByRole('button',{name:'保存辅助报告',exact:true}).click();
       const download=await downloadEvent;const stream=await download.createReadStream();const chunks=[];for await(const chunk of stream)chunks.push(chunk);const saved=JSON.parse(Buffer.concat(chunks).toString('utf8'));
       assert.equal(saved.model_revision,'47695ff451b32c225dd938f4f478f7fdc6aa6bb0');assert.equal(saved.model,'yuchuantian/AIGC_detector_zhv3');assert.equal(saved.artifact_hash,crypto.createHash('sha256').update(text).digest('hex'));assert.equal(saved.calibration,null);assert.equal(saved.score_kind,'uncalibrated_class_softmax');assert(!('text' in saved));assert(!JSON.stringify(saved).includes(text));
@@ -57,6 +64,10 @@ const {chromium,expect}=require('@playwright/test');
       await expect(dialog.getByText('更接近人类样本的模型得分',{exact:true})).toHaveCount(0);
       await expect(dialog.getByText('本模型只输出一个参考分数。报告中的人类分数是它的补值，不是另一项独立判断。',{exact:true})).toBeVisible();
       assert.deepEqual(Object.keys(desklibReport.raw_scores).sort(),['AI','Human']);
+      const singleEvent=page.waitForEvent('download');await dialog.getByRole('button',{name:'保存中文说明',exact:true}).click();
+      const singleStream=await(await singleEvent).createReadStream();const singleChunks=[];for await(const chunk of singleStream)singleChunks.push(chunk);
+      const single=Buffer.concat(singleChunks).toString('utf8');assert(single.includes('更接近生成样本：'));
+      assert(!single.includes('更接近人类样本：')&&!single.includes(english));assert(single.includes('人类补值不作为第二项独立判断'));
     }
     await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/institution-ai-mobile.png',fullPage:true});
   }catch(error){fs.mkdirSync('test-results',{recursive:true});if(page)await page.screenshot({path:'test-results/institution-ai-failed.png',fullPage:true}).catch(()=>{});throw error;}finally{await browser.close();}

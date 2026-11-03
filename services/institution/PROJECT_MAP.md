@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- `utils/analysisReport.ts` → `AiAnalysisDialog.vue` 统一 Button/downloadBlob → 中文 TXT 辅助说明；保留 JSON 导出，单输出模型只列生成样本参考值，明确可修改/非签名证书；真实浏览器下载验收待 Actions。
+
 - `AiAnalysisDialog.vue` 继续使用统一组件，说明文件最低长度、同类模型之间的关系及结果后的人工复核步骤；`test_institution_ai_ui.cjs` 检查关键提示。LRR未接入正式API/界面，独立评估仍在进行。
 
 - 当前可选 CPU 服务验收：`635e15e` 的基础 `41621480581` 与三个模型专项 `41622868060` 全部成功，详见 `docs/INSTITUTION-AI-ACCEPTANCE-635e15e.md`；已证明恢复默认关闭与原项目复核启用，后续 `17c6181` 的恢复项目启用/候选包仍需独立验收。历史待验收描述保留，以此精确源码/任务范围为准。
