@@ -155,6 +155,18 @@ try:
         restore_stage='/'.join(part.decode() for part in restore_phase.groups()) if restore_phase else 'unknown'
         assert restored.returncode==0, 'Actual new-project restore acceptance failed at stage: '+restore_stage
         checks.append('Actual new-project restore: authenticated SQL/private volumes, stopped ready state, explicit startup and original login, every-row comparison, collision and wrong-password refusal, source unchanged')
+        catalog=subprocess.run(['sudo','env','GITHUB_ACTIONS=true','COMPOSE_PROJECT_NAME='+project,
+            'python3',str(root/'scripts/test_catalog_server.py'),'--project',project,
+            '--backup',private_backup+'/before-catalog.enc','--expected-image',image_id,
+            '--expected-commit',os.environ['GITHUB_SHA'],'--password-stdin'],input=backup_password+b'\n',capture_output=True,timeout=900)
+        catalog_phase=re.search(rb'CATALOG_TEST_PHASE=([a-z-]{1,40})',catalog.stderr)
+        assert catalog.returncode==0, 'Catalog preparation acceptance failed: '+(catalog_phase.group(1).decode() if catalog_phase else 'unknown')
+        catalog_restore=subprocess.run(['sudo','env','GITHUB_ACTIONS=true','python3',str(root/'scripts/test_restore_new.py'),
+            '--input',private_backup+'/after-catalog.enc','--expected-image',image_id,'--expected-commit',os.environ['GITHUB_SHA'],
+            '--source-project',project,'--password-stdin'],input=backup_password+b'\n',capture_output=True,timeout=900)
+        catalog_restore_phase=re.search(rb'RESTORE_PHASE=([a-z-]{1,40}); RESTORE_TEST_PHASE=([a-z-]{1,40})',catalog_restore.stderr)
+        assert catalog_restore.returncode==0, 'Enabled catalog restore failed: '+('/'.join(p.decode() for p in catalog_restore_phase.groups()) if catalog_restore_phase else 'unknown')
+        checks.append('Explicit V3 preparation after authenticated backup, enabled catalog API and enabled new-project restore; no automatic migration or ordinary grants')
     finally:
         cleanup="import pathlib,shutil,sys; p=pathlib.Path(sys.argv[1]);assert p.parent==pathlib.Path('/tmp') and p.name.startswith('workproof-server-backup-ci.');shutil.rmtree(p)"
         subprocess.run(['sudo','python3','-c',cleanup,private_backup],check=True,capture_output=True)

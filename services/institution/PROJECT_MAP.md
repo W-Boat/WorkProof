@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- `catalog_prepare.py` → 既有 `backup_coordinator.py` 完成加密备份 → 镜像内原始 V3 与严格 schema 校验 → `catalog_receipt.py` 私有记录；`entrypoint.py` 只读核对记录/结构后启用目录。`snapshot_archive.py` 和 `restore_new.py` 同步处理成功记录，拒绝未完成迁移；普通启动不迁移，V4/AI 不随此启用。完整新链待 Actions。
+
 - `backup_coordinator.py` → 镜像内 `backup_collect.py` → 加密受限归档；`restore_new.py` → `restore_snapshot.py` 认证提取 → 新专属卷及空数据库导入 → 保持停止。`scripts/test_institution_server.py` 在独立 Actions 备份仍存在时调用 `test_restore_new.py`，验收整套恢复和显式启动登录。新增恢复链路待实际 Actions，不作用于用户本机数据库。
 
 AiAnalysisService → detector.py → Desklib 本地适配：新增固定英文 desklib-en-v1.01，安全张量严格匹配本地模型参数；接口逐引擎校验 softmax/sigmoid 得分类型。MPU 与 Desklib 都属于监督分类方法，不合并分数。页面继续复用 Select/Field/FormDialog，显式下载模型后方可配置使用；真实模型与网页接入已通过 41502727303 / 41503104263；9361ae5 单输出提示更新的常规回归 41561755724 已通过，真实模型网页复验 41561757332 完成业务检查后归档。首轮有限基准已观察到明显人工误报，独立校准与扩大评估、完整许可审查仍未完成。

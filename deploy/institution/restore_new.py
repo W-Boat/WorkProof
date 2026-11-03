@@ -121,12 +121,12 @@ def owned_containers(project, token):
     return result
 
 
-def helper(image, token, state, mounts, command, password=None):
+def helper(image, token, state, mounts, command, password=None, network='none'):
     """A helper is never started until its exact ID and owner token are pinned."""
     identity = None
     cidfile = state / ('helper-' + secrets.token_hex(16) + '.cid')
     try:
-        args = ['docker', 'create', '-i', '--network', 'none', '--user', '0:0', '--read-only',
+        args = ['docker', 'create', '-i', '--network', network, '--user', '0:0', '--read-only',
                 '--label', LABEL + '=' + token, '--cidfile', str(cidfile), '--entrypoint', 'python3']
         for mount in mounts:
             args += ['--mount', mount]
@@ -194,6 +194,9 @@ def _finite_float(value):
 
 
 def coherence(stage):
+    import catalog_receipt
+    if os.path.lexists(stage / 'app_config' / catalog_receipt.PENDING):
+        raise RestoreNewError('Catalog preparation incomplete')
     config = _read_private_json(stage / 'app_config/application.json')
     initialized = _read_private_json(stage / 'app_config/initialized.json')
     account = _read_private_json(stage / 'initial_account/account.json')
@@ -207,6 +210,11 @@ def coherence(stage):
             account.get('username') != 'admin' or not isinstance(account.get('password'), str) or
             len(account['password']) < 24):
         raise RestoreNewError('Source private records disagree')
+    prepared = stage / 'app_config' / catalog_receipt.PREPARED
+    if os.path.lexists(prepared):
+        receipt = catalog_receipt.read(prepared)
+        if receipt['schemaSha256'] != initialized['schemaSha256']:
+            raise RestoreNewError('Catalog initialization identity differs')
     return initialized['schemaSha256']
 
 
@@ -397,6 +405,23 @@ def restore_new(input_path, project, state_dir, password, expected_image, expect
         app_check = 'export MYSQL_PWD="$(cat /private/mysql-app/password)"; exec mysql --host=127.0.0.1 --user=workproof --database=workproof --batch --skip-column-names --execute="SELECT COUNT(*) FROM sys_user WHERE username=\'admin\' AND status=1"'
         if run(['docker', 'exec', database, 'bash', '-ec', app_check], capture=True).strip() != b'1':
             raise RestoreNewError('Restored application credential/admin check failed')
+        if (state / 'stage/app_config/catalog.json').exists():
+            network = inspect(project + '_default', 'network')
+            if network.get('Labels', {}).get(LABEL) != token:
+                raise RestoreNewError('Restored network ownership differs')
+            verify_catalog = """import pathlib,hashlib,pymysql,catalog_receipt as r
+from catalog_prepare import verify_schema
+import json
+p=pathlib.Path('/stage/app_config');v=r.read(p/r.PREPARED)
+assert v['migrationSha256']==hashlib.sha256(pathlib.Path('/opt/workproof/sql/V3__workproof_certificate_catalog.sql').read_bytes()).hexdigest()
+c=json.loads((p/'application.json').read_text());db=pymysql.connect(host='database',user='workproof',password=c['databasePassword'],database='workproof',charset='utf8mb4',connect_timeout=10,read_timeout=10,write_timeout=10)
+try:
+ with db.cursor() as cursor:verify_schema(cursor)
+finally:db.close()
+"""
+            helper(expected_image, token, state,
+                   [f'type=bind,src={state / "stage"},dst=/stage,readonly'], ['-c', verify_catalog],
+                   network=network['Id'])
         if any(value['Config']['Labels'].get('com.docker.compose.service') != 'database' for value in owned_containers(project, token)):
             raise RestoreNewError('Unexpected application startup')
         run(['docker', 'stop', '--time', '60', database])

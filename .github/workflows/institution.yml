@@ -1,7 +1,7 @@
 name: Institution backend baseline
 on:
   push:
-    paths: ['deploy/institution/**', 'services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution*.py', 'scripts/test_backup_crypto.py', 'scripts/test_snapshot_archive.py', 'scripts/test_restore_snapshot.py', 'scripts/test_restore_new.py', 'scripts/test_backup_coordinator.py', 'scripts/test_backup_failures.py', 'scripts/test_institution*.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml', '!services/institution/*.md', '!services/institution/**/*.md']
+    paths: ['deploy/institution/**', 'services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution*.py', 'scripts/test_backup_crypto.py', 'scripts/test_snapshot_archive.py', 'scripts/test_restore_snapshot.py', 'scripts/test_restore_new.py', 'scripts/test_catalog_server.py', 'scripts/test_catalog_receipt.py', 'scripts/test_backup_coordinator.py', 'scripts/test_backup_failures.py', 'scripts/test_institution*.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml', '!services/institution/*.md', '!services/institution/**/*.md']
   workflow_dispatch:
     inputs:
       ai_models:
@@ -139,6 +139,8 @@ jobs:
         run: docker run --rm --user 0 --network none -v "$PWD/scripts/test_snapshot_archive.py:/test_snapshot_archive.py:ro" --entrypoint python3 workproof-institution:local /test_snapshot_archive.py
       - name: Authenticate and extract only to new private staging directories
         run: docker run --rm --user 0 --network none -v "$PWD/scripts/test_restore_snapshot.py:/test_restore_snapshot.py:ro" --entrypoint python3 workproof-institution:local /test_restore_snapshot.py
+      - name: Check catalog preparation records and encrypted archive boundary
+        run: docker run --rm --user 0 --network none -v "$PWD/scripts/test_catalog_receipt.py:/test_catalog_receipt.py:ro" --entrypoint python3 workproof-institution:local /test_catalog_receipt.py
       - name: Archive the verified image without any deployment secrets
         shell: python
         run: |
@@ -147,7 +149,7 @@ jobs:
           for source in pathlib.Path('deploy/institution').iterdir():
               if source.is_file():shutil.copy2(source,output/source.name)
           required_tools=['compose.yaml','backup_coordinator.py','backup_collect.py','backup_crypto.py',
-                          'snapshot_archive.py','restore_snapshot.py','restore_new.py','entrypoint.py','manage.py']
+                          'snapshot_archive.py','restore_snapshot.py','restore_new.py','catalog_receipt.py','catalog_prepare.py','entrypoint.py','manage.py']
           assert all((output/name).is_file() for name in required_tools),'Incomplete server control package'
           shutil.copy2('docs/INSTITUTION-SERVER.md',output/'README.md')
           shutil.copy2('LICENSE',output/'WORKPROOF-LICENSE.txt')

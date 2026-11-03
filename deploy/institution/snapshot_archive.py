@@ -14,6 +14,7 @@ import stat
 import tarfile
 
 import backup_crypto
+import catalog_receipt
 
 FORMAT = 'workproof-server-snapshot/1'
 MAX_TOTAL_BYTES = 8 * 1024**3
@@ -27,7 +28,8 @@ FILES = {'database.sql': (0, 0o600), 'app_config/application.json': (10001, 0o60
          'app_config/initialized.json': (10001, 0o600), 'app_config/.setup.lock': (0, 0o600),
          'initial_account/account.json': (0, 0o600), 'mysql_root_secret/password': (0, 0o444),
          'mysql_app_secret/password': (0, 0o444)}
-REQUIRED = set(ROOTS) | (set(FILES) - {'app_config/.setup.lock'})
+FILES['app_config/' + catalog_receipt.PREPARED] = (10001, 0o600)
+REQUIRED = set(ROOTS) | (set(FILES) - {'app_config/.setup.lock', 'app_config/' + catalog_receipt.PREPARED})
 UUID_PROOF = re.compile(r'app_data/jobs/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.proof')
 
 
@@ -231,6 +233,10 @@ def create_encrypted_snapshot(stage_dir, output_path, password, *, source_commit
         initialized_fd = _open_relative(root, 'app_config/initialized.json')
         with os.fdopen(initialized_fd, 'rb') as initialized:
             _initialized(initialized.read(16385))
+        catalog_path = 'app_config/' + catalog_receipt.PREPARED
+        if catalog_path in identities:
+            with os.fdopen(_open_relative(root, catalog_path), 'rb') as prepared:
+                catalog_receipt.validate(prepared.read(16385))
         manifest = {'format': FORMAT, 'source_commit': source_commit, 'image_id': image_id,
                     'backup_time': backup_time, 'initialization': 'initialized', 'entries': entries}
         encoded = json.dumps(manifest, ensure_ascii=True, sort_keys=True, separators=(',', ':')).encode()
@@ -395,11 +401,14 @@ def verify_encrypted_snapshot(encrypted_path, password, *, work_dir,
                         raise SnapshotArchiveError('Tar member does not match manifest metadata')
                     if info.isdir() != (entry['type'] == 'directory'):
                         raise SnapshotArchiveError('Tar member type mismatch')
-                    if info.name == 'app_config/initialized.json':
+                    if info.name in ('app_config/initialized.json', 'app_config/' + catalog_receipt.PREPARED):
                         if info.size > 16384:
                             raise SnapshotArchiveError('Initialization record exceeds the limit')
                         data = _payload(source, info.size, capture=True)
-                        _initialized(data)
+                        if info.name == 'app_config/initialized.json':
+                            _initialized(data)
+                        else:
+                            catalog_receipt.validate(data)
                         digest = hashlib.sha256(data).hexdigest()
                     else:
                         digest = _payload(source, info.size)

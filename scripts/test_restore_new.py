@@ -62,11 +62,14 @@ def rows(identity):
     return restore.run(['docker', 'exec', identity, 'bash', '-ec', script], capture=True)
 
 
-def request(base, path, data=None):
+def request(base, path, data=None, token=None):
     encoded = json.dumps(data).encode() if data is not None else None
+    headers = {'Content-Type': 'application/json'}
+    if token:
+        headers['Authorization'] = 'Bearer ' + token
     try:
         response = urllib.request.urlopen(urllib.request.Request(base + path, data=encoded,
-            headers={'Content-Type': 'application/json'}), timeout=10)
+            headers=headers), timeout=10)
     except urllib.error.HTTPError as error:
         response = error
     with response:
@@ -191,6 +194,9 @@ for role in a.ROOTS:
             result = json.loads(request(base, '/api/auth/login', {'username': 'admin', 'password': account['password'],
                 'captchaUuid': captcha['uuid'], 'captcha': captcha['code']})[1])
             assert (result.get('data') or {}).get('token'), 'Restored original credentials did not log in'
+            if (state / 'stage/app_config/catalog.json').exists():
+                status, payload = request(base, '/api/workproof/certificates/status', token=result['data']['token'])
+                assert status == 200 and json.loads(payload)['data']['ready'] is True
             for value in restore.owned_containers(project, token):
                 service = value['Config']['Labels']['com.docker.compose.service']
                 assert value['Image'] == record['runtime_image_ids'][service]
