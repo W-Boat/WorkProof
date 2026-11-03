@@ -100,8 +100,12 @@ test('cancelled worker cannot restore its real Wasm success after a file replace
   await page.getByRole('button',{name:'先体验一份演示证据'}).click();
   await page.waitForFunction(()=>typeof (window as unknown as {releaseProofResult?:()=>void}).releaseProofResult==='function');
   expect(await page.evaluate(()=>(window as unknown as {heldReportValid:boolean}).heldReportValid)).toBe(true);
+  await expect(page.getByLabel('选择最终作品',{exact:true})).toBeDisabled();
+  await expect(page.getByLabel('选择 .wproof 证书',{exact:true})).toBeDisabled();
   await expect(page.getByText('证据核验通过',{exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'取消核验',exact:true}).click();
+  await expect(page.getByLabel('选择最终作品',{exact:true})).toBeEnabled();
+  await expect(page.getByLabel('选择 .wproof 证书',{exact:true})).toBeEnabled();
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'replaced.md',mimeType:'text/plain',buffer:Buffer.from('replacement is not the signed artifact')});
   await page.evaluate(()=>(window as unknown as {releaseProofResult:()=>void}).releaseProofResult());
   await expect(page.getByText('证据核验通过',{exact:true})).toHaveCount(0);
