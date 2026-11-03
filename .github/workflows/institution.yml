@@ -146,6 +146,9 @@ jobs:
           output=pathlib.Path('dist/institution-server-linux-amd64');output.mkdir(parents=True)
           for source in pathlib.Path('deploy/institution').iterdir():
               if source.is_file():shutil.copy2(source,output/source.name)
+          required_tools=['compose.yaml','backup_coordinator.py','backup_collect.py','backup_crypto.py',
+                          'snapshot_archive.py','restore_snapshot.py','restore_new.py','entrypoint.py','manage.py']
+          assert all((output/name).is_file() for name in required_tools),'Incomplete server control package'
           shutil.copy2('docs/INSTITUTION-SERVER.md',output/'README.md')
           shutil.copy2('LICENSE',output/'WORKPROOF-LICENSE.txt')
           shutil.copy2('services/institution/LICENSE',output/'SCAFFOLD-LICENSE.txt')
@@ -155,7 +158,13 @@ jobs:
               with process.stdout as source:shutil.copyfileobj(source,stream)
               assert process.wait()==0,'Image export failed'
           image=json.loads(subprocess.check_output(['docker','image','inspect','workproof-institution:local']))[0]
-          (output/'BUILD-INFO.json').write_text(json.dumps({'schema':'workproof.server-package.v1','source_commit':os.environ['GITHUB_SHA'],'build_run':os.environ['GITHUB_RUN_ID'],'image_id':image['Id'],'platform':'linux/amd64','scope':'New database only; catalog/jobs/AI disabled; no deployment secrets included'},indent=2)+'\n',encoding='utf-8')
+          compose=json.loads(subprocess.check_output(['docker','compose','--file','deploy/institution/compose.yaml','config','--format','json']))
+          dependencies={}
+          for name in ('database','cache'):
+              reference=compose['services'][name]['image']
+              installed=json.loads(subprocess.check_output(['docker','image','inspect',reference]))[0]
+              dependencies[name]={'reference':reference,'image_id':installed['Id'],'repository_digests':installed.get('RepoDigests') or [],'bundled':False}
+          (output/'BUILD-INFO.json').write_text(json.dumps({'schema':'workproof.server-package.v1','source_commit':os.environ['GITHUB_SHA'],'build_run':os.environ['GITHUB_RUN_ID'],'image_id':image['Id'],'platform':'linux/amd64','control_tools':required_tools,'runtime_dependencies':dependencies,'scope':'New database only; catalog/jobs/AI disabled; no deployment secrets included; database/cache images must be prepared separately'},indent=2)+'\n',encoding='utf-8')
           lines=[]
           for file in sorted(output.iterdir()):
               if file.is_file():
