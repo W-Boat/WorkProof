@@ -36,6 +36,20 @@ class AiAnalysisServiceTest{
         var service=service("exec sleep 30\n");
         try{String id=(String)service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0])).get("id");assertEquals(429,assertThrows(ServiceException.class,()->service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0]))).code());service.cancel(1,id);assertEquals("cancelled",done(service,id).get("state"));String second=(String)service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(new byte[0])).get("id");service.cancel(1,second);assertEquals("cancelled",done(service,second).get("state"));}finally{service.close();}
     }
+    @Test void ambiguousAndCoercedReportFieldsDoNotPublishResults()throws Exception{
+        byte[] data="sample".getBytes();String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
+        String valid="{\"protocol\":\"workproof-ai-assessment/1\",\"engine_id\":\"mpu-zh-v3\",\"model\":\"yuchuantian/AIGC_detector_zhv3\",\"model_revision\":\"47695ff451b32c225dd938f4f478f7fdc6aa6bb0\",\"network_used\":false,\"artifact_hash\":\""+hash+"\",\"artifact_bytes\":6,\"status\":\"insufficient_input\"}";
+        for(String output:List.of(
+            valid.replace("\"network_used\":false","\"network_used\":0"),
+            valid.replace("\"artifact_bytes\":6","\"artifact_bytes\":6.5"),
+            valid.replace("\"artifact_bytes\":6","\"artifact_bytes\":\"6\""),
+            valid.replace("\"network_used\":false","\"network_used\":true,\"network_used\":false"))){
+            var service=service("printf '%s' '"+output+"'\n");
+            try{String id=(String)service.submit(1,"mpu-zh-v3","txt",new ByteArrayInputStream(data)).get("id");
+                var result=done(service,id);assertEquals("failed",result.get("state"));assertFalse(result.containsKey("report"));
+            }finally{service.close();}
+        }
+    }
     @Test void unexpectedModelRevisionDoesNotPublishReport()throws Exception{
         byte[] data="sample".getBytes();String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
         var value=new ObjectMapper().createObjectNode();value.put("protocol","workproof-ai-assessment/1");value.put("engine_id","mpu-zh-v3");value.put("network_used",false);value.put("artifact_hash",hash);value.put("artifact_bytes",data.length);value.put("status","insufficient_input");value.put("model","yuchuantian/AIGC_detector_zhv3");value.put("model_revision","wrong");

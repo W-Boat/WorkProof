@@ -34,7 +34,8 @@ public class AiAnalysisService {
         @Value("${workproof.ai.python:}") String python,@Value("${workproof.ai.script:}") String script,
         @Value("${workproof.ai.models:}") String models,ObjectMapper mapper){
         this.enabled=enabled;this.python=python;this.script=script;this.models=models;
-        this.mapper=mapper.copy().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+        this.mapper=mapper.copy().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
         clock.scheduleAtFixedRate(this::cleanExpired,60,60,TimeUnit.SECONDS);
     }
     private Path absolute(String value){try{Path p=Path.of(value);return p.isAbsolute()?p:null;}catch(RuntimeException e){return null;}}
@@ -84,8 +85,10 @@ public class AiAnalysisService {
                 deadline=clock.schedule(()->{timedOut.set(true);kill(child);},120,TimeUnit.SECONDS);
                 byte[] output=child.getInputStream().readNBytes(65537);if(output.length>65536)throw new IOException("OUTPUT_LIMIT");
                 int exit=child.waitFor();JsonNode value=mapper.readTree(output);
-                if(exit!=0||!"workproof-ai-assessment/1".equals(value.path("protocol").asText())||!engine.equals(value.path("engine_id").asText())||value.path("network_used").asBoolean(true)
-                    ||!hash.equals(value.path("artifact_hash").asText())||value.path("artifact_bytes").asInt(-1)!=bytes)throw new IOException("INVALID_REPORT");
+                if(exit!=0||!"workproof-ai-assessment/1".equals(value.path("protocol").asText())||!engine.equals(value.path("engine_id").asText())
+                    ||!value.path("network_used").isBoolean()||value.path("network_used").asBoolean(true)
+                    ||!hash.equals(value.path("artifact_hash").asText())||!value.path("artifact_bytes").isIntegralNumber()
+                    ||!value.path("artifact_bytes").canConvertToInt()||value.path("artifact_bytes").asInt(-1)!=bytes)throw new IOException("INVALID_REPORT");
                 Engine specification=ENGINES.get(engine);
                 if(!specification.model().equals(value.path("model").asText())||!specification.revision().equals(value.path("model_revision").asText()))throw new IOException("UNEXPECTED_MODEL_VERSION");
                 String result=value.path("status").asText();if(!Set.of("completed","unsupported","insufficient_input","not_configured").contains(result))throw new IOException("INVALID_STATUS");
