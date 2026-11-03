@@ -51,6 +51,10 @@ const {chromium,expect}=require('@playwright/test');
       const desklibReport=JSON.parse(Buffer.concat(desklibChunks).toString('utf8'));
       assert.equal(desklibReport.engine_id,'desklib-en-v1.01');assert.equal(desklibReport.model_revision,'5fdea974cd4287c61674951ec78803aa274e2fb7');
       assert.equal(desklibReport.score_kind,'uncalibrated_binary_sigmoid');assert.equal(desklibReport.artifact_hash,crypto.createHash('sha256').update(english).digest('hex'));assert(!('text' in desklibReport));
+      await expect(dialog.getByText('更接近生成样本的模型得分',{exact:true})).toBeVisible();
+      await expect(dialog.getByText('更接近人类样本的模型得分',{exact:true})).toHaveCount(0);
+      await expect(dialog.getByText('本模型只输出一个参考分数。报告中的人类分数是它的补值，不是另一项独立判断。',{exact:true})).toBeVisible();
+      assert.deepEqual(Object.keys(desklibReport.raw_scores).sort(),['AI','Human']);
     }
     await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/institution-ai-mobile.png',fullPage:true});
   }catch(error){fs.mkdirSync('test-results',{recursive:true});if(page)await page.screenshot({path:'test-results/institution-ai-failed.png',fullPage:true}).catch(()=>{});throw error;}finally{await browser.close();}
