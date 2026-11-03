@@ -1,0 +1,24 @@
+{
+  "model": "Qwen/Qwen3-0.6B-Base",
+  "revision": "da87bfb608c14b7cf20ba1ce41287e8de496c0cd",
+  "license": "Apache-2.0",
+  "files": {
+    "LICENSE": {
+      "url": "https://huggingface.co/Qwen/Qwen3-0.6B-Base/resolve/da87bfb608c14b7cf20ba1ce41287e8de496c0cd/LICENSE",
+      "sha256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+      "bytes": 11343
+    },
+    "README.md": {
+      "url": "https://huggingface.co/Qwen/Qwen3-0.6B-Base/resolve/da87bfb608c14b7cf20ba1ce41287e8de496c0cd/README.md",
+      "sha256": "910d9be25c648ab1cb5a7b1d20d67ca6d43d43559a705010198886f9af68e8f1",
+      "bytes": 2973
+    }
+  },
+  "commercial_clearance": false,
+  "scope": "Pinned upstream LICENSE and model card original bytes; no model weights downloaded locally.",
+  "limitations": [
+    "License permits commercial uses subject to its terms; this record is not a clearance of all model/runtime/data rights.",
+    "No independent verification of full training-data rights or third-party binary components.",
+    "LRR formula independently implemented from paper; no unlicensed DetectLLM repository code copied."
+  ]
+}

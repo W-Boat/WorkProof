@@ -1,5 +1,7 @@
 # WorkProof 商业使用许可核验
 
+2026-11-03 实验性 LRR 增量：固定 `Qwen/Qwen3-0.6B-Base` revision `da87bfb608c14b7cf20ba1ce41287e8de496c0cd` 的 [LICENSE 原文及模型卡](licenses/qwen3-0.6b-base/source.json)已从官方固定版本归档，字节与模型清单摘要相符。许可证原文为 Apache-2.0，允许在遵守保留许可、适用通知、修改标记及其余条件下进行商业使用；这不是整个产品、所有训练数据、底层组件或商标的额外授权。该模型目前仅在独立实验中使用，不进入默认守护进程和机构镜像。LRR依据论文公式独立实现，没有复制缺少可核验源码许可的 DetectLLM 仓库代码；检测方法的准确率与完整权利状态仍分别评估。本增量不改变下文其他包的缺失原文、WPS条款冲突或整体分发约束。
+
 实际CPU归档已验证35包/188许可原文，tokenizers0.23.3 wheel缺许可仍单列。已核PyPI发行源码的Apache原文作为版本级补充；源码发布tag与sdist的Cargo/pyproject不同，不能据此推定整个wheel血缘或二进制依赖授权已完整。requirements固定tokenizers0.23.3避免补充材料与版本漂移。
 
 AI运行时新增[实际安装许可原文归档](AI-RUNTIME-NOTICES.md)，来源于具体CI环境的 distribution RECORD，逐文件保留原文与SHA并明列缺失。不覆盖二进制内嵌组件、系统库或模型训练数据，不能以归档存在宣称全部商业使用放行。中英文MPU卡片均只声明Apache-2.0，基础模型精确血缘未由配置相对路径证明。
