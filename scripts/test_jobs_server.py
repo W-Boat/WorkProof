@@ -105,7 +105,9 @@ def main():
         api('/'+identity+'/items/0',proof,'PUT')
         PHASE='overwrite-refusal'
         code,value=request(prefix+'/'+identity+'/items/0',b'changed',token,'PUT')
-        assert code==409 and value['code']==409
+        # BusinessException uses HTTP 400 while preserving its conflict code in
+        # the shared response body; do not change the service-wide API contract.
+        assert code==400 and value['code']==409
         PHASE='submit'
         api('/'+identity+'/submit',{},'POST')
         PHASE='complete'
