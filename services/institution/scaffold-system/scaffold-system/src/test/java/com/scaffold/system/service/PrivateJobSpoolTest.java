@@ -10,6 +10,25 @@ import static org.junit.jupiter.api.Assumptions.*;
 
 class PrivateJobSpoolTest {
     @TempDir Path temporary;
+    @Test void privateTemporaryInputIsSealedBeforeContentAndRejectsAdditionalReader() throws Exception {
+        Path input=PrivateJobSpool.createTempFile("workproof-ai-permission-test-",".txt");
+        try {
+            assertEquals(0,Files.size(input));PrivateJobSpool.verify(input,false);
+            Files.writeString(input,"synthetic private input");PrivateJobSpool.verify(input,false);
+            PosixFileAttributeView posix=Files.getFileAttributeView(input,PosixFileAttributeView.class);
+            if(posix!=null)Files.setPosixFilePermissions(input,PosixFilePermissions.fromString("rw-r-----"));
+            else {
+                AclFileAttributeView view=Files.getFileAttributeView(input,AclFileAttributeView.class);
+                UserPrincipal owner=Files.getOwner(input);
+                UserPrincipal other=Files.getFileAttributeView(temporary,AclFileAttributeView.class).getAcl().stream()
+                    .map(AclEntry::principal).filter(p->!p.equals(owner)).findFirst().orElseThrow();
+                List<AclEntry> entries=new ArrayList<>(view.getAcl());
+                entries.add(AclEntry.newBuilder().setType(AclEntryType.ALLOW).setPrincipal(other)
+                    .setPermissions(AclEntryPermission.READ_DATA).build());view.setAcl(entries);
+            }
+            assertThrows(java.io.IOException.class,()->PrivateJobSpool.verify(input,false));
+        } finally {Files.deleteIfExists(input);}
+    }
     @Test void emptyDirectoryIsSealedBeforeWritingAndCheckedOnRecovery() throws Exception {
         Path root=PrivateJobSpool.createDirectory(temporary.resolve("private"));
         PrivateJobSpool.seal(root,true);PrivateJobSpool.verify(root,true);

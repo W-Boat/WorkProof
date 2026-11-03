@@ -36,6 +36,10 @@ final class PrivateJobSpool {
     static Path createFile(Path path) throws IOException {
         Files.createFile(path);return initializeNew(path,false);
     }
+    static Path createTempFile(String prefix,String suffix) throws IOException {
+        // Empty atomic temporary file; seal/verify before any private bytes.
+        return initializeNew(Files.createTempFile(prefix,suffix),false);
+    }
     private static Path initializeNew(Path path,boolean directory) throws IOException {
         // Called only after atomic CREATE_NEW/createDirectory succeeded. Never
         // used for existing or recovered paths, and never after content writes.

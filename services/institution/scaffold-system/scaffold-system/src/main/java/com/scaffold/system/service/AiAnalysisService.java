@@ -54,8 +54,7 @@ public class AiAnalysisService {
         Path file=null;
         try{
             byte[] bytes=input.readNBytes(MAX_BYTES+1);if(bytes.length>MAX_BYTES)throw new BusinessException("文档超过 8 MB，请选择较小的文件。");
-            file=Files.createTempFile("workproof-ai-","."+format);
-            try{Files.setPosixFilePermissions(file,java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));}catch(UnsupportedOperationException ignored){}
+            file=PrivateJobSpool.createTempFile("workproof-ai-","."+format);
             Files.write(file,bytes);
             String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
             Job job=new Job(owner,engine,file,hash,bytes.length);jobs.put(job.id,job);worker.execute(job);return job.snapshot();

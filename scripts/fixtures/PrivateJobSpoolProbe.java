@@ -26,6 +26,20 @@ public final class PrivateJobSpoolProbe {
                     .orElseThrow(()->new AssertionError("Windows fixture needs another real ACL principal"));
             }
             PrivateJobSpool.seal(root,true);PrivateJobSpool.verify(root,true);
+            Path document=PrivateJobSpool.createTempFile("workproof-ai-private-probe-",".txt");
+            try {
+                if(Files.size(document)!=0)throw new AssertionError("Private input must begin empty");
+                PrivateJobSpool.verify(document,false);
+                Files.writeString(document,"synthetic private analysis input");PrivateJobSpool.verify(document,false);
+                if(acl!=null) {
+                    AclFileAttributeView view=Files.getFileAttributeView(document,AclFileAttributeView.class,LinkOption.NOFOLLOW_LINKS);
+                    List<AclEntry> changed=new ArrayList<>(view.getAcl());
+                    changed.add(AclEntry.newBuilder().setType(AclEntryType.ALLOW).setPrincipal(other)
+                        .setPermissions(AclEntryPermission.READ_DATA).build());view.setAcl(changed);
+                } else Files.setPosixFilePermissions(document,PosixFilePermissions.fromString("rw-r-----"));
+                reject(()->PrivateJobSpool.verify(document,false));
+                System.out.println("PASS private temporary analysis input: empty before sealed write, additional reader refused");
+            } finally { Files.deleteIfExists(document); }
             Path lock=PrivateJobSpool.createFile(root.resolve(".queue.lock"));
             Path proof=PrivateJobSpool.createFile(root.resolve("test.proof"));
             Files.writeString(proof,"synthetic certificate");PrivateJobSpool.verify(proof,false);
