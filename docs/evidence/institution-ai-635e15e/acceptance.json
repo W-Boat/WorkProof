@@ -1,0 +1,55 @@
+{
+  "schema": "workproof.institution-ai-acceptance/1",
+  "source_commit": "635e15efc14c243bb8e792e65b2acd767aef17b6",
+  "base_run": 41621480581,
+  "ai_run": 41622868060,
+  "url": "https://github.com/W-Boat/WorkProof/actions/runs/41622868060",
+  "engines": [
+    {
+      "engine": "mpu-en-v3",
+      "job_id": 125872794058,
+      "conclusion": "success",
+      "image_id": "sha256:c374f3f9e2f67db036ab8921ce5c45c73c39fc26146d506606c8aa0956e14016",
+      "base_image_id": "sha256:adbec86b8c20c4e09457f7697d323fe8bf842cc629fab0c56d59121388c9d723",
+      "downloaded_job_log_sha256": "472a811c4453bf74b0f72250f609c226292137fc70752253abfbc5bce514dfea",
+      "boundary_tests": 5
+    },
+    {
+      "engine": "mpu-zh-v3",
+      "job_id": 125872794173,
+      "conclusion": "success",
+      "image_id": "sha256:9d19dd8857ec410f985b8e5c468fccecde65d0f74db5846367bf424e173b7084",
+      "base_image_id": "sha256:adbec86b8c20c4e09457f7697d323fe8bf842cc629fab0c56d59121388c9d723",
+      "downloaded_job_log_sha256": "5ee0b36948c8925b26a73851c675f6688e8b8d37893471d31c6031cc79fe3b63",
+      "boundary_tests": 5
+    },
+    {
+      "engine": "desklib-en-v1.01",
+      "job_id": 125872793991,
+      "conclusion": "success",
+      "image_id": "sha256:1d0d721a3288e2bf659f9d906cf484da7e96c57f009c7dbbeaecca55bb78116d",
+      "base_image_id": "sha256:adbec86b8c20c4e09457f7697d323fe8bf842cc629fab0c56d59121388c9d723",
+      "downloaded_job_log_sha256": "07b4cd3547d3f3a4d024f771a11a28122879e5057c183bc16eeafb73c444ab79",
+      "boundary_tests": 5
+    }
+  ],
+  "checks": [
+    "Verified exact-source base artifact, package and dependency digests",
+    "Derived optional CPU image ancestry and runtime inventory",
+    "Five filesystem/receipt boundary tests per image",
+    "Explicit preparation after encrypted backup; online helper sees no app config",
+    "Offline synthetic inference as service user",
+    "Authenticated consent requirement, real HTTP inference, cancellation and private-input cleanup",
+    "Encrypted backup and new-project restore; restored AI remains disabled; consented submission refused with HTTP/business 503",
+    "Source deployment explicit offline reactivation preserves original receipt bytes",
+    "Existing override refuses replacement",
+    "Changed model file refuses verification/reactivation and produces no override"
+  ],
+  "limits": [
+    "Synthetic inference is not an accuracy benchmark",
+    "Three engine configurations use two supervised classifier implementations, not three independent method families",
+    "No restored-project reactivation or runtime candidate package coverage in this source/run",
+    "No model weights or optional runtime artifacts uploaded by this workflow version",
+    "No production/user deployment, cross-host weight transfer, commercial clearance or host-platform acceptance claim"
+  ]
+}
