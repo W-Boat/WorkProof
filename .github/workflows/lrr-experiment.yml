@@ -22,7 +22,9 @@ jobs:
           python -m pip install -r tools/ai-assessment/requirements.txt
           python -m pip check
       - name: Independently implemented formula and refusal boundaries
-        run: python tools/ai-assessment/test_lrr_math.py
+        run: |
+          python tools/ai-assessment/test_lrr_math.py
+          python tools/ai-assessment/test_lrr_model.py
       - name: Fixed model bilingual inference and measured resource budgets
         run: python tools/ai-assessment/test_lrr_real.py
       - uses: actions/upload-artifact@v4

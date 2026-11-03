@@ -12,8 +12,19 @@ WEIGHT_SHA256='cd2a512003e2f9f3cd3c32a9c3573f820bb28c940f73c57b1ddaa983d9223eba'
 RECEIPT='lrr-model-receipt.json'
 
 
+def strict_json(raw):
+    def unique(pairs):
+        value={}
+        for key,item in pairs:
+            if key in value:raise ValueError('DUPLICATE_MODEL_FIELD')
+            value[key]=item
+        return value
+    def invalid(_):raise ValueError('NONFINITE_MODEL_FIELD')
+    return json.loads(raw,object_pairs_hook=unique,parse_constant=invalid)
+
+
 def catalogue():
-    value=json.loads(pathlib.Path(__file__).with_name('lrr-model.json').read_text(encoding='utf-8'))
+    value=strict_json(pathlib.Path(__file__).with_name('lrr-model.json').read_text(encoding='utf-8'))
     if value['model']!=MODEL or value['revision']!=REVISION or value['files']['model.safetensors']['sha256']!=WEIGHT_SHA256:
         raise ValueError('INVALID_LRR_MODEL_CATALOGUE')
     return value
@@ -43,10 +54,16 @@ def inventory(folder):
 def verify(folder):
     folder=pathlib.Path(folder)
     if set(os.listdir(folder))!=set(FILES)|{RECEIPT}:raise ValueError('UNKNOWN_MODEL_FILES')
-    receipt=folder/RECEIPT;info=receipt.lstat()
-    if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>65536:raise ValueError('INVALID_MODEL_RECEIPT')
+    receipt=folder/RECEIPT
+    fd=os.open(receipt,os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd,'rb') as source:
+        info=os.fstat(source.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>65536:raise ValueError('INVALID_MODEL_RECEIPT')
+        raw=source.read(65537);after=os.fstat(source.fileno())
+        if len(raw)>65536 or (info.st_size,info.st_mtime_ns,info.st_ctime_ns)!=(after.st_size,after.st_mtime_ns,after.st_ctime_ns):
+            raise ValueError('MODEL_RECEIPT_CHANGED')
     expected=inventory(folder)
-    if json.loads(receipt.read_text(encoding='utf-8'))!=expected:raise ValueError('MODEL_RECEIPT_DIFFERS')
+    if strict_json(raw)!=expected:raise ValueError('MODEL_RECEIPT_DIFFERS')
     return expected
 
 
