@@ -20,7 +20,7 @@ test('shared institution controls, theme preference and mobile layout remain usa
   for(const width of [390,768,1280]){
     await page.setViewportSize({width,height:900});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
-    await expect(page.getByRole('button',{name:'开始本地核验'})).toBeVisible();
+    await expect(page.getByRole('button',{name:'查看核验结果',exact:true})).toBeVisible();
   }
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:'test-results/unified-dark-mobile.png',fullPage:true});
