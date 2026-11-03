@@ -61,6 +61,24 @@ def summary(rows,threshold):
         'false_negative':rate(sum(r['score']<threshold for r in ai),len(ai))}
 
 
+def grouped_summary(rows,threshold):
+    groups={}
+    for key in ('domain','generator'):
+        values=sorted({row[key] for row in rows if isinstance(row.get(key),str)})
+        groups[key]={value:summary([row for row in rows if row.get(key)==value],threshold) for value in values}
+    return groups
+
+
+def choose_threshold(rows):
+    human=[r['score'] for r in rows if r['status']=='completed' and r['truth']=='human']
+    ai=[r for r in rows if r['status']=='completed' and r['truth']=='ai']
+    if len(human)<100 or len(ai)<100 or (len(human)+len(ai))/len(rows)<.9:raise ValueError('INSUFFICIENT_CALIBRATION_COVERAGE')
+    if any(type(value) not in (float,int) or not math.isfinite(value) or value<0 for value in human):
+        raise ValueError('INVALID_CALIBRATION_RATIO')
+    candidates=sorted({0.,*(math.nextafter(number,math.inf) for number in human)})
+    return next(number for number in candidates if math.isfinite(number) and sum(s>=number for s in human)/len(human)<=.05)
+
+
 def main():
     assert os.environ.get('GITHUB_ACTIONS')=='true'
     parser=argparse.ArgumentParser(description=__doc__)
@@ -79,11 +97,7 @@ def main():
     lrr_model.prepare(args.model_dir)
     scored=score(calibration,args.model_dir)
     (args.output/'calibration-report.json').write_text(json.dumps(scored,indent=2)+'\n',encoding='utf-8')
-    human=[r['score'] for r in scored if r['status']=='completed' and r['truth']=='human']
-    ai=[r for r in scored if r['status']=='completed' and r['truth']=='ai']
-    if len(human)<100 or len(ai)<100 or (len(human)+len(ai))/len(scored)<.9:raise ValueError('INSUFFICIENT_CALIBRATION_COVERAGE')
-    candidates=sorted({0.,*(math.nextafter(number,math.inf) for number in human)})
-    threshold=next(number for number in candidates if sum(s>=number for s in human)/len(human)<=.05)
+    threshold=choose_threshold(scored)
     policy={'engine':'workproof-qwen3-lrr-experiment','model_revision':lrr_model.REVISION,
         'score_kind':'negative_log_likelihood_log_rank_ratio','direction':'higher','threshold':threshold,
         'decision_rule':'threshold_gte','calibration_dataset_sha256':calibration_hash,'heldout_dataset_sha256':heldout_hash,
@@ -93,7 +107,7 @@ def main():
     with (args.output/'frozen-policy.json').open('x',encoding='utf-8') as output:json.dump(policy,output,indent=2);output.flush();os.fsync(output.fileno())
     tested=score(heldout,args.model_dir)
     report={'source_commit':os.environ['GITHUB_SHA'],'language':args.language,'threshold':threshold,
-        'overall':summary(tested,threshold),'samples':tested,
+        'overall':summary(tested,threshold),'groups':grouped_summary(tested,threshold),'samples':tested,
         'limitations':['Empirical calibration budget does not guarantee heldout errors.','Upstream truth, semantic independence and training contamination unverified.','Correlated source samples may make Wilson intervals optimistic.','No commercial clearance or production threshold activation.']}
     (args.output/'heldout-report.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(report['overall'],indent=2))

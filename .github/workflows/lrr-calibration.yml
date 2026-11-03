@@ -29,6 +29,7 @@ jobs:
           python -m pip check
           python tools/ai-assessment/test_lrr_math.py
           python tools/ai-assessment/test_lrr_model.py
+          python tools/ai-assessment/test_evaluate_lrr.py
       - name: Calibration then frozen-policy untouched evaluation
         env:
           LANGUAGE: ${{ matrix.language }}

@@ -25,6 +25,7 @@ jobs:
         run: |
           python tools/ai-assessment/test_lrr_math.py
           python tools/ai-assessment/test_lrr_model.py
+          python tools/ai-assessment/test_evaluate_lrr.py
       - name: Fixed model bilingual inference and measured resource budgets
         run: python tools/ai-assessment/test_lrr_real.py
       - uses: actions/upload-artifact@v4
