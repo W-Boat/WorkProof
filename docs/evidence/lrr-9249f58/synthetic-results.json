@@ -1,0 +1,76 @@
+{
+  "schema": "workproof-lrr-smoke/1",
+  "source_commit": "9249f5854e6e1b20938a6d36cba9b50fbbe10da7",
+  "accuracy_evaluated": false,
+  "reports": [
+    {
+      "language": "en",
+      "synthetic_sha256": "51f6abdb8a325883d1ae473a3fcacad6227d50b2aa48d9d4ad4b60425e1ab4f7",
+      "result": {
+        "protocol": "workproof-lrr-experiment/1",
+        "engine_id": "workproof-qwen3-lrr-experiment",
+        "method_family": "causal_likelihood_rank_ratio",
+        "model": "Qwen/Qwen3-0.6B-Base",
+        "model_revision": "da87bfb608c14b7cf20ba1ce41287e8de496c0cd",
+        "score_kind": "negative_log_likelihood_log_rank_ratio",
+        "direction": "higher",
+        "calibration": null,
+        "network_used": false,
+        "max_tokens": 512,
+        "limitations": [
+          "Experimental adaptation; Qwen and Chinese detection accuracy unvalidated.",
+          "Ratio is not an AI probability, content percentage or authorship verdict."
+        ],
+        "status": "completed",
+        "statistics": {
+          "value": 1.824970034115294,
+          "scored_tokens": 105,
+          "negative_log_likelihood_sum": 161.20441341400146,
+          "log_rank_sum": 88.33263582442869,
+          "tie_policy": "one_plus_strictly_greater_count"
+        },
+        "input_tokens": 106,
+        "add_special_tokens": false,
+        "first_token_scored": false,
+        "truncated": false,
+        "elapsed_seconds": 2.8630162679999955,
+        "peak_rss_kib": 3999240
+      }
+    },
+    {
+      "language": "zh",
+      "synthetic_sha256": "b97492fbf73233c7f7cb5c6d88b881bfa1047bf5b776197572ea5c77eca7b80c",
+      "result": {
+        "protocol": "workproof-lrr-experiment/1",
+        "engine_id": "workproof-qwen3-lrr-experiment",
+        "method_family": "causal_likelihood_rank_ratio",
+        "model": "Qwen/Qwen3-0.6B-Base",
+        "model_revision": "da87bfb608c14b7cf20ba1ce41287e8de496c0cd",
+        "score_kind": "negative_log_likelihood_log_rank_ratio",
+        "direction": "higher",
+        "calibration": null,
+        "network_used": false,
+        "max_tokens": 512,
+        "limitations": [
+          "Experimental adaptation; Qwen and Chinese detection accuracy unvalidated.",
+          "Ratio is not an AI probability, content percentage or authorship verdict."
+        ],
+        "status": "completed",
+        "statistics": {
+          "value": 1.6720981035896176,
+          "scored_tokens": 107,
+          "negative_log_likelihood_sum": 267.45462131500244,
+          "log_rank_sum": 159.95151285731242,
+          "tie_policy": "one_plus_strictly_greater_count"
+        },
+        "input_tokens": 108,
+        "add_special_tokens": false,
+        "first_token_scored": false,
+        "truncated": false,
+        "elapsed_seconds": 2.5323059659999956,
+        "peak_rss_kib": 3999844
+      }
+    }
+  ],
+  "scope": "Real fixed model, synthetic bilingual inference and resource budgets; no detector accuracy, threshold or production integration claim."
+}
