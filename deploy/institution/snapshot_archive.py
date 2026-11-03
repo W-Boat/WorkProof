@@ -15,6 +15,7 @@ import tarfile
 
 import backup_crypto
 import catalog_receipt
+import jobs_receipt
 
 FORMAT = 'workproof-server-snapshot/1'
 MAX_TOTAL_BYTES = 8 * 1024**3
@@ -29,8 +30,11 @@ FILES = {'database.sql': (0, 0o600), 'app_config/application.json': (10001, 0o60
          'initial_account/account.json': (0, 0o600), 'mysql_root_secret/password': (0, 0o444),
          'mysql_app_secret/password': (0, 0o444)}
 FILES['app_config/' + catalog_receipt.PREPARED] = (10001, 0o600)
-REQUIRED = set(ROOTS) | (set(FILES) - {'app_config/.setup.lock', 'app_config/' + catalog_receipt.PREPARED})
+FILES['app_config/' + jobs_receipt.PREPARED] = (10001, 0o600)
+REQUIRED = set(ROOTS) | (set(FILES) - {'app_config/.setup.lock', 'app_config/' + catalog_receipt.PREPARED,
+                                    'app_config/' + jobs_receipt.PREPARED})
 UUID_PROOF = re.compile(r'app_data/jobs/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.proof')
+UUID_TEMP = re.compile(r'app_data/jobs/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp')
 
 
 class SnapshotArchiveError(Exception):
@@ -53,7 +57,7 @@ def _rule(path):
     if path in FILES:
         uid, mode = FILES[path]
         return 'file', uid, mode
-    if path == 'app_data/jobs/.queue.lock' or UUID_PROOF.fullmatch(path):
+    if path == 'app_data/jobs/.queue.lock' or UUID_PROOF.fullmatch(path) or UUID_TEMP.fullmatch(path):
         return 'file', 10001, 0o600
     raise SnapshotArchiveError('Unknown snapshot path')
 
@@ -221,6 +225,20 @@ def _tar_info(entry):
     return info
 
 
+def _preparation_records(records):
+    """Validate exact-byte V3 dependency independently of tar member order."""
+    if any(len(data) > 16384 for data in records.values()):
+        raise SnapshotArchiveError('Preparation record exceeds the limit')
+    catalog_path = 'app_config/' + catalog_receipt.PREPARED
+    jobs_path = 'app_config/' + jobs_receipt.PREPARED
+    catalog = catalog_receipt.validate(records[catalog_path]) if catalog_path in records else None
+    if jobs_path in records:
+        jobs = jobs_receipt.validate(records[jobs_path])
+        if (catalog is None or jobs['catalogReceiptSha256'] != hashlib.sha256(records[catalog_path]).hexdigest() or
+                jobs['schemaSha256'] != catalog['schemaSha256']):
+            raise SnapshotArchiveError('Jobs preparation dependency differs')
+
+
 def create_encrypted_snapshot(stage_dir, output_path, password, *, source_commit, image_id, backup_time,
                               max_total_bytes=MAX_TOTAL_BYTES, max_files=MAX_FILES):
     root = None
@@ -233,10 +251,12 @@ def create_encrypted_snapshot(stage_dir, output_path, password, *, source_commit
         initialized_fd = _open_relative(root, 'app_config/initialized.json')
         with os.fdopen(initialized_fd, 'rb') as initialized:
             _initialized(initialized.read(16385))
-        catalog_path = 'app_config/' + catalog_receipt.PREPARED
-        if catalog_path in identities:
-            with os.fdopen(_open_relative(root, catalog_path), 'rb') as prepared:
-                catalog_receipt.validate(prepared.read(16385))
+        records = {}
+        for path in ('app_config/' + catalog_receipt.PREPARED, 'app_config/' + jobs_receipt.PREPARED):
+            if path in identities:
+                with os.fdopen(_open_relative(root, path), 'rb') as prepared:
+                    records[path] = prepared.read(16385)
+        _preparation_records(records)
         manifest = {'format': FORMAT, 'source_commit': source_commit, 'image_id': image_id,
                     'backup_time': backup_time, 'initialization': 'initialized', 'entries': entries}
         encoded = json.dumps(manifest, ensure_ascii=True, sort_keys=True, separators=(',', ':')).encode()
@@ -390,6 +410,7 @@ def verify_encrypted_snapshot(encrypted_path, password, *, work_dir,
                     raise SnapshotArchiveError('A bounded private manifest must be the first member')
                 manifest, expected = _manifest(_payload(source, first.size, capture=True), max_total_bytes, max_files)
                 seen = set()
+                records = {}
                 while True:
                     info = _header(source)
                     if info is None:
@@ -401,14 +422,15 @@ def verify_encrypted_snapshot(encrypted_path, password, *, work_dir,
                         raise SnapshotArchiveError('Tar member does not match manifest metadata')
                     if info.isdir() != (entry['type'] == 'directory'):
                         raise SnapshotArchiveError('Tar member type mismatch')
-                    if info.name in ('app_config/initialized.json', 'app_config/' + catalog_receipt.PREPARED):
+                    if info.name in ('app_config/initialized.json', 'app_config/' + catalog_receipt.PREPARED,
+                                     'app_config/' + jobs_receipt.PREPARED):
                         if info.size > 16384:
                             raise SnapshotArchiveError('Initialization record exceeds the limit')
                         data = _payload(source, info.size, capture=True)
                         if info.name == 'app_config/initialized.json':
                             _initialized(data)
                         else:
-                            catalog_receipt.validate(data)
+                            records[info.name] = data
                         digest = hashlib.sha256(data).hexdigest()
                     else:
                         digest = _payload(source, info.size)
@@ -417,6 +439,7 @@ def verify_encrypted_snapshot(encrypted_path, password, *, work_dir,
                     seen.add(info.name)
                 if seen != set(expected):
                     raise SnapshotArchiveError('Tar file set does not match manifest')
+                _preparation_records(records)
                 return manifest
     except SnapshotArchiveError:
         raise

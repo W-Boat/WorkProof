@@ -11,6 +11,7 @@ import pathlib
 import re
 import secrets
 import signal
+import stat
 import shutil
 import subprocess
 import sys
@@ -25,7 +26,8 @@ import restore_new as restore
 TEST_PHASE = 'preflight'
 TEST_PHASES = {'preflight', 'guard-checks', 'restore', 'ready-stopped', 'database-start', 'explicit-start',
                'row-comparison', 'login', 'private-readback', 'refusal-existing-project',
-               'refusal-wrong-passphrase', 'refusal-existing-volume', 'source-check', 'cleanup', 'completed'}
+               'refusal-wrong-passphrase', 'refusal-existing-volume', 'source-check', 'cleanup', 'completed',
+               'jobs-ready', 'jobs-submit', 'jobs-complete'}
 RESTORE_PHASES = {'preflight', 'authenticate', 'create-owned-volumes', 'install-private-volumes',
                   'start-new-database', 'import-new-database', 'verify-restored-database'}
 
@@ -62,18 +64,37 @@ def rows(identity):
     return restore.run(['docker', 'exec', identity, 'bash', '-ec', script], capture=True)
 
 
-def request(base, path, data=None, token=None):
-    encoded = json.dumps(data).encode() if data is not None else None
-    headers = {'Content-Type': 'application/json'}
+def request(base, path, data=None, token=None, method=None):
+    encoded = data if isinstance(data,bytes) else json.dumps(data).encode() if data is not None else None
+    headers = {'Content-Type': 'application/octet-stream' if isinstance(data,bytes) else 'application/json'}
     if token:
         headers['Authorization'] = 'Bearer ' + token
     try:
         response = urllib.request.urlopen(urllib.request.Request(base + path, data=encoded,
-            headers=headers), timeout=10)
+            headers=headers, method=method), timeout=10)
     except urllib.error.HTTPError as error:
         response = error
     with response:
         return response.status, response.read()
+
+
+def read_jobs_fixture(path):
+    parent, absolute = restore._path_parent(path,private=True)
+    try:
+        fd=os.open(absolute.name,os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,dir_fd=parent)
+    finally:
+        os.close(parent)
+    with os.fdopen(fd,'rb') as source:
+        info=os.fstat(source.fileno())
+        assert (stat.S_ISREG(info.st_mode) and info.st_nlink==1 and info.st_uid==0 and info.st_gid==0 and
+                stat.S_IMODE(info.st_mode)==0o600 and info.st_size<=4096)
+        raw=source.read(4097)
+        assert len(raw)<=4096
+    value=json.loads(raw,object_pairs_hook=restore._unique_json,parse_constant=restore._nonfinite_json)
+    assert type(value) is dict and set(value)=={'jobId','temporaryToken'}
+    for item in value.values():
+        assert isinstance(item,str) and re.fullmatch('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',item)
+    return value
 
 
 def main():
@@ -83,7 +104,9 @@ def main():
     for option in ('input', 'expected-image', 'expected-commit', 'source-project'):
         parser.add_argument('--' + option, required=True)
     parser.add_argument('--password-stdin', action='store_true', required=True)
+    parser.add_argument('--jobs-fixture')
     args = parser.parse_args()
+    jobs_fixture=read_jobs_fixture(args.jobs_fixture) if args.jobs_fixture else None
     assert re.fullmatch('workproof-server-ci-[0-9a-f]{12}', args.source_project), 'Only isolated CI source accepted'
     raw = sys.stdin.buffer.read(1026)
     assert raw.endswith(b'\n')
@@ -116,6 +139,13 @@ def main():
             state = parent / 'restored'
             record = restore.restore_new(args.input, project, state, password, args.expected_image, args.expected_commit)
             token = record['owner']
+            has_jobs=(state/'stage/app_config/jobs.json').exists()
+            assert not has_jobs or jobs_fixture is not None, 'Jobs restore requires explicit private fixture'
+            assert not jobs_fixture or has_jobs, 'Jobs fixture requires jobs-enabled backup'
+            if has_jobs:
+                spool=state/'stage/app_data/jobs'
+                assert (spool/(jobs_fixture['temporaryToken']+'.tmp')).read_bytes()==b'interrupted-upload-fixture'
+                assert not (spool/(jobs_fixture['temporaryToken']+'.proof')).exists()
             TEST_PHASE = 'ready-stopped'
             assert record['status'] == 'ready-to-start'
             assert json.loads((state / 'state.json').read_text()) == record
@@ -197,6 +227,42 @@ for role in a.ROOTS:
             if (state / 'stage/app_config/catalog.json').exists():
                 status, payload = request(base, '/api/workproof/certificates/status', token=result['data']['token'])
                 assert status == 200 and json.loads(payload)['data']['ready'] is True
+            if has_jobs:
+                actor=result['data']['token']
+                def jobs_api(path,body=None,method=None):
+                    status,payload=request(base,'/api/workproof/certificate-jobs'+path,body,actor,method)
+                    parsed=json.loads(payload)
+                    assert status==200 and parsed['code']==200
+                    return parsed['data']
+                TEST_PHASE='jobs-ready'
+                deadline=time.monotonic()+30
+                while time.monotonic()<deadline:
+                    capability=jobs_api('/capabilities')
+                    if capability['enabled'] and capability['ready']:break
+                    time.sleep(.5)
+                else:raise AssertionError('Restored Java jobs not ready')
+                job=jobs_fixture['jobId'];temporary_token=jobs_fixture['temporaryToken']
+                original=jobs_api('/'+job)
+                assert original['state']=='draft' and original['totalItems']==1 and original['expectedItems']==1
+                assert len(original['items'])==1 and original['items'][0]['state']=='queued'
+                TEST_PHASE='jobs-submit'
+                jobs_api('/'+job+'/submit',{},'POST')
+                TEST_PHASE='jobs-complete'
+                deadline=time.monotonic()+45
+                while time.monotonic()<deadline:
+                    completed=jobs_api('/'+job)
+                    if completed['state']=='completed' and not completed['cleanupPending']:break
+                    time.sleep(.3)
+                else:raise AssertionError('Restored retained job did not finish real native check')
+                assert completed['items'][0]['state']=='saved' and completed['items'][0]['cleanupState']=='deleted'
+                # temporary_token is validated canonical UUID before entering this
+                # fixed query. No receipt/input supplies executable SQL text.
+                sql="SELECT COUNT(*) FROM wp_certificate_job_item WHERE spool_token='"+temporary_token+"'"
+                command='export MYSQL_PWD="$(cat /private/mysql-root/password)"; exec mysql --user=root --database=workproof --batch --skip-column-names --execute="'+sql+'"'
+                assert restore.run(['docker','exec',target_db,'bash','-ec',command],capture=True).strip()==b'0'
+                check_tmp="import pathlib;p=pathlib.Path('/data/jobs');assert not (p/"+repr(temporary_token+'.proof')+").exists();f=p/"+repr(temporary_token+'.tmp')+";assert not f.exists() or f.read_bytes()==b'interrupted-upload-fixture'"
+                restore.run(['docker','run','--rm','--network','none','--user','0:0','--entrypoint','python3','--mount',
+                    f'type=volume,src={project}_app_data,dst=/data,readonly',args.expected_image,'-c',check_tmp])
             for value in restore.owned_containers(project, token):
                 service = value['Config']['Labels']['com.docker.compose.service']
                 assert value['Image'] == record['runtime_image_ids'][service]

@@ -195,7 +195,9 @@ def _finite_float(value):
 
 def coherence(stage):
     import catalog_receipt
-    if os.path.lexists(stage / 'app_config' / catalog_receipt.PENDING):
+    import jobs_receipt
+    if (os.path.lexists(stage / 'app_config' / catalog_receipt.PENDING) or
+            os.path.lexists(stage / 'app_config' / jobs_receipt.PENDING)):
         raise RestoreNewError('Catalog preparation incomplete')
     config = _read_private_json(stage / 'app_config/application.json')
     initialized = _read_private_json(stage / 'app_config/initialized.json')
@@ -215,6 +217,12 @@ def coherence(stage):
         receipt = catalog_receipt.read(prepared)
         if receipt['schemaSha256'] != initialized['schemaSha256']:
             raise RestoreNewError('Catalog initialization identity differs')
+    jobs_path = stage / 'app_config' / jobs_receipt.PREPARED
+    if os.path.lexists(jobs_path):
+        receipt = jobs_receipt.read(jobs_path)
+        if (not os.path.lexists(prepared) or receipt['schemaSha256'] != initialized['schemaSha256'] or
+                receipt['catalogReceiptSha256'] != hashlib.sha256(prepared.read_bytes()).hexdigest()):
+            raise RestoreNewError('Jobs catalog dependency differs')
     return initialized['schemaSha256']
 
 
@@ -416,11 +424,20 @@ p=pathlib.Path('/stage/app_config');v=r.read(p/r.PREPARED)
 assert v['migrationSha256']==hashlib.sha256(pathlib.Path('/opt/workproof/sql/V3__workproof_certificate_catalog.sql').read_bytes()).hexdigest()
 c=json.loads((p/'application.json').read_text());db=pymysql.connect(host='database',user='workproof',password=c['databasePassword'],database='workproof',charset='utf8mb4',connect_timeout=10,read_timeout=10,write_timeout=10)
 try:
- with db.cursor() as cursor:verify_schema(cursor)
+ with db.cursor() as cursor:
+  verify_schema(cursor)
+  import jobs_receipt as j
+  if (p/j.PREPARED).exists():
+   from jobs_prepare import verify_schema as verify_jobs,verify_spool,verify_spool_references
+   v4=j.read(p/j.PREPARED)
+   assert v4['catalogReceiptSha256']==hashlib.sha256((p/r.PREPARED).read_bytes()).hexdigest()
+   assert v4['migrationSha256']==hashlib.sha256(pathlib.Path('/opt/workproof/sql/V4__workproof_certificate_jobs.sql').read_bytes()).hexdigest()
+   verify_jobs(cursor);spool=pathlib.Path(j.SPOOL);verify_spool(spool);verify_spool_references(cursor,spool)
 finally:db.close()
 """
             helper(expected_image, token, state,
-                   [f'type=bind,src={state / "stage"},dst=/stage,readonly'], ['-c', verify_catalog],
+                   [f'type=bind,src={state / "stage"},dst=/stage,readonly',
+                    f'type=volume,src={project}_app_data,dst=/var/lib/workproof,readonly'], ['-c', verify_catalog],
                    network=network['Id'])
         if any(value['Config']['Labels'].get('com.docker.compose.service') != 'database' for value in owned_containers(project, token)):
             raise RestoreNewError('Unexpected application startup')

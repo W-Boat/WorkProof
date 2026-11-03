@@ -167,6 +167,19 @@ try:
         catalog_restore_phase=re.search(rb'RESTORE_PHASE=([a-z-]{1,40}); RESTORE_TEST_PHASE=([a-z-]{1,40})',catalog_restore.stderr)
         assert catalog_restore.returncode==0, 'Enabled catalog restore failed: '+('/'.join(p.decode() for p in catalog_restore_phase.groups()) if catalog_restore_phase else 'unknown')
         checks.append('Explicit V3 preparation after authenticated backup, enabled catalog API and enabled new-project restore; no automatic migration or ordinary grants')
+        jobs=subprocess.run(['sudo','env','GITHUB_ACTIONS=true','COMPOSE_PROJECT_NAME='+project,
+            'python3',str(root/'scripts/test_jobs_server.py'),'--project',project,
+            '--backup',private_backup+'/before-jobs.enc','--expected-image',image_id,
+            '--expected-commit',os.environ['GITHUB_SHA'],'--password-stdin'],input=backup_password+b'\n',capture_output=True,timeout=900)
+        jobs_phase=re.search(rb'JOBS_TEST_PHASE=([a-z-]{1,40})',jobs.stderr)
+        assert jobs.returncode==0, 'Jobs preparation acceptance failed: '+(jobs_phase.group(1).decode() if jobs_phase else 'unknown')
+        jobs_restore=subprocess.run(['sudo','env','GITHUB_ACTIONS=true','python3',str(root/'scripts/test_restore_new.py'),
+            '--input',private_backup+'/after-jobs.enc','--expected-image',image_id,'--expected-commit',os.environ['GITHUB_SHA'],
+            '--source-project',project,'--jobs-fixture',private_backup+'/jobs-fixture.json',
+            '--password-stdin'],input=backup_password+b'\n',capture_output=True,timeout=900)
+        jobs_restore_phase=re.search(rb'RESTORE_PHASE=([a-z-]{1,40}); RESTORE_TEST_PHASE=([a-z-]{1,40})',jobs_restore.stderr)
+        assert jobs_restore.returncode==0, 'Enabled jobs restore failed: '+('/'.join(p.decode() for p in jobs_restore_phase.groups()) if jobs_restore_phase else 'unknown')
+        checks.append('Explicit V4 preparation, real native job lifecycle and retained draft restart, proof/tmp backup, new-project restore and explicit restored draft submission; no automatic submission of temporary files')
     finally:
         cleanup="import pathlib,shutil,sys; p=pathlib.Path(sys.argv[1]);assert p.parent==pathlib.Path('/tmp') and p.name.startswith('workproof-server-backup-ci.');shutil.rmtree(p)"
         subprocess.run(['sudo','python3','-c',cleanup,private_backup],check=True,capture_output=True)
@@ -185,7 +198,7 @@ try:
     preserved=run('run','--rm','-T','--entrypoint','python3','initialize','-c',connection_code+"cur.execute('SELECT id FROM setup_sentinel');print(cur.fetchone()[0]);cur.execute('SHOW TABLES');assert len(cur.fetchall())==1;db.close()")
     assert preserved.stdout.strip()=='73'
     checks.append('Nonempty database refused before schema import; original table and row preserved')
-    (root/'test-institution-server-results.json').write_text(json.dumps({'scope':'Linux amd64 V1/V2 new deployment plus explicit V3 catalog preparation and restore; catalog initially disabled, explicitly enabled after backup; jobs/AI disabled; no production or user database touched','checks':checks},indent=2)+'\n',encoding='utf-8')
+    (root/'test-institution-server-results.json').write_text(json.dumps({'scope':'Linux amd64 V1/V2 new deployment plus explicit V3 catalog and V4 jobs preparation and restore; modules initially disabled and separately enabled after backup; AI disabled; no production or user database touched','checks':checks},indent=2)+'\n',encoding='utf-8')
     print('PASS: real server image, explicit initialization, login, API, inspector, restart and isolation checks')
 finally:
     assert re.fullmatch(r'workproof-server-ci-[0-9a-f]{12}',project)
