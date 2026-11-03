@@ -1,0 +1,61 @@
+{
+  "review_date": "2026-11-03",
+  "scope": "Read-only npm metadata and public upstream repository research; no dependency installation, builds, tests, or execution of downloaded packages.",
+  "packages": [
+    {
+      "name": "client-only",
+      "version": "0.0.1",
+      "registry_url": "https://registry.npmjs.org/client-only/0.0.1",
+      "registry_license_reconfirmed": "MIT",
+      "registry_gitHead_reconfirmed": null,
+      "existing_tarball_sha256": "dcd7bc3868e2d3518d08944559952e4a68f581d89a84b6892de9fd8f40860b19",
+      "existing_tarball_hash_source": "../office-npm-supplemental/client-only.metadata.json",
+      "tarball_rehashed_in_this_review": false,
+      "status": "unresolved-exact-version-notice"
+    },
+    {
+      "name": "react-remove-scroll-bar",
+      "version": "2.3.8",
+      "registry_url": "https://registry.npmjs.org/react-remove-scroll-bar/2.3.8",
+      "registry_license_reconfirmed": "MIT",
+      "registry_gitHead_reconfirmed": "b3b1287aad81def2e2ae707274b74531b61ddbaf",
+      "existing_tarball_sha256": "ccc872d7a2dc007cbf9d755f30d56b8d80eabdbe22c44c95a709129bfdc46f01",
+      "existing_tarball_hash_source": "../office-npm-supplemental/react-remove-scroll-bar.metadata.json",
+      "tarball_rehashed_in_this_review": false,
+      "status": "unresolved-exact-version-notice"
+    }
+  ],
+  "scroll_bar_later_license": {
+    "commit": "7301c160fda44cb8cf2b9fdfde61efad35736196",
+    "parent": "29e9fcd1eecf7d3b77a767941c4a57fe461fc1e4",
+    "author_date": "2025-05-21T17:01:24Z",
+    "file": "LICENSE",
+    "change": "added",
+    "blob_sha1": "7c08c3990396ecefd90f99ff5d9a34f26f5b5616",
+    "copyright_observed": "Copyright (c) 2025 Anton Korzunov <thekashey@gmail.com>",
+    "commit_api": "https://api.github.com/repos/theKashey/react-remove-scroll-bar/commits/7301c160fda44cb8cf2b9fdfde61efad35736196",
+    "immutable_file_url": "https://github.com/theKashey/react-remove-scroll-bar/blob/7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE",
+    "pull_request": "https://github.com/theKashey/react-remove-scroll-bar/pull/76",
+    "pull_request_merged_at": "2025-05-26T00:29:27Z",
+    "pull_request_body_observation": "Contributor states the missing MIT LICENSE is being added and author was taken from package.json.",
+    "qualifies_as_exact_2_3_8_notice": false
+  },
+  "client_only_searches": [
+    {
+      "url": "https://api.github.com/repos/facebook/react/commits?path=packages/react-client-only&per_page=5",
+      "result": "empty list"
+    },
+    {
+      "url": "https://api.github.com/repos/facebook/react/commits?path=packages/client-only&per_page=5",
+      "result": "empty list"
+    }
+  ],
+  "limits": [
+    "No evidence establishes client-only exact source commit or original copyright notice. Empty candidate-path histories do not prove absence elsewhere.",
+    "No source correspondence established for react-remove-scroll-bar npm gitHead b3b1287aad81def2e2ae707274b74531b61ddbaf.",
+    "GitHub API returned HTTP 403 rate limit exceeded during further tree queries; network research stopped without alternate access or bypass.",
+    "Existing prior-review 404/422 findings are documented in office-npm-supplemental and were not independently repeated after the rate limit.",
+    "Later license text is evidence of later upstream licensing, not silently applied to the exact published release.",
+    "No whole-product commercial clearance or distribution approval."
+  ]
+}
