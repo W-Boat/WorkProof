@@ -11,6 +11,17 @@ spec.loader.exec_module(coordinator)
 
 
 class Guards(unittest.TestCase):
+    def test_mount_reordering_does_not_change_identity_but_replacement_does(self):
+        original={'Id':'a','Image':'b','RestartCount':0,'Mounts':[
+            {'Destination':'/private/config','Type':'volume','Name':'project_app_config','RW':False},
+            {'Destination':'/var/lib/workproof','Type':'volume','Name':'project_app_data','RW':True}],
+            'State':{'Running':False,'Restarting':False,'Paused':False,'StartedAt':'start','FinishedAt':'finish'}}
+        reordered=copy.deepcopy(original);reordered['Mounts'].reverse()
+        self.assertEqual(coordinator.stopped(original),coordinator.stopped(reordered))
+        self.assertEqual(coordinator.mount_fingerprint(original),coordinator.mount_fingerprint(reordered))
+        reordered['Mounts'][0]['Name']='replacement'
+        self.assertNotEqual(coordinator.stopped(original),coordinator.stopped(reordered))
+
     def test_stopped_fingerprint_detects_restart_and_replacement(self):
         original = {'Id': 'a', 'Image': 'b', 'RestartCount': 0, 'Mounts': [],
                     'State': {'Running': False, 'Restarting': False, 'Paused': False,

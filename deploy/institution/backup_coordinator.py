@@ -63,7 +63,13 @@ def stopped(container):
     if state['Running'] or state['Restarting'] or state.get('Paused'):
         raise CoordinatorError('Application must remain stopped')
     return (container['Id'], container['Image'], container['RestartCount'],
-            state['StartedAt'], state['FinishedAt'], container['Mounts'])
+            state['StartedAt'], state['FinishedAt'], mount_fingerprint(container))
+
+
+def mount_fingerprint(container):
+    # Docker mount-array ordering is not identity. Keep every field and compare
+    # canonical entries so a reordered response cannot invalidate a valid backup.
+    return tuple(sorted(json.dumps(mount,sort_keys=True,separators=(',',':')) for mount in container['Mounts']))
 
 
 @contextlib.contextmanager
@@ -207,7 +213,7 @@ def _backup(output, password):
             PHASE = 'verify-services'
             current_db = service('database')
             if (stopped(service('app')) != baseline or current_db['Id'] != database['Id'] or
-                    current_db['Mounts'] != database['Mounts'] or
+                    mount_fingerprint(current_db) != mount_fingerprint(database) or
                     current_db['RestartCount'] != database['RestartCount'] or
                     current_db['State']['StartedAt'] != database['State']['StartedAt']):
                 raise CoordinatorError('Service identity changed during backup')
