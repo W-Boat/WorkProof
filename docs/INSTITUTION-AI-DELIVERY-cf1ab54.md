@@ -1,5 +1,7 @@
 # 中文 AI 可选运行环境包核对
 
+英文 MPU 候选包也已本地核验：`E:/work/WorkProof-Delivery/institution-ai-runtime-en-cf1ab54.zip`，artifact `13227191055`，552,864,100字节，外层 SHA256 `e5c91a1c5d7a64a5567564ca3163c8969b1b52bc9578326882a38ba022238234` 与 GitHub 一致，9项包内摘要全部匹配。记录的英文引擎、源码和基础镜像与配套基础包一致，见[英文包检查](evidence/institution-ai-cf1ab54/en-package-inspection.json)。它与中文包同样不含模型和私有部署配置；Desklib候选包仍在续传，未验收其本地归档。
+
 配套基础包也已下载至 `E:/work/WorkProof-Delivery/institution-server-cf1ab54.zip`：artifact `13225657527`，222,507,555 字节，SHA256 `af51a3e3ed2f22174c8e7c19ad04d53fdb69f149abb6c5ee5a074041864b92e9` 与 GitHub 一致，26项包内摘要全部匹配。[基础包检查记录](evidence/institution-ai-cf1ab54/base-package-inspection.json)与下面的 AI 包记录交叉核对过源码、基础任务、精确基础镜像 ID 和 Linux amd64 平台。两份包现已本地核验配套，不代表已经安装、具备模型权重或完成商业许可审查。
 
 源码 `cf1ab548e6edce10c46257185ce92a64233d5274` 的[三模型任务 41626918967](https://github.com/W-Boat/WorkProof/actions/runs/41626918967)全部成功。中文 MPU 候选运行环境 artifact `13226851651` 已完整下载到 `E:/work/WorkProof-Delivery/institution-ai-runtime-zh-cf1ab54.zip`，大小 552,841,598 字节。

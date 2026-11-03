@@ -1,0 +1,23 @@
+{
+  "artifact_id": 13227191055,
+  "artifact_sha256": "e5c91a1c5d7a64a5567564ca3163c8969b1b52bc9578326882a38ba022238234",
+  "bytes": 552864100,
+  "files_verified": 9,
+  "build": {
+    "schema": "workproof.optional-ai-package/1",
+    "source_commit": "cf1ab548e6edce10c46257185ce92a64233d5274",
+    "build_run": "41626918967",
+    "base_run": "41625621375",
+    "base_image_id": "sha256:13e8579cf7ab22d1a8395db3ceabce514eb62ce7184ce9806447b0edc7e0abfc",
+    "image_id": "sha256:eeb681b75da6b31fc91742c603e75beab6030891170356dcf772c7ffc70b904c",
+    "platform": "linux/amd64",
+    "tested_engine": "mpu-en-v3",
+    "weights_bundled": false,
+    "deployment_credentials_bundled": false,
+    "commercial_clearance": false,
+    "runtime_notice_packages": 35,
+    "runtime_notice_packages_with_issues": 1,
+    "scope": "Exact CPU runtime after selected-engine real server acceptance. Requires matching institution deployment, explicit model download and administrator preparation. Runtime notice collection is not full commercial clearance."
+  },
+  "scope": "Downloaded artifact digest and all packaged file digests, exact source/run/platform and declared scope; image not loaded or run locally."
+}
