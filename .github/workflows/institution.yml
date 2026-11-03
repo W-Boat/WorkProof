@@ -1,7 +1,7 @@
 name: Institution backend baseline
 on:
   push:
-    paths: ['deploy/institution/**', 'services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution*.py', 'scripts/test_backup_crypto.py', 'scripts/test_snapshot_archive.py', 'scripts/test_restore_snapshot.py', 'scripts/test_backup_coordinator.py', 'scripts/test_backup_failures.py', 'scripts/test_institution*.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml', '!services/institution/*.md', '!services/institution/**/*.md']
+    paths: ['deploy/institution/**', 'services/institution/**', 'apps/office/**', 'crates/proof/**', 'crates/engine/**', 'scripts/local/**', 'scripts/test_institution*.py', 'scripts/test_backup_crypto.py', 'scripts/test_snapshot_archive.py', 'scripts/test_restore_snapshot.py', 'scripts/test_restore_new.py', 'scripts/test_backup_coordinator.py', 'scripts/test_backup_failures.py', 'scripts/test_institution*.cjs', 'scripts/test_local_runtime.ps1', 'scripts/test_catalog_preparation.ps1', '.github/workflows/institution.yml', '!services/institution/*.md', '!services/institution/**/*.md']
   workflow_dispatch:
     inputs:
       ai_models:

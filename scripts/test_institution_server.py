@@ -98,6 +98,10 @@ try:
     ordinary_logs=run('logs','--no-color','app','database','cache').stdout
     assert all(value not in ordinary_logs for value in [password,*private_values]), 'A generated secret appeared in ordinary service logs'
     checks.append('Generated passwords and JWT absent from ordinary service logs')
+    # Include an actual signed proof in the application volume, not just empty
+    # directories and configuration files, in the subsequent restore comparison.
+    proof_fixture="import os,pathlib; p=pathlib.Path('/var/lib/workproof/jobs');p.mkdir(mode=0o700,exist_ok=True);os.chmod(p,0o700);f=p/'00000000-0000-4000-8000-000000000001.proof';f.write_bytes("+repr(json.dumps(proof,ensure_ascii=False).encode('utf-8'))+");os.chmod(f,0o600)"
+    run('exec','-T','app','python3','-c',proof_fixture)
     # Real native dump roundtrip, still confined to this disposable CI database.
     fixture_code="import json,pathlib,pymysql;c=json.loads(pathlib.Path('/private/config/application.json').read_text());db=pymysql.connect(host='database',user='workproof',password=c['databasePassword'],database='workproof',autocommit=True,charset='utf8mb4');cur=db.cursor();cur.execute('CREATE TABLE dump_fixture (id INT PRIMARY KEY, note TEXT NULL, payload BLOB) ENGINE=InnoDB');cur.executemany('INSERT INTO dump_fixture VALUES (%s,%s,%s)',[(1,None,bytes(range(256))),(2,'中文与表情🙂',b'\\x00\\xff')]);db.close()"
     run('run','--rm','-T','--entrypoint','python3','initialize','-c',fixture_code)
@@ -142,6 +146,15 @@ try:
         listing=subprocess.check_output(['sudo','find',private_backup,'-mindepth','1','-maxdepth','1','-printf','%f\\n'],text=True).splitlines()
         assert listing==['deployment.wproofbackup'], 'Private staging plaintext remained after backup'
         checks.append('Actual stopped host coordinator publishes authenticated encrypted snapshot, preserves existing output, cleans staging and keeps app stopped; no deployment restore claim')
+        image_id=subprocess.check_output(['docker','image','inspect','workproof-institution:local','--format','{{.Id}}'],text=True).strip()
+        restored=subprocess.run(['sudo','env','GITHUB_ACTIONS=true','python3',str(root/'scripts/test_restore_new.py'),
+            '--input',destination,'--expected-image',image_id,'--expected-commit',os.environ['GITHUB_SHA'],
+            '--source-project',project,'--password-stdin'],input=backup_password+b'\n',capture_output=True,timeout=900)
+        assert backup_password not in restored.stdout+restored.stderr
+        restore_phase=re.search(rb'RESTORE_PHASE=([a-z-]{1,40}); RESTORE_TEST_PHASE=([a-z-]{1,40})',restored.stderr)
+        restore_stage='/'.join(part.decode() for part in restore_phase.groups()) if restore_phase else 'unknown'
+        assert restored.returncode==0, 'Actual new-project restore acceptance failed at stage: '+restore_stage
+        checks.append('Actual new-project restore: authenticated SQL/private volumes, stopped ready state, explicit startup and original login, every-row comparison, collision and wrong-password refusal, source unchanged')
     finally:
         cleanup="import pathlib,shutil,sys; p=pathlib.Path(sys.argv[1]);assert p.parent==pathlib.Path('/tmp') and p.name.startswith('workproof-server-backup-ci.');shutil.rmtree(p)"
         subprocess.run(['sudo','python3','-c',cleanup,private_backup],check=True,capture_output=True)
