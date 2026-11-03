@@ -1,5 +1,22 @@
 import {test,expect} from '@playwright/test';
 
+test('completed verification focuses its result and repeat viewing does not restart Wasm',async({page})=>{
+  await page.setViewportSize({width:390,height:844});await page.emulateMedia({reducedMotion:'reduce'});
+  let workers=0;page.on('worker',()=>workers++);
+  await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();
+  const result=page.locator('#verification-result');
+  await expect(result).toBeFocused();await expect(result).toContainText('证据核验通过');
+  const view=page.getByRole('button',{name:'查看核验结果',exact:true});
+  await expect(view).toHaveCount(1);await expect(page.getByRole('button',{name:'开始本地核验',exact:true})).toHaveCount(0);
+  await view.click();await expect(result).toBeFocused();expect(workers).toBe(1);
+  await page.screenshot({path:'test-results/result-flow-mobile.png'});
+  await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'changed.md',mimeType:'text/plain',buffer:Buffer.from('changed original')});
+  await expect(view).toHaveCount(0);await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
+  await expect(result).toBeFocused();await expect(result).toContainText('证据核验未通过');
+  await page.getByRole('button',{name:'清空重新核验',exact:true}).click();
+  await expect(result).toHaveCount(0);await expect(page.getByRole('button',{name:'开始本地核验',exact:true})).toBeDisabled();
+});
+
 test('explicit demo clears an unrelated recipient fingerprint and runs real verification',async({page})=>{
   await page.goto('/');
   await page.getByText('收到证书指纹？核对是否为同一张证书（可选）',{exact:true}).click();
