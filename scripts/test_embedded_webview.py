@@ -76,6 +76,12 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         click_text('先体验一份演示证据')
         def verified():assert execute("return !!document.querySelector('.result-banner.success')")
         wait(verified)
+        result_flow=os.environ.get('WORKPROOF_EXPECT_RESULT_FLOW')=='1'
+        if result_flow:
+            def focused_result():assert execute("return document.activeElement?.id==='verification-result'")
+            wait(focused_result)
+            assert execute("return Array.from(document.querySelectorAll('button')).some(b=>b.textContent.trim()==='查看核验结果')")
+            click_text('查看核验结果');wait(focused_result)
         # Select actual filesystem files through WebDriver's file-input command.
         # No File/DataTransfer injection, mocked worker or app-only test bridge.
         files=pathlib.Path(temporary)/'个人资料';files.mkdir(mode=0o700)
@@ -85,6 +91,8 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             assert len(body)<=262144
             (files/name).write_bytes(body)
         click('button[aria-label="清空重新核验"]')
+        if result_flow:
+            assert execute("return document.activeElement===document.querySelector('.uploads .upload')"),'Clear did not restore file-selection focus'
         select_file('input[aria-label="选择最终作品"]',files/'essay.md')
         select_file('input[aria-label="选择 .wproof 证书"]',files/'essay.md.wproof')
         def selected():assert execute("return Array.from(document.querySelectorAll('.upload-copy strong')).map(e=>e.textContent).includes('essay.md.wproof')")
@@ -95,6 +103,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         click_text('开始本地核验')
         def rejected():assert execute("return !!document.querySelector('.result-banner.failure')")
         wait(rejected);screenshot('files-rejected.png')
+        if result_flow:wait(focused_result)
         select_file('input[aria-label="选择最终作品"]',files/'essay.md')
         click_text('开始本地核验');wait(verified)
         call('POST',f'/session/{session}/window/rect',{'width':480,'height':640})
@@ -108,7 +117,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         assert call('GET',f'/session/{session}/url')==url,'Navigation escaped verifier origin'
         screenshot('verifier.png')
         switch(workbench);click('#verify');assert len(handles())==2,'Repeated open created another verifier'
-        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']},indent=2),encoding='utf-8')
+        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
         print('PASS: installed native WebView verifies filesystem input, rejects changed bytes, scrolls and reuses the local verifier; workbench commands unavailable')
     finally:
         if session:

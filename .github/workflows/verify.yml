@@ -255,6 +255,8 @@ jobs:
           xvfb-run -a dbus-run-session -- python3 scripts/test_tray.py /usr/bin/workproof-desktop
       - name: Verify the installed Linux native WebView and local Wasm flow
         if: runner.os == 'Linux'
+        env:
+          WORKPROOF_EXPECT_RESULT_FLOW: '1'
         run: |
           sudo apt-get install -y webkit2gtk-driver
           cargo install tauri-driver --version 2.1.0 --locked --root "$RUNNER_TEMP/workproof-webdriver"
