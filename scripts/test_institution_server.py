@@ -127,7 +127,9 @@ try:
     try:
         destination=private_backup+'/deployment.wproofbackup'
         backed=subprocess.run([*backup_env,'python3',str(context/'backup_coordinator.py'),'--password-stdin','--output',destination],input=backup_password+b'\n',capture_output=True,timeout=240)
-        assert backed.returncode==0, 'Actual encrypted backup coordinator failed'
+        stage_match=re.search(rb'BACKUP_STAGE=([a-z-]{1,40})',backed.stderr)
+        stage=stage_match.group(1).decode() if stage_match else 'unknown'
+        assert backed.returncode==0, 'Actual encrypted backup coordinator failed at stage: '+stage
         assert backup_password not in backed.stdout+backed.stderr
         inspect_backup="import pathlib,os,json,sys;import snapshot_archive as s;p=pathlib.Path('/private-backup/deployment.wproofbackup');assert p.stat().st_mode & 0o777 == 0o600;password=sys.stdin.buffer.read().rstrip(b'\\n');m=s.verify_encrypted_snapshot(p,password,work_dir='/private-backup');print(json.dumps({'format':m.get('format'),'source_commit':m.get('source_commit'),'paths':[e['path'] for e in m['entries']]}))"
         verified=subprocess.run(['docker','run','--rm','-i','--user','0:0','--network','none','--mount','type=bind,src='+private_backup+',dst=/private-backup','--entrypoint','python3','workproof-institution:local','-c',inspect_backup],input=backup_password+b'\n',capture_output=True,timeout=120)

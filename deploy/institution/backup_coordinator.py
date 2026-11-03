@@ -22,6 +22,9 @@ import sys
 import tempfile
 
 
+PHASE = 'preflight'
+
+
 class CoordinatorError(Exception):
     pass
 
@@ -103,6 +106,8 @@ def backup(output, password):
 
 
 def _backup(output, password):
+    global PHASE
+    PHASE = 'preflight'
     if not isinstance(password,bytes) or not 16 <= len(password) <= 1024 or any(x in password for x in (b'\n',b'\r',b'\0')):
         raise CoordinatorError('Invalid passphrase')
     if os.name != 'posix' or os.geteuid() != 0:
@@ -121,6 +126,7 @@ def _backup(output, password):
         if not re.fullmatch('[0-9a-f]{12,64}', value):
             raise CoordinatorError('Expected exactly one existing service container')
         return inspect(value)
+    PHASE = 'inspect-services'
     app, database = service('app'), service('database')
     project = app['Config']['Labels']['com.docker.compose.project']
     if not re.fullmatch('[a-z0-9][a-z0-9_-]*', project):
@@ -146,6 +152,7 @@ def _backup(output, password):
         labels = inspect(name).get('Labels') or {}
         if labels.get('com.docker.compose.project') != project or labels.get('com.docker.compose.volume') != role:
             raise CoordinatorError('Volume project or role mismatch')
+    PHASE = 'stop-application'
     lock_path = '/run/lock/workproof-backup-' + project
     lock = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     try:
@@ -157,12 +164,14 @@ def _backup(output, password):
         with owned_stage(output.parent) as (base, helper):
             stage, encrypted = base / 'stage', base / 'encrypted'
             stage.mkdir(mode=0o700); encrypted.mkdir(mode=0o700)
+            PHASE = 'database-dump'
             sql = stage / 'database.sql'
             with sql.open('xb') as stream, pathlib.Path(__file__).with_name('dump-database.sh').open('rb') as script:
                 os.fchmod(stream.fileno(), 0o600)
                 run(['docker', 'exec', '-i', database['Id'], 'bash', '-s'], stdin=script, stdout=stream,
                     preexec_fn=lambda: resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024**3, 8 * 1024**3)))
                 stream.flush(); os.fsync(stream.fileno())
+            PHASE = 'create-collector'
             command = ['docker', 'create', '--rm', '-i', '--network', 'none', '--user', '0:0', '--read-only',
                        '--cidfile', str(base / 'helper.cid'), '--label',
                        'org.workproof.backup-owner=' + helper['token'],
@@ -182,15 +191,18 @@ def _backup(output, password):
             current = inspect(created)
             if current['Id'] != created or current['Config']['Labels'].get('org.workproof.backup-owner') != helper['token']:
                 raise CoordinatorError('Helper identity mismatch')
+            PHASE = 'collect-and-encrypt'
             helper['started'] = True
             run(['docker', 'start', '--attach', '--interactive', created],
                 input=password + b'\n', stdout=subprocess.DEVNULL)
+            PHASE = 'verify-services'
             current_db = service('database')
             if (stopped(service('app')) != baseline or current_db['Id'] != database['Id'] or
                     current_db['Mounts'] != database['Mounts'] or
                     current_db['RestartCount'] != database['RestartCount'] or
                     current_db['State']['StartedAt'] != database['State']['StartedAt']):
                 raise CoordinatorError('Service identity changed during backup')
+            PHASE = 'publish'
             os.link(encrypted / 'candidate', output, follow_symlinks=False)
             fd = os.open(output.parent, os.O_RDONLY | os.O_DIRECTORY)
             try:
@@ -223,5 +235,6 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:
+        print('BACKUP_STAGE=' + PHASE, file=sys.stderr)
         print('Backup failed. Keep application stopped and inspect deployment state before restarting.', file=sys.stderr)
         sys.exit(1)
