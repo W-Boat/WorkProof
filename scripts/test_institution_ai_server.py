@@ -172,6 +172,10 @@ def main():
             restored=subprocess.run([sys.executable,str(workspace/'scripts/test_restore_new.py'),'--input',str(output/'after-ai.enc'),
                 '--expected-image',args.ai_image,'--expected-commit',args.expected_commit,'--source-project',project,'--password-stdin'],
                 input=password+b'\n',stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=900)
+            if restored.returncode!=0:
+                # Relay only fixed phase identifiers, never child logs or inputs.
+                match=re.search(rb'RESTORE_PHASE=([a-z-]{1,64}); RESTORE_TEST_PHASE=([a-z-]{1,64})',restored.stderr[-65536:])
+                if match:print('AI_RESTORE_PHASE='+match[1].decode()+'; AI_RESTORE_TEST_PHASE='+match[2].decode(),file=sys.stderr)
             assert restored.returncode==0, 'AI-disabled restored deployment acceptance failed'
             PHASE='reactivate'
             config_volume=backup.volume(service('app'),'/private/config')

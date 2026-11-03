@@ -27,7 +27,7 @@ TEST_PHASE = 'preflight'
 TEST_PHASES = {'preflight', 'guard-checks', 'restore', 'ready-stopped', 'database-start', 'explicit-start',
                'row-comparison', 'login', 'private-readback', 'refusal-existing-project',
                'refusal-wrong-passphrase', 'refusal-existing-volume', 'source-check', 'cleanup', 'completed',
-               'jobs-ready', 'jobs-submit', 'jobs-complete', 'jobs-running-recovery'}
+               'jobs-ready', 'jobs-submit', 'jobs-complete', 'jobs-running-recovery', 'ai-disabled'}
 RESTORE_PHASES = {'preflight', 'authenticate', 'create-owned-volumes', 'install-private-volumes',
                   'start-new-database', 'import-new-database', 'verify-restored-database'}
 
@@ -240,12 +240,21 @@ for role in a.ROOTS:
                 'captchaUuid': captcha['uuid'], 'captcha': captcha['code']})[1])
             assert (result.get('data') or {}).get('token'), 'Restored original credentials did not log in'
             if (state / 'stage/app_config/ai.json').exists():
+                TEST_PHASE = 'ai-disabled'
                 status, payload = request(base, '/api/workproof/analysis/capabilities', token=result['data']['token'])
-                capabilities = json.loads(payload)['data']
-                assert status == 200 and capabilities['enabled'] is False
+                envelope = json.loads(payload)
+                assert status == 200 and envelope['code'] == 200
+                capabilities = envelope['data']
+                assert {engine['id'] for engine in capabilities['engines']} == {'mpu-en-v3','mpu-zh-v3','desklib-en-v1.01'}
                 assert all(engine['configured'] is False for engine in capabilities['engines'])
                 restored_compose = json.loads((state / 'compose.json').read_text())
                 assert 'WORKPROOF_AI_ACTIVATE' not in restored_compose['services']['app'].get('environment', {})
+                # The public API exposes per-engine configured, not a global
+                # enabled field. Also prove a consented submission is refused.
+                status, payload = request(base, '/api/workproof/analysis/tasks/mpu-en-v3/txt?consent=true',
+                    data=b'Synthetic disabled-engine refusal fixture.', token=result['data']['token'])
+                refused = json.loads(payload)
+                assert status == 503 and refused['code'] == 503 and not refused.get('data')
             if (state / 'stage/app_config/catalog.json').exists():
                 status, payload = request(base, '/api/workproof/certificates/status', token=result['data']['token'])
                 assert status == 200 and json.loads(payload)['data']['ready'] is True
