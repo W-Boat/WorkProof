@@ -5,6 +5,10 @@ on:
       - '**/*.md'
       - 'scripts/test_embedded_webview.py'
       - '.github/workflows/native-webview.yml'
+      - 'tools/ai-assessment/**'
+      - '.github/workflows/ai-evaluation.yml'
+      - '.github/workflows/ai-benchmark.yml'
+      - '.github/workflows/ai-assessment.yml'
   pull_request:
   workflow_dispatch:
     inputs:
