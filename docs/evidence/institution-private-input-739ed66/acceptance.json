@@ -1,0 +1,41 @@
+{
+  "source_commit": "739ed664bc265665314fd63451ef33d74610f4e7",
+  "permissions_run": 41640052751,
+  "platforms": [
+    {
+      "platform": "windows-2025",
+      "job": 125930982293,
+      "downloaded_log_sha256": "0113f0fcbdab34a55eb809649e2ba94e62c7575174cff9abdab6e87210fcd834",
+      "conclusion": "success",
+      "temporary_input_check": "passed"
+    },
+    {
+      "platform": "ubuntu-latest",
+      "job": 125930982592,
+      "downloaded_log_sha256": "1c31c6cc0f698af9e25c162f724fb6e9551ae16b30880d1817de1dfffa2d7384",
+      "conclusion": "success",
+      "temporary_input_check": "passed"
+    },
+    {
+      "platform": "macos-15",
+      "job": 125930982791,
+      "downloaded_log_sha256": "d467516474b9d4b7c43a02aa93891b33ebc5ce852620ee52faf2fc8c6928b8ea",
+      "conclusion": "success",
+      "temporary_input_check": "passed"
+    }
+  ],
+  "institution_run": 41640052778,
+  "institution_conclusion": "success",
+  "institution_job": 125930983060,
+  "institution_log_sha256": "47b6199310221cc7d1f7405d156cde378396e707a1b6317089a36f3570c819cf",
+  "scope": [
+    "Empty new temporary input sealed and verified before content write",
+    "Other-reader rejection on native Windows ACL and Linux/macOS POSIX",
+    "Shared helper reused by analysis service; normal backend regression and isolated server lifecycle passed"
+  ],
+  "limits": [
+    "Filesystem privacy does not establish full Windows/macOS inference lifecycle",
+    "No models run or downloaded locally; no user deployment upgraded",
+    "Actual model UI roundtrip of this permission change is not separately proven by default-disabled institution workflow"
+  ]
+}

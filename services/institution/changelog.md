@@ -510,3 +510,8 @@
 - `AiAnalysisService` 在正文写入前复用 `PrivateJobSpool` 新的原子临时文件创建/封闭/校验，替代非POSIX时静默跳过权限设置的路径；无法保证私有访问时拒绝开始，不修改既有/恢复文件的owner。
 - 新增空文件先封闭、写入后校验、增加其他读者后拒绝的JUnit与Linux/macOS/Windows原生文件系统探针。仅CI执行，尚未本地构建测试；此权限检查不代表Windows完整AI进程链或所有平台部署通过。
 
+## 2026-11-03 AI临时输入权限修复回归通过
+
+- `739ed66` 的权限任务 `41640052751` Windows/Linux/macOS全部成功，日志确认实际封闭空临时输入、正文写入前校验及额外读者拒绝；Windows既有其他owner文件拒绝且不接管检查成功。
+- 机构回归 `41640052778` 三任务全部成功，包含后端测试和实际隔离服务器生命周期。证据摘要在 `docs/evidence/institution-private-input-739ed66/acceptance.json`；不扩大为Windows/macOS完整推理链，默认关闭模型的回归也不冒充此次权限改动后的真实模型UI专项。
+
