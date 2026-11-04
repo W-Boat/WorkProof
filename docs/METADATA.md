@@ -1,6 +1,6 @@
 # 本机文件元数据检查
 
-核验页的“进一步检查 AI 线索”可读取 PNG 未压缩文字字段、JPEG 文件头的部分 EXIF/注释/XMP，以及 Word/WPS DOCX 与 PowerPoint/WPS PPTX 中的 `docProps/core.xml`、`app.xml`、`custom.xml` 属性。用户先确认其中姓名、标题、提示词等信息可以显示，再主动检查。文件不上传，不运行检测模型，不修改证书。
+核验页的“进一步检查 AI 线索”可读取 PNG 未压缩及受限解压的文字字段、JPEG 文件头的部分 EXIF/注释/XMP，以及 Word/WPS DOCX 与 PowerPoint/WPS PPTX 中的 `docProps/core.xml`、`app.xml`、`custom.xml` 属性。用户在“查看作品的文件属性”中核对文件名，确认其中姓名、标题、提示词等信息可以显示，再主动检查。文件不上传，不运行检测模型，不修改证书。最新三浏览器及窄屏结果见[验收记录](evidence/metadata-ui-498027d/acceptance.md)。
 
 普通 Word、WPS、Photoshop 软件名称不作为 AI 线索。仅自定义属性的 prompt、workflow、parameters、aigenerator 等字段名称提示人工复核，字段可被伪造、删除或复制；检出不能确认 AI 来源，未检出也不能确认没有使用 AI。仅显示标量值，不解释嵌套属性结构。
 
@@ -8,7 +8,7 @@ DOCX/PPTX 使用浏览器原生 deflate-raw 解压，无新增依赖。ZIP 目�
 
 属性先由 Worker 以严格 UTF-8 解码，拒绝 NUL、DTD、实体声明和非 UTF-8 声明，再在页面用原生 DOMParser 解析受限 XML。拒绝错误 XML 和不支持的根命名空间；最多每部分 10000 元素、总共显示 32 项、每字段值 160 字符，过滤控制字符和双向控制符，React 文本转义。三份 XML 最多 768 KiB，不进入 HTML 渲染。ZIP 读取与解压 Worker 继承原 15 秒超时、取消和换文件销毁规则。DOMParser 在主线程同步运行，元素数量检查发生在解析后，不受 Worker 的 15 秒中断或取消控制；依靠每份 XML 字节上限限制输入规模，不能称为硬时限或内存沙箱。
 
-这不是完整 OOXML 格式验证器或可见全文分析。旧版 DOC/PPT、PDF、数字签名、图像像素及水印尚未纳入本功能；PNG 压缩文字和 CRC 保持明确未检查。普通损坏、过大或不支持文件如实提示未检查。
+这不是完整 OOXML 格式验证器或可见全文分析。旧版 DOC/PPT、PDF、数字签名、图像像素及水印尚未纳入本功能。PNG的tEXt、zTXt和iTXt文字块先检查CRC，zTXt/压缩iTXt用原生zlib受限解压：单块展开最多256KiB、共享展开预算1MiB，异常流的已展开输出也消耗预算。坏CRC、超限、异常流或不支持的解压方法均跳过计数；这不验证PNG像素块或来源身份。原文字原件累计1MiB、32项显示及15秒Worker期限仍有效。
 
 `tests/metadata.spec.ts` 增加真实 ZIP/deflate 的浏览器测试，覆盖普通 WPS 名称、可修改线索、转义、DTD/实体、宏、重复目录、坏 XML、stored 条目、bit3 descriptor、CRC 不符、伪造条数、实际解压超声明、展开总量/单项/压缩比上限、按 URL origin 检查无外联和手机布局。本机不构建或运行测试，最终验收以 GitHub Actions 为准；合成文件不代表真实宿主安装验收。
 
@@ -30,7 +30,7 @@ JPEG 的 Actions 浏览器用例使用浏览器实际编码的 JPEG 加合成 EX
 
 标准 XMP 包中的 IPTC 扩展 `DigitalSourceType` 可作为文件自述来源线索读取。仅在命名空间精确为 `http://iptc.org/std/Iptc4xmpExt/2008-02-29/`，且值匹配官方完整 URI 时解释：`trainedAlgorithmicMedia` 表示声明使用生成式 AI 创建，`compositeWithTrainedAlgorithmicMedia` 表示声明使用生成式 AI 编辑；`algorithmicallyEnhanced` 的锐化/降噪等算法调整不作为生成式 AI 标记。假命名空间、未知 URI 或一般软件名称不自动推断为这些类型。
 
-支持 JPEG 标准 APP1 XMP 与 PNG 未压缩 iTXt 的精确 `XML:com.adobe.xmp` 关键字；PNG 与 JPEG 共用 XML 包限制，每包至多 64 KiB、最多 4 包，不解析压缩或扩展 XMP。现有 1 MiB 文字累计上限、32 项显示上限、取消与格式检查保持不变。只接受 Description 的标量属性、简单元素文本或无正文/子元素的单一 `rdf:resource`；URI 作为文本读取，绝不访问网络。数组/结构仍跳过。PNG 的 CRC 不在这个可修改线索功能中验证。
+支持 JPEG 标准 APP1 XMP 与 PNG iTXt 的精确 `XML:com.adobe.xmp` 关键字；PNG压缩iTXt先按上述输出预算解压。PNG 与 JPEG 共用 XML 包限制，每包至多 64 KiB、最多 4 包，不解析扩展XMP。现有 1 MiB 文字累计上限、32 项显示上限、取消与格式检查保持不变。只接受 Description 的标量属性、简单元素文本或无正文/子元素的单一 `rdf:resource`；URI 作为文本读取，绝不访问网络。数组/结构仍跳过。PNG文字块的CRC只检查数据损坏，不认证这些可修改的来源标注。
 
 界面保留“文件标注”“可被修改”“尚未验证真实性”的说明；来源类型的原始 URI 位于折叠的原始字段区。此读取不验证 C2PA、签名、身份、生成工具或使用比例，也不产生 AI 检测模型得分。删除或缺失标记不能用来证明未使用 AI。
 
