@@ -72,6 +72,7 @@ foreach ($hostSpec in $hosts) {
                     if (-not (Test-Path -LiteralPath (Join-Path $installedRoot '.workproof-native') -PathType Leaf)) { throw 'Copied installation is missing its ownership marker' }
                     $required=@($expectedDll,'workproof-engine.exe','workproof-desktop.exe','native-office-platform.ps1',$hostSpec.Open,$hostSpec.Installer,
                         'verifier/verify-worker.js','verifier/wasm/workproof_protocol_bg.wasm','verifier/c2pa/pkg/workproof_c2pa_wasm_bg.wasm')
+                    $required+=@('desktop-office-setup.ps1','WorkProofWord.dll','WorkProofWord.x86.dll','WorkProofPowerPoint.dll','WorkProofPowerPoint.x86.dll','install-native-word.ps1','install-native-powerpoint.ps1')
                     foreach ($relative in $required) {
                         $original=Join-Path $packageRoot $relative
                         $copied=Join-Path $installedRoot $relative

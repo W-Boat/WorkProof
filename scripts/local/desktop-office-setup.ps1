@@ -29,7 +29,7 @@ try {
     $script=if($HostName -eq 'Word'){'install-native-word.ps1'}else{'install-native-powerpoint.ps1'}
     $parameters=@{RuntimeRoot=$PSScriptRoot;InstallDir=$destination}
     if($HostName -eq 'Word'){$parameters.WordPath=$office}else{$parameters.PowerPointPath=$office}
-    & (Join-Path $PSScriptRoot $script) @parameters | Out-Null
+    & (Join-Path $PSScriptRoot $script) @parameters 3>$null 4>$null 5>$null 6>$null | Out-Null
     $registration=Get-WorkProofNativeRegistration $HostName $view ''
     if(-not $registration -or -not [string]::Equals([IO.Path]::GetDirectoryName($registration.Dll),$destination,[StringComparison]::OrdinalIgnoreCase)){
         throw '安装后未能确认加载项位置，请重新检查安装状态。'

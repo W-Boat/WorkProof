@@ -29,6 +29,7 @@ $TaskPaneClsid = '{6EC055C4-2EB0-49EB-80C9-30C6DA38EB87}'
 $Marker = '.workproof-native'
 $AddInNames = @('WorkProofPowerPoint.x86.dll', 'WorkProofPowerPoint.dll')
 $OptionalFiles = @('native-office-platform.ps1', 'workproof-desktop.exe', 'workproof.vsix', 'LICENSE', 'BUILD-INFO.json', 'README-WORD.md', 'Install PowerPoint.cmd', 'Open PowerPoint WorkProof.cmd', 'Remove PowerPoint add-in.cmd', 'open-native-powerpoint.ps1', 'install-native-powerpoint.ps1')
+$OptionalFiles += @('desktop-office-setup.ps1','WorkProofWord.dll','WorkProofWord.x86.dll','install-native-word.ps1','open-native-word.ps1','Install Word.cmd','Open WorkProof.cmd','Remove Word add-in.cmd')
 
 function Get-PeArchitecture([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)

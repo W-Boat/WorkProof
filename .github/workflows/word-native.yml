@@ -193,6 +193,9 @@ jobs:
           $errors=$null;$tokens=$null
           [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $package 'open-native-word.ps1'),[ref]$tokens,[ref]$errors)
           if ($errors.Count) { throw 'Desktop entry contains PowerShell syntax errors' }
+          $errors=$null;$tokens=$null
+          [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $package 'desktop-office-setup.ps1'),[ref]$tokens,[ref]$errors)
+          if ($errors.Count) { throw 'Desktop Office setup contains PowerShell syntax errors' }
           $fixture = 'Software\WorkProofNativeWordCI\' + [Guid]::NewGuid().ToString()
           $clsid = '{5F628C20-62BB-4DA6-94DF-36BD599A9301}'
           function OpenCurrentUser {

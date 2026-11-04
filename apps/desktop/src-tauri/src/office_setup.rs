@@ -5,6 +5,8 @@ fn quiet(command:&mut Command){
 }
 pub fn office_setup(host:&str,install:bool)->Result<serde_json::Value,String>{
     if !matches!(host,"word"|"powerpoint"){return Err("请选择 Word 或 PowerPoint。".into());}
+    static SETUP:std::sync::Mutex<()>=std::sync::Mutex::new(());
+    let _guard=SETUP.try_lock().map_err(|_|"另一个安装或检查任务正在进行，请稍候再试。")?;
     #[cfg(not(windows))]
     {let _=install;Err("原生加载项自动安装目前支持 Windows Word 和 PowerPoint。".into())}
     #[cfg(windows)]
