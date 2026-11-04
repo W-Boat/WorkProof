@@ -206,8 +206,8 @@ test('desktop navigation switches bounded workspaces and preserves recording inp
 test('application rail shows actual grants and appearance persists with system changes',async({page},testInfo)=>{
   await page.emulateMedia({colorScheme:'dark'});await desktop(page);
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-  await expect(page.locator('[data-connection=word]')).toHaveText('已连接');
-  await expect(page.locator('[data-connection=powerpoint]')).toHaveText('未连接');
+  await expect(page.locator('[data-connection=word]')).toHaveText('已允许');
+  await expect(page.locator('[data-connection=powerpoint]')).toHaveText('未允许');
   await page.getByRole('button',{name:'选择 PowerPoint',exact:true}).click();
   await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('powerpoint');
   await expect(page.locator('#selected-connection')).toContainText('尚未连接');
@@ -224,7 +224,7 @@ test('application rail shows actual grants and appearance persists with system c
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
   await page.getByRole('button',{name:'连接管理',exact:true}).click();
   await page.getByRole('button',{name:'断开 Word 连接'}).click();
-  await expect(page.locator('[data-connection=word]')).toHaveText('未连接');
+  await expect(page.locator('[data-connection=word]')).toHaveText('未允许');
   await page.getByRole('button',{name:'选择 Word',exact:true}).click();
   await page.screenshot({path:testInfo.outputPath('host-rail-light.png')});
   expect(await page.evaluate(()=>{const main=document.querySelector('main')!;return main.scrollWidth<=main.clientWidth;})).toBe(true);

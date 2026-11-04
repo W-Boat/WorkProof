@@ -24,7 +24,8 @@ function updateConnectionBadges(){
   const selected=document.getElementById('creation-tool').value;
   for(const badge of document.querySelectorAll('[data-connection]')){
     const source=badge.dataset.connection,count=visibleConnections.filter(value=>value.source===source).length;
-    badge.textContent=!engineReady?'服务未就绪':!connectionsKnown?'待检查':count?'已连接':source==='vscode'||source==='blender'?'宿主内查看':'未连接';
+    badge.textContent=!engineReady?'服务未就绪':!connectionsKnown?'待检查':count?'已允许':source==='vscode'||source==='blender'?'宿主内查看':'未允许';
+    badge.title=count?'已允许此加载项连接，不表示软件当前仍在运行或正在记录。':'尚无有效的加载项连接授权。自动连接的软件请在宿主中查看状态。';
     badge.dataset.connected=String(engineReady&&connectionsKnown&&count>0);
     const button=badge.closest('button');button.classList.toggle('selected-tool',document.body.dataset.view==='create'&&source===selected);
   }
