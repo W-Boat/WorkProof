@@ -88,8 +88,9 @@ test('IPTC generative source declarations are editable clues, distinct from ordi
   await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
   const namespace='http://iptc.org/std/Iptc4xmpExt/2008-02-29/',prefix='http://cv.iptc.org/newscodes/digitalsourcetype/';
   const xml=(type:string,ns=namespace,resource=false)=>`<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:iptc="${ns}">${resource?`<iptc:DigitalSourceType rdf:resource="${prefix+type}"/>`:`<iptc:DigitalSourceType>${prefix+type}</iptc:DigitalSourceType>`}</rdf:Description></rdf:RDF></x:xmpmeta>`;
-  async function scanPng(text:string){
-    const body=Buffer.concat([Buffer.from('XML:com.adobe.xmp'),Buffer.from([0,0,0,0,0]),Buffer.from(text)]);
+  async function scanPng(text:string,compressed=false){
+    const payload=Buffer.from(text);
+    const body=Buffer.concat([Buffer.from('XML:com.adobe.xmp'),Buffer.from([0,compressed?1:0,0,0,0]),compressed?deflateSync(payload):payload]);
     const image=Buffer.concat([png.subarray(0,-12),chunk('iTXt',body),png.subarray(-12)]);
     await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'declared-source.png',mimeType:'image/png',buffer:image});
     await panel.getByRole('button',{name:'检查文件属性',exact:true}).click();
@@ -104,6 +105,25 @@ test('IPTC generative source declarations are editable clues, distinct from ordi
   await expect(panel.getByRole('status')).not.toContainText('使用生成式 AI 创建');await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
   await scanPng('<!DOCTYPE x [<!ENTITY secret SYSTEM "https://example.org/private">]>'+xml('trainedAlgorithmicMedia'));
   await expect(panel.getByRole('status')).toContainText('1 项');await expect(panel.getByRole('status')).not.toContainText('使用生成式 AI 创建');
+  // The decompressed packet must follow the same XML namespace, envelope and byte limits.
+  await scanPng(xml('compositeWithTrainedAlgorithmicMedia',namespace,true),true);
+  await expect(panel.getByRole('status')).toContainText('使用生成式 AI 编辑');
+  await expect(panel.getByRole('status')).toContainText('尚未验证其真实性');
+  await scanPng(xml('algorithmicallyEnhanced'),true);
+  await expect(panel.getByRole('status')).toContainText('例如锐化或降噪');
+  await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
+  await scanPng(xml('trainedAlgorithmicMedia','https://example.org/unrecognized-namespace'),true);
+  await expect(panel.getByRole('status')).not.toContainText('使用生成式 AI 创建');
+  await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
+  for(const packet of [
+    '<!DOCTYPE x [<!ENTITY secret SYSTEM "https://example.org/private">]>'+xml('trainedAlgorithmicMedia'),
+    xml('trainedAlgorithmicMedia')+' '.repeat(65536),
+  ]){
+    await scanPng(packet,true);
+    await expect(panel.getByRole('status')).toContainText('1 项文件属性');
+    await expect(panel.getByRole('status')).not.toContainText('使用生成式 AI 创建');
+    await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
+  }
   const encoded=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=1;return canvas.toDataURL('image/jpeg').split(',')[1];});
   const image=Buffer.from(encoded,'base64'),segment=jpegSegment(225,Buffer.from('http://ns.adobe.com/xap/1.0/\0'+xml('compositeWithTrainedAlgorithmicMedia',namespace,true)));
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'declared-source.jpg',mimeType:'image/jpeg',buffer:Buffer.concat([image.subarray(0,2),segment,image.subarray(2)])});
