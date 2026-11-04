@@ -29,18 +29,18 @@ test('JPEG EXIF and simple XMP stay local and remain editable clues',async({page
   await page.goto('/');
   // Use the browser's actual JPEG encoder, then add synthetic metadata segments.
   const encoded=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=1;return c.toDataURL('image/jpeg').split(',')[1];});
-  const image=Buffer.from(encoded,'base64'),panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
+  const image=Buffer.from(encoded,'base64'),panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
   const xmp=(text:string)=>jpegSegment(225,Buffer.from('http://ns.adobe.com/xap/1.0/\0'+text));
   const xml='<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:tool="https://example.org/editable" tool:prompt="&lt;script&gt;fixture&lt;/script&gt;"><tool:workflow>editable workflow</tool:workflow></rdf:Description></rdf:RDF></x:xmpmeta>';
   async function scan(segments:Buffer[]){
     await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'properties.jpg',mimeType:'image/jpeg',buffer:Buffer.concat([image.subarray(0,2),...segments,image.subarray(2)])});
-    await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+    await panel.getByRole('button',{name:'检查文件属性',exact:true}).click();
   }
   await scan([jpegSegment(225,jpegExif())]);
   await expect(panel.getByRole('status')).toContainText('图片文件头属性（JPEG）');await expect(panel.getByRole('status')).toContainText('Adobe Photoshop');
   await expect(panel.getByRole('status')).toContainText('a fixture comment');await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
   await scan([jpegSegment(225,jpegExif()),xmp(xml)]);
-  await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');await expect(panel.getByRole('status')).toContainText('<script>fixture</script>');
+  await expect(panel.getByRole('status')).toContainText('发现可能与 AI 生成有关');await expect(panel.getByRole('status')).toContainText('<script>fixture</script>');
   await expect(panel.getByRole('status')).toContainText('editable workflow');await expect(panel.locator('script')).toHaveCount(0);
   await expect(panel.getByText('提示词',{exact:true})).toBeVisible();
   await expect(panel.getByRole('list')).not.toBeVisible();
@@ -68,9 +68,9 @@ test('JPEG EXIF and simple XMP stay local and remain editable clues',async({page
 });
 
 test('JPEG malformed segment bounds and repeated metadata have explicit limits',async({page})=>{
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
   async function scan(buffer:Buffer){
-    await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'bounded.jpg',mimeType:'image/jpeg',buffer});await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+    await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'bounded.jpg',mimeType:'image/jpeg',buffer});await panel.getByRole('button',{name:'检查文件属性',exact:true}).click();
   }
   for(const buffer of [Buffer.from([255,216,255,225,255,255,0]),Buffer.from([255,216,255,225,0,1]),Buffer.from([255,216,255,218,0,2])]){
     await scan(buffer);await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('status')).toHaveCount(0);
@@ -85,18 +85,18 @@ test('JPEG malformed segment bounds and repeated metadata have explicit limits',
 
 test('IPTC generative source declarations are editable clues, distinct from ordinary algorithmic edits',async({page})=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
   const namespace='http://iptc.org/std/Iptc4xmpExt/2008-02-29/',prefix='http://cv.iptc.org/newscodes/digitalsourcetype/';
   const xml=(type:string,ns=namespace,resource=false)=>`<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:iptc="${ns}">${resource?`<iptc:DigitalSourceType rdf:resource="${prefix+type}"/>`:`<iptc:DigitalSourceType>${prefix+type}</iptc:DigitalSourceType>`}</rdf:Description></rdf:RDF></x:xmpmeta>`;
   async function scanPng(text:string){
     const body=Buffer.concat([Buffer.from('XML:com.adobe.xmp'),Buffer.from([0,0,0,0,0]),Buffer.from(text)]);
     const image=Buffer.concat([png.subarray(0,-12),chunk('iTXt',body),png.subarray(-12)]);
     await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'declared-source.png',mimeType:'image/png',buffer:image});
-    await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+    await panel.getByRole('button',{name:'检查文件属性',exact:true}).click();
   }
   await scanPng(xml('trainedAlgorithmicMedia'));
   await expect(panel.getByRole('status')).toContainText('使用生成式 AI 创建');await expect(panel.getByRole('status')).toContainText('尚未验证其真实性');
-  await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');
+  await expect(panel.getByRole('status')).toContainText('发现可能与 AI 生成有关');
   await panel.getByText('查看原始字段与位置',{exact:true}).click();await expect(panel.getByRole('status')).toContainText(prefix+'trainedAlgorithmicMedia');
   await scanPng(xml('algorithmicallyEnhanced'));
   await expect(panel.getByRole('status')).toContainText('例如锐化或降噪');await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
@@ -107,17 +107,17 @@ test('IPTC generative source declarations are editable clues, distinct from ordi
   const encoded=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=1;return canvas.toDataURL('image/jpeg').split(',')[1];});
   const image=Buffer.from(encoded,'base64'),segment=jpegSegment(225,Buffer.from('http://ns.adobe.com/xap/1.0/\0'+xml('compositeWithTrainedAlgorithmicMedia',namespace,true)));
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'declared-source.jpg',mimeType:'image/jpeg',buffer:Buffer.concat([image.subarray(0,2),segment,image.subarray(2)])});
-  await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
-  await expect(panel.getByRole('status')).toContainText('使用生成式 AI 编辑');await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');
+  await panel.getByRole('button',{name:'检查文件属性',exact:true}).click();
+  await expect(panel.getByRole('status')).toContainText('使用生成式 AI 编辑');await expect(panel.getByRole('status')).toContainText('发现可能与 AI 生成有关');
   expect(external).toEqual([]);
 });
 test('optional PNG metadata stays local and distinguishes hints from conclusions',async({page})=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
-  const scan=panel.getByRole('button',{name:'检查所选作品的元数据',exact:true});await expect(scan).toBeDisabled();
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
+  const scan=panel.getByRole('button',{name:'检查文件属性',exact:true});await expect(scan).toBeDisabled();
   const image=Buffer.concat([png.subarray(0,-12),chunk('tEXt',Buffer.from('prompt\0<script>alert(1)</script> test')),chunk('zTXt',Buffer.from('hidden\0\0not inflated')),png.subarray(-12)]);
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'metadata.png',mimeType:'image/png',buffer:image});await scan.click();
-  await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关的字段');await expect(panel.getByRole('status')).toContainText('<script>alert(1)</script>');await expect(panel.getByRole('status')).toContainText('1 项');await expect(panel.locator('script')).toHaveCount(0);
+  await expect(panel.getByRole('status')).toContainText('发现可能与 AI 生成有关的记录');await expect(panel.getByRole('status')).toContainText('<script>alert(1)</script>');await expect(panel.getByRole('status')).toContainText('1 项');await expect(panel.locator('script')).toHaveCount(0);
   const malformed=Buffer.concat([png.subarray(0,-12),chunk('iTXt',Buffer.from([120,0,0,0,0,0,255])),chunk('tEXt',Buffer.from('Software\0ordinary editor')),png.subarray(-12)]);
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'invalid-utf8.png',mimeType:'image/png',buffer:malformed});await scan.click();await expect(panel.getByRole('status')).toContainText('ordinary editor');await expect(panel.getByRole('status')).toContainText('1 项');await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'clean.png',mimeType:'image/png',buffer:png});await expect(panel.getByRole('status')).toHaveCount(0);await scan.click();await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
@@ -125,21 +125,26 @@ test('optional PNG metadata stays local and distinguishes hints from conclusions
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(external).toEqual([]);
 });
 
-test('PNG compressed text is bounded, checks text CRC, and stays an editable clue',async({page})=>{
+test('PNG compressed text is bounded, checks text CRC, and stays an editable clue',async({page},testInfo)=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
   await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});
-  await panel.getByText('查看文件中的元数据（可选）',{exact:true}).click();
+  await panel.getByText('查看作品的文件属性（可选）',{exact:true}).click();
+  const fileName='用于检查长文件名显示的作品_'+ 'project_'.repeat(16)+'.png';
   const scan=async(parts:Buffer[])=>{
-    await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'compressed.png',mimeType:'image/png',buffer:Buffer.concat([png.subarray(0,-12),...parts,png.subarray(-12)])});
-    await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+    await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:fileName,mimeType:'image/png',buffer:Buffer.concat([png.subarray(0,-12),...parts,png.subarray(-12)])});
+    await panel.getByRole('button',{name:'检查文件属性',exact:true}).click();
   };
   const ztext=(text:string)=>chunk('zTXt',Buffer.concat([Buffer.from('parameters\0\0'),deflateSync(Buffer.from(text))]));
   const itext=(text:string)=>chunk('iTXt',Buffer.concat([Buffer.from('workflow\0\x01\0zh\0\0'),deflateSync(Buffer.from(text))]));
   await scan([ztext('fixture compressed parameters'),itext('中文工作流程 <script>fixture</script>')]);
   await expect(panel.getByRole('status')).toContainText('fixture compressed parameters');
   await expect(panel.getByRole('status')).toContainText('中文工作流程 <script>fixture</script>');
-  await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');
+  await expect(panel.getByRole('status')).toContainText('发现可能与 AI 生成有关');
   await expect(panel.locator('script')).toHaveCount(0);
+  await expect(panel.locator('.metadata-selected-file')).toHaveText(`检查对象：${fileName}`);
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await panel.screenshot({path:testInfo.outputPath('metadata-compressed-mobile.png')});
   const corrupt=ztext('must not display CRC-corrupted text');corrupt[corrupt.length-1]^=1;
   const corruptPlain=chunk('tEXt',Buffer.from('prompt\0must not display corrupt plain text'));corruptPlain[corruptPlain.length-1]^=1;
   await scan([corrupt,corruptPlain,itext('x'.repeat(256*1024+1)),chunk('zTXt',Buffer.from('prompt\0\x01unsupported method')),chunk('tEXt',Buffer.from('Software\0ordinary editor'))]);
@@ -150,7 +155,7 @@ test('PNG compressed text is bounded, checks text CRC, and stays an editable clu
   // Each text fits the per-chunk cap, but the fifth exceeds the shared expansion budget.
   await scan(Array.from({length:5},(_,index)=>ztext(`${index}:`+'x'.repeat(240*1024))));
   await expect(panel.getByRole('status')).toContainText('读到 4 项文件属性');
-  await expect(panel.getByRole('status')).toContainText('1 项不支持');
+  await expect(panel.getByRole('status')).toContainText('1 项文件属性');
   expect(external).toEqual([]);
 });
 
@@ -174,12 +179,12 @@ test('PPTX properties use the same bounded local scanner without reading slide t
   const external:string[]=[];
   page.on('request',request=>{if(new URL(request.url()).origin!=='http://127.0.0.1:4173')external.push(request.url());});
   await page.goto('/');
-  const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
+  const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
   const app='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft PowerPoint</Application></Properties>';
   const custom='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><property name="workflow"><vt:lpwstr>editable source clue</vt:lpwstr></property></Properties>';
   async function scan(parts:[string,string][]){
     await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'presentation.pptx',mimeType:'application/vnd.openxmlformats-officedocument.presentationml.presentation',buffer:docx(parts,true,false,'ppt/presentation.xml')});
-    await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+    await panel.getByRole('button',{name:'检查文件属性',exact:true}).click();
   }
   await scan([['docProps/app.xml',app],['ppt/slides/slide1.xml','<slide>PRIVATE_SLIDE_TEXT</slide>']]);
   await expect(panel.getByRole('status')).toContainText('演示文稿属性（PPTX）');
@@ -187,7 +192,7 @@ test('PPTX properties use the same bounded local scanner without reading slide t
   await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
   await expect(panel.getByRole('status')).not.toContainText('PRIVATE_SLIDE_TEXT');
   await scan([['docProps/custom.xml',custom]]);
-  await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');
+  await expect(panel.getByRole('status')).toContainText('发现可能与 AI 生成有关');
   for(const parts of [[['word/document.xml','<document/>']],[['ppt/vbaProject.bin','macro']]] as [string,string][][]){
     await scan(parts);await expect(panel.getByRole('alert')).toBeVisible();
     await expect(panel.getByRole('status')).toHaveCount(0);
@@ -196,13 +201,13 @@ test('PPTX properties use the same bounded local scanner without reading slide t
 });
 test('DOCX properties remain local, distinguish editable hints and reject hostile containers',async({page})=>{
   const external:string[]=[];page.on('request',request=>{if(new URL(request.url()).origin!=='http://127.0.0.1:4173')external.push(request.url());});
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看文件中的元数据（可选）', {exact:true}).click();
-  const scan=panel.getByRole('button',{name:'检查所选作品的元数据',exact:true});
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
+  const scan=panel.getByRole('button',{name:'检查文件属性',exact:true});
   const app='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>WPS Office</Application></Properties>';
   const custom='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><property name="prompt"><vt:lpwstr>&lt;script&gt;example&lt;/script&gt;</vt:lpwstr></property></Properties>';
   const upload=async(buffer:Buffer)=>{await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'properties.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',buffer});await scan.click();};
   await upload(docx([['docProps/app.xml',app]]));await expect(panel.getByRole('status')).toContainText('WPS Office');await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
-  await upload(docx([['docProps/custom.xml',custom]]));await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');await expect(panel.getByRole('status')).toContainText('<script>example</script>');await expect(panel.locator('script')).toHaveCount(0);
+  await upload(docx([['docProps/custom.xml',custom]]));await expect(panel.getByRole('status')).toContainText('发现可能与 AI 生成有关');await expect(panel.getByRole('status')).toContainText('<script>example</script>');await expect(panel.locator('script')).toHaveCount(0);
   for(const parts of [
     [['docProps/app.xml','<!DOCTYPE x [<!ENTITY y SYSTEM "https://example.com/secret">]>'+app]],
     [['word/vbaProject.bin','macro']],
