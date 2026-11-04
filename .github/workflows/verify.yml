@@ -219,6 +219,7 @@ jobs:
         with:
           name: workproof-windows-x64
           path: |
+            test-desktop-window-controls.json
             target/release/workproof-desktop.exe
             target/release/workproof-engine.exe
             target/release/workproof-inspector.exe
