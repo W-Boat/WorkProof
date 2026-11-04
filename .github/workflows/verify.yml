@@ -25,6 +25,41 @@ env:
   CARGO_TERM_COLOR: always
   NEXT_TELEMETRY_DISABLED: '1'
 jobs:
+  windows-resources:
+    if: ${{ inputs.web_only != true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-offline-resources
+      - run: npm ci
+      - uses: ./.github/actions/protocol-browser-resource
+      - uses: ./.github/actions/c2pa-browser-resource
+      - name: Build the exact-source offline site and VS Code package
+        run: |
+          node apps/office/build.mjs
+          mkdir -p apps/verifier/public/office
+          cp -r apps/office/dist/* apps/verifier/public/office/
+          npm run build:web
+          npm run build:extension
+          npm run package -w workproof-vscode
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-windows-offline-resources
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            apps/verifier/out/
+            apps/extension/*.vsix
   protocol-and-web:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -116,7 +151,9 @@ jobs:
             Cargo.lock
   windows-desktop:
     if: ${{ inputs.web_only != true }}
-    needs: protocol-and-web
+    # Packaging may proceed while full browser/Blender acceptance runs. A green
+    # Windows package does not turn the overall workflow green if those fail.
+    needs: windows-resources
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
@@ -131,7 +168,7 @@ jobs:
       - uses: ./.github/actions/c2pa-resource
       - uses: actions/download-artifact@v4
         with:
-          name: workproof-web-and-extension
+          name: workproof-windows-offline-resources
           path: .ci-artifacts
       - name: Prepare bundled verifier and extension
         shell: pwsh
