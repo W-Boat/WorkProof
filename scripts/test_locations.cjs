@@ -21,7 +21,11 @@ fixtures.push({name:'relative native base ignored',vars:{HOME:home,LOCALAPPDATA:
 fixtures.push({name:'invalid home falls back to user profile',vars:{HOME:'relative-home',USERPROFILE:home},expected:fixtures[2].expected});
 for(const fixture of fixtures){
   const env={...process.env,PYTHONIOENCODING:'utf-8'};
-  for(const key of ['WORKPROOF_DATA_DIR','HOME','USERPROFILE','LOCALAPPDATA','XDG_DATA_HOME'])delete env[key];Object.assign(env,fixture.vars);
+  // Windows inherits case-insensitive environment names; process.env may expose
+  // Home/UserProfile/LocalAppData spellings. Remove all equivalent names before
+  // passing the explicit fixture, so "no home" cannot retain a real profile.
+  const locationKeys=new Set(['WORKPROOF_DATA_DIR','HOME','USERPROFILE','LOCALAPPDATA','XDG_DATA_HOME']);
+  for(const key of Object.keys(env))if(locationKeys.has(key.toUpperCase()))delete env[key];Object.assign(env,fixture.vars);
   const rust=spawnSync(engine,[],{env,encoding:'utf8'});
   const pythonResult=spawnSync(python,['-c',py,path.resolve('apps/blender/workproof/location.py')],{env,encoding:'utf8'});
   if(fixture.expected===null){

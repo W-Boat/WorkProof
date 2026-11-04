@@ -144,6 +144,8 @@ jobs:
       - name: Windows state location and desktop integration tests
         shell: pwsh
         run: |
+          $ErrorActionPreference='Stop'
+          $PSNativeCommandUseErrorActionPreference=$true
           cargo build --locked -p workproof-engine --example data_location
           node scripts/test_locations.cjs target/debug/examples/data_location.exe
           rustc --test apps/desktop/src-tauri/src/platform.rs -o "$env:RUNNER_TEMP/workproof-platform-tests.exe"
@@ -166,7 +168,12 @@ jobs:
           ./apps/word-native-cpp/build.ps1 -Architecture x64 -OutDir apps/word-native-cpp/out
           ./apps/word-native-cpp/build.ps1 -Architecture x64 -PowerPoint -OutDir apps/word-native-cpp/out-powerpoint
       - name: Collect original Office payload notices
-        run: python scripts/word_package_notices.py --output .ci-office-notices
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $PSNativeCommandUseErrorActionPreference=$true
+          cargo fetch --locked --target x86_64-pc-windows-msvc
+          python scripts/word_package_notices.py --output .ci-office-notices
       - name: Stage matching Office resources inside the Windows installer
         shell: pwsh
         run: |
