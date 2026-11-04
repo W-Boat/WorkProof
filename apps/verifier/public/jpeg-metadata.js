@@ -1,6 +1,15 @@
 // Metadata before the first JPEG scan only. Never decode pixels or follow links.
 async function jpegMetadata(file){
-  const read=async(start,length)=>new Uint8Array(await file.slice(start,start+length).arrayBuffer());
+  // Thousands of tiny Blob reads are costly in WebKit. Keep one bounded window;
+  // return copies because downstream DataViews expect zero-offset arrays.
+  let cachedStart=-1,cached=new Uint8Array(0);
+  const read=async(start,length)=>{
+    if(length>65536)return new Uint8Array(await file.slice(start,start+length).arrayBuffer());
+    if(start<cachedStart||start+length>cachedStart+cached.length){
+      cachedStart=start;cached=new Uint8Array(await file.slice(start,start+65536).arrayBuffer());
+    }
+    return cached.slice(start-cachedStart,start-cachedStart+length);
+  };
   const latin=bytes=>Array.from(bytes,b=>String.fromCharCode(b)).join('');
   const clean=value=>value.replace(/[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g,' ').slice(0,160);
   const findings=[],xmp=[];let skipped=0,total=0,pos=2,ended=false;
