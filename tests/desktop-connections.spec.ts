@@ -3,8 +3,10 @@ import fs from 'node:fs';
 
 async function desktop(page:import('@playwright/test').Page,fail=false,nativeWord=false){
   await page.route('**/desktop-status/**',route=>{
-    const script=new URL(route.request().url()).pathname.endsWith('status.js');
-    return route.fulfill({contentType:script?'application/javascript':'text/html',body:fs.readFileSync('apps/desktop/ui/'+(script?'status.js':'index.html'),'utf8')});
+    const name=new URL(route.request().url()).pathname.split('/').at(-1)||'index.html';
+    const types:Record<string,string>={'status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','brand.png':'image/png'};
+    if(!types[name])return route.abort();
+    return route.fulfill({contentType:types[name],body:fs.readFileSync('apps/desktop/ui/'+name)});
   });
   await page.addInitScript(({fail,nativeWord})=>{
     let connections=[{ticket:'word-ticket',origin:'https://school.example',source:'word',channel:'browser',expires_in_seconds:1800,sessions:2},{ticket:'wps-ticket',origin:'https://wps.example',source:'wps',channel:'browser',expires_in_seconds:3600,sessions:1}];
@@ -78,6 +80,7 @@ test('desktop starts with Word and shows only the chosen software steps',async({
 
 test('asset certificate check explains partial PDF scope, cancellation and failures',async({page})=>{
   await desktop(page);
+  await page.locator('.advanced-tools > summary').click();
   await page.getByText('检查作品内嵌的创作证书',{exact:true}).click();
   const button=page.getByRole('button',{name:'选择作品和 CA，开始检查'});
   const result=page.locator('#image-result');
@@ -102,6 +105,7 @@ test('asset certificate check explains partial PDF scope, cancellation and failu
 
 test('embedding requires fresh consent and does not claim independent trust',async({page})=>{
   await desktop(page);
+  await page.locator('.advanced-tools > summary').click();
   await page.getByText('把创作证书放进作品',{exact:true}).click();
   const consent=page.locator('#embed-consent'),button=page.getByRole('button',{name:'选择材料，生成带证书的作品'}),result=page.locator('#embed-result');
   await expect(button).toBeDisabled();
@@ -121,4 +125,59 @@ test('embedding requires fresh consent and does not claim independent trust',asy
   await consent.check();await button.click();
   await expect(result).toHaveText('已取消，没有生成新文件。');
   await expect(consent).not.toBeChecked();await expect(button).toBeDisabled();
+});
+
+test('desktop remembers software and keeps the workbench readable at desktop and narrow sizes',async({page},testInfo)=>{
+  await desktop(page);
+  await page.getByLabel('你用什么软件创作？').selectOption('powerpoint');
+  await page.reload();
+  await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('powerpoint');
+  await expect(page.getByRole('button',{name:'打开 PowerPoint 并开始记录'})).toBeVisible();
+  await expect(page.locator('#tool-requirement')).toContainText('PowerPoint 原生加载项');
+  await expect(page.getByText('累计记录',{exact:true})).toBeVisible();
+  await expect(page.locator('.advanced-tools')).not.toHaveAttribute('open','');
+  for(const width of [960,420,360]){
+    await page.setViewportSize({width,height:780});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.screenshot({path:testInfo.outputPath(`workbench-${width}.png`),fullPage:true});
+  }
+});
+
+test('desktop sends one launch while busy, exposes actionable failure and permits retry',async({page})=>{
+  await desktop(page);
+  await page.evaluate(()=>{
+    const target=window as any,ipc=target.__TAURI__.core,original=ipc.invoke;
+    target.launchCalls=0;
+    ipc.invoke=(command:string,args:unknown)=>{
+      if(command!=='open_word')return original(command,args);
+      target.launchCalls++;return new Promise((_resolve,reject)=>{target.failLaunch=()=>reject(new Error('Office 已打开，但没有加载 WorkProof。请先安装对应的加载项。'));});
+    };
+  });
+  const button=page.locator('#open-word');
+  await button.click();await expect(button).toBeDisabled();
+  await page.evaluate(()=>document.getElementById('open-word')!.click());
+  expect(await page.evaluate(()=>(window as any).launchCalls)).toBe(1);
+  await page.evaluate(()=>(window as any).failLaunch());
+  await expect(page.locator('#message')).toContainText('请先安装对应的加载项');
+  await expect(page.locator('#message')).toHaveAttribute('data-state','error');
+  await expect(page.locator('#installation-help')).toHaveAttribute('open','');
+  await expect(button).toBeEnabled();await expect(button).toHaveText('打开 Word 并开始记录');
+  await button.click();expect(await page.evaluate(()=>(window as any).launchCalls)).toBe(2);
+  await page.evaluate(()=>(window as any).failLaunch());
+});
+
+test('desktop disables launch when the service is unavailable and recovers after refresh',async({page})=>{
+  await desktop(page);await expect(page.locator('#open-word')).toBeEnabled();
+  await page.evaluate(()=>{
+    const target=window as any,ipc=target.__TAURI__.core;target.originalInvoke=ipc.invoke;
+    ipc.invoke=(command:string,args:unknown)=>command==='engine_status'?Promise.reject(new Error('Synthetic service failure')):target.originalInvoke(command,args);
+  });
+  await page.getByRole('button',{name:'刷新连接'}).click();
+  await expect(page.locator('#status')).toHaveAttribute('data-state','error');
+  await expect(page.locator('#open-word')).toBeDisabled();
+  await expect(page.locator('#status')).not.toContainText('已就绪');
+  await page.evaluate(()=>{const target=window as any;target.__TAURI__.core.invoke=target.originalInvoke;});
+  await page.getByRole('button',{name:'刷新连接'}).click();
+  await expect(page.locator('#open-word')).toBeEnabled();
+  await expect(page.locator('#status')).toHaveAttribute('data-state','ready');
 });

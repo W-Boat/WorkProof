@@ -101,9 +101,9 @@ fn main(){
         TrayIconBuilder::new().icon(app.default_window_icon().expect("bundled icon").clone()).tooltip("WorkProof · 创作过程记录")
             .menu(&menu).on_menu_event(|app,event|match event.id.as_ref(){
                 "quit"=>app.exit(0),
-                "open"=>{if let Some(w)=app.get_webview_window("status"){let _=w.set_focus();}else{let _=tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").inner_size(420.,600.).min_inner_size(360.,440.).resizable(true).build();}},_=>{}
+                "open"=>{if let Some(w)=app.get_webview_window("status"){let _=w.unminimize();let _=w.show();let _=w.set_focus();}else{let _=tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").inner_size(960.,780.).min_inner_size(360.,520.).resizable(true).build();}},_=>{}
             }).build(app)?;
-        if std::env::var_os("WORKPROOF_HEADLESS").is_none(){tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").inner_size(420.,600.).min_inner_size(360.,440.).resizable(true).build()?;}
+        if std::env::var_os("WORKPROOF_HEADLESS").is_none(){tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").inner_size(960.,780.).min_inner_size(360.,520.).resizable(true).build()?;}
         let handle=app.handle().clone();
         std::thread::spawn(move||{
             let rt=tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().expect("runtime");

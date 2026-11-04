@@ -1,0 +1,34 @@
+name: Desktop workbench UI
+on:
+  workflow_dispatch:
+  push:
+    paths: ['apps/desktop/ui/**', 'scripts/stage_desktop_ui.cjs', 'tests/desktop-connections.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
+permissions:
+  contents: read
+jobs:
+  desktop-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Stage the canonical design system and brand
+        run: node scripts/stage_desktop_ui.cjs
+      - name: Chinese system font for screenshot review
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npx playwright test --config playwright.desktop.config.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-workbench-ui
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: error

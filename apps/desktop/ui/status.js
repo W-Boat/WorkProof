@@ -1,4 +1,13 @@
 let last=-1;
+let refreshing=false,engineReady=false,launching=false;
+const launchIds=['open-word','open-powerpoint','install'];
+function updateLaunchButtons(){for(const id of launchIds)document.getElementById(id).disabled=!engineReady||launching;}
+function showMessage(text,state='info'){
+  const message=document.getElementById('message');message.textContent=text;message.dataset.state=state;
+  if(state==='error')message.scrollIntoView({block:'nearest',behavior:'auto'});
+}
+const errorText=error=>error instanceof Error?error.message:String(error);
+updateLaunchButtons();
 const connectionCards=new Map();
 const adapterName=source=>({word:'Word',powerpoint:'PowerPoint',wps:'WPS',photoshop:'Photoshop'}[source]||source);
 function showConnections(connections){
@@ -19,9 +28,9 @@ function showConnections(connections){
         button.disabled=true;
         try{
           await window.__TAURI__.core.invoke('revoke_adapter',{ticket:connection.ticket});
-          document.getElementById('message').textContent='已断开连接。这个软件要再次获得允许才能继续提交记录；已经在处理的操作可能完成。已有记录不会删除。';
+          showMessage('已断开连接。这个软件要再次获得允许才能继续提交记录；已经在处理的操作可能完成。已有记录不会删除。');
           await refresh();
-        }catch(error){document.getElementById('message').textContent=String(error);button.disabled=false;}
+        }catch(error){showMessage(errorText(error),'error');button.disabled=false;}
       });
       card.append(title,origin,expiry,button);connectionCards.set(connection.ticket,card);region.append(card);
     }
@@ -30,9 +39,12 @@ function showConnections(connections){
   }
 }
 async function refresh(){
-  if(document.hidden)return;
+  if(document.hidden||refreshing)return;
+  refreshing=true;
   try{
     const s=await window.__TAURI__.core.invoke('engine_status');
+    engineReady=s.ready===true;updateLaunchButtons();
+    document.getElementById('status').dataset.state=engineReady?'ready':'preparing';
     document.getElementById('status').textContent=s.ready?'WorkProof 已就绪，可以开始记录。':'正在准备记录服务…';
     document.getElementById('sessions').textContent=s.sessions.toLocaleString();
     document.getElementById('events').textContent=s.events.toLocaleString();
@@ -52,20 +64,30 @@ async function refresh(){
         card.append(title,origin,note);
         for(const [text,approve] of [['允许连接',true],['拒绝',false]]){
           const button=document.createElement('button');button.textContent=text;
-          button.addEventListener('click',async()=>{try{await window.__TAURI__.core.invoke('decide_adapter',{ticket:request.ticket,approve});await refresh();}catch(error){document.getElementById('message').textContent=String(error);}});card.append(button);
+          button.addEventListener('click',async()=>{
+            const buttons=Array.from(card.querySelectorAll('button'));for(const item of buttons)item.disabled=true;
+            try{await window.__TAURI__.core.invoke('decide_adapter',{ticket:request.ticket,approve});await refresh();}
+            catch(error){showMessage(errorText(error),'error');for(const item of buttons)item.disabled=false;}
+          });card.append(button);
         }
         region.append(card);
       }
     }
-  }catch{document.getElementById('status').textContent='暂时无法连接记录服务。请退出并重新打开 WorkProof。';}
+  }catch{engineReady=false;updateLaunchButtons();const status=document.getElementById('status');status.dataset.state='error';status.textContent='暂时无法连接记录服务。请退出并重新打开 WorkProof。';}
+  finally{refreshing=false;}
 }
 refresh();setInterval(refresh,1500);document.addEventListener('visibilitychange',refresh);
+document.getElementById('refresh-connections').addEventListener('click',refresh);
 for(const [id,command] of [['install','install_vscode'],['verify','open_verifier'],['verify-browser','open_verifier_browser'],['open-word','open_word'],['open-powerpoint','open_powerpoint']]){
   document.getElementById(id).addEventListener('click',async()=>{
-    const button=document.getElementById(id);button.disabled=true;
-    const message=document.getElementById('message');message.textContent=id.startsWith('open-')?'正在打开软件… 新作品请先保存；首次连接请回到这里允许连接。':'正在处理…';
-    try{const result=await window.__TAURI__.core.invoke(command);message.textContent=result||'操作已完成。';}
-    catch(error){message.textContent=String(error);}finally{button.disabled=false;}
+    const isLaunch=launchIds.includes(id);if(isLaunch&&(!engineReady||launching))return;
+    const button=document.getElementById(id),label=button.textContent;
+    if(isLaunch){launching=true;updateLaunchButtons();}else button.disabled=true;
+    button.textContent=id==='install'?'正在安装插件…':id.startsWith('open-')?'正在打开软件…':'正在打开核验页…';
+    showMessage(id.startsWith('open-')?'正在打开软件… 新作品请先保存；首次连接请回到这里允许连接。':'正在处理…');
+    try{const result=await window.__TAURI__.core.invoke(command);showMessage(result||'操作已完成。');}
+    catch(error){showMessage(errorText(error),'error');if(isLaunch)document.getElementById('installation-help').open=true;}
+    finally{button.textContent=label;if(isLaunch){launching=false;updateLaunchButtons();}else button.disabled=false;}
   });
 }
 
@@ -78,7 +100,9 @@ const guides={
   blender:{steps:['在 Blender 设置中选择“从磁盘安装”，导入 WorkProof 插件文件。','先保存工程，在侧栏 WorkProof 面板中点击开始记录。','完成后保存并导出，将工程和旁边的证书一起交付。'],note:'需要 Blender 4.2 或更新版本。插件会自动连接本机的 WorkProof。'}
 };
 const creationTool=document.getElementById('creation-tool');
-function showGuide(){const guide=guides[creationTool.value];const steps=document.getElementById('creation-steps');steps.replaceChildren();for(const text of guide.steps){const li=document.createElement('li');li.textContent=text;steps.append(li);}document.getElementById('installation-note').textContent=guide.note;document.getElementById('install').hidden=creationTool.value!=='vscode';document.getElementById('open-word').hidden=creationTool.value!=='word';document.getElementById('open-powerpoint').hidden=creationTool.value!=='powerpoint';}
+const requirements={word:'首次使用前，请先安装 Word 原生加载项。',powerpoint:'首次使用前，请先安装 PowerPoint 原生加载项。',wps:'当前需要手动接入，尚未提供一键安装包。',vscode:'先安装插件，再到 VS Code 中选择要记录的文件。',photoshop:'当前为测试版插件，需要手动安装。',blender:'适用于 Blender 4.2 及以上版本，需要安装插件。'};
+try{const saved=localStorage.getItem('workproof.creation-tool');if(Object.hasOwn(guides,saved))creationTool.value=saved;}catch{}
+function showGuide(){const guide=guides[creationTool.value];const steps=document.getElementById('creation-steps');steps.replaceChildren();for(const text of guide.steps){const li=document.createElement('li');li.textContent=text;steps.append(li);}document.getElementById('installation-note').textContent=guide.note;document.getElementById('tool-requirement').textContent=requirements[creationTool.value];document.getElementById('install').hidden=creationTool.value!=='vscode';document.getElementById('open-word').hidden=creationTool.value!=='word';document.getElementById('open-powerpoint').hidden=creationTool.value!=='powerpoint';try{localStorage.setItem('workproof.creation-tool',creationTool.value);}catch{}}
 creationTool.addEventListener('change',showGuide);showGuide();
 
 document.getElementById('verify-image').addEventListener('click',async()=>{
