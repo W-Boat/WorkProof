@@ -8,6 +8,19 @@ function showMessage(text,state='info'){
 }
 const errorText=error=>error instanceof Error?error.message:String(error);
 updateLaunchButtons();
+const views={create:['创作记录','选择软件，开始记录你的创作过程。'],verification:['证书核验','选择作品和证书，在 WorkProof 内完成核验与分享。'],connections:['连接管理','查看已允许的软件，或处理新的连接请求。'],settings:['设置与工具','本机运行说明与图片、PDF 证书工具。']};
+function selectView(view,focus=false){
+  if(!Object.hasOwn(views,view))view='create';
+  document.body.dataset.view=view;
+  for(const button of document.querySelectorAll('.workspace-nav button')){
+    if(button.dataset.view===view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+  }
+  document.getElementById('workspace-title').textContent=views[view][0];
+  document.getElementById('workspace-description').textContent=views[view][1];
+  document.querySelector('main').scrollTop=0;
+  if(focus)document.getElementById('workspace-title').focus({preventScroll:true});
+}
+for(const button of document.querySelectorAll('.workspace-nav button'))button.addEventListener('click',()=>selectView(button.dataset.view,true));
 const connectionCards=new Map();
 const adapterName=source=>({word:'Word',powerpoint:'PowerPoint',wps:'WPS',photoshop:'Photoshop'}[source]||source);
 function showConnections(connections){
