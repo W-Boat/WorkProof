@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {deflateRawSync} from 'node:zlib';
+import {deflateRawSync,deflateSync} from 'node:zlib';
 import {randomBytes} from 'node:crypto';
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1sAAAAASUVORK5CYII=','base64');
 function chunk(kind:string,body:Buffer){
@@ -123,6 +123,35 @@ test('optional PNG metadata stays local and distinguishes hints from conclusions
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'clean.png',mimeType:'image/png',buffer:png});await expect(panel.getByRole('status')).toHaveCount(0);await scan.click();await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'not.png',mimeType:'image/png',buffer:Buffer.from('not PNG')});await scan.click();await expect(panel.getByRole('alert')).toContainText('目前只支持 PNG');
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(external).toEqual([]);
+});
+
+test('PNG compressed text is bounded, checks text CRC, and stays an editable clue',async({page})=>{
+  const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
+  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});
+  await panel.getByText('查看文件中的元数据（可选）',{exact:true}).click();
+  const scan=async(parts:Buffer[])=>{
+    await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'compressed.png',mimeType:'image/png',buffer:Buffer.concat([png.subarray(0,-12),...parts,png.subarray(-12)])});
+    await panel.getByRole('button',{name:'检查所选作品的元数据',exact:true}).click();
+  };
+  const ztext=(text:string)=>chunk('zTXt',Buffer.concat([Buffer.from('parameters\0\0'),deflateSync(Buffer.from(text))]));
+  const itext=(text:string)=>chunk('iTXt',Buffer.concat([Buffer.from('workflow\0\x01\0zh\0\0'),deflateSync(Buffer.from(text))]));
+  await scan([ztext('fixture compressed parameters'),itext('中文工作流程 <script>fixture</script>')]);
+  await expect(panel.getByRole('status')).toContainText('fixture compressed parameters');
+  await expect(panel.getByRole('status')).toContainText('中文工作流程 <script>fixture</script>');
+  await expect(panel.getByRole('status')).toContainText('发现可能与生成流程有关');
+  await expect(panel.locator('script')).toHaveCount(0);
+  const corrupt=ztext('must not display CRC-corrupted text');corrupt[corrupt.length-1]^=1;
+  const corruptPlain=chunk('tEXt',Buffer.from('prompt\0must not display corrupt plain text'));corruptPlain[corruptPlain.length-1]^=1;
+  await scan([corrupt,corruptPlain,itext('x'.repeat(256*1024+1)),chunk('zTXt',Buffer.from('prompt\0\x01unsupported method')),chunk('tEXt',Buffer.from('Software\0ordinary editor'))]);
+  await expect(panel.getByRole('status')).toContainText('ordinary editor');
+  await expect(panel.getByRole('status')).toContainText('4 项');
+  await expect(panel.getByRole('status')).not.toContainText('must not display');
+  await expect(panel.getByRole('status')).toContainText('不能据此判断没有使用 AI');
+  // Each text fits the per-chunk cap, but the fifth exceeds the shared expansion budget.
+  await scan(Array.from({length:5},(_,index)=>ztext(`${index}:`+'x'.repeat(240*1024))));
+  await expect(panel.getByRole('status')).toContainText('读到 4 项文件属性');
+  await expect(panel.getByRole('status')).toContainText('1 项不支持');
+  expect(external).toEqual([]);
 });
 
 function docx(parts:[string,string][],compressed=true,descriptor=false,documentPart='word/document.xml'){

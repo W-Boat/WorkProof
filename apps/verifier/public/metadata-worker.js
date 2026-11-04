@@ -1,4 +1,5 @@
-// Optional local PNG / DOCX / PPTX metadata inspection. No network or external relationships.
+// Optional local PNG / JPEG / DOCX / PPTX metadata inspection. No network or external relationships.
+// PNG text layout: https://www.w3.org/TR/png-3/#11textinfo
 importScripts('/docx-metadata.js','/metadata-common.js','/jpeg-metadata.js');
 self.onmessage=async({data:{file}})=>{
   try{
@@ -10,7 +11,23 @@ self.onmessage=async({data:{file}})=>{
     if(signature.join(',')!=='137,80,78,71,13,10,26,10')throw Error('目前只支持 PNG、JPEG、DOCX 和 PPTX 元数据检查；其他格式尚未分析。');
     const latin=value=>Array.from(value,b=>String.fromCharCode(b)).join('');
     const clean=value=>value.replace(/[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g,' ').slice(0,160);
-    const findings=[],xmp=[];let skipped=0,pos=8,total=0,ended=false,header=false;
+    const findings=[],xmp=[];let skipped=0,pos=8,total=0,expandedTotal=0,ended=false,header=false;
+    const inflate=async bytes=>{
+      if(expandedTotal>=1024*1024)throw Error('PNG text expansion budget');
+      const reader=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate')).getReader();
+      const blocks=[];let length=0;
+      try{
+        while(true){
+          const {done,value}=await reader.read();if(done)break;
+          length+=value.length;expandedTotal+=value.length;
+          if(length>256*1024||expandedTotal>1024*1024)throw Error('PNG text expansion budget');
+          blocks.push(value);
+        }
+      }finally{await reader.cancel().catch(()=>{});}
+      const output=new Uint8Array(length);let at=0;
+      for(const block of blocks){output.set(block,at);at+=block.length;}
+      return output;
+    };
     for(let count=0;pos<file.size;count++){
       if(count>=4096)throw Error('PNG 数据块过多，已停止分析。');
       const bytes=await read(pos,8);if(bytes.length!==8)throw Error('PNG 文件不完整。');
@@ -22,19 +39,26 @@ self.onmessage=async({data:{file}})=>{
         total+=length;
         if(length>256*1024||total>1024*1024){skipped++;}
         else{
-          const body=await read(pos+8,length),separator=body.indexOf(0);
-          if(separator<1||separator>79){skipped++;}
+          const body=await read(pos+8,length),checksum=await read(pos+8+length,4),separator=body.indexOf(0);
+          let crc=0xffffffff;
+          for(const segment of [bytes.subarray(4),body])for(const byte of segment){crc^=byte;for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}
+          if(((crc^0xffffffff)>>>0)!==new DataView(checksum.buffer).getUint32(0)){skipped++;}
+          else if(separator<1||separator>79){skipped++;}
           else{
             const field=latin(body.slice(0,separator));let text;
-            if(kind==='zTXt'){skipped++;}
+            if(kind==='zTXt'){
+              if(separator+2>body.length||body[separator+1]!==0){skipped++;}
+              else{try{text=latin(await inflate(body.slice(separator+2)));}catch{skipped++;}}
+            }
             else if(kind==='tEXt')text=latin(body.slice(separator+1));
             else{
               let offset=separator+1;
-              if(offset+2>body.length||body[offset]!==0){skipped++;}
+              const compressed=body[offset];
+              if(offset+2>body.length||![0,1].includes(compressed)||(compressed===1&&body[offset+1]!==0)){skipped++;}
               else{
                 offset+=2;const languageEnd=body.indexOf(0,offset),translationEnd=languageEnd<0?-1:body.indexOf(0,languageEnd+1);
                 if(translationEnd<0){skipped++;}
-                else{try{text=new TextDecoder('utf-8',{fatal:true}).decode(body.slice(translationEnd+1));}catch{skipped++;}}
+                else{try{const payload=body.slice(translationEnd+1);text=new TextDecoder('utf-8',{fatal:true}).decode(compressed===1?await inflate(payload):payload);}catch{skipped++;}}
               }
             }
             if(text!==undefined){

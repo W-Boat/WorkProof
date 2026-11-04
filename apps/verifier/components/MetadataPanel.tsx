@@ -94,6 +94,6 @@ export function MetadataPanel({file}:{file:File|null}){
       {!!result.findings.length&&<details><summary>查看原始字段与位置</summary><ol className="metadata-source-list">{result.findings.map((item,index)=><li key={index}>{item.field} · {item.location}{item.explanation&&<code> · {item.value}</code>}</li>)}</ol></details>}
       {!!result.skipped&&<p>{result.skipped} 项不支持、过大、异常或超出显示上限的元数据未检查。</p>}</div>}
     <p>文件属性可以被修改或清除。这里提供复核线索，不判断作品是否由 AI 生成，也不改变证书核验结果。</p>
-    <details className="caption"><summary>了解具体检查范围</summary><p>prompt、workflow 等字段名称只是线索；Word、WPS 等编辑软件名称不等于 AI 证据。DOCX/PPTX 仅检查三类文档属性，不读取文档或幻灯片正文、宏或外部链接；旧版 DOC/PPT 不支持。JPEG 只检查第一段图像扫描前的部分 EXIF、注释和简单 XMP 属性，跳过 GPS、缩略图、扩展 XMP 等内容。本功能未运行 AI 检测模型，未检查水印、像素或 C2PA 签名。PNG 压缩文字和 CRC 不检查。</p><p>来源类型的中文说明根据 IPTC NewsCodes 改写，© 2024 IPTC，采用 CC BY 4.0。<a href="/notices/iptc-newscodes.txt" download>保存来源与许可说明</a></p></details>
+    <details className="caption"><summary>了解具体检查范围</summary><p>prompt、workflow 等字段名称只是线索；Word、WPS 等编辑软件名称不等于 AI 证据。DOCX/PPTX 仅检查三类文档属性，不读取文档或幻灯片正文、宏或外部链接；旧版 DOC/PPT 不支持。JPEG 只检查第一段图像扫描前的部分 EXIF、注释和简单 XMP 属性，跳过 GPS、缩略图、扩展 XMP 等内容。本功能未运行 AI 检测模型，未检查水印、像素或 C2PA 签名。PNG 可读取未压缩及受限解压的文字属性，并检查这些文字块的 CRC；损坏、过大或浏览器无法解压的属性会跳过。CRC 只能帮助发现数据损坏，不认证来源；这里不校验 PNG 像素块。</p><p>来源类型的中文说明根据 IPTC NewsCodes 改写，© 2024 IPTC，采用 CC BY 4.0。<a href="/notices/iptc-newscodes.txt" download>保存来源与许可说明</a></p></details>
   </details></Panel>;
 }
