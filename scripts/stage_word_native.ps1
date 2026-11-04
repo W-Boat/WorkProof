@@ -88,6 +88,14 @@ foreach ($entry in @('Install Word.cmd','Open WorkProof.cmd','Remove Word add-in
 $licence = Join-Path (Split-Path -Parent $PSScriptRoot) 'LICENSE'
 if (Test-Path -LiteralPath $licence -PathType Leaf) { Copy-Item -LiteralPath $licence -Destination $Package -Force }
 
+# Windows PowerShell 5.1 decodes BOM-less scripts using the machine ANSI code
+# page. Preserve Chinese literals with an explicit UTF-8 BOM in our own root
+# launcher/setup scripts, before computing the delivered-file manifest. Never
+# rewrite third-party notice evidence or nested upstream files.
+foreach($script in (Get-ChildItem -LiteralPath $Package -Filter '*.ps1' -File)) {
+    $text=[IO.File]::ReadAllText($script.FullName,[Text.Encoding]::UTF8)
+    [IO.File]::WriteAllText($script.FullName,$text,(New-Object Text.UTF8Encoding($true)))
+}
 $lines = Get-ChildItem -LiteralPath $Package -Recurse -File -Force |
     Where-Object { $_.Name -ne 'SHA256SUMS.txt' } |
     Sort-Object FullName |

@@ -196,6 +196,22 @@ jobs:
           $errors=$null;$tokens=$null
           [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $package 'desktop-office-setup.ps1'),[ref]$tokens,[ref]$errors)
           if ($errors.Count) { throw 'Desktop Office setup contains PowerShell syntax errors' }
+          # The desktop invokes Windows PowerShell 5.1, not pwsh. Parse every
+          # shipped root script with that exact runtime and verify the BOM.
+          $parseScript=Join-Path $env:RUNNER_TEMP 'parse-workproof-ps51.ps1'
+          @'
+          param([string]$Package)
+          foreach($file in (Get-ChildItem -LiteralPath $Package -Filter '*.ps1' -File)){
+            $bytes=[IO.File]::ReadAllBytes($file.FullName)
+            if($bytes.Length -lt 3 -or $bytes[0] -ne 239 -or $bytes[1] -ne 187 -or $bytes[2] -ne 191){throw 'Root script lacks UTF-8 BOM'}
+            $errors=$null;$tokens=$null
+            [void][Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors)
+            if($errors.Count){throw ('Windows PowerShell 5.1 rejected '+$file.Name)}
+          }
+          Write-Output 'PASS actual Windows PowerShell 5.1 parsing of all shipped root scripts'
+          '@ | Set-Content -LiteralPath $parseScript -Encoding utf8BOM
+          & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -File $parseScript -Package $package
+          if($LASTEXITCODE -ne 0){throw 'Windows PowerShell 5.1 package parse failed'}
           $fixture = 'Software\WorkProofNativeWordCI\' + [Guid]::NewGuid().ToString()
           $clsid = '{5F628C20-62BB-4DA6-94DF-36BD599A9301}'
           function OpenCurrentUser {
