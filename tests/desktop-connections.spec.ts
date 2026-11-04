@@ -4,7 +4,7 @@ import fs from 'node:fs';
 async function desktop(page:import('@playwright/test').Page,fail=false,nativeWord=false){
   await page.route('**/desktop-status/**',route=>{
     const name=new URL(route.request().url()).pathname.split('/').at(-1)||'index.html';
-    const types:Record<string,string>={'status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','brand.png':'image/png'};
+    const types:Record<string,string>={'components.js':'application/javascript','status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','fluent-workbench.css':'text/css','brand.png':'image/png'};
     if(!types[name])return route.abort();
     return route.fulfill({contentType:types[name],body:fs.readFileSync('apps/desktop/ui/'+name)});
   });

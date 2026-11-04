@@ -10,7 +10,14 @@
     "build:linux": "tauri build --config src-tauri/tauri.linux.conf.json --bundles deb",
     "build:macos": "tauri build --config src-tauri/tauri.macos.conf.json --bundles app"
   },
+  "dependencies": {
+    "@fluentui/web-components": "3.1.4",
+    "@fluentui/tokens": "1.0.0-alpha.24",
+    "@microsoft/fast-element": "3.1.2",
+    "@microsoft/focusgroup-polyfill": "1.5.0"
+  },
   "devDependencies": {
+    "esbuild": "0.25.12",
     "@tauri-apps/cli": "2.12.4"
   }
 }

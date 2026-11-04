@@ -71,7 +71,7 @@ function showConnections(connections){
     let card=connectionCards.get(connection.ticket);
     if(!card){
       card=document.createElement('div');card.className='connection-card';
-      const title=document.createElement('strong'),origin=document.createElement('p'),expiry=document.createElement('p'),button=document.createElement('button');
+      const title=document.createElement('strong'),origin=document.createElement('p'),expiry=document.createElement('p'),button=document.createElement('fluent-button');
       title.textContent=adapterName(connection.source)+' · 已允许连接';
       origin.textContent=connection.channel==='native'?'插件称自己来自本机，尚未确认发布者。':connection.origin;
       expiry.className='connection-expiry';button.textContent='断开 '+adapterName(connection.source)+' 连接';
@@ -114,7 +114,7 @@ async function refresh(){
         const note=document.createElement('p');note.textContent=native?`请只允许你刚在 ${adapterName(request.source)} 中发起的连接。这次允许只用于提交和导出它自己的记录，不允许通过 WorkProof 读取本机文件。`:'请确认下面的网址属于你刚打开的加载项。这次允许只用于提交和导出它自己的记录，不允许通过 WorkProof 读取本机文件。';
         card.append(title,origin,note);
         for(const [text,approve] of [['允许连接',true],['拒绝',false]]){
-          const button=document.createElement('button');button.textContent=text;
+          const button=document.createElement('fluent-button');button.textContent=text;
           button.addEventListener('click',async()=>{
             const buttons=Array.from(card.querySelectorAll('button'));for(const item of buttons)item.disabled=true;
             try{await window.__TAURI__.core.invoke('decide_adapter',{ticket:request.ticket,approve});await refresh();}

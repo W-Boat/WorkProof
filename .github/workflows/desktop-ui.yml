@@ -2,7 +2,7 @@ name: Desktop workbench UI
 on:
   workflow_dispatch:
   push:
-    paths: ['apps/desktop/ui/**', 'scripts/stage_desktop_ui.cjs', 'tests/desktop-connections.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
+    paths: ['apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'tests/desktop-connections.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
 permissions:
   contents: read
 jobs:
