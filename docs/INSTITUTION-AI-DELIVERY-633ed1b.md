@@ -10,7 +10,7 @@
 | [英文 MPU / 13340247315](https://github.com/W-Boat/WorkProof/actions/runs/41861715138/artifacts/13340247315) | 552,939,858 | `e689026bd1258d0b255bb5c2ad729794112194ec1e60dcd913e7509d0b9264b8` |
 | [Desklib 英文 / 13341640295](https://github.com/W-Boat/WorkProof/actions/runs/41861715138/artifacts/13341640295) | 552,934,086 | `3e25138cbbf5db364ce94cbcca768af23f10781cf019a45d718c8d37397b862c` |
 
-中文包和英文包已分别完整下载至 `E:/work/WorkProof-Delivery/institution-ai-runtime-zh-633ed1b.zip`、`E:/work/WorkProof-Delivery/institution-ai-runtime-en-633ed1b.zip`，外层大小与摘要匹配。每包9项文件摘要、精确文件集合、产品源码、基础任务、运行任务、引擎和镜像ID全部核对；无重复或越界归档路径。英文包在旧下载句柄确认不存在后精确206续传，并重新核对整个文件的SHA256。Desklib 正在本地下载，不能将它记为本地包内核对已通过。
+中文包和英文包已分别完整下载至 `E:/work/WorkProof-Delivery/institution-ai-runtime-zh-633ed1b.zip`、`E:/work/WorkProof-Delivery/institution-ai-runtime-en-633ed1b.zip`，外层大小与摘要匹配。每包9项文件摘要、精确文件集合、产品源码、基础任务、运行任务、引擎和镜像ID全部核对；无重复或越界归档路径。英文包在旧下载句柄确认不存在后精确206续传，并重新核对整个文件的SHA256。为优先交付用户要求的桌面端，已明确停止Desklib本地下载并保留部分文件；它尚未完成本地包内核对，不能直接使用部分归档。
 
 三份成功日志 SHA256：中文 `635688299822253e39b9e4ab474753a774d771c25655f5bd35006b43bee55e53`；英文 `48c0cca7484555be55657f22656b90636d62d0760f24021fa672ea3ecd79bc30`；Desklib `fd9e34c970c02385ff90c4b577812803bb5b4e4c2136f3bdb1ead44c2697e309`。日志本地路径为 `E:/work/optional-ai-{zh,en,desklib}-633ed1b-success.log`。
 

@@ -10,6 +10,6 @@
 
 验收分开记录：`desktop-ui.yml` 用真实HTML/CSS和模拟IPC检查三浏览器布局、软件选择、重复启动、失败恢复、连接撤销及证书工具；这不替代真实Office操作。`verify.yml` 编译桌面、运行本机服务与原生Linux内嵌核验；`word-native.yml` 生成配套Word/PPT便携包并检查实际DLL和归档。全部构建和自动测试在Actions进行，本地只编辑源码、核对产物及运行已构建应用。
 
-本次新源码尚待Actions，不能标为已交付。Word/PPT仍需对应原生加载项；WPS、Photoshop和Blender的安装与真实宿主覆盖不因首页优化而自动补齐。正式平台签名、公信机构凭据和已记录的商用许可缺口继续保留。
+首页源码a99d678已在三浏览器专项通过27项，截图与布局已查看，见[页面验收记录](evidence/desktop-ux-a99d678/acceptance.md)。Windows打包及原生验收仍在进行，不能标为已交付。Word/PPT仍需对应原生加载项；WPS、Photoshop和Blender的安装与真实宿主覆盖不因首页优化而自动补齐。正式平台签名、公信机构凭据和已记录的商用许可缺口继续保留。
 
 后续AI候选已找到2026年首次提交的 [DetectorScope（2026-10-21）](https://arxiv.org/abs/2610.30006)与[EVIL-Detect（2026-08-11）](https://arxiv.org/abs/2608.10698)，以及[ACL 2026 NTS](https://aclanthology.org/2026.acl-long.1748/)。只做了来源核对，尚未接入。DetectorScope的模型许可、用途说明和中文效果，EVIL的未分发适配器与训练数据，NTS的源码许可及首次公开日期，都需要继续逐项确认；不以“2026”代替可用性和独立误报评估。
