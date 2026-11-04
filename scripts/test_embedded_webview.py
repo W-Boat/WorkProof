@@ -71,11 +71,14 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         wait(ready);workbench=handles()[0];screenshot('workbench.png')
         # The PC shell keeps verification in its own workspace. Exercise the
         # real navigation before opening the embedded verifier window.
-        click('.workspace-nav button[data-view="verification"]')
-        def verification_workspace():
-            assert execute("return document.body.dataset.view==='verification' && document.getElementById('verify').getBoundingClientRect().height>0")
-        wait(verification_workspace)
-        screenshot('workbench-verification.png')
+        # The separate historical milestone also runs this script against an
+        # older installed package, which has no workspace navigation.
+        if execute("return !!document.querySelector('.workspace-nav button[data-view=verification]')"):
+            click('.workspace-nav button[data-view="verification"]')
+            def verification_workspace():
+                assert execute("return document.body.dataset.view==='verification' && document.getElementById('verify').getBoundingClientRect().height>0")
+            wait(verification_workspace)
+            screenshot('workbench-verification.png')
         click('#verify')
         def second():
             result=handles();assert len(result)==2;return next(h for h in result if h!=workbench)
