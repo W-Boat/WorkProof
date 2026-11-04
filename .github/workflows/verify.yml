@@ -197,6 +197,9 @@ jobs:
         run: cargo test --release --locked -p workproof-desktop embedded_tests
       - name: Start real tray binary
         run: python scripts/test_tray.py target/release/workproof-desktop.exe
+      - name: Real Windows internal titlebar and tray close behavior
+        shell: pwsh
+        run: ./scripts/test_desktop_window_controls.ps1 -Executable target/release/workproof-desktop.exe
       - name: Measure idle resources and durable ingestion
         shell: pwsh
         run: ./scripts/measure_windows.ps1 -Executable target/release/workproof-desktop.exe
