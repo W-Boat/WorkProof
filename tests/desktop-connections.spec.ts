@@ -229,3 +229,44 @@ test('application rail shows actual grants and appearance persists with system c
   await page.screenshot({path:testInfo.outputPath('host-rail-light.png')});
   expect(await page.evaluate(()=>{const main=document.querySelector('main')!;return main.scrollWidth<=main.clientWidth;})).toBe(true);
 });
+
+test('Windows internal titlebar routes controls without closing the webpage',async({page},testInfo)=>{
+  await desktop(page);
+  await page.evaluate(()=>{
+    document.body.dataset.platform='windows';
+    const target=window as any,original=target.__TAURI__.core.invoke;target.windowActions=[];
+    target.__TAURI__.core.invoke=(command:string,args:any)=>{
+      if(command==='window_action'){target.windowActions.push(args.action);return Promise.resolve();}
+      return original(command,args);
+    };
+  });
+  await page.setViewportSize({width:1100,height:780});
+  for(const [name,action] of [['最小化窗口','minimize'],['最大化或还原窗口','maximize'],['关闭窗口并保留后台记录','close']]){
+    await page.getByRole('button',{name,exact:true}).click();
+    expect(await page.evaluate(()=>(window as any).windowActions.at(-1))).toBe(action);
+  }
+  await page.screenshot({path:testInfo.outputPath('windows-internal-controls.png')});
+  await expect(page.locator('.workspace-nav')).toBeVisible();
+});
+
+test('desktop Office configuration reports failures and actual returned installation state',async({page})=>{
+  await desktop(page);
+  await page.evaluate(()=>{
+    const target=window as any,original=target.__TAURI__.core.invoke;target.setupRequests=[];
+    target.__TAURI__.core.invoke=(command:string,args:any)=>{
+      if(command!=='office_setup')return original(command,args);
+      target.setupRequests.push(args);
+      if(!args.install)return Promise.resolve({installed:false});
+      if(target.setupRequests.length===2)return Promise.reject(new Error('请先保存并完全退出对应的 Office 软件，再点击安装。'));
+      return Promise.resolve({installed:true,restart_required:true});
+    };
+  });
+  await page.getByRole('button',{name:'检查安装状态',exact:true}).click();
+  await expect(page.locator('#office-setup-result')).toContainText('还没有安装加载项');
+  await page.getByRole('button',{name:'安装 / 修复加载项',exact:true}).click();
+  await expect(page.locator('#office-setup-result')).toContainText('请先保存并完全退出');
+  await expect(page.getByRole('button',{name:'安装 / 修复加载项',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'安装 / 修复加载项',exact:true}).click();
+  await expect(page.locator('#office-setup-result')).toContainText('加载项已安装');
+  expect(await page.evaluate(()=>(window as any).setupRequests)).toEqual([{host:'word',install:false},{host:'word',install:true},{host:'word',install:true}]);
+});

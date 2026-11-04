@@ -36,6 +36,7 @@ $Package = (Resolve-Path -LiteralPath $Package).Path
 Copy-Required $AddIn (Join-Path $Package (Split-Path -Leaf $AddIn))
 Copy-Required $Engine (Join-Path $Package 'workproof-engine.exe')
 Copy-Required (Join-Path $PSScriptRoot 'local/native-office-platform.ps1') (Join-Path $Package 'native-office-platform.ps1')
+Copy-Required (Join-Path $PSScriptRoot 'local/desktop-office-setup.ps1') (Join-Path $Package 'desktop-office-setup.ps1')
 if ($AddInX86) { Copy-Required $AddInX86 (Join-Path $Package 'WorkProofWord.x86.dll') }
 if ($PowerPointAddInX86) { Copy-Required $PowerPointAddInX86 (Join-Path $Package 'WorkProofPowerPoint.x86.dll') }
 if ($PowerPointAddIn) {

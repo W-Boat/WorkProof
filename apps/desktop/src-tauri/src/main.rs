@@ -2,6 +2,24 @@
 use tauri::{menu::{Menu,MenuItem},tray::TrayIconBuilder,Manager};
 mod platform;
 mod c2pa;
+mod office_setup;
+#[tauri::command]
+fn window_action(window:tauri::WebviewWindow,action:String)->Result<(),String>{
+    workbench_only(&window)?;
+    let result=match action.as_str(){
+        "minimize"=>window.minimize(),
+        "maximize"=>if window.is_maximized().map_err(|_|"无法读取窗口状态。")?{window.unmaximize()}else{window.maximize()},
+        "close"=>window.close(),
+        "drag"=>window.start_dragging(),
+        _=>return Err("不支持的窗口操作。".into())
+    };
+    result.map_err(|_|"窗口操作未完成，请重试。".into())
+}
+#[tauri::command]
+async fn office_setup(window:tauri::WebviewWindow,host:String,install:bool)->Result<serde_json::Value,String>{
+    workbench_only(&window)?;
+    tauri::async_runtime::spawn_blocking(move||office_setup::office_setup(&host,install)).await.map_err(|_|"安装任务未能完成，请重新检查安装状态。".to_string())?
+}
 fn workbench_only(window:&tauri::WebviewWindow)->Result<(),String>{
     workbench_label(window.label())
 }
@@ -94,16 +112,16 @@ async fn install_vscode(window:tauri::WebviewWindow,app:tauri::AppHandle)->Resul
     Ok("插件安装完成。在 VS Code 状态栏点击 WorkProof 即可开始记录。".into())
 }
 fn main(){
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,install_vscode,open_word,open_powerpoint,verify_image,embed_image]).setup(|app|{
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![window_action,office_setup,engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,install_vscode,open_word,open_powerpoint,verify_image,embed_image]).setup(|app|{
         let open=MenuItem::with_id(app,"open","WorkProof · 状态与帮助",true,None::<&str>)?;
         let quit=MenuItem::with_id(app,"quit","退出 WorkProof",true,None::<&str>)?;
         let menu=Menu::with_items(app,&[&open,&quit])?;
         TrayIconBuilder::new().icon(app.default_window_icon().expect("bundled icon").clone()).tooltip("WorkProof · 创作过程记录")
             .menu(&menu).on_menu_event(|app,event|match event.id.as_ref(){
                 "quit"=>app.exit(0),
-                "open"=>{if let Some(w)=app.get_webview_window("status"){let _=w.unminimize();let _=w.show();let _=w.set_focus();}else{let _=tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").inner_size(960.,780.).min_inner_size(360.,520.).resizable(true).build();}},_=>{}
+                "open"=>{if let Some(w)=app.get_webview_window("status"){let _=w.unminimize();let _=w.show();let _=w.set_focus();}else{let _=tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").decorations(!cfg!(windows)).inner_size(960.,780.).min_inner_size(360.,520.).resizable(true).build();}},_=>{}
             }).build(app)?;
-        if std::env::var_os("WORKPROOF_HEADLESS").is_none(){tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").inner_size(960.,780.).min_inner_size(360.,520.).resizable(true).build()?;}
+        if std::env::var_os("WORKPROOF_HEADLESS").is_none(){tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").decorations(!cfg!(windows)).inner_size(960.,780.).min_inner_size(360.,520.).resizable(true).build()?;}
         let handle=app.handle().clone();
         std::thread::spawn(move||{
             let rt=tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().expect("runtime");

@@ -1,6 +1,19 @@
 let last=-1;
 let refreshing=false,engineReady=false,launching=false;
 let visibleConnections=[],connectionsKnown=false;
+document.body.dataset.platform=/Win/i.test(navigator.platform)?'windows':'other';
+async function performWindowAction(action){
+  try{await window.__TAURI__.core.invoke('window_action',{action});}
+  catch(error){showMessage(errorText(error),'error');}
+}
+for(const button of document.querySelectorAll('[data-window]'))button.addEventListener('click',()=>performWindowAction(button.dataset.window));
+const titlebar=document.querySelector('.app-header');
+titlebar.addEventListener('mousedown',event=>{
+  if(document.body.dataset.platform==='windows'&&event.button===0&&event.detail===1&&!event.target.closest('button,a,input,select'))performWindowAction('drag');
+});
+titlebar.addEventListener('dblclick',event=>{
+  if(document.body.dataset.platform==='windows'&&!event.target.closest('button,a,input,select'))performWindowAction('maximize');
+});
 const appearance=document.getElementById('appearance-mode'),systemAppearance=matchMedia('(prefers-color-scheme: dark)');
 let appearanceMode='system';
 try{const saved=localStorage.getItem('workproof.appearance');if(['system','light','dark'].includes(saved))appearanceMode=saved;}catch{}
@@ -19,7 +32,7 @@ function updateConnectionBadges(){
   const text=!engineReady?'记录服务未就绪':!connectionsKnown?'正在检查连接…':count?`已允许 ${count} 个连接 · 记录状态请在软件中查看`:selected==='vscode'||selected==='blender'?'此软件自动连接 · 请在软件中查看记录状态':'尚未连接 · 首次使用请先安装加载项';
   document.getElementById('selected-connection').textContent=text;
 }
-const launchIds=['open-word','open-powerpoint','install'];
+const launchIds=['open-word','open-powerpoint','install','check-office','install-office'];
 function updateLaunchButtons(){for(const id of launchIds)document.getElementById(id).disabled=!engineReady||launching;}
 function showMessage(text,state='info'){
   const message=document.getElementById('message');message.textContent=text;message.dataset.state=state;
@@ -142,6 +155,21 @@ try{const saved=localStorage.getItem('workproof.creation-tool');if(Object.hasOwn
 function showGuide(){const guide=guides[creationTool.value];const steps=document.getElementById('creation-steps');steps.replaceChildren();for(const text of guide.steps){const li=document.createElement('li');li.textContent=text;steps.append(li);}document.getElementById('installation-note').textContent=guide.note;document.getElementById('tool-requirement').textContent=requirements[creationTool.value];document.getElementById('install').hidden=creationTool.value!=='vscode';document.getElementById('open-word').hidden=creationTool.value!=='word';document.getElementById('open-powerpoint').hidden=creationTool.value!=='powerpoint';try{localStorage.setItem('workproof.creation-tool',creationTool.value);}catch{}}
 creationTool.addEventListener('change',showGuide);showGuide();
 creationTool.addEventListener('change',updateConnectionBadges);updateConnectionBadges();
+function showOfficeSetup(){document.getElementById('office-setup').hidden=!['word','powerpoint'].includes(creationTool.value);document.getElementById('office-setup-result').textContent='首次使用可在这里检查并安装加载项。请先保存并退出对应的 Office 软件。';}
+creationTool.addEventListener('change',showOfficeSetup);showOfficeSetup();
+for(const id of ['check-office','install-office'])document.getElementById(id).addEventListener('click',async()=>{
+  if(launching||!engineReady)return;
+  const host=creationTool.value,install=id==='install-office';
+  if(!['word','powerpoint'].includes(host))return;
+  launching=true;updateLaunchButtons();creationTool.disabled=true;
+  const result=document.getElementById('office-setup-result');result.textContent=install?'正在安装加载项，请稍候…':'正在检查安装状态…';
+  try{
+    const value=await window.__TAURI__.core.invoke('office_setup',{host,install});
+    if(typeof value?.installed!=='boolean')throw new Error('安装状态无法识别，请更新完整配套包。');
+    result.textContent=value.installed?(install?'加载项已安装。现在可以打开软件并开始记录。':'已检测到加载项注册。可打开软件，在 WorkProof 侧栏确认是否正常加载。'):'还没有安装加载项。点击“安装 / 修复加载项”继续。';
+  }catch(error){result.textContent=errorText(error);}
+  finally{launching=false;creationTool.disabled=false;updateLaunchButtons();}
+});
 
 document.getElementById('verify-image').addEventListener('click',async()=>{
   const button=document.getElementById('verify-image'),result=document.getElementById('image-result');
