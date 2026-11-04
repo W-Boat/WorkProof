@@ -13,7 +13,8 @@ pub fn office_setup(host:&str,install:bool)->Result<serde_json::Value,String>{
     {
         let exe=std::env::current_exe().map_err(|_|"无法定位当前安装目录。")?;
         let directory=exe.parent().ok_or("无法定位当前安装目录。")?;
-        let script=directory.join("desktop-office-setup.ps1");
+        let nested=directory.join("office/desktop-office-setup.ps1");
+        let script=if nested.is_file(){nested}else{directory.join("desktop-office-setup.ps1")};
         if !script.is_file(){return Err("当前安装缺少 Office 配置工具。请使用包含 Word/PPT 加载项的完整配套包。".into());}
         let root=std::env::var_os("SystemRoot").ok_or("无法定位 Windows 系统目录。")?;
         let mut command=Command::new(PathBuf::from(root).join("System32/WindowsPowerShell/v1.0/powershell.exe"));

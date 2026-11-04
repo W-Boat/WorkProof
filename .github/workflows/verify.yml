@@ -149,7 +149,48 @@ jobs:
           rustc --test apps/desktop/src-tauri/src/platform.rs -o "$env:RUNNER_TEMP/workproof-platform-tests.exe"
           & "$env:RUNNER_TEMP/workproof-platform-tests.exe"
       - run: cargo build --locked -p workproof-engine --release
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - name: Build 32-bit Office first-install payloads
+        shell: pwsh
+        run: |
+          ./apps/word-native-cpp/build.ps1 -Architecture x86 -OutDir apps/word-native-cpp/out-x86
+          ./apps/word-native-cpp/build.ps1 -Architecture x86 -PowerPoint -OutDir apps/word-native-cpp/out-powerpoint-x86
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Build 64-bit Office first-install payloads
+        shell: pwsh
+        run: |
+          ./apps/word-native-cpp/build.ps1 -Architecture x64 -OutDir apps/word-native-cpp/out
+          ./apps/word-native-cpp/build.ps1 -Architecture x64 -PowerPoint -OutDir apps/word-native-cpp/out-powerpoint
+      - name: Collect original Office payload notices
+        run: python scripts/word_package_notices.py --output .ci-office-notices
+      - name: Stage matching Office resources inside the Windows installer
+        shell: pwsh
+        run: |
+          ./scripts/stage_word_native.ps1 -Package apps/desktop/src-tauri/resources/office -AddIn apps/word-native-cpp/out/WorkProofWord.dll -PowerPointAddIn apps/word-native-cpp/out-powerpoint/WorkProofPowerPoint.dll -AddInX86 apps/word-native-cpp/out-x86/WorkProofWord.dll -PowerPointAddInX86 apps/word-native-cpp/out-powerpoint-x86/WorkProofPowerPoint.dll -Engine target/release/workproof-engine.exe -Docs docs -Notices .ci-office-notices
       - run: npm run build -w @workproof/desktop
+      - name: Install the actual NSIS bundle and verify embedded Office setup files
+        shell: pwsh
+        run: |
+          $installer=Get-ChildItem target/release/bundle/nsis/*.exe | Select-Object -First 1
+          $destination=Join-Path $env:RUNNER_TEMP ('workproof-nsis-'+[guid]::NewGuid().ToString('N'))
+          $process=Start-Process -FilePath $installer.FullName -ArgumentList @('/S',('/D='+$destination)) -WindowStyle Hidden -PassThru
+          if(-not $process.WaitForExit(120000)){throw 'NSIS acceptance exceeded two minutes'}
+          if($process.ExitCode -ne 0){throw 'NSIS installation failed'}
+          $payload=Join-Path $destination 'office'
+          $source='apps/desktop/src-tauri/resources/office'
+          foreach($file in (Get-ChildItem -LiteralPath $source -Recurse -File -Force)){
+            $relative=$file.FullName.Substring((Resolve-Path $source).Path.Length+1)
+            $installed=Join-Path $payload $relative
+            if(-not(Test-Path -LiteralPath $installed -PathType Leaf) -or (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash){throw ('Installed Office resource mismatch: '+$relative)}
+          }
+          foreach($entry in @('desktop-office-setup.ps1','WorkProofWord.dll','WorkProofWord.x86.dll','WorkProofPowerPoint.dll','WorkProofPowerPoint.x86.dll','workproof-engine.exe','BUILD-INFO.json')){
+            if(-not(Test-Path -LiteralPath (Join-Path $payload $entry) -PathType Leaf)){throw ('Installed setup entry missing: '+$entry)}
+          }
+          Write-Output 'PASS actual NSIS installation and all embedded Office resource hashes; no Office registration or real host launch performed'
       - name: Desktop image report compatibility and process limits
         run: cargo test --release --locked -p workproof-desktop c2pa::tests
       - name: Embedded verifier navigation and command isolation

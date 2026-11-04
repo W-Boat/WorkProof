@@ -4,7 +4,7 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "build": "tauri build --bundles nsis",
+    "build": "tauri build --config src-tauri/tauri.office-installer.conf.json --bundles nsis",
     "dev": "tauri dev",
     "icons": "node ../../scripts/stage_desktop_ui.cjs && tauri icon ../../assets/brand/workproof-icon.png",
     "build:linux": "tauri build --config src-tauri/tauri.linux.conf.json --bundles deb",
