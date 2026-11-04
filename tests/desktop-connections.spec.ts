@@ -202,3 +202,30 @@ test('desktop navigation switches bounded workspaces and preserves recording inp
   expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight)).toBe(true);
   await page.screenshot({path:testInfo.outputPath('pc-creation.png')});
 });
+
+test('application rail shows actual grants and appearance persists with system changes',async({page},testInfo)=>{
+  await page.emulateMedia({colorScheme:'dark'});await desktop(page);
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await expect(page.locator('[data-connection=word]')).toHaveText('已连接');
+  await expect(page.locator('[data-connection=powerpoint]')).toHaveText('未连接');
+  await page.getByRole('button',{name:'选择 PowerPoint',exact:true}).click();
+  await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('powerpoint');
+  await expect(page.locator('#selected-connection')).toContainText('尚未连接');
+  await page.setViewportSize({width:1100,height:780});
+  await page.screenshot({path:testInfo.outputPath('host-rail-dark.png')});
+  await page.getByRole('button',{name:'设置与工具',exact:true}).click();
+  await page.getByLabel('界面主题',{exact:true}).selectOption('light');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+  await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+  await page.getByRole('button',{name:'设置与工具',exact:true}).click();
+  await page.getByLabel('界面主题',{exact:true}).selectOption('system');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await page.emulateMedia({colorScheme:'light'});
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+  await page.getByRole('button',{name:'连接管理',exact:true}).click();
+  await page.getByRole('button',{name:'断开 Word 连接'}).click();
+  await expect(page.locator('[data-connection=word]')).toHaveText('未连接');
+  await page.getByRole('button',{name:'选择 Word',exact:true}).click();
+  await page.screenshot({path:testInfo.outputPath('host-rail-light.png')});
+  expect(await page.evaluate(()=>{const main=document.querySelector('main')!;return main.scrollWidth<=main.clientWidth;})).toBe(true);
+});

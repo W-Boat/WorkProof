@@ -1,5 +1,24 @@
 let last=-1;
 let refreshing=false,engineReady=false,launching=false;
+let visibleConnections=[],connectionsKnown=false;
+const appearance=document.getElementById('appearance-mode'),systemAppearance=matchMedia('(prefers-color-scheme: dark)');
+let appearanceMode='system';
+try{const saved=localStorage.getItem('workproof.appearance');if(['system','light','dark'].includes(saved))appearanceMode=saved;}catch{}
+function applyAppearance(){document.documentElement.dataset.theme=appearanceMode==='system'?(systemAppearance.matches?'dark':'light'):appearanceMode;appearance.value=appearanceMode;}
+appearance.addEventListener('change',()=>{appearanceMode=appearance.value;applyAppearance();try{localStorage.setItem('workproof.appearance',appearanceMode);}catch{}});
+systemAppearance.addEventListener('change',applyAppearance);applyAppearance();
+function updateConnectionBadges(){
+  const selected=document.getElementById('creation-tool').value;
+  for(const badge of document.querySelectorAll('[data-connection]')){
+    const source=badge.dataset.connection,count=visibleConnections.filter(value=>value.source===source).length;
+    badge.textContent=!engineReady?'服务未就绪':!connectionsKnown?'待检查':count?'已连接':source==='vscode'||source==='blender'?'宿主内查看':'未连接';
+    badge.dataset.connected=String(engineReady&&connectionsKnown&&count>0);
+    const button=badge.closest('button');button.classList.toggle('selected-tool',document.body.dataset.view==='create'&&source===selected);
+  }
+  const count=visibleConnections.filter(value=>value.source===selected).length;
+  const text=!engineReady?'记录服务未就绪':!connectionsKnown?'正在检查连接…':count?`已允许 ${count} 个连接 · 记录状态请在软件中查看`:selected==='vscode'||selected==='blender'?'此软件自动连接 · 请在软件中查看记录状态':'尚未连接 · 首次使用请先安装加载项';
+  document.getElementById('selected-connection').textContent=text;
+}
 const launchIds=['open-word','open-powerpoint','install'];
 function updateLaunchButtons(){for(const id of launchIds)document.getElementById(id).disabled=!engineReady||launching;}
 function showMessage(text,state='info'){
@@ -19,11 +38,16 @@ function selectView(view,focus=false){
   document.getElementById('workspace-description').textContent=views[view][1];
   document.querySelector('main').scrollTop=0;
   if(focus)document.getElementById('workspace-title').focus({preventScroll:true});
+  updateConnectionBadges();
 }
-for(const button of document.querySelectorAll('.workspace-nav button'))button.addEventListener('click',()=>selectView(button.dataset.view,true));
+for(const button of document.querySelectorAll('.workspace-nav button[data-view]'))button.addEventListener('click',()=>selectView(button.dataset.view,true));
+for(const button of document.querySelectorAll('.workspace-nav button[data-tool]'))button.addEventListener('click',()=>{
+  const select=document.getElementById('creation-tool');select.value=button.dataset.tool;select.dispatchEvent(new Event('change'));selectView('create',true);
+});
 const connectionCards=new Map();
 const adapterName=source=>({word:'Word',powerpoint:'PowerPoint',wps:'WPS',photoshop:'Photoshop'}[source]||source);
 function showConnections(connections){
+  visibleConnections=connections;connectionsKnown=true;updateConnectionBadges();
   const region=document.getElementById('adapter-connections');
   if(!region)return;
   document.getElementById('no-connections').hidden=connections.length>0;
@@ -86,7 +110,7 @@ async function refresh(){
         region.append(card);
       }
     }
-  }catch{engineReady=false;updateLaunchButtons();const status=document.getElementById('status');status.dataset.state='error';status.textContent='暂时无法连接记录服务。请退出并重新打开 WorkProof。';}
+  }catch{engineReady=false;connectionsKnown=false;updateLaunchButtons();updateConnectionBadges();const status=document.getElementById('status');status.dataset.state='error';status.textContent='暂时无法连接记录服务。请退出并重新打开 WorkProof。';}
   finally{refreshing=false;}
 }
 refresh();setInterval(refresh,1500);document.addEventListener('visibilitychange',refresh);
@@ -117,6 +141,7 @@ const requirements={word:'首次使用前，请先安装 Word 原生加载项。
 try{const saved=localStorage.getItem('workproof.creation-tool');if(Object.hasOwn(guides,saved))creationTool.value=saved;}catch{}
 function showGuide(){const guide=guides[creationTool.value];const steps=document.getElementById('creation-steps');steps.replaceChildren();for(const text of guide.steps){const li=document.createElement('li');li.textContent=text;steps.append(li);}document.getElementById('installation-note').textContent=guide.note;document.getElementById('tool-requirement').textContent=requirements[creationTool.value];document.getElementById('install').hidden=creationTool.value!=='vscode';document.getElementById('open-word').hidden=creationTool.value!=='word';document.getElementById('open-powerpoint').hidden=creationTool.value!=='powerpoint';try{localStorage.setItem('workproof.creation-tool',creationTool.value);}catch{}}
 creationTool.addEventListener('change',showGuide);showGuide();
+creationTool.addEventListener('change',updateConnectionBadges);updateConnectionBadges();
 
 document.getElementById('verify-image').addEventListener('click',async()=>{
   const button=document.getElementById('verify-image'),result=document.getElementById('image-result');
