@@ -33,7 +33,7 @@
 
 ## 目前哪些结果有证据
 
-- 基础服务、证书目录、持久任务、备份和新项目恢复已有 Linux amd64 Docker 验收，最新已下载基础包的范围与摘要见[633ed1b基础包记录](INSTITUTION-DELIVERY-633ed1b.md)。它默认关闭AI，不能与旧cf1ab54可选AI包混用；新配套环境仍在Actions验收。
+- 基础服务、证书目录、持久任务、备份和新项目恢复已有 Linux amd64 Docker 验收，最新已下载基础包的范围与摘要见[633ed1b基础包记录](INSTITUTION-DELIVERY-633ed1b.md)。它默认关闭AI，不能与旧cf1ab54可选AI包混用；新版三个配套单引擎环境已在Actions通过，下载核对范围见[新版AI包记录](INSTITUTION-AI-DELIVERY-633ed1b.md)。
 - 三种模型的准备、真实接口检测、取消清理、恢复默认关闭、恢复项目重新启用，以及候选运行环境打包，已在[任务 41626918967](https://github.com/W-Boat/WorkProof/actions/runs/41626918967)全部通过。三个候选包和同源码基础包的完整下载及全部包内摘要均已核对，见[交付记录](INSTITUTION-AI-DELIVERY-cf1ab54.md)；它们未安装到现有部署，不含权重。每包只按其所列单引擎验收，不保证同实例同时启用三个模型。
 - 实际中英文模型误报见[独立评估](AI-CALIBRATION-RESULTS.md)。LRR 的[独立中英文评估](LRR-EVALUATION-RESULTS.md)已结束，但漏报过高，暂不加入正式工作台；运行速度通过检查不代表识别准确。
 

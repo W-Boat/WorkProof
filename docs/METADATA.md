@@ -1,6 +1,6 @@
 # 本机文件元数据检查
 
-核验页的“进一步检查 AI 线索”可读取 PNG 未压缩及受限解压的文字字段、JPEG 文件头的部分 EXIF/注释/XMP，以及 Word/WPS DOCX 与 PowerPoint/WPS PPTX 中的 `docProps/core.xml`、`app.xml`、`custom.xml` 属性。用户在“查看作品的文件属性”中核对文件名，确认其中姓名、标题、提示词等信息可以显示，再主动检查。文件不上传，不运行检测模型，不修改证书。最新三浏览器及窄屏结果见[验收记录](evidence/metadata-ui-498027d/acceptance.md)。
+核验页的“进一步检查 AI 线索”可读取 PNG 未压缩及受限解压的文字字段、JPEG 文件头的部分 EXIF/注释/XMP，以及 Word/WPS DOCX 与 PowerPoint/WPS PPTX 中的 `docProps/core.xml`、`app.xml`、`custom.xml` 属性。用户在“查看作品的文件属性”中核对文件名，确认其中姓名、标题、提示词等信息可以显示，再主动检查。文件不上传，不运行检测模型，不修改证书。三浏览器及窄屏结果见[页面验收记录](evidence/metadata-ui-498027d/acceptance.md)，后续压缩XMP来源声明及XML边界用例已在[1226e8f专项](evidence/metadata-1226e8f/acceptance.md)通过。
 
 普通 Word、WPS、Photoshop 软件名称不作为 AI 线索。仅自定义属性的 prompt、workflow、parameters、aigenerator 等字段名称提示人工复核，字段可被伪造、删除或复制；检出不能确认 AI 来源，未检出也不能确认没有使用 AI。仅显示标量值，不解释嵌套属性结构。
 
