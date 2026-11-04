@@ -1,0 +1,266 @@
+{
+  "domain": {
+    "academic": {
+      "samples": 64,
+      "completed": 64,
+      "statuses": {
+        "completed": 64
+      },
+      "false_positive": {
+        "count": 0,
+        "total": 32,
+        "rate": 0.0,
+        "wilson95": [
+          0,
+          0.1071791982550706
+        ]
+      },
+      "false_negative": {
+        "count": 28,
+        "total": 32,
+        "rate": 0.875,
+        "wilson95": [
+          0.7193169451834978,
+          0.9502986561251991
+        ]
+      }
+    },
+    "news": {
+      "samples": 64,
+      "completed": 64,
+      "statuses": {
+        "completed": 64
+      },
+      "false_positive": {
+        "count": 1,
+        "total": 32,
+        "rate": 0.03125,
+        "wilson95": [
+          0.005537860164003122,
+          0.15744263820012558
+        ]
+      },
+      "false_negative": {
+        "count": 29,
+        "total": 32,
+        "rate": 0.90625,
+        "wilson95": [
+          0.7578184527161212,
+          0.9675984487016337
+        ]
+      }
+    },
+    "novel": {
+      "samples": 64,
+      "completed": 64,
+      "statuses": {
+        "completed": 64
+      },
+      "false_positive": {
+        "count": 0,
+        "total": 32,
+        "rate": 0.0,
+        "wilson95": [
+          0,
+          0.1071791982550706
+        ]
+      },
+      "false_negative": {
+        "count": 29,
+        "total": 32,
+        "rate": 0.90625,
+        "wilson95": [
+          0.7578184527161212,
+          0.9675984487016337
+        ]
+      }
+    },
+    "seo": {
+      "samples": 64,
+      "completed": 64,
+      "statuses": {
+        "completed": 64
+      },
+      "false_positive": {
+        "count": 0,
+        "total": 32,
+        "rate": 0.0,
+        "wilson95": [
+          0,
+          0.1071791982550706
+        ]
+      },
+      "false_negative": {
+        "count": 31,
+        "total": 32,
+        "rate": 0.96875,
+        "wilson95": [
+          0.8425573617998744,
+          0.9944621398359969
+        ]
+      }
+    },
+    "webtext": {
+      "samples": 64,
+      "completed": 64,
+      "statuses": {
+        "completed": 64
+      },
+      "false_positive": {
+        "count": 1,
+        "total": 32,
+        "rate": 0.03125,
+        "wilson95": [
+          0.005537860164003122,
+          0.15744263820012558
+        ]
+      },
+      "false_negative": {
+        "count": 29,
+        "total": 32,
+        "rate": 0.90625,
+        "wilson95": [
+          0.7578184527161212,
+          0.9675984487016337
+        ]
+      }
+    },
+    "wiki": {
+      "samples": 64,
+      "completed": 64,
+      "statuses": {
+        "completed": 64
+      },
+      "false_positive": {
+        "count": 2,
+        "total": 32,
+        "rate": 0.0625,
+        "wilson95": [
+          0.017310567031640967,
+          0.2014712314415458
+        ]
+      },
+      "false_negative": {
+        "count": 28,
+        "total": 32,
+        "rate": 0.875,
+        "wilson95": [
+          0.7193169451834978,
+          0.9502986561251991
+        ]
+      }
+    }
+  },
+  "generator": {
+    "deepseek-v3": {
+      "samples": 48,
+      "completed": 48,
+      "statuses": {
+        "completed": 48
+      },
+      "false_positive": {
+        "count": 0,
+        "total": 0,
+        "rate": null,
+        "wilson95": null
+      },
+      "false_negative": {
+        "count": 47,
+        "total": 48,
+        "rate": 0.9791666666666666,
+        "wilson95": [
+          0.8910078200474814,
+          0.9963128890224893
+        ]
+      }
+    },
+    "gemini-2.5-flash": {
+      "samples": 48,
+      "completed": 48,
+      "statuses": {
+        "completed": 48
+      },
+      "false_positive": {
+        "count": 0,
+        "total": 0,
+        "rate": null,
+        "wilson95": null
+      },
+      "false_negative": {
+        "count": 48,
+        "total": 48,
+        "rate": 1.0,
+        "wilson95": [
+          0.9258998703338824,
+          0.9999999999999999
+        ]
+      }
+    },
+    "gpt-4o": {
+      "samples": 48,
+      "completed": 48,
+      "statuses": {
+        "completed": 48
+      },
+      "false_positive": {
+        "count": 0,
+        "total": 0,
+        "rate": null,
+        "wilson95": null
+      },
+      "false_negative": {
+        "count": 46,
+        "total": 48,
+        "rate": 0.9583333333333334,
+        "wilson95": [
+          0.8602434412954456,
+          0.9884981065106133
+        ]
+      }
+    },
+    "human": {
+      "samples": 192,
+      "completed": 192,
+      "statuses": {
+        "completed": 192
+      },
+      "false_positive": {
+        "count": 4,
+        "total": 192,
+        "rate": 0.020833333333333332,
+        "wilson95": [
+          0.008130783932175367,
+          0.05233373104846399
+        ]
+      },
+      "false_negative": {
+        "count": 0,
+        "total": 0,
+        "rate": null,
+        "wilson95": null
+      }
+    },
+    "qwen-max": {
+      "samples": 48,
+      "completed": 48,
+      "statuses": {
+        "completed": 48
+      },
+      "false_positive": {
+        "count": 0,
+        "total": 0,
+        "rate": null,
+        "wilson95": null
+      },
+      "false_negative": {
+        "count": 33,
+        "total": 48,
+        "rate": 0.6875,
+        "wilson95": [
+          0.5466692858410841,
+          0.8005431655341219
+        ]
+      }
+    }
+  }
+}

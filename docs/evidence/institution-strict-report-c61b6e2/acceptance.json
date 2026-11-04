@@ -1,0 +1,20 @@
+{
+  "source_commit": "c61b6e21b5981cc0e3cb888364e7aa14092fa45b",
+  "run": 41641960537,
+  "url": "https://github.com/W-Boat/WorkProof/actions/runs/41641960537",
+  "jobs": [
+    {"id": 125937449190, "name": "scaffold", "conclusion": "success"},
+    {"id": 125937449644, "name": "windows-launchers", "conclusion": "success"},
+    {"id": 125937449852, "name": "backup-control-flow", "conclusion": "success"}
+  ],
+  "observed_log": {
+    "AiAnalysisServiceTest": {"tests": 7, "failures": 0, "errors": 0, "skipped": 1},
+    "system_module_tests": {"tests": 22, "failures": 0, "errors": 0, "skipped": 2}
+  },
+  "covered_change": "Subprocess reports reject duplicate JSON fields, coerced network flags, and fractional/string artifact sizes before publishing analysis results.",
+  "limitations": [
+    "Real-model integration test is skipped in this default-model-disabled run.",
+    "This does not replace an explicitly enabled real-model browser acceptance run.",
+    "No local build, tests, model inference or deployment replacement performed."
+  ]
+}
