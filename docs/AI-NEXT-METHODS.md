@@ -1,5 +1,7 @@
 # 新检测方法与评估数据的接入核查
 
+2026-11-04状态更新：下方DetectRL-X“未下载全量或运行评估”描述的是候选调查时点。其固定数据随后已在Actions完成三种分类模型的[独立校准与留出评估](AI-CALIBRATION-RESULTS.md)，以及Qwen3-LRR的[中英文独立评估](LRR-EVALUATION-RESULTS.md)。LRR漏报过高，未加入正式检测列表。数据权利、语义重复、训练污染和真实作业分布限制仍保留，不能由任务成功推导商业许可或全面有效。
+
 现有 MPU v3 中英文配置属于同一检测方法，不能按两个独立方法计算。Desklib 的真实模型及机构网页链路已验收，仍未商业放行或证明效果；C-ReD 和 DetectRL-X 仍为评估数据候选。
 
 - Desklib v1.01：固定 revision `5fdea974cd4287c61674951ec78803aa274e2fb7`，英文 DeBERTa-v3-large 分类器，采用均值池化与单 logit/sigmoid。本地独立适配不加载上游 Python，严格匹配 Safetensors 参数，新增 CLI、机构选择与按引擎匹配的 sigmoid 评估类型。[真实模型与 Java 验收](https://github.com/W-Boat/WorkProof/actions/runs/41502727303)以及[真实机构网页流程](https://github.com/W-Boat/WorkProof/actions/runs/41503104263)均通过；合成输入只证明调用链，不证明准确率。与 MPU 是不同模型实现，仍属于监督分类方法，不能据此声称覆盖多类独立检测原理。模型卡标 MIT，固定发布目录未见完整 LICENSE/NOTICE，[许可记录](licenses/ai-models/desklib-en-v1.01-source.json)仍为未商业放行。来源：[固定官方模型卡](https://huggingface.co/desklib/ai-text-detector-v1.01/blob/5fdea974cd4287c61674951ec78803aa274e2fb7/README.md)、[官方源码说明](https://github.com/desklib/ai-text-detector)。
