@@ -61,7 +61,7 @@ fluent-button.icon-button::part(control){min-width:32px;padding:4px}
 .ribbon-tabs button[aria-selected=true]{color:var(--text)}
 .ribbon-tabs button[aria-selected=true]::after{content:'';position:absolute;bottom:2px;left:0;right:0;height:2px;background:var(--accent);border-radius:2px;animation:indicator 160ms var(--ease)}
 .ribbon-tabs .wp-icon{display:none}
-.ribbon-page{display:flex;gap:14px;min-height:105px;padding:8px 12px 6px;overflow-x:auto;scrollbar-width:thin;animation:page-enter 140ms var(--ease)}
+.ribbon-page{display:flex;flex-wrap:wrap;gap:14px;min-height:105px;padding:8px 12px 6px;overflow-x:auto;scrollbar-width:thin;animation:page-enter 140ms var(--ease)}
 .ribbon-group{display:flex;flex-direction:column;justify-content:space-between;gap:5px;padding-right:14px;border-right:1px solid var(--stroke);flex-shrink:0}
 .ribbon-group:last-child{border-right:0;padding-right:0}
 .ribbon-controls{display:flex;align-items:center;align-content:flex-start;flex-wrap:wrap;gap:4px;max-width:440px;min-height:68px}
