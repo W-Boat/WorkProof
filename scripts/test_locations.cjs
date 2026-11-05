@@ -25,7 +25,12 @@ for(const fixture of fixtures){
   // Home/UserProfile/LocalAppData spellings. Remove all equivalent names before
   // passing the explicit fixture, so "no home" cannot retain a real profile.
   const locationKeys=new Set(['WORKPROOF_DATA_DIR','HOME','USERPROFILE','LOCALAPPDATA','XDG_DATA_HOME']);
-  for(const key of Object.keys(env))if(locationKeys.has(key.toUpperCase()))delete env[key];Object.assign(env,fixture.vars);
+  for(const key of Object.keys(env))if(locationKeys.has(key.toUpperCase()))delete env[key];
+  // On Windows child_process may restore required inherited variables such as
+  // USERPROFILE when they are absent from an explicit env object. An explicitly
+  // empty value must reach the child: resolvers treat it as unavailable.
+  for(const key of locationKeys)env[key]='';
+  Object.assign(env,fixture.vars);
   const rust=spawnSync(engine,[],{env,encoding:'utf8'});
   const pythonResult=spawnSync(python,['-c',py,path.resolve('apps/blender/workproof/location.py')],{env,encoding:'utf8'});
   if(fixture.expected===null){
