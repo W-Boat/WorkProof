@@ -122,6 +122,8 @@ jobs:
       - uses: ./.github/actions/c2pa-browser-resource
       - run: npm run build:web
       - run: npx playwright install --with-deps chromium
+      - name: Bundle the same offline Fluent desktop components before browser checks
+        run: node scripts/stage_desktop_ui.cjs
       - name: Browser verification and screenshots
         run: npm run test:web
       - uses: actions/upload-artifact@v4
