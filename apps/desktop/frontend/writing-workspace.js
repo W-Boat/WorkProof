@@ -4,7 +4,7 @@ import {markdown} from '@codemirror/lang-markdown';
 const $=id=>document.getElementById(id);
 // Both presentations edit the same Tiptap document and use its recording pipeline.
 export function initializeWritingWorkspace({getEditor,getActive,record,hint,flush,showMessage}){
-  let mode='word',source=null,sourceId=null,syncing=false,sourceError=null;
+  let mode='word',source=null,sourceId=null,syncing=false,sourceError=null,sourceIntent=null;
   const drafts=new Map();
   const sourceVisible=()=>!$('markdown-source-panel').hidden;
   const requiresRichDocument=node=>{
@@ -16,16 +16,57 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   };
   function rememberDraft(){if(source&&sourceId)drafts.set(sourceId,{text:source.state.doc.toString(),document:JSON.stringify(getEditor()?.getJSON())});}
   function sourceChanged(update){
-    if(syncing||!update.docChanged)return;
+    if(syncing)return;
+    const selection=update.state.selection;
+    if(update.selectionSet)record('selection',{detail:{source:'markdown',ranges:selection.ranges.slice(0,64).map(range=>({anchor:range.anchor,head:range.head})),main_index:selection.mainIndex}});
+    if(!update.docChanged)return;
     const editor=getEditor();if(!editor)return;
+    const changes=[];let remaining=4096,totalChanges=0;
+    update.changes.iterChanges((from,to,newFrom,newTo,inserted)=>{
+      totalChanges++;
+      if(changes.length>=64)return;
+      const text=inserted.sliceString(0,Math.min(inserted.length,remaining));remaining-=text.length;
+      changes.push({from,to,new_from:newFrom,new_to:newTo,inserted:text,inserted_length:inserted.length,truncated:text.length<inserted.length});
+    });
+    record('transaction',{detail:{source:'markdown',doc_changed:true,changes,total_changes:totalChanges,truncated:totalChanges>changes.length}});
     try{
       const text=update.state.doc.toString();
       const parsed=editor.schema.nodeFromJSON(editor.markdown.parse(text));
-      hint('edit');editor.view.dispatch(editor.state.tr.replaceWith(0,editor.state.doc.content.size,parsed.content).setDocAttribute('markdownSource',text));
+      const history=update.transactions.some(transaction=>transaction.isUserEvent('undo'))?'undo':update.transactions.some(transaction=>transaction.isUserEvent('redo'))?'redo':sourceIntent&&performance.now()-sourceIntent.at<600?sourceIntent.kind:'edit';
+      sourceIntent=null;hint(history);editor.view.dispatch(editor.state.tr.replaceWith(0,editor.state.doc.content.size,parsed.content).setDocAttribute('markdownSource',text));
       sourceError=null;
       rememberDraft();
     }catch(error){sourceError=new Error('Markdown 尚未完成解析，请修正源码后再保存或切换文档。');showMessage(sourceError.message+String(error),'error');}
   }
+  const sourceEvents={
+    keydown(event){
+      record('keyboard',{detail:{key:event.key,code:event.code,repeat:event.repeat,ctrl:event.ctrlKey,meta:event.metaKey,shift:event.shiftKey,alt:event.altKey,composing:event.isComposing,source:'markdown'}});
+      const mod=event.ctrlKey||event.metaKey,key=event.key.toLowerCase();
+      if(mod&&key==='s'){event.preventDefault();flush().catch(error=>showMessage(String(error),'error'));return true;}
+      if(mod&&key==='z')sourceIntent={kind:event.shiftKey?'redo':'undo',at:performance.now()};
+      else if(mod&&key==='y')sourceIntent={kind:'redo',at:performance.now()};
+      else sourceIntent=null;
+      if(!event.isComposing){
+        const kind={Backspace:'backspace',Delete:'delete_forward',' ':'space',Enter:'enter'}[event.key];
+        if(kind)record(kind,{metrics:{[kind]:1},detail:{source:'markdown'}});
+        else if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(event.key))record('cursor',{metrics:{cursor_moves:1},detail:{source:'markdown'}});
+      }
+      return false;
+    },
+    copy(){record('copy',{metrics:{copy:1},detail:{source:'markdown'}});},
+    paste(){record('paste',{metrics:{paste:1},detail:{source:'markdown'}});},
+    cut(){record('cut',{metrics:{cut:1},detail:{source:'markdown'}});},
+    beforeinput(event){
+      record('beforeinput',{detail:{source:'markdown',input_type:event.inputType,composing:event.isComposing}});
+      if(['historyUndo','historyRedo'].includes(event.inputType))sourceIntent={kind:event.inputType==='historyUndo'?'undo':'redo',at:performance.now()};
+    },
+    input(event){record('input',{detail:{source:'markdown',input_type:event.inputType,composing:event.isComposing}});},
+    focus(){record('focus',{detail:{source:'markdown'}});},
+    blur(){record('blur',{detail:{source:'markdown'}});}
+  };
+  for(const type of ['compositionstart','compositionupdate','compositionend','drop','dragstart','dragend'])sourceEvents[type]=event=>{
+    record(type,{detail:{source:'markdown',data:typeof event.data==='string'?event.data.slice(0,2048):null}});
+  };
   function openSource(){
     const editor=getEditor();if(!editor)return;
     if(requiresRichDocument(editor.getJSON())){showMessage('这份文档包含分页、表格或精细排版，请在正文中继续编辑。Markdown 模式仍可直接使用。');return;}
@@ -38,7 +79,7 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
     source?.destroy();sourceId=id;
     $('markdown-source-panel').hidden=false;
     $('tiptap-editor').hidden=true;
-    source=new EditorView({doc:text,parent:$('markdown-source'),extensions:[basicSetup,markdown(),EditorView.lineWrapping,EditorView.contentAttributes.of({'aria-label':'Markdown 源码'}),EditorView.updateListener.of(sourceChanged),EditorView.domEventHandlers({keydown(event){record('keyboard',{detail:{key:event.key,code:event.code,ctrl:event.ctrlKey,meta:event.metaKey,shift:event.shiftKey,alt:event.altKey,composing:event.isComposing,source:'markdown'}});if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();flush().catch(error=>showMessage(String(error),'error'));return true;}return false;},copy(){record('copy',{metrics:{copy:1}});},paste(){record('paste',{metrics:{paste:1}});},cut(){record('cut',{metrics:{cut:1}});}})]});
+    source=new EditorView({doc:text,parent:$('markdown-source'),extensions:[basicSetup,markdown(),EditorView.lineWrapping,EditorView.contentAttributes.of({'aria-label':'Markdown 源码'}),EditorView.updateListener.of(sourceChanged),EditorView.domEventHandlers(sourceEvents)]});
     $('toggle-source').setAttribute('aria-pressed','true');source.focus();
   }
   function closeSource(){if(sourceError){showMessage(sourceError.message,'error');return false;}rememberDraft();source?.destroy();source=null;$('markdown-source').replaceChildren();$('markdown-source-panel').hidden=true;$('tiptap-editor').hidden=false;$('toggle-source').setAttribute('aria-pressed','false');return true;}
