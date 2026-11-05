@@ -55,6 +55,12 @@ def click_text(text):
     click_element(element)
 def screenshot(name):
     data=call('GET',f'/session/{session}/screenshot');(evidence/name).write_bytes(base64.b64decode(data))
+def open_native_verifier():
+    # The workspace opens an iframe. The separately shipped native-window
+    # command remains covered here for its navigation and reuse guarantees.
+    result=call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];window.__TAURI__.core.invoke('open_verifier').then(()=>done(true),()=>done(false));",'args':[]})
+    assert result is True,'Native verifier command failed'
+
 with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporary:
     env=dict(os.environ,WORKPROOF_DATA_DIR=temporary+'/engine',XDG_CONFIG_HOME=temporary+'/config',XDG_DATA_HOME=temporary+'/data',WEBKIT_DISABLE_DMABUF_RENDERER='1')
     env.pop('WORKPROOF_HEADLESS',None)
@@ -67,19 +73,37 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         session=value['sessionId']
         call('POST',f'/session/{session}/timeouts',{'script':30000,'pageLoad':60000,'implicit':0})
         def ready():
-            assert '可以开始记录' in execute("return document.getElementById('status')?.textContent || ''")
+            assert execute("const status=document.getElementById('status');return status?.dataset.state==='ready'||status?.textContent.includes('可以开始记录')"),'Workbench engine did not become ready'
         wait(ready);workbench=handles()[0];screenshot('workbench.png')
         # The PC shell keeps verification in its own workspace. Exercise the
         # real navigation before opening the embedded verifier window.
         # The separate historical milestone also runs this script against an
         # older installed package, which has no workspace navigation.
-        if execute("return !!document.querySelector('.workspace-nav button[data-view=verification]')"):
-            click('.workspace-nav button[data-view="verification"]')
+        if execute("return !!document.querySelector('.workspace-nav [data-view=verification]')"):
+            click('.workspace-nav [data-view="verification"]')
             def verification_workspace():
                 assert execute("return document.body.dataset.view==='verification' && document.getElementById('verify').getBoundingClientRect().height>0")
             wait(verification_workspace)
             screenshot('workbench-verification.png')
         click('#verify')
+        iframe_mode=execute("return !!document.getElementById('verifier-frame')")
+        if iframe_mode:
+            def frame_ready():
+                frame=execute("return document.getElementById('verifier-frame')")
+                assert execute("return !arguments[0].hidden&&arguments[0].src.startsWith('http://127.0.0.1:')",[frame])
+                return frame
+            frame=wait(frame_ready)
+            call('POST',f'/session/{session}/frame',{'id':frame})
+            def frame_loaded():assert execute('return !!document.querySelector(\'input[aria-label="选择最终作品"]\')')
+            wait(frame_loaded)
+            isolated=call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];const invoke=window.__TAURI__?.core?.invoke;if(!invoke){done(true);}else{invoke('pending_adapters').then(()=>done(false),()=>done(true));}",'args':[]})
+            assert isolated is True,'Workspace iframe acquired workbench commands'
+            click_text('先体验一份演示证据')
+            def frame_verified():assert execute("return !!document.querySelector('.result-banner.success')")
+            wait(frame_verified);screenshot('workbench-frame-verified.png')
+            call('POST',f'/session/{session}/frame',{'id':None})
+            assert len(handles())==1,'Workspace verification created an extra window'
+            open_native_verifier()
         def second():
             result=handles();assert len(result)==2;return next(h for h in result if h!=workbench)
         verifier=wait(second);switch(verifier)
@@ -133,8 +157,11 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         execute("window.location.href='http://127.0.0.1:43127/';return true")
         assert call('GET',f'/session/{session}/url')==url,'Navigation escaped verifier origin'
         screenshot('verifier.png')
-        switch(workbench);click('#verify');assert len(handles())==2,'Repeated open created another verifier'
-        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
+        switch(workbench)
+        if iframe_mode:open_native_verifier()
+        else:click('#verify')
+        assert len(handles())==2,'Repeated open created another verifier'
+        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'workspace_iframe_checked':iframe_mode,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['workspace iframe opens without another window','workspace iframe demo Wasm verification','workspace iframe command isolation'] if iframe_mode else [])+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
         print('PASS: installed native WebView verifies filesystem input, rejects changed bytes, scrolls and reuses the local verifier; workbench commands unavailable')
     except Exception as error:
         (evidence/'failure.json').write_text(json.dumps({'exception_type':type(error).__name__,'driver_exit_code':driver.poll(),'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Synthetic CI installed-package session; diagnostic record is not acceptance.'},indent=2),encoding='utf-8')
