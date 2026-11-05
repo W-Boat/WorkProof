@@ -121,6 +121,27 @@
       ],
       "tarball_url": "https://registry.npmjs.org/react-remove-scroll-bar/-/react-remove-scroll-bar-2.3.8.tgz",
       "tarball_sha256": "ccc872d7a2dc007cbf9d755f30d56b8d80eabdbe22c44c95a709129bfdc46f01"
+    },
+    {
+      "name": "@fluentui/web-components",
+      "version": "3.1.4",
+      "integrity": "sha512-KutEt3yD+uUAbasQ8NhzZS5UrRGgqTNWuAgI2aj5+jcntoIvb3GxD3K3FFx7aUwd8L/kdqcDXqKbLkHLf5IRqg==",
+      "folder": ".",
+      "notices": [
+        {
+          "file": "fluentui__web-components__3.1.4__LICENSE",
+          "upstream_path": "LICENSE",
+          "sha256": "1434c6b2a8417d41e4db20ff3b772888e66a0069e20d928f83fa1390f44758c7",
+          "url": "https://raw.githubusercontent.com/microsoft/fluentui/513effe6fb1652f1a993029c841c57f82331b03d/LICENSE",
+          "kind": "upstream-version-license"
+        }
+      ],
+      "evidence_complete": true,
+      "unresolved": [],
+      "tarball_url": "https://registry.npmjs.org/@fluentui/web-components/-/web-components-3.1.4.tgz",
+      "tarball_sha256": "def17caea2f370ebebb6e1ec49b6e29460096a7647e96083094a1734a6d4453c",
+      "source_commit": "513effe6fb1652f1a993029c841c57f82331b03d",
+      "binding": "npm registry gitHead for exact locked release; archive integrity and package manifest checked"
     }
   ]
 }
