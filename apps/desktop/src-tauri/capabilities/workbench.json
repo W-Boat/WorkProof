@@ -3,5 +3,6 @@
   "identifier": "workbench-events",
   "description": "Allow only the local workbench to receive native close requests before flushing its editor.",
   "windows": ["status"],
-  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+  "local": true,
+  "permissions": ["workbench-commands", "core:event:allow-listen", "core:event:allow-unlisten"]
 }

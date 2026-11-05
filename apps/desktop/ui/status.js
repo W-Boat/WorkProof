@@ -152,8 +152,10 @@ document.getElementById('verify').addEventListener('click',async()=>{
 });
 
 const navPreference=document.getElementById('expanded-navigation'),motionPreference=document.getElementById('reduce-motion');
-function collapseNavigation(collapsed){document.body.classList.toggle('compact-nav',collapsed);navPreference.checked=!collapsed;const toggle=document.getElementById('collapse-nav');toggle.setAttribute('aria-expanded',String(!collapsed));toggle.setAttribute('aria-label',collapsed?'展开侧栏':'收起侧栏');try{localStorage.setItem('workproof.compact-nav',String(collapsed));}catch{}}
-let compact=matchMedia('(max-width:640px)').matches;try{const saved=localStorage.getItem('workproof.compact-nav');if(saved!==null)compact=saved==='true';}catch{}collapseNavigation(compact);
+const narrowNavigation=matchMedia('(max-width:640px)');
+function collapseNavigation(collapsed,remember=true){document.body.classList.toggle('compact-nav',collapsed);navPreference.checked=!collapsed;const toggle=document.getElementById('collapse-nav');toggle.setAttribute('aria-expanded',String(!collapsed));toggle.setAttribute('aria-label',collapsed?'展开侧栏':'收起侧栏');if(remember)try{localStorage.setItem('workproof.compact-nav',String(collapsed));}catch{}}
+let compact=false;try{compact=localStorage.getItem('workproof.compact-nav')==='true';}catch{}collapseNavigation(narrowNavigation.matches||compact,false);
+narrowNavigation.addEventListener('change',event=>{let preference=false;try{preference=localStorage.getItem('workproof.compact-nav')==='true';}catch{}collapseNavigation(event.matches||preference,false);});
 document.getElementById('collapse-nav').addEventListener('click',()=>collapseNavigation(!document.body.classList.contains('compact-nav')));
 navPreference.addEventListener('change',()=>collapseNavigation(!navPreference.checked));
 function applyMotion(){document.documentElement.dataset.reduceMotion=String(motionPreference.checked);try{localStorage.setItem('workproof.reduce-motion',String(motionPreference.checked));}catch{}}

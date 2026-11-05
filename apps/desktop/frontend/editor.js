@@ -142,7 +142,7 @@ $('back-library').addEventListener('click',async()=>{try{await flush();ui.select
 $('save-document').addEventListener('click',()=>flush().catch(reportError));
 
 function allActions(){return [...pending].reverse().map(action=>({action,revision:active.revision+1})).concat(active?.actions||[]).slice(0,300);}
-function eventItem(item,fresh=false){const a=item.action,entry=element('li',`event-item${fresh?' fresh':''}`);entry.append(element('span','',labels[a.kind]||a.kind));const delta=a.inserted||a.deleted?` · +${a.inserted} / −${a.deleted} 字符`:'';entry.append(element('small','',`${time(active.created+a.elapsed_ms)}${delta}`));return entry;}
+function eventItem(item,fresh=false){const a=item.action,entry=element('li',`event-item${fresh?' fresh':''}`),details=element('details','action-details'),summary=element('summary','',labels[a.kind]||a.kind);details.append(summary);const delta=a.inserted||a.deleted?` · +${a.inserted} / −${a.deleted} 字符`:'';details.append(element('small','',`${time(active.created+a.elapsed_ms)}${delta}`));const data=element('pre','',JSON.stringify({selection:a.selection,steps:a.steps,detail:a.detail},null,2));details.append(data);entry.append(details);return entry;}
 function renderRecent(){
   if(!active)return;const actions=allActions();$('recent-actions').replaceChildren(...actions.slice(0,12).map((item,i)=>eventItem(item,i===0&&pending.length>0)));$('no-actions').hidden=actions.length>0;$('action-count').textContent=`${actions.length}${actions.length===300?'+':''} 条`;
 }

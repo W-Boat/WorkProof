@@ -111,7 +111,7 @@ test('offline Word module exports real DOCX and imports it through the existing 
   await page.getByLabel('导出格式').selectOption('docx');await page.locator('#export-document').click();
   await expect.poll(()=>page.evaluate(()=>(window as any).wordBytes?.length||0),{timeout:25000}).toBeGreaterThan(100);
   const bytes=await page.evaluate(()=>(window as any).wordBytes);expect(bytes.slice(0,4)).toEqual([80,75,3,4]);
-  await expect(page.locator('#export-document')).toBeEnabled();await page.getByRole('button',{name:'我的文档',exact:true}).click();
+  await expect(page.locator('#export-document')).toBeEnabled();await page.locator('.workspace-nav [data-view=library]').click();
   await page.locator('#word-file').setInputFiles({name:'往返导入.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',buffer:Buffer.from(bytes)});
   await expect(body).toContainText('离线 Word 转换测试',{timeout:25000});await expect(page.getByLabel('文档名称',{exact:true})).toHaveValue('往返导入');
   await expect(page.locator('#save-state')).toHaveText('已保存到本机');
