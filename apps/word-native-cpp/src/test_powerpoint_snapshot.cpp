@@ -7,8 +7,8 @@
 #include <cwchar>
 namespace workproof { std::wstring EnginePath(){return L"unused.exe";} }
 namespace {
-enum Property {ActivePresentation=1,Path,Name,FullName,Slides,Count,Item,Shapes,ReadOnly,Saved,Save,FileDialog,Show,Execute};
-enum Role {Application,Presentation,SlideList,Slide,ShapeList,Dialog};
+enum Property {ActivePresentation=1,Path,Name,FullName,Slides,Count,Item,Shapes,ReadOnly,Saved,Save,FileDialog,Show,Execute,ActiveWindow,Hwnd,PageSetup,SlideWidth,SlideHeight};
+enum Role {Application,Presentation,SlideList,Slide,ShapeList,Dialog,DocumentWindow,Page};
 struct Fixture;
 class Object final:public IDispatch {
 public:
@@ -24,18 +24,18 @@ public:
 };
 struct Fixture {
     Object application{this,Application},presentation{this,Presentation},slides{this,SlideList},slide{this,Slide},shapes{this,ShapeList};
-    Object dialog{this,Dialog};
+    Object dialog{this,Dialog},window{this,DocumentWindow},page{this,Page};
     bool unsaved=false,executeFailure=false,executeNoPath=false,showFailure=false,saveFailure=false;
     long choice=-1;int showCalls=0,executeCalls=0;
     LONG slideCount=3,shapeCount=4;
     Role failRole=Application;DISPID failProperty=0;bool wrongType=false;
     int forbiddenAccess=0,itemCalls=0,saveCalls=0;
-    bool balanced(){return application.refs==1&&presentation.refs==1&&slides.refs==1&&slide.refs==1&&shapes.refs==1&&dialog.refs==1;}
+    bool balanced(){return application.refs==1&&presentation.refs==1&&slides.refs==1&&slide.refs==1&&shapes.refs==1&&dialog.refs==1&&window.refs==1&&page.refs==1;}
 };
 STDMETHODIMP Object::GetIDsOfNames(REFIID,LPOLESTR* names,UINT n,LCID,DISPID* ids){
-    const wchar_t* keys[]={L"",L"ActivePresentation",L"Path",L"Name",L"FullName",L"Slides",L"Count",L"Item",L"Shapes",L"ReadOnly",L"Saved",L"Save",L"FileDialog",L"Show",L"Execute"};
+    const wchar_t* keys[]={L"",L"ActivePresentation",L"Path",L"Name",L"FullName",L"Slides",L"Count",L"Item",L"Shapes",L"ReadOnly",L"Saved",L"Save",L"FileDialog",L"Show",L"Execute",L"ActiveWindow",L"HWND",L"PageSetup",L"SlideWidth",L"SlideHeight"};
     if(!names||!ids)return E_POINTER;
-    for(UINT i=0;i<n;++i){ids[i]=DISPID_UNKNOWN;for(int k=1;k<=Execute;++k)if(!wcscmp(names[i],keys[k])){ids[i]=k;break;}if(ids[i]==DISPID_UNKNOWN){++fixture->forbiddenAccess;return DISP_E_UNKNOWNNAME;}}
+    for(UINT i=0;i<n;++i){ids[i]=DISPID_UNKNOWN;for(int k=1;k<=SlideHeight;++k)if(!wcscmp(names[i],keys[k])){ids[i]=k;break;}if(ids[i]==DISPID_UNKNOWN){++fixture->forbiddenAccess;return DISP_E_UNKNOWNNAME;}}
     return S_OK;
 }
 STDMETHODIMP Object::Invoke(DISPID id,REFIID,LCID,WORD flags,DISPPARAMS* params,VARIANT* out,EXCEPINFO*,UINT*){
@@ -46,6 +46,10 @@ STDMETHODIMP Object::Invoke(DISPID id,REFIID,LCID,WORD flags,DISPPARAMS* params,
     if(!out)return E_POINTER;
     if(role==fixture->failRole&&id==fixture->failProperty){if(!fixture->wrongType)return DISP_E_EXCEPTION;out->vt=VT_BOOL;return S_OK;}
     Object* object=nullptr;
+    if(role==Application&&id==ActiveWindow)object=&fixture->window;
+    if(role==Presentation&&id==PageSetup)object=&fixture->page;
+    if(role==DocumentWindow&&id==Hwnd){out->vt=VT_I4;out->lVal=1234;return S_OK;}
+    if(role==Page&&(id==SlideWidth||id==SlideHeight)){out->vt=VT_R8;out->dblVal=id==SlideWidth?960.0:540.0;return S_OK;}
     if(role==Application&&id==ActivePresentation)object=&fixture->presentation;
     if(role==Application&&id==FileDialog){if(!params||params->cArgs!=1||params->rgvarg[0].vt!=VT_I4||params->rgvarg[0].lVal!=2)return DISP_E_TYPEMISMATCH;object=&fixture->dialog;}
     if(role==Presentation&&id==Slides)object=&fixture->slides;
@@ -81,7 +85,11 @@ int main(){
     const Role roles[]={Application,Presentation,SlideList,SlideList,Slide,ShapeList};
     const DISPID ids[]={ActivePresentation,Slides,Count,Item,Shapes,Count};
     for(int i=0;i<6;++i){f.failRole=roles[i];f.failProperty=ids[i];f.wrongType=false;if(!Check(f,false,"property failure"))return 1;f.wrongType=true;if(!Check(f,false,"property wrong type"))return 1;}
-    f.failProperty=0;std::wstring error;
+    f.failProperty=0;
+    workproof::DocSnapshot optional;std::wstring error;
+    if(!workproof::ReadDocument(&f.application,optional,error)||optional.layoutSignature.empty()||optional.editorWindow!=reinterpret_cast<HWND>(1234)||!f.balanced())return 1;
+    for(auto property:{ActiveWindow,PageSetup}){f.failRole=property==ActiveWindow?Application:Presentation;f.failProperty=property;f.wrongType=false;if(!Check(f,true,"optional metadata unavailable"))return 1;}
+    f.failProperty=0;
     if(!workproof::SaveDocument(&f.application,error)||f.saveCalls!=1||!f.balanced()){std::puts("FAIL: ActivePresentation.Save");return 1;}
     f.saveFailure=true;
     if(workproof::SaveDocument(&f.application,error)||!f.balanced()){std::puts("FAIL: save command failure");return 1;}
