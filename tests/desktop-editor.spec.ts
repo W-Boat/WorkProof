@@ -182,3 +182,38 @@ test('Markdown source keeps exact source in saved document and mode switching pr
   await page.locator('[data-mode=markdown]').click();await expect(body.locator('u')).toHaveText(['标题','保留   源码空格']);
   await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source-panel')).toBeHidden();await expect(body.locator('u')).toHaveText(['标题','保留   源码空格']);
 });
+
+test('offline Word bridge preserves headings lists tables and supported rich marks',async({page})=>{
+  await desktop(page);
+  const result=await page.evaluate(async()=>{
+    const convert=(action:string,data:any)=>new Promise<any>((resolve,reject)=>{
+      const worker=new Worker(new URL('word-worker.js',document.baseURI),{type:'module'});
+      const timeout=setTimeout(()=>{worker.terminate();reject(new Error('Word bridge timeout'));},20000);
+      worker.onmessage=event=>{if(event.data.ready){worker.postMessage({action,...data});return;}clearTimeout(timeout);worker.terminate();if(event.data.error)reject(new Error(event.data.error));else resolve(event.data.result);};
+      worker.onerror=event=>{clearTimeout(timeout);worker.terminate();reject(new Error(event.message));};
+    });
+    const paragraph=(text:string)=>({type:'paragraph',content:[{type:'text',text}]});
+    const document={type:'doc',content:[
+      {type:'heading',attrs:{level:2},content:[{type:'text',text:'标题必须保留'}]},
+      {type:'bulletList',content:[{type:'listItem',content:[paragraph('项目符号正文')]},{type:'listItem',content:[paragraph('第二条内容')]}]},
+      {type:'orderedList',content:[{type:'listItem',content:[paragraph('编号列表正文')]}]},
+      {type:'blockquote',content:[paragraph('引用内容')]},
+      {type:'codeBlock',content:[{type:'text',text:'const preserved = true;'}]},
+      {type:'paragraph',content:[{type:'text',text:'格式化文字',marks:[{type:'textStyle',attrs:{fontFamily:'Arial',fontSize:'18pt',color:'#c00000'}},{type:'highlight',attrs:{color:'#ffff00'}},{type:'subscript'}]},{type:'text',text:'可访问链接',marks:[{type:'link',attrs:{href:'https://example.com/workproof'}}]}]},
+      {type:'table',content:[{type:'tableRow',content:[{type:'tableHeader',content:[paragraph('表头不能丢')]},{type:'tableCell',content:[paragraph('单元格正文')]}]}]}
+    ]};
+    const bytes=await convert('export',{content:document});
+    return {bytes:Array.from(bytes as Uint8Array),content:await convert('import',{bytes:Uint8Array.from(bytes).buffer})};
+  });
+  const allNodes:any[]=[];const collect=(node:any)=>{allNodes.push(node);for(const child of node.content||[])collect(child);};collect(result.content);
+  const text=allNodes.filter(n=>n.type==='text').map(n=>n.text).join('');
+  for(const expected of ['标题必须保留','项目符号正文','第二条内容','编号列表正文','引用内容','const preserved = true;','表头不能丢','单元格正文'])expect(text).toContain(expected);
+  expect(allNodes.some(n=>n.type==='heading'&&n.attrs.level===2)).toBe(true);
+  expect(allNodes.some(n=>n.type==='bulletList')).toBe(true);expect(allNodes.some(n=>n.type==='orderedList')).toBe(true);
+  const rich=allNodes.find(n=>n.text==='格式化文字');
+  expect(rich.marks).toEqual(expect.arrayContaining([{type:'textStyle',attrs:{fontFamily:'Arial',fontSize:'18pt',color:'#c00000'}},{type:'highlight',attrs:{color:'#ffff00'}},{type:'subscript'}]));
+  expect(allNodes.find(n=>n.text==='可访问链接').marks).toEqual(expect.arrayContaining([expect.objectContaining({type:'link',attrs:expect.objectContaining({href:'https://example.com/workproof'})})]));
+  await page.locator('#word-file').setInputFiles({name:'丰富格式往返.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',buffer:Buffer.from(result.bytes)});
+  await expect(page.locator('#tiptap-editor h2')).toHaveText('标题必须保留',{timeout:25000});
+  await expect(page.locator('#tiptap-editor ul')).toBeVisible();await expect(page.locator('#tiptap-editor ol')).toBeVisible();
+});
