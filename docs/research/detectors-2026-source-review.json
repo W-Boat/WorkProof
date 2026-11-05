@@ -1,0 +1,33 @@
+{
+  "reviewed_on": "2026-11-05",
+  "status": "source review only; no detector integrated or model downloaded locally",
+  "candidates": [
+    {
+      "name": "DetectorScope",
+      "repository": "https://github.com/google-deepmind/detectorscope",
+      "source_commit": "52ecc87775154b35d4550911de22faad4fc68f40",
+      "paper": "https://arxiv.org/abs/2610.30006",
+      "paper_first_submission": "2026-10-21",
+      "method": "Sparse-autoencoder concept bottleneck and sparse prediction head over validated human-readable features",
+      "difference_from_legacy": "2026 auditable detection pipeline, not a renamed GPT-2 classifier or a 2023 likelihood-ratio method with newer weights",
+      "software_license_declared": "Apache-2.0",
+      "other_materials_license_declared": "CC-BY-4.0; review each actual model card and bundled backbone terms separately",
+      "published_interface": "AuditableDetector.from_pretrained; returns label, p_ai, logit, bias and feature contributions",
+      "published_models": "liamdugan/detector-scope and peer-review variants",
+      "access_note": "Current upstream README says each branch bundles its language model and has no additional license gate. Do not infer a mandatory Hugging Face credential from the Gemma backbone alone. This statement is not model-rights clearance.",
+      "pending": ["pin and inspect model revision and complete notices", "bound runtime and memory in isolated Actions", "separate Chinese and English held-out false-positive evaluation", "review intended-use/model-card restrictions before any production activation", "do not transmit source text or token highlights outside explicitly consented processing"]
+    },
+    {
+      "name": "EVIL-Detect",
+      "repository": "https://github.com/bbbbhrrrr/evildetect",
+      "source_commit": "597bc4f0dd3fc1cc39a3dcd495013bd4f323ffdd",
+      "paper": "https://arxiv.org/abs/2608.10698",
+      "method": "EditLens and Soft-EditLens editing-extent signals, EchoPrompt contrasts, lexical features and conflict-aware fusion for Chinese human/generated/refined labels",
+      "software_license_declared": "MIT",
+      "rights_boundary": "Base model and dataset terms remain independent of the repository license",
+      "released_scope": "Training, scoring and deterministic fusion code; LoRA adapters are not redistributed in Git",
+      "pending": ["obtain and review official task data rights before training", "trained adapter artifacts or independently reproduced checkpoints", "separate actual text inference from dry-run/fusion-only checks", "do not claim English support from Chinese task results"]
+    }
+  ],
+  "release_gate": "Source availability, a publication year, benchmark results and deterministic dry runs are insufficient evidence of a working WorkProof detector. Keep UI availability unchanged until actual inference, resource limits, rights review and held-out error evaluation pass. Existing production classifier families do not become additional independent methods merely by adding this review."
+}
