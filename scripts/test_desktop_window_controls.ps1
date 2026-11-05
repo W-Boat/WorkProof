@@ -64,12 +64,12 @@ try{
     Await-State {-not [WorkProofWindowProbe]::IsWindow($window)} 'closed after internal button'
     $owned.Refresh();if($owned.HasExited){throw 'Closing the workbench stopped the tray collector'}
     if(-not(Get-NetTCPConnection -State Listen -LocalPort 43127 -ErrorAction SilentlyContinue | Where-Object {$_.OwningProcess -eq $owned.Id})){throw 'Collector listener stopped when workbench closed'}
-    @{source_commit=$env:GITHUB_SHA;scope='Real Windows UIA and native window state; no Office host acceptance';caption_hidden=$true;minimized=$true;maximized_and_restored=$true;close_retained_collector=$true} | ConvertTo-Json | Set-Content -LiteralPath 'test-desktop-window-controls.json' -Encoding utf8
+    @{source_commit=$env:GITHUB_SHA;candidate_source_commit=$env:WORKPROOF_CANDIDATE_SOURCE;scope='Real Windows UIA and native window state; no Office host acceptance';caption_hidden=$true;minimized=$true;maximized_and_restored=$true;close_retained_collector=$true} | ConvertTo-Json | Set-Content -LiteralPath 'test-desktop-window-controls.json' -Encoding utf8
     Write-Output 'PASS real Windows internal controls: hidden system caption, minimize, maximize/restore, close retains tray collector'
 }catch{
     $failure=$_
     $owned.Refresh()
-    $diagnostic=@{phase=$script:phase;error=[string]$failure;source_commit=$env:GITHUB_SHA;exited=$owned.HasExited;scope='Only the isolated process created by this Actions test'}
+    $diagnostic=@{phase=$script:phase;error=[string]$failure;source_commit=$env:GITHUB_SHA;candidate_source_commit=$env:WORKPROOF_CANDIDATE_SOURCE;exited=$owned.HasExited;scope='Only the isolated process created by this Actions test'}
     if(-not $owned.HasExited){
         $diagnostic.window_handle=[string]$owned.MainWindowHandle
         $diagnostic.window_title=$owned.MainWindowTitle

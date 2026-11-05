@@ -1,0 +1,50 @@
+name: Real Windows window controls on verified candidate
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/test_desktop_window_controls.ps1
+      - .github/workflows/windows-window-candidate.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  candidate-window:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      # Immutable candidate built before this harness change. This is a focused
+      # diagnosis of that shipped binary, never proof that current source builds.
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 41967386122
+          name: workproof-native-word-windows-dev
+          path: .candidate-download
+      - name: Verify every candidate file before extraction
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $PSNativeCommandUseErrorActionPreference=$true
+          $zips=@(Get-ChildItem .candidate-download -Recurse -Filter workproof-native-word-windows-dev.zip)
+          if($zips.Count -ne 1){throw 'Expected exactly one Office candidate ZIP'}
+          if((Get-FileHash -LiteralPath $zips[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne '981fd4559f9945151965314f4bbe151c1899dae258302711d53f1a3da79b8c2e'){throw 'Candidate ZIP digest mismatch'}
+          python scripts/verify_package_zip.py $zips[0].FullName
+          $destination=Join-Path $env:RUNNER_TEMP 'workproof-window-candidate-844fb3d'
+          if(Test-Path -LiteralPath $destination){throw 'Candidate destination already exists'}
+          Expand-Archive -LiteralPath $zips[0].FullName -DestinationPath $destination
+          $source=(Get-Content (Join-Path $destination 'BUILD-INFO.json') -Raw | ConvertFrom-Json).source_commit
+          if($source -ne '844fb3d618b8607ef2784ea420f269535d6eaff6'){throw 'Unexpected candidate source'}
+          $env:WORKPROOF_CANDIDATE_SOURCE=$source
+          ./scripts/test_desktop_window_controls.ps1 -Executable (Join-Path $destination 'workproof-desktop.exe')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: candidate-native-window-evidence
+          if-no-files-found: ignore
+          path: |
+            test-desktop-window-controls.json
+            test-results/native-window/
