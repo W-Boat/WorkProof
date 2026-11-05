@@ -60,9 +60,21 @@ $start.Environment['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS']='--force-renderer-ac
 [void]$start.Environment.Remove('WORKPROOF_HEADLESS')
 $owned=[Diagnostics.Process]::Start($start)
 try{
-    Await-State {$owned.Refresh();-not $owned.HasExited -and $owned.MainWindowHandle -ne [IntPtr]::Zero} 'initial visible window'
-    $window=$owned.MainWindowHandle
-    $root=[Windows.Automation.AutomationElement]::FromHandle($window)
+    # Process.MainWindowHandle can temporarily select Tao's 16x16 hidden event
+    # target. Earlier diagnostics showed that helper alongside the actual Tauri
+    # window, whose client inset was already correct. Bind UIA to the owned,
+    # titled application window rather than caching the first process handle.
+    $script:root=$null
+    Await-State {
+        $owned.Refresh();if($owned.HasExited){return $false}
+        $condition=New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ProcessIdProperty,$owned.Id)
+        $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,$condition)
+        foreach($candidate in $windows){
+            if($candidate.Current.ClassName -eq 'Tauri Window' -and $candidate.Current.Name -eq 'WorkProof · 创作工作台' -and $candidate.Current.NativeWindowHandle -ne 0){$script:root=$candidate;return $true}
+        }
+        return $false
+    } 'owned Tauri workbench window'
+    $window=[IntPtr]$root.Current.NativeWindowHandle
     # Tao 0.37.2 retains WS_CAPTION on top-level frameless windows and handles
     # WM_NCCALCSIZE. Check actual native client geometry, not that style flag.
     # Locked source: window_state.rs::to_window_styles / event_loop.rs::WM_NCCALCSIZE.
