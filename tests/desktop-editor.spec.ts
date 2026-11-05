@@ -193,7 +193,7 @@ test('offline Word bridge preserves headings lists tables and supported rich mar
       worker.onerror=event=>{clearTimeout(timeout);worker.terminate();reject(new Error(event.message));};
     });
     const paragraph=(text:string)=>({type:'paragraph',content:[{type:'text',text}]});
-    const document={type:'doc',content:[
+    const fixture={type:'doc',content:[
       {type:'heading',attrs:{level:2},content:[{type:'text',text:'标题必须保留'}]},
       {type:'bulletList',content:[{type:'listItem',content:[paragraph('项目符号正文')]},{type:'listItem',content:[paragraph('第二条内容')]}]},
       {type:'orderedList',content:[{type:'listItem',content:[paragraph('编号列表正文')]}]},
@@ -202,7 +202,7 @@ test('offline Word bridge preserves headings lists tables and supported rich mar
       {type:'paragraph',content:[{type:'text',text:'格式化文字',marks:[{type:'textStyle',attrs:{fontFamily:'Arial',fontSize:'18pt',color:'#c00000'}},{type:'highlight',attrs:{color:'#ffff00'}},{type:'subscript'}]},{type:'text',text:'可访问链接',marks:[{type:'link',attrs:{href:'https://example.com/workproof'}}]}]},
       {type:'table',content:[{type:'tableRow',content:[{type:'tableHeader',content:[paragraph('表头不能丢')]},{type:'tableCell',content:[paragraph('单元格正文')]}]}]}
     ]};
-    const bytes=await convert('export',{content:document});
+    const bytes=await convert('export',{content:fixture});
     return {bytes:Array.from(bytes as Uint8Array),content:await convert('import',{bytes:Uint8Array.from(bytes).buffer})};
   });
   const allNodes:any[]=[];const collect=(node:any)=>{allNodes.push(node);for(const child of node.content||[])collect(child);};collect(result.content);
