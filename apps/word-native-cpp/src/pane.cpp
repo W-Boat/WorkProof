@@ -1,6 +1,7 @@
 #include "pane.h"
 #include "engine.h"
 #include "addin.h"
+#include "action_metrics.h"
 #include <shlobj.h>
 #include <shellapi.h>
 #include <string>
@@ -35,6 +36,11 @@ struct PairResult {
 };
 
 struct State {
+    HHOOK editorHook = nullptr;
+    ActionMetrics actions;
+    HWND editorWindow=nullptr;
+    std::wstring layoutSignature,formatSignature;
+    long selectionStart=-1,selectionEnd=-1;
     HWND window = nullptr;
     IDispatch* word = nullptr;
     IDispatch* factory = nullptr;
@@ -72,6 +78,25 @@ struct State {
     std::atomic_ullong pairingGeneration{0};
     std::chrono::steady_clock::time_point started;
 } g;
+
+LRESULT CALLBACK EditorMessage(int code,WPARAM removed,LPARAM data){
+    if(code>=0&&removed==PM_REMOVE&&!g.paused&&!g.session.empty()&&!g.writing){
+        const MSG* message=reinterpret_cast<const MSG*>(data);
+        if(message->message==WM_KEYDOWN&&message->hwnd){
+            wchar_t editorClass[128]{};
+            GetClassNameW(message->hwnd,editorClass,128);
+            // Restrict collection to host editing surfaces on this Office thread.
+            // Dialogs, our taskpane and other applications are never observed.
+            if(g.editorWindow&&(message->hwnd==g.editorWindow||IsChild(g.editorWindow,message->hwnd))&&
+               (!_wcsicmp(editorClass,L"_WwG")||!_wcsicmp(editorClass,L"paneClassDC"))){
+                unsigned repeat=LOWORD(message->lParam);if(!repeat)repeat=1;
+                g.actions.Key(static_cast<unsigned>(message->wParam),(GetKeyState(VK_CONTROL)&0x8000)!=0,
+                    (GetKeyState(VK_SHIFT)&0x8000)!=0,(GetKeyState(VK_MENU)&0x8000)!=0,repeat);
+            }
+        }
+    }
+    return CallNextHookEx(g.editorHook,code,removed,data);
+}
 
 std::wstring Utf8ToWide(const std::string& text) {
     if (text.empty()) return std::wstring();
@@ -157,7 +182,7 @@ void PaintState() {
 }
 
 std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long inserted, long long deleted,
-                      const std::string& checkpoint) {
+                      const std::string& checkpoint,const std::string& actions=std::string()) {
     wchar_t buffer[512];
 #ifdef WORKPROOF_POWERPOINT
     swprintf_s(buffer,L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":0,\"deleted\":0,\"chars\":0,\"checkpoint\":\"%S\",\"metrics\":{\"slides\":%ld,\"shapes\":%lld}}",g.sequence,ElapsedMs(),kind,checkpoint.c_str(),snapshot.slides,snapshot.shapes);
@@ -169,7 +194,9 @@ std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long i
 #endif
     // The buffer above is assembled with wide characters only so numbers stay locale independent.
     std::wstring wide(buffer);
-    return WideToUtf8(wide);
+    std::string json=WideToUtf8(wide);
+    if(!actions.empty())json.insert(json.size()-2,","+actions);
+    return json;
 }
 
 bool Call(const std::wstring& method, const std::wstring& path, const std::string& body, bool authorized,
@@ -203,6 +230,14 @@ bool SendEvent(const char* kind, const DocSnapshot& snapshot, long long inserted
                const std::string& checkpoint, std::wstring& error) {
     if(!FlushPending(error))return false;
     g.pendingEvent="{\"events\":["+EventJson(kind,snapshot,inserted,deleted,checkpoint)+"]}";
+    return FlushPending(error);
+}
+
+bool FlushActions(const DocSnapshot& snapshot,std::wstring& error){
+    if(!g.actions.Any())return true;
+    if(!FlushPending(error))return false;
+    g.pendingEvent="{\"events\":["+EventJson("interaction",snapshot,0,0,std::string(),g.actions.Json())+"]}";
+    g.actions.Clear(); // Bytes remain in pendingEvent until acknowledged.
     return FlushPending(error);
 }
 
@@ -302,6 +337,9 @@ void FinishPairing(PairResult* result) {
     g.identity = snapshot.identity;
     g.documentName = snapshot.name;
     g.lastCharacters = snapshot.characters;
+    g.actions.Clear();g.editorWindow=snapshot.editorWindow;
+    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;
+    g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
     g.lastParagraphs = snapshot.paragraphs;
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
     g.sequence = 0;
@@ -327,6 +365,7 @@ void Sample() {
         return;
     }
     if (snapshot.identity != g.identity) {
+        g.actions.Clear(); // Do not attribute commands in another document.
         g.paused = true;
         KillTimer(g.window, kSampleTimer);
         SetStatus(L"你把编辑对象切换到了另一份文档，记录已暂停。请切回原文档后点“继续记录”。");
@@ -338,6 +377,18 @@ void Sample() {
         SendEvent("gap", snapshot, 0, 0, std::string(), error);
     }
     g.lastSampleMs = now;
+    if(!FlushActions(snapshot,error)){
+        g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+    }
+    const bool layoutChanged=!g.layoutSignature.empty()&&!snapshot.layoutSignature.empty()&&g.layoutSignature!=snapshot.layoutSignature;
+    const bool formatChanged=g.selectionStart>=0&&g.selectionStart==snapshot.selectionStart&&g.selectionEnd==snapshot.selectionEnd&&
+        !g.formatSignature.empty()&&!snapshot.formatSignature.empty()&&g.formatSignature!=snapshot.formatSignature;
+    if((layoutChanged||formatChanged)&&!SendEvent(layoutChanged?"layout":"format",snapshot,0,0,std::string(),error)){
+        g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+    }
+    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;
+    g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
+    g.editorWindow=snapshot.editorWindow;
     bool changed = snapshot.characters != g.lastCharacters || snapshot.paragraphs != g.lastParagraphs || snapshot.slides!=g.lastSlides || snapshot.shapes!=g.lastShapes;
     if (changed && g.lastCharacters >= 0) {
         long long inserted = snapshot.characters > g.lastCharacters ? snapshot.characters - g.lastCharacters : 0;
@@ -368,7 +419,7 @@ void TogglePause() {
             SetStatus(L"已暂停。当前是另一份文档，没有把它的内容计入记录。请切回原文档后继续。");
             PaintState();return;
         }
-        if(!SendEvent("pause",snapshot,0,0,std::string(),error)){SetStatus(error);PaintState();return;}
+        if(!FlushActions(snapshot,error)||!SendEvent("pause",snapshot,0,0,std::string(),error)){SetStatus(error);PaintState();return;}
         SetStatus(L"已暂停。继续记录时会标明未记录的时间。");
         PaintState();
         return;
@@ -382,6 +433,9 @@ void TogglePause() {
     g.lastParagraphs = snapshot.paragraphs;
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
     g.paused = false;
+    g.actions.Clear();g.editorWindow=snapshot.editorWindow;
+    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;
+    g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
     g.lastSampleMs = ElapsedMs();
     SetTimer(g.window, kSampleTimer, kSampleIntervalMs, nullptr);
     SetStatus(L"继续记录中。");
@@ -396,6 +450,7 @@ bool ResetPausedRecording(){
     if(!FlushPending(error)){SetStatus(L"旧记录还有操作未保存，暂时不能开始另一份。"+error);PaintState();return false;}
     KillTimer(g.window,kSampleTimer);
     g.token.clear();g.session.clear();g.pendingEvent.clear();g.identity.clear();g.documentName.clear();
+    g.actions.Clear();g.editorWindow=nullptr;g.layoutSignature.clear();g.formatSignature.clear();
     g.sequence=0;g.lastSampleMs=0;g.lastCharacters=-1;g.lastParagraphs=-1;g.lastSlides=-1;g.lastShapes=-1;
     g.started={};g.launchFeedback=false;g.cancelPairing=false;++g.pairingGeneration;
     SetStatus(L"已结束本地记录。旧记录仍保留在 WorkProof 中。");PaintState();return true;
@@ -491,7 +546,7 @@ void Export() {
         PaintState();
         return;
     }
-    if (!SendEvent("save", check, 0, 0, hash, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
+    if (!FlushActions(check,error)||!SendEvent("save", check, 0, 0, hash, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
 
     std::string body = "{\"artifact_hash\":\"" + hash + "\",\"artifact_bytes\":" + std::to_string(bytes) + "}";
     std::string response;
@@ -721,6 +776,9 @@ bool EnsureClass() {
 } // namespace
 
 void PaneAttachWord(IDispatch* application) {
+    if(g.editorHook){UnhookWindowsHookEx(g.editorHook);g.editorHook=nullptr;}
+    g.actions.Clear();
+    if(application)g.editorHook=SetWindowsHookExW(WH_GETMESSAGE,EditorMessage,nullptr,GetCurrentThreadId());
     if (application) application->AddRef();
     IDispatch* previous=g.word;
     g.word=application;
@@ -768,6 +826,8 @@ void PaneLaunchRecording(){PaneShow();if(g.window){g.launchFeedback=true;PostMes
 void PaneTogglePause() { PaneShow(); if(g.window)TogglePause(); }
 void PaneExport() { PaneShow(); if(g.window)Export(); }
 void PaneClose() {
+    if(g.editorHook){UnhookWindowsHookEx(g.editorHook);g.editorHook=nullptr;}
+    g.actions.Clear();
     ClosePane();
     if(g.taskPane){Dispatch(g.taskPane,L"Delete",DISPATCH_METHOD,nullptr,0);g.taskPane->Release();g.taskPane=nullptr;}
     PaneSetFactory(nullptr);

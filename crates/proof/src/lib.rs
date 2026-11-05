@@ -98,11 +98,11 @@ pub fn sign(mut manifest: Manifest, records: Vec<Record>, key: &SigningKey) -> P
 }
 pub fn valid_hash(s: &str) -> bool { s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) }
 pub fn validate_event(e: &Event) -> bool {
-    matches!(e.kind.as_str(), "start"|"edit"|"undo"|"redo"|"save"|"pause"|"resume"|"gap"|"stop"|"mesh"|"layer"|"modifier"|"viewport")
+    matches!(e.kind.as_str(), "start"|"edit"|"undo"|"redo"|"save"|"pause"|"resume"|"gap"|"stop"|"mesh"|"layer"|"modifier"|"viewport"|"interaction"|"format"|"layout")
     && e.seq < MAX_EVENTS as u64 && e.elapsed_ms <= 31_536_000_000
     && e.inserted <= 100_000_000 && e.deleted <= 100_000_000 && e.chars <= 100_000_000
     && (e.checkpoint.is_empty() || valid_hash(&e.checkpoint))
-    && e.metrics.len()<=16 && e.metrics.iter().all(|(k,v)|matches!(k.as_str(),"vertices"|"edges"|"faces"|"objects"|"modifiers"|"layers"|"groups"|"visible_layers"|"paragraphs"|"characters"|"viewport_changes"|"slides"|"shapes")&&*v<=1_000_000_000)
+    && e.metrics.len()<=16 && e.metrics.iter().all(|(k,v)|matches!(k.as_str(),"vertices"|"edges"|"faces"|"objects"|"modifiers"|"layers"|"groups"|"visible_layers"|"paragraphs"|"characters"|"viewport_changes"|"slides"|"shapes"|"backspace"|"delete_forward"|"space"|"enter"|"copy"|"paste"|"cut"|"undo_commands"|"redo_commands"|"format_commands"|"cursor_moves"|"layout_changes"|"spaces_inserted"|"line_breaks_inserted")&&*v<=1_000_000_000)
 }
 pub fn verify(p: &Proof, artifact_hash: &str, artifact_bytes: u64) -> Report {
     let m = &p.manifest;

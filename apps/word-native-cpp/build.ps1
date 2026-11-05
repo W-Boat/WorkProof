@@ -60,6 +60,11 @@ Assert-PeArchitecture $dll
 Write-Output "Built $Architecture add-in: $dll"
 
 if (-not $SkipProbe) {
+    $actionProbe = Join-Path $OutDir 'test_action_metrics.exe'
+    & cl @common (Join-Path $source 'test_action_metrics.cpp') "/Fo$probeDir\" "/Fe$actionProbe"
+    if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_action_metrics.cpp' }
+    & $actionProbe
+    if ($LASTEXITCODE -ne 0) { throw 'editor command classification failed' }
     $probe = Join-Path $OutDir 'test_addin.exe'
     & cl @common (Join-Path $source 'test_addin.cpp') "/Fo$probeDir\" "/Fe$probe" 'oleaut32.lib' 'ole32.lib' 'user32.lib' 'uuid.lib'
     if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_addin.cpp' }

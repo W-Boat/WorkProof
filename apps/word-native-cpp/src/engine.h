@@ -18,6 +18,10 @@ struct DocSnapshot {
     bool saved;
     long slides = 0;
     long long shapes = 0;
+    HWND editorWindow = nullptr; // Local document-window boundary; never serialized.
+    std::wstring layoutSignature; // Optional numeric style samples, kept local.
+    std::wstring formatSignature;
+    long selectionStart = -1, selectionEnd = -1;
 };
 
 // Late-bound access to the running Word instance. Everything stays on the caller's (Word UI) thread.

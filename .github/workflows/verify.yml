@@ -52,6 +52,7 @@ jobs:
           npm run build:web
           npm run build:extension
           npm run package -w workproof-vscode
+          python -c "import json,os,pathlib;pathlib.Path('windows-offline-source.json').write_text(json.dumps({'source_commit':os.environ['GITHUB_SHA']}),encoding='utf-8')"
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-windows-offline-resources
@@ -60,6 +61,7 @@ jobs:
           path: |
             apps/verifier/out/
             apps/extension/*.vsix
+            windows-offline-source.json
   protocol-and-web:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -173,6 +175,8 @@ jobs:
       - name: Prepare bundled verifier and extension
         shell: pwsh
         run: |
+          $provenance=Get-Content -LiteralPath .ci-artifacts/windows-offline-source.json -Raw | ConvertFrom-Json
+          if($provenance.source_commit -ne $env:GITHUB_SHA){throw 'Offline resources are not from this source commit'}
           New-Item -ItemType Directory -Force apps/desktop/src-tauri/resources | Out-Null
           Copy-Item -Recurse .ci-artifacts/apps/verifier/out apps/desktop/src-tauri/resources/verifier
           Copy-Item .ci-artifacts/apps/extension/*.vsix apps/desktop/src-tauri/resources/workproof.vsix

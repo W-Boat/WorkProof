@@ -116,7 +116,7 @@ async function refresh(){
         for(const [text,approve] of [['允许连接',true],['拒绝',false]]){
           const button=document.createElement('fluent-button');button.textContent=text;
           button.addEventListener('click',async()=>{
-            const buttons=Array.from(card.querySelectorAll('button'));for(const item of buttons)item.disabled=true;
+            const buttons=Array.from(card.querySelectorAll('fluent-button'));for(const item of buttons)item.disabled=true;
             try{await window.__TAURI__.core.invoke('decide_adapter',{ticket:request.ticket,approve});await refresh();}
             catch(error){showMessage(errorText(error),'error');for(const item of buttons)item.disabled=false;}
           });card.append(button);

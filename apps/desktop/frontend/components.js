@@ -7,5 +7,21 @@ import {webLightTheme,webDarkTheme} from '@fluentui/tokens';
 const applyTheme=()=>setTheme(document.documentElement.dataset.theme==='dark'?webDarkTheme:webLightTheme);
 applyTheme();
 new MutationObserver(applyTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+// Expose the same state to assistive technology that does not yet consume
+// ElementInternals ARIA. This also applies to dynamically inserted grants.
+function accessibleButton(button){
+  button.setAttribute('role','button');
+  button.setAttribute('aria-disabled',String(button.hasAttribute('disabled')));
+}
+for(const button of document.querySelectorAll('fluent-button'))accessibleButton(button);
+new MutationObserver(records=>{
+  for(const record of records){
+    if(record.type==='attributes')accessibleButton(record.target);
+    else for(const node of record.addedNodes)if(node.nodeType===1){
+      if(node.matches('fluent-button'))accessibleButton(node);
+      for(const button of node.querySelectorAll('fluent-button'))accessibleButton(button);
+    }
+  }
+}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['disabled']});
 // All commands use the existing restricted Tauri bridge, never HTTP or shell strings.
 await import('../ui/status.js');

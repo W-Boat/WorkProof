@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import {Fingerprint,ShieldCheck,AlertTriangle,Check,X,Info,Code2,ArrowDownToLine,LoaderCircle} from 'lucide-react';
 import {Button} from './button';
 import {Panel,Tag,TextInput} from './institution-ui';
+import {ActionBreakdown} from './ActionBreakdown';
 import {type Proof,type Report,type RecordEntry,time,shorten,labels} from '../lib/evidence';
 
 export function CertificateCard({proof,report,certificateId}:{proof:Proof;report:Report;certificateId?:string}){
@@ -45,5 +46,5 @@ export function DisclosurePanel({selection,busy,error,onChange,onExport}:{select
   </Panel>;
 }
 export function DisclosedEvents({records}:{records:RecordEntry[]}){
-  return <Panel title="已披露的事件"><p className="caption">仅展示所选事件，未披露部分不连成曲线，不用于推断持续劳动。</p><div className="disclosed-list">{records.map(entry=><div className="event-detail" key={entry.event.seq}><span>#{entry.event.seq+1}</span><strong>{labels[entry.event.kind]||entry.event.kind}</strong><span>{time(entry.event.elapsed_ms)}</span><code>{shorten(entry.hash)}</code></div>)}</div></Panel>;
+  return <Panel title="已披露的事件"><p className="caption">仅展示所选事件，未披露部分不连成曲线，不用于推断持续劳动。</p><ActionBreakdown records={records}/><div className="disclosed-list">{records.map(entry=><div className="event-detail" key={entry.event.seq}><span>#{entry.event.seq+1}</span><strong>{labels[entry.event.kind]||entry.event.kind}</strong><span>{time(entry.event.elapsed_ms)}</span><code>{shorten(entry.hash)}</code></div>)}</div></Panel>;
 }

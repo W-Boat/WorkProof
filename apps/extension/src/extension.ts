@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { blake3 } from '@noble/hashes/blake3.js';
 import {dataDirectory} from './location';
 
-type Event = {seq:number;elapsed_ms:number;kind:string;inserted:number;deleted:number;chars:number;checkpoint:string};
+type Event = {seq:number;elapsed_ms:number;kind:string;inserted:number;deleted:number;chars:number;checkpoint:string;metrics?:Record<string,number>};
 type Session = {id:string;uri:string;next:number;elapsed:number;pending:Event[];paused:boolean;chars:number};
 type Pair = {port:number;token:string};
 let ctx:vscode.ExtensionContext, session:Session|undefined, pair:Pair|undefined;
@@ -28,11 +28,11 @@ async function api<T>(route:string,body?:unknown):Promise<T>{
   if(response.status===401){await autoPair();response=await request();}
   const result=await response.json() as {error?:string};if(!response.ok)throw new Error(result.error||`HTTP ${response.status}`);return result as T;
 }
-function enqueue(kind:string,inserted=0,deleted=0,checkpoint=''){
+function enqueue(kind:string,inserted=0,deleted=0,checkpoint='',metrics?:Record<string,number>){
   if(!session)return;
   // Stop collecting on overflow. Retain the queued prefix and disclose the gap.
   if(session.pending.length>=2048){session.paused=true;fault='离线队列已满，已暂停。恢复后会记录采集缺口。';paint();return;}
-  session.pending.push({seq:session.next++,elapsed_ms:elapsed(),kind,inserted,deleted,chars:session.chars,checkpoint});session.elapsed=elapsed();paint();
+  session.pending.push({seq:session.next++,elapsed_ms:elapsed(),kind,inserted,deleted,chars:session.chars,checkpoint,...(metrics&&Object.keys(metrics).length?{metrics}:{})});session.elapsed=elapsed();paint();
 }
 async function flush(){
   if(sending)return sending;
@@ -98,7 +98,12 @@ export async function activate(context:vscode.ExtensionContext){
     if(!session||session.paused||e.document.uri.toString()!==session.uri||!e.contentChanges.length)return;
     session.chars=e.document.getText().length;
     const kind=e.reason===vscode.TextDocumentChangeReason.Undo?'undo':e.reason===vscode.TextDocumentChangeReason.Redo?'redo':'edit';
-    enqueue(kind,e.contentChanges.reduce((n,c)=>n+c.text.length,0),e.contentChanges.reduce((n,c)=>n+c.rangeLength,0));
+    // Observe resulting whitespace, not keystrokes or inferred paste actions.
+    const spaces=e.contentChanges.reduce((n,c)=>n+(c.text.match(/ /g)?.length||0),0);
+    const breaks=e.contentChanges.reduce((n,c)=>n+(c.text.match(/\r\n|\r|\n/g)?.length||0),0);
+    enqueue(kind,e.contentChanges.reduce((n,c)=>n+c.text.length,0),e.contentChanges.reduce((n,c)=>n+c.rangeLength,0),'',{
+      ...(spaces?{spaces_inserted:spaces}:{}),...(breaks?{line_breaks_inserted:breaks}:{})
+    });
   }));
   ctx.subscriptions.push(vscode.workspace.onDidSaveTextDocument(doc=>{if(session&&!session.paused&&session.uri===doc.uri.toString())enqueue('save');}));
   timer=setInterval(()=>{if(session?.pending.length)void persist().then(()=>flush()).catch(()=>{});},1000);ctx.subscriptions.push({dispose:()=>clearInterval(timer)});paint();

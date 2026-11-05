@@ -4,6 +4,7 @@
 #include <winhttp.h>
 #include <cstdlib>
 #include <vector>
+#include <initializer_list>
 
 #pragma comment(lib, "winhttp.lib")
 
@@ -141,6 +142,8 @@ bool RunEngine(const std::wstring& arguments, std::string& output, std::wstring&
 }
 
 bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& error) {
+    snapshot.editorWindow=nullptr;snapshot.layoutSignature.clear();snapshot.formatSignature.clear();
+    snapshot.selectionStart=-1;snapshot.selectionEnd=-1;
     if (!application) { error = std::wstring(kHostName)+L" 尚未完成加载，请稍后重试。"; return false; }
     Variant documentOwner;
     VARIANT& document=documentOwner.value;
@@ -247,6 +250,45 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
     VariantClear(&savedValue);
 
     if (snapshot.characters > 8000000) { error = L"文档超过 800 万字符，超出本版记录范围。请拆分文档后重试。"; return false; }
+    // Optional metadata failures must not stop the existing count recorder.
+    // No text, clipboard payload or formatting values leave this process.
+    auto signature=[](IDispatch* object,std::initializer_list<const wchar_t*> fields){
+        std::wstring result;
+        for(auto field:fields){
+            Variant original,number;
+            if(FAILED(GetProperty(object,field,original.get()))||
+               FAILED(VariantChangeType(number.get(),original.get(),0,VT_R8)))return std::wstring();
+            result+=std::to_wstring(number.value.dblVal)+L";";
+        }
+        return result;
+    };
+    Variant window,handle,page;
+    if(SUCCEEDED(GetProperty(application,L"ActiveWindow",window.get()))&&window.value.vt==VT_DISPATCH&&window.value.pdispVal&&
+       SUCCEEDED(GetProperty(window.value.pdispVal,L"HWND",handle.get()))){
+        if(handle.value.vt==VT_I4)snapshot.editorWindow=reinterpret_cast<HWND>(static_cast<ULONG_PTR>(static_cast<unsigned long>(handle.value.lVal)));
+        else if(handle.value.vt==VT_I8)snapshot.editorWindow=reinterpret_cast<HWND>(static_cast<ULONG_PTR>(handle.value.llVal));
+    }
+    if(SUCCEEDED(GetProperty(doc,L"PageSetup",page.get()))&&page.value.vt==VT_DISPATCH&&page.value.pdispVal){
+#ifdef WORKPROOF_POWERPOINT
+        snapshot.layoutSignature=signature(page.value.pdispVal,{L"SlideWidth",L"SlideHeight"});
+#else
+        snapshot.layoutSignature=signature(page.value.pdispVal,{L"Orientation",L"TopMargin",L"BottomMargin",L"LeftMargin",L"RightMargin",L"PageWidth",L"PageHeight"});
+#endif
+    }
+#ifndef WORKPROOF_POWERPOINT
+    Variant selection,start,end,font,paragraphFormat;
+    if(SUCCEEDED(GetProperty(application,L"Selection",selection.get()))&&selection.value.vt==VT_DISPATCH&&selection.value.pdispVal&&
+       SUCCEEDED(GetProperty(selection.value.pdispVal,L"Start",start.get()))&&start.value.vt==VT_I4&&
+       SUCCEEDED(GetProperty(selection.value.pdispVal,L"End",end.get()))&&end.value.vt==VT_I4){
+        snapshot.selectionStart=start.value.lVal;snapshot.selectionEnd=end.value.lVal;
+        if(SUCCEEDED(GetProperty(selection.value.pdispVal,L"Font",font.get()))&&font.value.vt==VT_DISPATCH&&font.value.pdispVal&&
+           SUCCEEDED(GetProperty(selection.value.pdispVal,L"ParagraphFormat",paragraphFormat.get()))&&paragraphFormat.value.vt==VT_DISPATCH&&paragraphFormat.value.pdispVal){
+            auto fontValues=signature(font.value.pdispVal,{L"Bold",L"Italic",L"Underline",L"Size"});
+            auto paragraphValues=signature(paragraphFormat.value.pdispVal,{L"Alignment",L"SpaceBefore",L"SpaceAfter",L"LineSpacing"});
+            if(!fontValues.empty()&&!paragraphValues.empty())snapshot.formatSignature=fontValues+paragraphValues;
+        }
+    }
+#endif
     return true;
 
 }

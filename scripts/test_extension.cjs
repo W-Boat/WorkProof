@@ -43,13 +43,15 @@ async function main(){
     await commands.get('workproof.start')();
     await starting;assert.equal(sessionCreates,1,'Repeated start must not create an orphan session');
     function edit(text,removed=0,reason){content=content.slice(0,content.length-removed)+text;version++;doc.isDirty=true;change({document:doc,reason,contentChanges:[{text,rangeLength:removed}]});}
-    edit('A new paragraph.');edit('',3,1);
+    edit('A new paragraph.\n');edit('',3,1);
     await commands.get('workproof.pause')();edit('Unobserved while paused.');await commands.get('workproof.pause')();edit(' Final edit.');
     await commands.get('workproof.export')();assert.deepEqual(errors,[]);
     const proof=JSON.parse(await fs.readFile(file+'.wproof','utf8'));
     const events=proof.records.map(r=>r.event);
     assert.equal(events.filter(e=>e.kind==='edit').length,2);
     assert.equal(events.filter(e=>e.kind==='undo').length,1);
+    assert.equal(events.find(e=>e.kind==='edit').metrics.spaces_inserted,2);
+    assert.equal(events.find(e=>e.kind==='edit').metrics.line_breaks_inserted,1);
     assert.equal(events.filter(e=>e.kind==='gap').length,1);
     assert.equal(events.at(-1).kind,'save');assert.equal(proof.manifest.demo,false);
     assert(!JSON.stringify(proof).includes('Unobserved while paused'));

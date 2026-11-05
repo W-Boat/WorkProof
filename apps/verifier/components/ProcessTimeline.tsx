@@ -1,6 +1,7 @@
 'use client';
 import {useState} from 'react';
 import {type RecordEntry,time,labels,metricLabels,shorten} from '../lib/evidence';
+import {ActionBreakdown} from './ActionBreakdown';
 export function Timeline({records}:{records:RecordEntry[]}){
   const [selected,setSelected]=useState(0);
   const structured=records.some(r=>r.event.metrics?.vertices!==undefined||r.event.metrics?.layers!==undefined);
@@ -20,5 +21,6 @@ export function Timeline({records}:{records:RecordEntry[]}){
     <label className="scrub"><span>浏览事件</span><input aria-label="浏览事件" type="range" min="0" max={Math.max(0,records.length-1)} value={index} onChange={e=>setSelected(Number(e.target.value))}/></label>
     {active&&<div className="event-detail"><span>#{String(active.event.seq+1).padStart(4,'0')}</span><strong>{labels[active.event.kind]||active.event.kind}</strong><span>{metric==='chars'?`+${active.event.inserted} / −${active.event.deleted}`:`${metricLabels[metric]}：${value(active)??'未采集'}`}</span><span>{time(active.event.elapsed_ms)}</span><code>{shorten(active.hash)}</code></div>}
     <p className="caption">曲线表示已采集事件中的{metricLabels[metric]}，不展示作品内容。空白时段不等同于思考或劳动；不同指标不能互相换算，未采集指标留空而非按零绘制。</p>
+    <ActionBreakdown records={records}/>
   </section>;
 }

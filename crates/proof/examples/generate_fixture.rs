@@ -17,6 +17,25 @@ fn main(){
     let selected=workproof_protocol::create_disclosure(&proof,&[5,20,40]).unwrap();
     std::fs::write(format!("{dir}/essay.md.selected.wproof"),serde_json::to_string_pretty(&selected).unwrap()).unwrap();
     generate_evolution_fixture(&dir);
+    generate_actions_fixture(&dir);
+}
+
+fn generate_actions_fixture(dir:&str){
+    use std::collections::BTreeMap;
+    let content=b"Synthetic action counts; not a real Office recording.\n";
+    let id="demo-actions-001";let key=SigningKey::from_bytes(&[44;32]);
+    let mut head=genesis(id);let mut records=vec![];
+    for (seq,kind) in ["start","interaction","format","layout","undo","redo","save"].iter().enumerate(){
+        let metrics=if *kind=="interaction"{BTreeMap::from([("backspace".into(),3),("copy".into(),1),("paste".into(),2),("space".into(),4),("enter".into(),1),("redo_commands".into(),1)])}else{BTreeMap::new()};
+        let event=Event{seq:seq as u64,elapsed_ms:seq as u64*1500,kind:(*kind).into(),inserted:0,deleted:0,chars:content.len() as u64,checkpoint:if *kind=="save"{digest(content)}else{String::new()},metrics};
+        head=event_hash(&head,&event);records.push(Record{event,hash:head.clone()});
+    }
+    let proof=sign(Manifest{protocol:VERSION.into(),session_id:id.into(),file_name:"actions-demo.txt".into(),started_at:"2026-11-05T00:00:00Z".into(),source:"synthetic-demo".into(),event_count:records.len() as u64,chain_head:head,artifact_hash:digest(content),artifact_bytes:content.len() as u64,public_key:hex::encode(key.verifying_key().to_bytes()),identity:"self-signed".into(),time_evidence:"none".into(),demo:true,merkle_root:String::new()},records,&key);
+    assert!(verify(&proof,&digest(content),content.len() as u64).valid);
+    std::fs::write(format!("{dir}/actions-demo.txt"),content).unwrap();
+    std::fs::write(format!("{dir}/actions-demo.txt.wproof"),serde_json::to_string_pretty(&proof).unwrap()).unwrap();
+    let selected=create_disclosure(&proof,&[1,3]).unwrap();
+    std::fs::write(format!("{dir}/actions-demo.selected.wproof"),serde_json::to_string_pretty(&selected).unwrap()).unwrap();
 }
 
 fn generate_evolution_fixture(dir:&str){
