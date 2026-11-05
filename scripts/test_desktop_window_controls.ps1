@@ -93,6 +93,11 @@ try{
     $diagnostic=@{phase=$script:phase;error=[string]$failure;source_commit=$env:GITHUB_SHA;candidate_source_commit=$env:WORKPROOF_CANDIDATE_SOURCE;exited=$owned.HasExited;scope='Only the isolated process created by this Actions test'}
     if(-not $owned.HasExited){
         $diagnostic.window_handle=[string]$owned.MainWindowHandle
+        if($null -ne $window){
+            $diagnostic.tested_window_handle=[string]$window
+            $diagnostic.tested_window_still_exists=[WorkProofWindowProbe]::IsWindow($window)
+            $diagnostic.tested_geometry=@([WorkProofWindowProbe]::CaptionGeometry($window))
+        }
         $diagnostic.window_title=$owned.MainWindowTitle
         $diagnostic.native_geometry=@([WorkProofWindowProbe]::CaptionGeometry($owned.MainWindowHandle))
         $diagnostic.geometry_fields=@('outer_left','outer_top','outer_right','outer_bottom','client_screen_x','client_screen_y','window_dpi','caption_height')
