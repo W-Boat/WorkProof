@@ -121,7 +121,7 @@ fn choose(image:bool)->Result<Option<PathBuf>,String>{
     if image{pick("选择带有创作证书的作品","PNG / JPEG / PDF|*.png;*.jpg;*.jpeg;*.pdf",false,"")}
     else{pick("选择从可信渠道取得的 CA 证书文件","CA 证书文件|*.pem;*.crt;*.cer",false,"")}
 }
-fn pick(title:&str,filter:&str,save:bool,suggested:&str)->Result<Option<PathBuf>,String>{
+pub(crate) fn pick(title:&str,filter:&str,save:bool,suggested:&str)->Result<Option<PathBuf>,String>{
     #[cfg(windows)]let command={
         let root=std::env::var_os("SystemRoot").ok_or("无法定位系统文件选择器。")?;
         let mut c=Command::new(PathBuf::from(root).join("System32/WindowsPowerShell/v1.0/powershell.exe"));

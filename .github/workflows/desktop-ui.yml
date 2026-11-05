@@ -2,7 +2,7 @@ name: Desktop workbench UI
 on:
   workflow_dispatch:
   push:
-    paths: ['apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'tests/desktop-connections.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
+    paths: ['apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'tests/desktop-*.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
 permissions:
   contents: read
 jobs:
@@ -18,6 +18,10 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Real editor persistence, retry and signed export boundaries
+        run: cargo test --locked -p workproof-engine editor::tests
       - name: Stage the canonical design system and brand
         run: node scripts/stage_desktop_ui.cjs
       - name: Chinese system font for screenshot review

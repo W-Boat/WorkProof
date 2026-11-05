@@ -7,6 +7,7 @@ use std::{path::PathBuf,sync::{Arc,Mutex,atomic::{AtomicBool,Ordering}},time::{S
 use workproof_protocol::*;
 pub mod pairing;
 pub mod location;
+pub mod editor;
 
 type Shared = Arc<Mutex<Store>>;
 static READY:AtomicBool=AtomicBool::new(false);

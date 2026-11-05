@@ -3,9 +3,10 @@ let refreshing=false,engineReady=false,launching=false;
 let visibleConnections=[],connectionsKnown=false;
 document.body.dataset.platform=/Win/i.test(navigator.platform)?'windows':'other';
 async function performWindowAction(action){
-  try{await window.__TAURI__.core.invoke('window_action',{action});}
+  try{if(action==='close')await window.workproofBeforeClose?.();await window.__TAURI__.core.invoke('window_action',{action});}
   catch(error){showMessage(errorText(error),'error');}
 }
+window.__TAURI__?.event?.listen('workproof-close-requested',()=>performWindowAction('close')).catch(()=>{});
 for(const button of document.querySelectorAll('[data-window]'))button.addEventListener('click',()=>performWindowAction(button.dataset.window));
 const titlebar=document.querySelector('.app-header');
 titlebar.addEventListener('mousedown',event=>{
@@ -27,7 +28,7 @@ function updateConnectionBadges(){
     badge.textContent=!engineReady?'服务未就绪':!connectionsKnown?'待检查':count?'已允许':source==='vscode'||source==='blender'?'宿主内查看':'未允许';
     badge.title=count?'已允许此加载项连接，不表示软件当前仍在运行或正在记录。':'尚无有效的加载项连接授权。自动连接的软件请在宿主中查看状态。';
     badge.dataset.connected=String(engineReady&&connectionsKnown&&count>0);
-    const button=badge.closest('button');button.classList.toggle('selected-tool',document.body.dataset.view==='create'&&source===selected);
+    const button=badge.closest('button');button.classList.toggle('selected-tool',source===selected);
   }
   const count=visibleConnections.filter(value=>value.source===selected).length;
   const text=!engineReady?'记录服务未就绪':!connectionsKnown?'正在检查连接…':count?`已允许 ${count} 个连接 · 记录状态请在软件中查看`:selected==='vscode'||selected==='blender'?'此软件自动连接 · 请在软件中查看记录状态':'尚未连接 · 首次使用请先安装加载项';
@@ -41,22 +42,24 @@ function showMessage(text,state='info'){
 }
 const errorText=error=>error instanceof Error?error.message:String(error);
 updateLaunchButtons();
-const views={create:['创作记录','选择软件，开始记录你的创作过程。'],verification:['证书核验','选择作品和证书，在 WorkProof 内完成核验与分享。'],connections:['连接管理','查看已允许的软件，或处理新的连接请求。'],settings:['设置与工具','本机运行说明与图片、PDF 证书工具。']};
+const views={library:['我的文档','开始写作，也能回到之前的编辑过程。'],document:['文档',''],verification:['文件核验','核对作品与证书，文件留在本机。'],connections:['应用连接','在熟悉的软件中创作，由 WorkProof 保存过程。'],settings:['设置','调整外观与记录方式。']};
 function selectView(view,focus=false){
-  if(!Object.hasOwn(views,view))view='create';
+  if(!Object.hasOwn(views,view))view='library';
   document.body.dataset.view=view;
-  for(const button of document.querySelectorAll('.workspace-nav button')){
-    if(button.dataset.view===view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+  for(const button of document.querySelectorAll('.workspace-nav [data-view]')){
+    if(button.dataset.view===(view==='document'?'library':view))button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
   }
   document.getElementById('workspace-title').textContent=views[view][0];
   document.getElementById('workspace-description').textContent=views[view][1];
   document.querySelector('main').scrollTop=0;
   if(focus)document.getElementById('workspace-title').focus({preventScroll:true});
   updateConnectionBadges();
+  window.dispatchEvent(new CustomEvent('workproof-view',{detail:view}));
 }
-for(const button of document.querySelectorAll('.workspace-nav button[data-view]'))button.addEventListener('click',()=>selectView(button.dataset.view,true));
-for(const button of document.querySelectorAll('.workspace-nav button[data-tool]'))button.addEventListener('click',()=>{
-  const select=document.getElementById('creation-tool');select.value=button.dataset.tool;select.dispatchEvent(new Event('change'));selectView('create',true);
+window.workproofUI={selectView,showMessage};
+for(const button of document.querySelectorAll('.workspace-nav [data-view]'))button.addEventListener('click',()=>selectView(button.dataset.view,true));
+for(const button of document.querySelectorAll('[data-tool]'))button.addEventListener('click',()=>{
+  const select=document.getElementById('creation-tool');select.value=button.dataset.tool;select.dispatchEvent(new Event('change'));selectView('connections',true);
 });
 const connectionCards=new Map();
 const adapterName=source=>({word:'Word',powerpoint:'PowerPoint',wps:'WPS',photoshop:'Photoshop'}[source]||source);
@@ -96,7 +99,8 @@ async function refresh(){
     const s=await window.__TAURI__.core.invoke('engine_status');
     engineReady=s.ready===true;updateLaunchButtons();
     document.getElementById('status').dataset.state=engineReady?'ready':'preparing';
-    document.getElementById('status').textContent=s.ready?'WorkProof 已就绪，可以开始记录。':'正在准备记录服务…';
+    document.getElementById('status').textContent=s.ready?'记录服务已就绪':'正在准备记录服务…';
+    window.dispatchEvent(new CustomEvent('workproof-engine',{detail:{ready:engineReady}}));
     document.getElementById('sessions').textContent=s.sessions.toLocaleString();
     document.getElementById('events').textContent=s.events.toLocaleString();
     document.querySelector('.trace').classList.toggle('active',last>=0&&s.events>last);last=s.events;
@@ -129,7 +133,7 @@ async function refresh(){
 }
 refresh();setInterval(refresh,1500);document.addEventListener('visibilitychange',refresh);
 document.getElementById('refresh-connections').addEventListener('click',refresh);
-for(const [id,command] of [['install','install_vscode'],['verify','open_verifier'],['verify-browser','open_verifier_browser'],['open-word','open_word'],['open-powerpoint','open_powerpoint']]){
+for(const [id,command] of [['install','install_vscode'],['verify-browser','open_verifier_browser'],['open-word','open_word'],['open-powerpoint','open_powerpoint']]){
   document.getElementById(id).addEventListener('click',async()=>{
     const isLaunch=launchIds.includes(id);if(isLaunch&&(!engineReady||launching))return;
     const button=document.getElementById(id),label=button.textContent;
@@ -141,6 +145,19 @@ for(const [id,command] of [['install','install_vscode'],['verify','open_verifier
     finally{button.textContent=label;if(isLaunch){launching=false;updateLaunchButtons();}else button.disabled=false;}
   });
 }
+document.getElementById('verify').addEventListener('click',async()=>{
+  const button=document.getElementById('verify');button.disabled=true;
+  try{const raw=await window.__TAURI__.core.invoke('verifier_url'),url=new URL(raw);if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port||url.username||url.password)throw new Error('核验地址无效，请更新完整安装包。');const frame=document.getElementById('verifier-frame');frame.src=url.href;frame.hidden=false;document.getElementById('verification-intro').hidden=true;}
+  catch(error){showMessage(errorText(error),'error');}finally{button.disabled=false;}
+});
+
+const navPreference=document.getElementById('expanded-navigation'),motionPreference=document.getElementById('reduce-motion');
+function collapseNavigation(collapsed){document.body.classList.toggle('compact-nav',collapsed);navPreference.checked=!collapsed;const toggle=document.getElementById('collapse-nav');toggle.setAttribute('aria-expanded',String(!collapsed));toggle.setAttribute('aria-label',collapsed?'展开侧栏':'收起侧栏');try{localStorage.setItem('workproof.compact-nav',String(collapsed));}catch{}}
+let compact=matchMedia('(max-width:640px)').matches;try{const saved=localStorage.getItem('workproof.compact-nav');if(saved!==null)compact=saved==='true';}catch{}collapseNavigation(compact);
+document.getElementById('collapse-nav').addEventListener('click',()=>collapseNavigation(!document.body.classList.contains('compact-nav')));
+navPreference.addEventListener('change',()=>collapseNavigation(!navPreference.checked));
+function applyMotion(){document.documentElement.dataset.reduceMotion=String(motionPreference.checked);try{localStorage.setItem('workproof.reduce-motion',String(motionPreference.checked));}catch{}}
+try{motionPreference.checked=localStorage.getItem('workproof.reduce-motion')==='true';}catch{}applyMotion();motionPreference.addEventListener('change',applyMotion);
 
 const guides={
   word:{steps:['点击“打开 Word 并开始记录”。已有文档会继续使用，新文档会先提示保存。','首次使用时，在这里允许 Word 连接。Word 显示“已开始记录”后即可创作。','完成后在 Word 的 WorkProof 侧栏导出作品和证书，将两个文件一起交付。'],note:'Windows 桌面版 Word：先点击上方“检查安装状态”。未安装时，保存并退出 Word，再点击“安装 / 修复加载项”。安装后即可从这里打开 Word；也可以使用 Word 中的 WorkProof 标签。网页版和 Mac 需要单独安装网页加载项。'},

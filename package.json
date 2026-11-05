@@ -3,7 +3,11 @@
   "version": "0.1.0",
   "license": "MIT",
   "private": true,
-  "workspaces": ["apps/verifier", "apps/extension", "apps/desktop"],
+  "workspaces": [
+    "apps/verifier",
+    "apps/extension",
+    "apps/desktop"
+  ],
   "scripts": {
     "dev": "npm run dev -w @workproof/verifier",
     "build:web": "npm run build -w @workproof/verifier",
@@ -11,5 +15,15 @@
     "test:web": "playwright test",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
-  "devDependencies": {"@playwright/test": "1.64.1", "typescript": "~5.9.3", "@types/node": "^22.18.0"}
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "typescript": "~5.9.3",
+    "@types/node": "^22.18.0"
+  },
+  "overrides": {
+    "@tiptap/core": "3.32.2",
+    "@tiptap/pm": "3.32.2",
+    "@tiptap/markdown": "3.32.2",
+    "@tiptap/extension-link": "3.32.2"
+  }
 }

@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/Swanand58/folio-editor",
+  "commit": "fcf3bc2153585ad7b44d00c7186bfed8299e8419",
+  "path": "src/core/PageBreak.ts",
+  "source_sha256": "4956aed969d4a778b2c670e2db31f13c88598bca959117c781ca1dca2d439551",
+  "license_sha256": "3e7e227a5b6b674b7af4b5286c2e03563d22ea5f8918cdc1c5e0dfef9b4e8b39",
+  "changes": "Only added attribution header; upstream TypeScript retained."
+}

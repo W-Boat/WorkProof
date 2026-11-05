@@ -32,6 +32,9 @@ apps/office/wps/wps-addon-publish/
 tools/c2pa-wasm/pkg/
 tools/c2pa-wasm/target/
 apps/desktop/ui/components.js
+apps/desktop/ui/word-worker.js
+apps/desktop/ui/FOLIO-LICENSE.txt
+apps/desktop/ui/notices/
 apps/verifier/public/c2pa/
 apps/verifier/public/notices/graph/
 

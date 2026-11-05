@@ -1,15 +1,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use tauri::{menu::{Menu,MenuItem},tray::TrayIconBuilder,Manager};
+use tauri::{menu::{Menu,MenuItem},tray::TrayIconBuilder,Manager,Emitter};
 mod platform;
 mod c2pa;
 mod office_setup;
+mod editor;
+static ALLOW_CLOSE:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
 #[tauri::command]
 fn window_action(window:tauri::WebviewWindow,action:String)->Result<(),String>{
     workbench_only(&window)?;
     let result=match action.as_str(){
         "minimize"=>window.minimize(),
         "maximize"=>if window.is_maximized().map_err(|_|"无法读取窗口状态。")?{window.unmaximize()}else{window.maximize()},
-        "close"=>window.close(),
+        "close"=>{ALLOW_CLOSE.store(true,std::sync::atomic::Ordering::Release);window.close()},
         "drag"=>window.start_dragging(),
         _=>return Err("不支持的窗口操作。".into())
     };
@@ -104,6 +106,8 @@ async fn open_verifier_browser(window:tauri::WebviewWindow,app:tauri::AppHandle)
     Ok("已请求系统浏览器打开核验页。".into())
 }
 #[tauri::command]
+async fn verifier_url(window:tauri::WebviewWindow,app:tauri::AppHandle)->Result<String,String>{workbench_only(&window)?;Ok(format!("http://127.0.0.1:{}/",verifier_port(&app).await?))}
+#[tauri::command]
 async fn install_vscode(window:tauri::WebviewWindow,app:tauri::AppHandle)->Result<String,String>{
     workbench_only(&window)?;
     let vsix=app.path().resource_dir().map_err(|e|e.to_string())?.join("workproof.vsix");
@@ -112,7 +116,7 @@ async fn install_vscode(window:tauri::WebviewWindow,app:tauri::AppHandle)->Resul
     Ok("插件安装完成。在 VS Code 状态栏点击 WorkProof 即可开始记录。".into())
 }
 fn main(){
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![window_action,office_setup,engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,install_vscode,open_word,open_powerpoint,verify_image,embed_image]).setup(|app|{
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![window_action,office_setup,engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,verifier_url,install_vscode,open_word,open_powerpoint,verify_image,embed_image,editor::editor_list,editor::editor_create,editor::editor_load,editor::editor_save,editor::editor_version,editor::editor_export]).setup(|app|{
         let open=MenuItem::with_id(app,"open","WorkProof · 状态与帮助",true,None::<&str>)?;
         let quit=MenuItem::with_id(app,"quit","退出 WorkProof",true,None::<&str>)?;
         let menu=Menu::with_items(app,&[&open,&quit])?;
@@ -130,7 +134,10 @@ fn main(){
             }
         });Ok(())
     }).build(tauri::generate_context!()).expect("WorkProof desktop failed")
-        .run(|_app,event|{
+        .run(|app,event|{
+            if let tauri::RunEvent::WindowEvent{label,event:tauri::WindowEvent::CloseRequested{api,..},..}=&event{
+                if label=="status"&&!ALLOW_CLOSE.swap(false,std::sync::atomic::Ordering::AcqRel){api.prevent_close();let _=app.emit_to("status","workproof-close-requested",());}
+            }
             // Destroy the last webview on close while retaining the tray collector.
             // Explicit menu exit and startup errors carry an exit code and remain effective.
             if let tauri::RunEvent::ExitRequested{api,code:None,..}=event {api.prevent_exit();}

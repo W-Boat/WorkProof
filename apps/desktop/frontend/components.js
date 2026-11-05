@@ -1,6 +1,11 @@
 // Official Fluent 2 controls, bundled offline by Actions. No runtime CDN.
 import '@fluentui/web-components/button.js';
 import '@fluentui/web-components/divider.js';
+import '@fluentui/web-components/switch.js';
+import '@fluentui/web-components/radio.js';
+import '@fluentui/web-components/radio-group.js';
+import '@fluentui/web-components/field.js';
+import '@fluentui/web-components/text-input.js';
 import {setTheme} from '@fluentui/web-components/theme/set-theme.js';
 import {webLightTheme,webDarkTheme} from '@fluentui/tokens';
 
@@ -25,3 +30,4 @@ new MutationObserver(records=>{
 }).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['disabled']});
 // All commands use the existing restricted Tauri bridge, never HTTP or shell strings.
 await import('../ui/status.js');
+await import('./editor.js');

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 async function desktop(page:import('@playwright/test').Page,fail=false,nativeWord=false){
   await page.route('**/desktop-status/**',route=>{
     const name=new URL(route.request().url()).pathname.split('/').at(-1)||'index.html';
-    const types:Record<string,string>={'components.js':'application/javascript','status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','fluent-workbench.css':'text/css','brand.png':'image/png'};
+    const types:Record<string,string>={'word-worker.js':'application/javascript','components.js':'application/javascript','status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','fluent-workbench.css':'text/css','native-editor.css':'text/css','brand.png':'image/png'};
     if(!types[name])return route.abort();
     return route.fulfill({contentType:types[name],body:fs.readFileSync('apps/desktop/ui/'+name)});
   });
@@ -22,6 +22,7 @@ async function desktop(page:import('@playwright/test').Page,fail=false,nativeWor
     }}};
   },{fail,nativeWord});
   await page.goto('/desktop-status/index.html');
+  await page.getByRole('button',{name:'应用连接',exact:true}).click();
 }
 
 test('native Word approval names Word and discloses unverified publisher',async({page})=>{
@@ -34,7 +35,7 @@ test('native Word approval names Word and discloses unverified publisher',async(
 
 test('desktop shows grant origins and revokes one connection while retaining the other',async({page})=>{
   await desktop(page);
-  await page.getByRole('button',{name:'连接管理',exact:true}).click();
+  await page.getByRole('button',{name:'应用连接',exact:true}).click();
   const region=page.getByRole('region',{name:'允许连接的软件'});
   await expect(region).toContainText('https://school.example');
   await expect(region).toContainText('已开始 2 份记录');
@@ -52,7 +53,7 @@ test('desktop shows grant origins and revokes one connection while retaining the
 
 test('failed desktop revocation keeps the connection and offers retry',async({page})=>{
   await desktop(page,true);
-  await page.getByRole('button',{name:'连接管理',exact:true}).click();
+  await page.getByRole('button',{name:'应用连接',exact:true}).click();
   const button=page.getByRole('button',{name:'断开 Word 连接'});
   await button.click();
   await expect(page.locator('#message')).toContainText('撤销失败');
@@ -74,7 +75,7 @@ test('desktop starts with Word and shows only the chosen software steps',async({
   await expect(install).toBeVisible();await expect(steps).toContainText('VS Code 底部');
   await page.getByLabel('你用什么软件创作？').selectOption('wps');
   await expect(install).toBeHidden();await expect(page.locator('#installation-note')).toContainText('暂未提供面向普通用户的一键安装包');
-  await expect(page.getByRole('region',{name:'允许连接的软件'})).toBeHidden();
+  await expect(page.getByRole('region',{name:'允许连接的软件'})).toBeVisible();
   await expect(page.locator('#verification')).toBeHidden();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/desktop-simple-guide.png',fullPage:true});
@@ -82,7 +83,7 @@ test('desktop starts with Word and shows only the chosen software steps',async({
 
 test('asset certificate check explains partial PDF scope, cancellation and failures',async({page})=>{
   await desktop(page);
-  await page.getByRole('button',{name:'设置与工具',exact:true}).click();
+  await page.getByRole('button',{name:'设置',exact:true}).click();
   await page.locator('.advanced-tools > summary').click();
   await page.getByText('检查作品内嵌的创作证书',{exact:true}).click();
   const button=page.getByRole('button',{name:'选择作品和 CA，开始检查'});
@@ -108,7 +109,7 @@ test('asset certificate check explains partial PDF scope, cancellation and failu
 
 test('embedding requires fresh consent and does not claim independent trust',async({page})=>{
   await desktop(page);
-  await page.getByRole('button',{name:'设置与工具',exact:true}).click();
+  await page.getByRole('button',{name:'设置',exact:true}).click();
   await page.locator('.advanced-tools > summary').click();
   await page.getByText('把创作证书放进作品',{exact:true}).click();
   const consent=page.locator('#embed-consent'),button=page.getByRole('button',{name:'选择材料，生成带证书的作品'}),result=page.locator('#embed-result');
@@ -138,7 +139,7 @@ test('desktop remembers software and keeps the workbench readable at desktop and
   await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('powerpoint');
   await expect(page.getByRole('button',{name:'打开 PowerPoint 并开始记录'})).toBeVisible();
   await expect(page.locator('#tool-requirement')).toContainText('PowerPoint 原生加载项');
-  await expect(page.getByText('累计记录',{exact:true})).toBeVisible();
+  await expect(page.locator('.host-totals')).toContainText('累计记录');
   await expect(page.locator('.advanced-tools')).not.toHaveAttribute('open','');
   for(const width of [960,420,360]){
     await page.setViewportSize({width,height:780});
@@ -172,7 +173,7 @@ test('desktop sends one launch while busy, exposes actionable failure and permit
 
 test('desktop disables launch when the service is unavailable and recovers after refresh',async({page})=>{
   await desktop(page);await expect(page.locator('#open-word')).toBeEnabled();
-  await page.getByRole('button',{name:'连接管理',exact:true}).click();
+  await page.getByRole('button',{name:'应用连接',exact:true}).click();
   await page.evaluate(()=>{
     const target=window as any,ipc=target.__TAURI__.core;target.originalInvoke=ipc.invoke;
     ipc.invoke=(command:string,args:unknown)=>command==='engine_status'?Promise.reject(new Error('Synthetic service failure')):target.originalInvoke(command,args);
@@ -190,14 +191,14 @@ test('desktop disables launch when the service is unavailable and recovers after
 test('desktop navigation switches bounded workspaces and preserves recording inputs',async({page},testInfo)=>{
   await desktop(page);await page.setViewportSize({width:960,height:780});
   await page.getByLabel('你用什么软件创作？').selectOption('powerpoint');
-  await page.getByRole('button',{name:'证书核验',exact:true}).click();
+  await page.getByRole('button',{name:'文件核验',exact:true}).click();
   await expect(page.locator('#workspace-title')).toBeFocused();
   await expect(page.locator('#verification')).toBeVisible();
   await expect(page.locator('.creation-panel')).toBeHidden();
   await page.screenshot({path:testInfo.outputPath('pc-verification.png')});
-  await page.getByRole('button',{name:'连接管理',exact:true}).click();
+  await page.getByRole('button',{name:'应用连接',exact:true}).click();
   await expect(page.getByRole('region',{name:'允许连接的软件'})).toBeVisible();
-  await page.getByRole('button',{name:'创作记录',exact:true}).click();
+  await page.getByRole('button',{name:'应用连接',exact:true}).click();
   await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('powerpoint');
   expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight)).toBe(true);
   await page.screenshot({path:testInfo.outputPath('pc-creation.png')});
@@ -213,16 +214,16 @@ test('application rail shows actual grants and appearance persists with system c
   await expect(page.locator('#selected-connection')).toContainText('尚未连接');
   await page.setViewportSize({width:1100,height:780});
   await page.screenshot({path:testInfo.outputPath('host-rail-dark.png')});
-  await page.getByRole('button',{name:'设置与工具',exact:true}).click();
-  await page.getByLabel('界面主题',{exact:true}).selectOption('light');
+  await page.getByRole('button',{name:'设置',exact:true}).click();
+  await page.locator('fluent-radio[value=light]').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
   await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','light');
-  await page.getByRole('button',{name:'设置与工具',exact:true}).click();
-  await page.getByLabel('界面主题',{exact:true}).selectOption('system');
+  await page.getByRole('button',{name:'设置',exact:true}).click();
+  await page.locator('fluent-radio[value=system]').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.emulateMedia({colorScheme:'light'});
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
-  await page.getByRole('button',{name:'连接管理',exact:true}).click();
+  await page.getByRole('button',{name:'应用连接',exact:true}).click();
   await page.getByRole('button',{name:'断开 Word 连接'}).click();
   await expect(page.locator('[data-connection=word]')).toHaveText('未允许');
   await page.getByRole('button',{name:'选择 Word',exact:true}).click();
