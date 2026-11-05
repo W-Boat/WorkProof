@@ -3,7 +3,9 @@ const commands={undo:'arrow_undo',redo:'arrow_redo',bold:'text_bold',italic:'tex
 const ids={'collapse-nav':'panel_left','save-document':'save','toggle-inspector':'panel_right','view-process':'document_page_number','back-write':'arrow_left','back-library':'arrow_left','reload-documents':'arrow_sync','import-word':'arrow_upload','copy-fingerprint':'copy','refresh-connections':'arrow_sync','import-markdown':'arrow_upload','toggle-ribbon':'ribbon','toggle-outline':'text_bullet_list_ltr','toggle-source':'code','focus-writing':'full_screen_maximize','find-close':'dismiss','find-next':'chevron_down','find-previous':'chevron_up','replace-one':'arrow_sync','replace-all':'text_clear_formatting','toolbar-home':'ribbon','toolbar-insert':'table_add','toolbar-layout':'document_page_number'};
 function paint(button){
   if(button.querySelector(':scope > .wp-icon'))return;
-  const label=button.getAttribute('aria-label')||button.textContent.trim();if(!label)return;
+  const content=button.cloneNode(true);
+  content.querySelectorAll('.glyph,[aria-hidden="true"]').forEach(node=>node.remove());
+  const label=button.getAttribute('aria-label')||content.textContent.trim();if(!label)return;
   const name=button.dataset.icon||commands[button.dataset.command]||ids[button.id]||(button.dataset.view?{library:'document_text',verification:'checkmark',connections:'plug_connected',settings:'settings'}[button.dataset.view]:null)||(label.includes('断开')?'plug_connected':label.includes('导出')?'arrow_download':label.includes('打开')?'document':label.includes('安装')?'plug_connected':'more_horizontal');
   button.setAttribute('aria-label',label);if(!button.title)button.title=label;
   const keep=button.classList.contains('nav-item')||button.dataset.keepLabel==='true'||/新建|创建文档|导出作品与证书|打开 .*并开始记录|允许连接|^拒绝$|安装 \/ 修复/.test(label)||button.hasAttribute('data-mode');
