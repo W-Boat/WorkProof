@@ -35,6 +35,7 @@ const {chromium,expect}=require('@playwright/test');
     await dialog.getByLabel('选择 .wproof 证书').setInputFiles(fixture);await expect(submit).toBeDisabled();await expect(dialog.getByText('下一步：阅读上方说明，确认同意后勾选，再点击“检查证书内容”。',{exact:true})).toBeVisible();assert.equal(inspections,0);
     await dialog.getByText('我同意将所选证书发送给机构服务器检查', {exact:true}).click();await expect(consent).toBeChecked();await expect(submit).toBeEnabled();await consent.focus();await page.keyboard.press('Space');await expect(consent).not.toBeChecked();await expect(submit).toBeDisabled();await page.keyboard.press('Space');await expect(consent).toBeChecked();await submit.click();
     await expect(dialog.getByText('证书内容一致',{exact:true})).toBeVisible();assert.equal(inspections,1);
+    await expect(dialog.getByText('请向提供者索取原始 .wproof 文件，并确认它没有被修改。',{exact:true})).toHaveCount(0);
     const uploaded=await page.evaluate(()=>window.__workproofTestUpload);
     assert.deepEqual(uploaded,{bytes:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')},'Fetch must send the original certificate Blob');
     const fingerprint=crypto.createHash('sha256').update(Buffer.from(proof.signature,'hex')).digest('hex');

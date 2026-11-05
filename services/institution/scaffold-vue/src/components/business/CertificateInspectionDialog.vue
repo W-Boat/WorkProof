@@ -64,7 +64,7 @@ async function inspect() {
       <p><strong>{{ result.manifest?.file_name || '无法识别文件名' }}</strong></p>
       <p v-if="result.certificate_valid">{{ result.scope === 'selective' ? '只检查本次分享的记录' : '已检查全部记录' }}；签名一致。</p>
       <p v-if="saveToCatalog && result.certificate_valid" role="status">摘要已保存，可关闭窗口在列表查看。相同文件不会重复创建。</p>
-      <p v-else>请向提供者索取原始 .wproof 文件，并确认它没有被修改。</p>
+      <p v-else-if="!result.certificate_valid">请向提供者索取原始 .wproof 文件，并确认它没有被修改。</p>
       <p v-if="result.scope === 'selective'" class="field-hint">未检查全部过程记录，不能据此判断未分享的过程。</p>
       <CertificateActions v-if="result.certificate_valid" :counts="result.actions"/>
       <p class="field-hint">作品仍需在本机单独检查。这里没有确认作者身份，也没有确认实际创作时间。</p>

@@ -4,7 +4,7 @@ import BarChart from '@/components/charts/BarChart.vue'
 const props=defineProps<{counts?:Record<string,number>}>()
 const definitions:{title:string;labels:Record<string,string>}[]=[
   {title:'捕获到的键盘指令',labels:{backspace:'退格',delete_forward:'向前删除',space:'空格',enter:'回车',copy:'复制',paste:'粘贴',cut:'剪切',undo_commands:'撤销',redo_commands:'重做',format_commands:'格式快捷键',cursor_moves:'移动光标'}},
-  {title:'观察到的文档变化',labels:{format_changes:'格式变化',layout_changes:'版式变化',undo_events:'撤销事件',redo_events:'重做事件',spaces_inserted:'新增空格',line_breaks_inserted:'新增换行'}},
+  {title:'观察到的文档变化',labels:{format_changes:'格式变化',layout_changes:'版式变化',undo_events:'撤销修改',redo_events:'重做修改',spaces_inserted:'新增空格',line_breaks_inserted:'新增换行'}},
 ]
 const groups=computed(()=>definitions.map(group=>{
   const entries=Object.entries(group.labels).flatMap(([key,label])=>{
