@@ -18,7 +18,7 @@ std::wstring RibbonXml() {
         LR"(screentip='在桌面端核对来源并允许连接后开始记录'/>)"
         LR"(<button id='workproofPause' label='暂停 / 继续' size='normal' onAction='TogglePause' )"
         LR"(screentip='继续时会标明未记录的时间'/>)"
-        LR"(<button id='workproofExport' label='导出作品和证书' size='normal' onAction='ExportRecord' )"
+        LR"(<button id='workproofExport' label='导出作品和证书' imageMso='FileSaveAs' size='normal' onAction='ExportRecord' )"
         LR"(screentip='保存作品并生成绑定的 .wproof 证书'/>)"
         LR"(</group></tab></tabs></ribbon></customUI>)");
 }

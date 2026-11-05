@@ -158,8 +158,13 @@ std::wstring DescribeEngineError(const std::string& code) {
     return L"记录服务没有完成本次操作。请确认桌面端 WorkProof 仍在运行后重试。";
 }
 
+void LayoutControls();
+
 void SetStatus(const std::wstring& text) {
-    if (g.status) SetWindowTextW(g.status, text.c_str());
+    if (g.status) {
+        SetWindowTextW(g.status, text.c_str());
+        LayoutControls();
+    }
 }
 
 void PaintState() {
@@ -178,7 +183,7 @@ void PaintState() {
         swprintf_s(text, L"已保存 %lld 条记录", g.sequence);
     }
     SetWindowTextW(g.counter, text);
-    InvalidateRect(g.window, nullptr, FALSE);
+    LayoutControls();
 }
 
 std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long inserted, long long deleted,
@@ -603,31 +608,62 @@ HRESULT Dispatch(IDispatch* object,const wchar_t* name,WORD flags,VARIANT* args,
 }
 void LayoutControls(){
     if(!g.window)return;
-    RECT r;GetClientRect(g.window,&r);int dpi=(int)GetDpiForWindow(g.window);
+    RECT client;GetClientRect(g.window,&client);
+    const int dpi=(int)GetDpiForWindow(g.window);
     auto scale=[&](int value){return MulDiv(value,dpi?dpi:96,96);};
-    int margin=scale(16),width=r.right>margin*2?r.right-margin*2:8;
-    SCROLLINFO info={sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS};info.nMin=0;info.nMax=scale(710);info.nPage=(UINT)r.bottom;
-    int limit=info.nMax-(int)info.nPage+1;if(limit<0)limit=0;if(g.scroll>limit)g.scroll=limit;
+    const int margin=scale(16);
+    const int width=client.right>margin*2?client.right-margin*2:8;
+    HDC dc=GetDC(g.window);
+    auto textHeight=[&](HWND control,HFONT font,int minimum){
+        const int length=GetWindowTextLengthW(control);
+        std::vector<wchar_t> text((size_t)length+1);
+        GetWindowTextW(control,text.data(),length+1);
+        HGDIOBJ old=SelectObject(dc,font);
+        RECT measured={0,0,width,0};
+        DrawTextW(dc,text.data(),length,&measured,DT_CALCRECT|DT_WORDBREAK|DT_NOPREFIX);
+        SelectObject(dc,old);
+        return measured.bottom>scale(minimum)?measured.bottom:scale(minimum);
+    };
+    const int introHeight=textHeight(g.intro,g.bodyFont,42);
+    const int statusHeight=textHeight(g.status,g.statusFont,42);
+    const int privacyHeight=textHeight(g.privacy,g.bodyFont,72);
+    ReleaseDC(g.window,dc);
+    struct Placement {HWND window;int top;int height;};
+    std::vector<Placement> controls;
+    int y=scale(18);
+    auto add=[&](HWND control,int height,int gap){controls.push_back({control,y,height});y+=height+scale(gap);};
+    add(g.heading,scale(30),8);
+    add(g.intro,introHeight,18);
+    add(g.status,statusHeight,8);
+    add(g.counter,scale(24),16);
+    add(g.startButton,scale(36),8);
+    add(g.pauseButton,scale(36),8);
+    add(g.exportButton,scale(36),8);
+    if(g.pairing)add(g.cancelButton,scale(32),8);
+    add(g.newButton,scale(32),8);
+    add(g.verifierLink,scale(32),18);
+    add(g.privacy,privacyHeight,18);
+    SCROLLINFO info={sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS};
+    info.nMin=0;info.nMax=y-1;info.nPage=(UINT)client.bottom;
+    const int limit=y>client.bottom?y-client.bottom:0;
+    if(g.scroll>limit)g.scroll=limit;
     info.nPos=g.scroll;SetScrollInfo(g.window,SB_VERT,&info,TRUE);
-    auto move=[&](HWND h,int y,int height){if(h)MoveWindow(h,margin,scale(y)-g.scroll,width,scale(height),FALSE);};
-    move(g.heading,20,30);move(g.intro,58,52);move(g.status,124,92);move(g.counter,222,26);
-    move(g.startButton,266,38);move(g.pauseButton,314,38);move(g.exportButton,362,38);
-    move(g.cancelButton,410,32);move(g.newButton,454,38);move(g.verifierLink,506,34);move(g.privacy,562,128);
-    // Moving native child windows does not erase their former parent pixels.
-    // Paint the complete clipped canvas and controls after the whole layout moves.
-    RedrawWindow(g.window,nullptr,nullptr,RDW_INVALIDATE|RDW_ERASE|RDW_ALLCHILDREN|RDW_UPDATENOW);
+    // Move all children before repainting so scrolling cannot leave stale labels.
+    for(const auto& control:controls)
+        MoveWindow(control.window,margin,control.top-g.scroll,width,control.height,FALSE);
+    RedrawWindow(g.window,nullptr,nullptr,RDW_INVALIDATE|RDW_ERASE|RDW_ALLCHILDREN);
 }
 void CreateControls(HWND window) {
     g.background=CreateSolidBrush(GetSysColor(COLOR_WINDOW));g.cardBrush=CreateSolidBrush(GetSysColor(COLOR_WINDOW));
     int dpi=(int)GetDpiForWindow(window);
     auto font=[&](int size,int weight){return CreateFontW(MulDiv(size,dpi?dpi:96,96),0,0,0,weight,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");};
-    g.titleFont=font(-22,FW_SEMIBOLD);g.statusFont=font(-17,FW_SEMIBOLD);g.bodyFont=font(-15,FW_NORMAL);
+    g.titleFont=font(-20,FW_SEMIBOLD);g.statusFont=font(-15,FW_SEMIBOLD);g.bodyFont=font(-14,FW_NORMAL);
     auto create=[&](const wchar_t* type,const wchar_t* text,DWORD style){
         HWND h=CreateWindowExW(0,type,text,WS_CHILD|WS_VISIBLE|style,0,0,10,10,window,nullptr,g_module,nullptr);
         SendMessageW(h,WM_SETFONT,(WPARAM)g.bodyFont,TRUE);return h;
     };
     g.heading=create(L"STATIC",L"创作记录",SS_LEFT);SendMessageW(g.heading,WM_SETFONT,(WPARAM)g.titleFont,TRUE);
-    g.intro=create(L"STATIC",L"1 保存文档并开始记录\n2 完成后导出作品与证书",SS_LEFT);
+    g.intro=create(L"STATIC",L"保存文档 → 开始记录 → 导出作品与证书",SS_LEFT);
     g.status=create(L"STATIC",L"请先保存文档，再点击开始记录。",SS_LEFT);SendMessageW(g.status,WM_SETFONT,(WPARAM)g.statusFont,TRUE);
     g.counter=create(L"STATIC",L"尚未开始",SS_LEFT);
     g.startButton=create(L"BUTTON",L"开始记录",BS_PUSHBUTTON|WS_TABSTOP);
@@ -662,7 +698,13 @@ void ShowLaunchFeedback(){
     RegisterClassExW(&cls);
     HWND owner=GetAncestor(g.window,GA_ROOT);MONITORINFO info={sizeof(info)};GetMonitorInfoW(MonitorFromWindow(owner,MONITOR_DEFAULTTONEAREST),&info);RECT r=info.rcMonitor;
     HWND feedback=CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE|WS_EX_TOPMOST,cls.lpszClassName,L"WorkProof 已开始记录",WS_POPUP,r.left,r.top,r.right-r.left,r.bottom-r.top,owner,nullptr,g_module,nullptr);
-    if(feedback){ShowWindow(feedback,SW_SHOWNOACTIVATE);Trace(L"Recording success overlay shown");}
+    if(feedback){
+        BOOL animate=FALSE;
+        SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION,0,&animate,0);
+        // A single short transition follows the Windows accessibility setting.
+        if(!animate||!AnimateWindow(feedback,140,AW_BLEND))ShowWindow(feedback,SW_SHOWNOACTIVATE);
+        Trace(L"Recording success overlay shown");
+    }
 }
 
 LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {

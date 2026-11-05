@@ -10,7 +10,7 @@ require('esbuild').buildSync({
   entryPoints:[path.join(root,'apps/desktop/frontend/components.js')],
   outfile:path.join(root,'apps/desktop/ui/components.js'),
   bundle:true,format:'esm',platform:'browser',target:['es2022'],minify:true,
-  legalComments:'eof',
+  legalComments:'eof',loader:{'.svg':'text'},
 });
 require('esbuild').buildSync({entryPoints:[path.join(root,'apps/desktop/frontend/word-worker.js')],outfile:path.join(root,'apps/desktop/ui/word-worker.js'),bundle:true,format:'esm',platform:'browser',target:['es2022'],minify:true,legalComments:'eof'});
 fs.copyFileSync(path.join(root,'apps/desktop/frontend/vendor/FOLIO-LICENSE.txt'),path.join(root,'apps/desktop/ui/FOLIO-LICENSE.txt'));

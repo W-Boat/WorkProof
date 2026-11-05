@@ -2,7 +2,7 @@ name: Desktop workbench UI
 on:
   workflow_dispatch:
   push:
-    paths: ['apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'tests/desktop-*.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
+    paths: ['apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'crates/engine/src/editor.rs', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'scripts/test_editor_flows.cjs', 'tests/desktop-*.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
 permissions:
   contents: read
 jobs:
@@ -24,6 +24,8 @@ jobs:
         run: cargo test --locked -p workproof-engine editor::tests
       - name: Stage the canonical design system and brand
         run: node scripts/stage_desktop_ui.cjs
+      - name: Group raw editor actions without changing evidence
+        run: node --test scripts/test_editor_flows.cjs
       - name: Chinese system font for screenshot review
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
       - run: npx playwright install --with-deps chromium firefox webkit

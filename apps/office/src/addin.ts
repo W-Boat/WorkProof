@@ -6,8 +6,33 @@ let pending:Event[]=[],delivering:Promise<void>|null=null;
 let pairing:AbortController|null=null,deliveryUrls:string[]=[];
 let samplingGeneration=0;
 const element=(id:string)=>document.getElementById(id)!;
-function message(text:string){element('status').textContent=text;}
-function paint(){element('count').textContent=String(next-pending.length);element('pause').textContent=paused?'继续记录':'暂停记录';element('start').toggleAttribute('disabled',!!session||!host||busy);element('pause').toggleAttribute('disabled',!session||!token||busy);element('export').toggleAttribute('disabled',!session||!token||paused||busy);}
+function message(text:string){
+  const status=element('status');
+  if(status.textContent===text)return;
+  status.textContent=text;
+  status.classList.remove('updated');
+  // Restart only when the message changes; no animation loop runs while typing.
+  requestAnimationFrame(()=>status.classList.add('updated'));
+}
+function paint(){
+  element('count').textContent=String(next-pending.length);
+  const pauseLabel=paused?'继续记录':'暂停记录';
+  element('pause').setAttribute('aria-label',pauseLabel);
+  element('pause').setAttribute('title',pauseLabel);
+  element('pause-icon').innerHTML=paused?'<path d="m8 5 11 7-11 7z"/>':'<path d="M9 5v14M15 5v14"/>';
+  element('start').toggleAttribute('disabled',!!session||!host||busy);
+  element('pause').toggleAttribute('disabled',!session||!token||busy);
+  element('export').toggleAttribute('disabled',!session||!token||paused||busy);
+  const phase=pairing?'pairing':session?(paused?'paused':'recording'):'ready';
+  document.body.dataset.phase=phase;
+  element('state-label').textContent=pairing?'等待允许连接':session?(paused?'记录已暂停':'正在记录'):'准备开始';
+  const activeStep=!element('delivery').hidden?2:session?1:0;
+  ['step-connect','step-record','step-export'].forEach((id,index)=>{
+    element(id).classList.toggle('done',index<activeStep);
+    if(index===activeStep)element(id).setAttribute('aria-current','step');
+    else element(id).removeAttribute('aria-current');
+  });
+}
 async function api(route:string,body?:unknown,authenticated=true,signal?:AbortSignal):Promise<any>{
   // Older Office/WPS webviews may have AbortController but no AbortSignal.any/timeout.
   const controller=new AbortController(),abort=()=>controller.abort();
@@ -56,7 +81,7 @@ async function sample(force=false){
 function clearDelivery(){for(const url of deliveryUrls)URL.revokeObjectURL(url);deliveryUrls=[];element('delivery').hidden=true;for(const id of ['save-artifact','save-proof'])(element(id) as HTMLAnchorElement).removeAttribute('href');}
 function prepareDownload(id:string,blob:Blob,name:string){const link=element(id) as HTMLAnchorElement,url=URL.createObjectURL(blob);deliveryUrls.push(url);link.href=url;link.download=name;}
 async function connect(){
-  const controller=new AbortController();pairing=controller;element('cancel-pairing').hidden=false;
+  const controller=new AbortController();pairing=controller;element('cancel-pairing').hidden=false;paint();
   try{
   const request=await api('/v1/pairing',{source:host.source},false,controller.signal);
   message('请打开 WorkProof 桌面窗口，核对当前网址并点击“允许连接”。');
@@ -67,7 +92,7 @@ async function connect(){
     if(grant.approved){token=grant.token;message('已连接本机。点击开始记录。');return;}
   }
   throw new Error('连接请求已过期，请重试。');
-  }finally{if(pairing===controller){pairing=null;element('cancel-pairing').hidden=true;}}
+  }finally{if(pairing===controller){pairing=null;element('cancel-pairing').hidden=true;paint();}}
 }
 async function start(){
   if(session)throw new Error('这份文档已经在记录中。');

@@ -29,10 +29,14 @@ fn validate_node(v:&Value,depth:usize,nodes:&mut usize)->Result<()>{
     *nodes+=1;
     if depth>48||*nodes>50_000{return Err("文档结构过于复杂。".into());}
     let kind=v["type"].as_str().ok_or("文档结构不完整。")?;
-    if !matches!(kind,"doc"|"paragraph"|"heading"|"text"|"bulletList"|"orderedList"|"listItem"|"blockquote"|"codeBlock"|"hardBreak"|"horizontalRule"|"table"|"tableRow"|"tableHeader"|"tableCell"|"pageBreak"){return Err("文档包含暂不支持的内容。".into());}
+    if !matches!(kind,"doc"|"paragraph"|"heading"|"text"|"bulletList"|"orderedList"|"listItem"|"taskList"|"taskItem"|"image"|"blockquote"|"codeBlock"|"hardBreak"|"horizontalRule"|"table"|"tableRow"|"tableHeader"|"tableCell"|"pageBreak"){return Err("文档包含暂不支持的内容。".into());}
+    if kind=="image" && !safe_image(v["attrs"]["src"].as_str().unwrap_or("")){return Err("请使用小于 768 KB 的本地 PNG、JPEG、GIF 或 WebP 图片。".into());}
     if kind=="text" && v["text"].as_str().is_none(){return Err("文字内容无法读取。".into());}
     if let Some(marks)=v.get("marks"){
-        for m in marks.as_array().ok_or("文字格式不完整。")?{if !matches!(m["type"].as_str(),Some("bold"|"italic"|"underline"|"strike"|"code")){return Err("暂不支持这种文字格式。".into());}}
+        for m in marks.as_array().ok_or("文字格式不完整。")?{
+            if !matches!(m["type"].as_str(),Some("bold"|"italic"|"underline"|"strike"|"code"|"textStyle"|"highlight"|"subscript"|"superscript"|"link")){return Err("暂不支持这种文字格式。".into());}
+            if m["type"]=="link" && !safe_link(m["attrs"]["href"].as_str().unwrap_or("")){return Err("链接需以 https://、http:// 或 mailto: 开头。".into());}
+        }
     }
     if let Some(children)=v.get("content"){for child in children.as_array().ok_or("段落内容不完整。")?{validate_node(child,depth+1,nodes)?;}}
     Ok(())
@@ -105,11 +109,42 @@ pub fn save(root:&Path,input:Save)->Result<Value>{
 }
 
 fn escape(s:&str)->String{s.replace('&',"&amp;").replace('<',"&lt;").replace('>',"&gt;").replace('"',"&quot;").replace('\'',"&#39;")}
+fn safe_link(s:&str)->bool{
+    s.len()<=4096 && !s.chars().any(char::is_control) && ["https://","http://","mailto:"].iter().any(|p|s.to_ascii_lowercase().starts_with(p))
+}
+fn safe_image(s:&str)->bool{
+    s.len()<=1024*1024 && ["data:image/png;base64,","data:image/jpeg;base64,","data:image/gif;base64,","data:image/webp;base64,"].iter().any(|p|s.strip_prefix(p).is_some_and(|b|!b.is_empty()&&b.bytes().all(|c|c.is_ascii_alphanumeric()||b"+/=".contains(&c))))
+}
+// Export only typed, bounded presentation values. Never interpolate document CSS.
+fn presentation(attrs:&Value)->String{
+    let mut styles=Vec::new();
+    for (name,css) in [("color","color"),("backgroundColor","background-color")]{
+        if let Some(s)=attrs[name].as_str(){if s.starts_with('#')&&matches!(s.len(),4|7|9)&&s[1..].bytes().all(|c|c.is_ascii_hexdigit()){styles.push(format!("{css}:{s}"));}}
+    }
+    if let Some(font)=attrs["fontFamily"].as_str(){if font.len()<=120&&font.chars().all(|c|c.is_alphanumeric()||" ,-'\"".contains(c)){styles.push(format!("font-family:{}",escape(font)));}}
+    if let Some(size)=attrs["fontSize"].as_str(){if let Some(n)=size.strip_suffix("pt").or_else(||size.strip_suffix("px")).and_then(|s|s.parse::<f64>().ok()){if (6.0..=96.0).contains(&n){styles.push(format!("font-size:{size}"));}}}
+    if let Some(n)=attrs["lineHeight"].as_str().and_then(|s|s.parse::<f64>().ok()){if (0.8..=4.0).contains(&n){styles.push(format!("line-height:{n}"));}}
+    if let Some(n)=attrs["indent"].as_u64(){styles.push(format!("margin-left:{}em",n.min(8)*2));}
+    if let Some(n)=attrs["spaceAfter"].as_u64(){styles.push(format!("margin-bottom:{}pt",n.min(36)));}
+    styles.join(";")
+}
 fn render(v:&Value)->String{
-    if v["type"]=="text"{let mut text=escape(v["text"].as_str().unwrap_or(""));if let Some(m)=v["marks"].as_array(){for mark in m{let tag=match mark["type"].as_str(){Some("bold")=>"strong",Some("italic")=>"em",Some("underline")=>"u",Some("strike")=>"s",Some("code")=>"code",_=>continue};text=format!("<{tag}>{text}</{tag}>");}}return text;}
+    if v["type"]=="text"{
+        let mut text=escape(v["text"].as_str().unwrap_or(""));
+        if let Some(m)=v["marks"].as_array(){for mark in m{
+            if mark["type"]=="link"{let href=mark["attrs"]["href"].as_str().unwrap_or("");if safe_link(href){text=format!("<a href=\"{}\" rel=\"noopener noreferrer\">{text}</a>",escape(href));}continue;}
+            let tag=match mark["type"].as_str(){Some("bold")=>"strong",Some("italic")=>"em",Some("underline")=>"u",Some("strike")=>"s",Some("code")=>"code",Some("subscript")=>"sub",Some("superscript")=>"sup",Some("textStyle")=>"span",Some("highlight")=>"mark",_=>continue};
+            let mut attrs=mark["attrs"].clone();if tag=="mark"{if let Some(color)=attrs.get("color").cloned(){attrs["backgroundColor"]=color;}}
+            text=format!("<{tag} style=\"{}\">{text}</{tag}>",presentation(&attrs));
+        }}return text;
+    }
+    if v["type"]=="image"{let src=v["attrs"]["src"].as_str().unwrap_or("");return if safe_image(src){format!("<img src=\"{}\" alt=\"{}\" style=\"max-width:100%\">",escape(src),escape(v["attrs"]["alt"].as_str().unwrap_or("")))}else{String::new()};}
     let children=v["content"].as_array().map(|c|c.iter().map(render).collect::<String>()).unwrap_or_default();
     let tag=match v["type"].as_str(){Some("doc")=>return children,Some("paragraph")=>"p",Some("heading")=>match v["attrs"]["level"].as_u64(){Some(1)=>"h1",Some(2)=>"h2",_=>"h3"},Some("bulletList")=>"ul",Some("orderedList")=>"ol",Some("listItem")=>"li",Some("blockquote")=>"blockquote",Some("codeBlock")=>"pre",Some("table")=>"table",Some("tableRow")=>"tr",Some("tableCell")=>"td",Some("tableHeader")=>"th",Some("pageBreak")=>return "<div style=\"break-after:page\"></div>".into(),Some("hardBreak")=>return "<br>".into(),Some("horizontalRule")=>return "<hr>".into(),_=>"p"};
-    let align=match v["attrs"]["textAlign"].as_str(){Some("center")=>"center",Some("right")=>"right",Some("justify")=>"justify",_=>"left"};format!("<{tag} style=\"text-align:{align}\">{children}</{tag}>")
+    let tag=match v["type"].as_str(){Some("taskList")=>"ul",Some("taskItem")=>"li",_=>tag};
+    let check=if v["type"]=="taskItem"{if v["attrs"]["checked"]==true{"☑ "}else{"☐ "}}else{""};
+    let cells=if matches!(tag,"td"|"th"){format!(" colspan=\"{}\" rowspan=\"{}\"",v["attrs"]["colspan"].as_u64().unwrap_or(1).clamp(1,30),v["attrs"]["rowspan"].as_u64().unwrap_or(1).clamp(1,30))}else{String::new()};
+    let align=match v["attrs"]["textAlign"].as_str(){Some("center")=>"center",Some("right")=>"right",Some("justify")=>"justify",_=>"left"};format!("<{tag}{cells} style=\"text-align:{align};{}\">{check}{children}</{tag}>",presentation(&v["attrs"]))
 }
 pub struct Export {pub html:String,pub proof:Proof,pub report:workproof_protocol::Report}
 pub fn export(root:&Path,id:&str,file_name:&str)->Result<Export>{
@@ -117,11 +152,18 @@ pub fn export(root:&Path,id:&str,file_name:&str)->Result<Export>{
 }
 pub fn export_artifact(root:&Path,id:&str,file_name:&str,artifact:Option<&[u8]>)->Result<Export>{
     if artifact.is_some_and(|b|b.len()>8*1024*1024||!b.starts_with(b"PK\x03\x04")){return Err("Word 插件未能生成有效的 DOCX 文件。".into());}
+    export_bytes(root,id,file_name,artifact)
+}
+pub fn export_markdown(root:&Path,id:&str,file_name:&str,markdown:&str)->Result<Export>{
+    if markdown.len()>MAX_BODY{return Err("Markdown 文件过大，请拆分文档后继续。".into());}
+    export_bytes(root,id,file_name,Some(markdown.as_bytes()))
+}
+fn export_bytes(root:&Path,id:&str,file_name:&str,artifact:Option<&[u8]>)->Result<Export>{
     if !valid_id(id)||file_name.len()>1024||file_name.contains(['/', '\\']){return Err("文件名称无效。".into());}
     let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
     let (title,started,content):(String,String,String)=db.query_row("SELECT title,started,content FROM documents WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(storage)?;
     let body=parse(content)?;content_ok(&body)?;
-    let html=format!("<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\"><title>{}</title><style>body{{font:17px/1.9 'Segoe UI','Microsoft YaHei',sans-serif;max-width:780px;margin:48px auto;padding:0 28px;color:#242424;background:white}}h1,h2,h3{{line-height:1.4}}blockquote{{border-left:3px solid #0f6cbd;margin-left:0;padding-left:20px;color:#616161}}pre{{white-space:pre-wrap}}@media print{{body{{margin:0;max-width:none}}}}</style><body>{}</body></html>",escape(&title),render(&body));
+    let html=format!("<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:\"><title>{}</title><style>body{{font:17px/1.9 'Segoe UI','Microsoft YaHei',sans-serif;max-width:780px;margin:48px auto;padding:0 28px;color:#242424;background:white}}h1,h2,h3{{line-height:1.4}}blockquote{{border-left:3px solid #0f6cbd;margin-left:0;padding-left:20px;color:#616161}}pre{{white-space:pre-wrap}}@media print{{body{{margin:0;max-width:none}}}}</style><body>{}</body></html>",escape(&title),render(&body));
     let mut stmt=db.prepare("SELECT json,hash FROM editor_events WHERE document=?1 ORDER BY seq").map_err(storage)?;
     let rows=stmt.query_map([id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).map_err(storage)?;
     let mut records=vec![];let mut head=genesis(id);let mut elapsed=0;
@@ -136,6 +178,21 @@ pub fn export_artifact(root:&Path,id:&str,file_name:&str,artifact:Option<&[u8]>)
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rich_document_export_keeps_formatting_and_rejects_active_sources(){
+        let rich=json!({"type":"doc","content":[{"type":"taskList","content":[{"type":"taskItem","attrs":{"checked":true},"content":[{"type":"paragraph","attrs":{"indent":2,"spaceAfter":12},"content":[{"type":"text","text":"完成","marks":[{"type":"textStyle","attrs":{"fontSize":"18pt","color":"#123abc","fontFamily":"Microsoft YaHei"}},{"type":"link","attrs":{"href":"https://example.com/?a=1&b=2"}},{"type":"superscript"}]}]}]}]}]});
+        content_ok(&rich).unwrap();let html=render(&rich);assert!(html.contains("font-size:18pt"));assert!(html.contains("margin-left:4em"));assert!(html.contains("☑"));assert!(html.contains("&amp;b=2"));assert!(html.contains("<sup"));
+        let bad=json!({"type":"doc","content":[{"type":"image","attrs":{"src":"data:image/svg+xml;base64,PHN2Zz4="}}]});assert!(content_ok(&bad).is_err());
+        assert!(!safe_link("javascript:alert(1)"));assert!(!safe_link("https://example.com/\n"));
+        assert!(!presentation(&json!({"color":"red;background:url(https://example.com)","fontSize":"12pt;position:fixed","fontFamily":"x;}body{display:none"})).contains("url("));
+    }
+    #[test]
+    fn markdown_certificate_binds_the_exact_utf8_file(){
+        let root=root();let d=create(&root.0,"Markdown","2026-11-06T00:00:00Z").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();
+        let source="# 标题\n\n保留 **原始语法** 与空白。\n";
+        let out=export_markdown(&root.0,id,"写作.md",source).unwrap();assert!(out.report.valid);assert_eq!(out.proof.manifest.artifact_hash,digest(source.as_bytes()));assert_eq!(out.proof.manifest.artifact_bytes,source.len() as u64);
+        assert!(!verify(&out.proof,&digest(source.trim().as_bytes()),source.trim().len() as u64).valid);
+    }
     struct Temp(std::path::PathBuf);impl Drop for Temp{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
     fn root()->Temp{let p=std::env::temp_dir().join(format!("wp-editor-{}",super::super::random_hex(12)));std::fs::create_dir_all(&p).unwrap();std::fs::write(p.join("signing-key.bin"),[7u8;32]).unwrap();Temp(p)}
     fn save_input(id:&str)->Save{Save{id:id.into(),expected_revision:0,request_id:"a".repeat(32),title:"课程论文".into(),content:json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"你好 <script>"}]}]}),actions:vec![Action{kind:"edit".into(),elapsed_ms:30,inserted:11,deleted:0,chars:11,steps:vec![json!({"stepType":"replace"})],selection:json!({"from":1,"to":1}),detail:Value::Null,metrics:BTreeMap::new()}]}}

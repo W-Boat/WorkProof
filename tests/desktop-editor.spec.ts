@@ -93,7 +93,7 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.locator('#reduce-motion').click();await expect(page.locator('html')).toHaveAttribute('data-reduce-motion','true');
   const sizes=await page.locator('.window-controls button').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));expect(sizes).toEqual([{w:46,h:36},{w:46,h:36},{w:46,h:36}]);
-  expect(await page.locator('.workspace-nav .glyph').first().evaluate(n=>getComputedStyle(n).fontStyle)).toBe('normal');
+  expect(await page.locator('.workspace-nav .wp-icon svg').first().evaluate(n=>getComputedStyle(n).transform)).toBe('none');
   for(const width of [1280,960,420,360]){await page.setViewportSize({width,height:780});if(width<640&&!await page.locator('body').evaluate(n=>n.classList.contains('compact-nav')))await page.locator('#collapse-nav').click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
   await page.setViewportSize({width:1280,height:800});await page.screenshot({path:info.outputPath('fluent-settings-dark.png')});
 });
@@ -119,9 +119,66 @@ test('offline Word module exports real DOCX and imports it through the existing 
 
 test('table pagebreak code rendering and non-content transactions are recorded',async({page})=>{
   await desktop(page);const body=await create(page);await body.fill('结构编辑');await body.press('End');await body.press('Enter');
-  await page.getByRole('button',{name:'插入表格',exact:true}).click();await expect(body.locator('table')).toHaveCount(1);await page.getByRole('button',{name:'删除表格',exact:true}).click();
+  await page.locator('[data-ribbon=insert]').click();await page.getByRole('button',{name:'插入表格',exact:true}).click();await expect(body.locator('table')).toHaveCount(1);await page.getByRole('button',{name:'删除表格',exact:true}).click();
   await page.getByRole('button',{name:'分页符',exact:true}).click();await expect(body.locator('[data-page-break]')).toHaveCount(1);
   await body.press('ArrowDown');await page.getByRole('button',{name:'代码块',exact:true}).click();await expect(body.locator('pre')).toHaveCount(1);
   await body.press('ArrowLeft');await page.locator('#save-document').click();
   const kinds=await page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions).map((a:any)=>a.kind));expect(kinds).toEqual(expect.arrayContaining(['keyboard','selection','format']));
+});
+
+test('writing panes follow window space and preserve manual choices after reopening',async({page})=>{
+  await page.setViewportSize({width:1600,height:900});
+  await desktop(page);await create(page);
+  const workspace=page.locator('#write-panel');
+  await expect(workspace).toHaveAttribute('data-inspector-open','true');
+  await page.setViewportSize({width:760,height:800});
+  await expect(workspace).toHaveAttribute('data-inspector-open','false');
+  await expect(page.locator('#action-inspector')).toHaveAttribute('inert','');
+  await page.locator('#toggle-inspector').click();
+  await expect(workspace).toHaveAttribute('data-inspector-open','true');
+  await expect(workspace).toHaveClass(/pane-overlay-open/);
+  await page.keyboard.press('Escape');
+  await expect(workspace).toHaveAttribute('data-inspector-open','false');
+  await page.setViewportSize({width:1600,height:900});
+  await expect(workspace).toHaveAttribute('data-inspector-open','true');
+  await page.locator('#toggle-inspector').click();
+  await expect(workspace).toHaveAttribute('data-inspector-open','false');
+  await page.reload();
+  await page.getByRole('button',{name:'继续编辑 未命名文档'}).click();
+  await expect(workspace).toHaveAttribute('data-inspector-open','false');
+  await page.locator('#focus-writing').click();
+  await expect(workspace).toHaveAttribute('data-ribbon-open','false');
+  await expect(workspace).toHaveAttribute('data-outline-open','false');
+  await page.keyboard.press('Escape');
+  await expect(workspace).toHaveAttribute('data-ribbon-open','true');
+  await expect(workspace).toHaveAttribute('data-inspector-open','false');
+});
+
+test('reduced motion removes pane animation and collapsing a focused pane restores keyboard focus',async({page})=>{
+  await page.setViewportSize({width:1600,height:900});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await desktop(page);await create(page);
+  expect(await page.locator('#writing-ribbon').evaluate(element=>getComputedStyle(element).transitionDuration)).toBe('0s');
+  await page.locator('#view-process').focus();
+  await page.evaluate(()=>document.getElementById('toggle-inspector')!.click());
+  await expect(page.locator('#toggle-inspector')).toBeFocused();
+  await expect(page.locator('#action-inspector')).toHaveAttribute('aria-hidden','true');
+  await page.locator('#toggle-ribbon').click();
+  await expect(page.locator('#writing-ribbon')).toHaveAttribute('inert','');
+  await page.locator('#toggle-ribbon').click();
+  await expect(page.getByRole('button',{name:'加粗',exact:true})).toBeVisible();
+});
+
+test('Markdown source keeps exact source in saved document and mode switching preserves rich content',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('模式切换保留正文');
+  await page.locator('[data-mode=markdown]').click();await expect(body).toContainText('模式切换保留正文');
+  await page.locator('#toggle-source').click();const source=page.locator('#markdown-source .cm-content');await expect(source).toBeVisible();
+  await source.fill('# 标题\n\n保留   源码空格');await page.locator('#save-document').click();
+  const saved=await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).content);
+  expect(saved.attrs.markdownSource).toBe('# 标题\n\n保留   源码空格');
+  await page.locator('[data-mode=word]').click();await expect(body.locator('h1')).toHaveText('标题');
+  await page.locator('[data-mode=markdown]').click();await page.locator('#toggle-source').click();await expect(source).toContainText('保留   源码空格');
+  await page.locator('[data-mode=word]').click();await body.click();await body.press('ControlOrMeta+a');await page.getByRole('button',{name:'下划线',exact:true}).click();
+  await page.locator('[data-mode=markdown]').click();await expect(body.locator('u')).toBeVisible();
+  await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source-panel')).toBeHidden();await expect(body.locator('u')).toBeVisible();
 });
