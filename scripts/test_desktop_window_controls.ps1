@@ -14,6 +14,12 @@ public static class WorkProofWindowProbe {
  [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hwnd,ref POINT point);
  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);
  [DllImport("user32.dll")] public static extern int GetSystemMetricsForDpi(int index,uint dpi);
+ public static int[] CaptionGeometry(IntPtr hwnd) {
+   RECT outer;POINT origin=new POINT();
+   if(!GetWindowRect(hwnd,out outer)||!ClientToScreen(hwnd,ref origin))return new int[0];
+   uint dpi=GetDpiForWindow(hwnd);
+   return new int[]{outer.Left,outer.Top,outer.Right,outer.Bottom,origin.X,origin.Y,(int)dpi,GetSystemMetricsForDpi(4,dpi)};
+ }
  public static bool CaptionHasNoClientInset(IntPtr hwnd) {
    RECT outer;POINT origin=new POINT();
    if(!GetWindowRect(hwnd,out outer)||!ClientToScreen(hwnd,ref origin))return false;
@@ -51,11 +57,11 @@ $owned=[Diagnostics.Process]::Start($start)
 try{
     Await-State {$owned.Refresh();-not $owned.HasExited -and $owned.MainWindowHandle -ne [IntPtr]::Zero} 'initial visible window'
     $window=$owned.MainWindowHandle
+    $root=[Windows.Automation.AutomationElement]::FromHandle($window)
     # Tao 0.37.2 retains WS_CAPTION on top-level frameless windows and handles
     # WM_NCCALCSIZE. Check actual native client geometry, not that style flag.
     # Locked source: window_state.rs::to_window_styles / event_loop.rs::WM_NCCALCSIZE.
     Await-State {[WorkProofWindowProbe]::CaptionHasNoClientInset($window)} 'no native caption height above client area'
-    $root=[Windows.Automation.AutomationElement]::FromHandle($window)
     function Invoke-WindowButton([string]$Name){
         $script:button=$null
         Await-State {
@@ -88,6 +94,9 @@ try{
     if(-not $owned.HasExited){
         $diagnostic.window_handle=[string]$owned.MainWindowHandle
         $diagnostic.window_title=$owned.MainWindowTitle
+        $diagnostic.native_geometry=@([WorkProofWindowProbe]::CaptionGeometry($owned.MainWindowHandle))
+        $diagnostic.geometry_fields=@('outer_left','outer_top','outer_right','outer_bottom','client_screen_x','client_screen_y','window_dpi','caption_height')
+        $diagnostic.window_style=[WorkProofWindowProbe]::GetWindowLong($owned.MainWindowHandle,-16)
         $condition=New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ProcessIdProperty,$owned.Id)
         $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,$condition)
         $diagnostic.top_windows=@(foreach($entry in $windows){@{name=$entry.Current.Name;class=$entry.Current.ClassName;handle=$entry.Current.NativeWindowHandle}})
