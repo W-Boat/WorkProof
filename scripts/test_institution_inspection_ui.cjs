@@ -42,6 +42,26 @@ const {chromium,expect}=require('@playwright/test');
     fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/institution-certificate-inspection-full.png',fullPage:true});
     await dialog.getByLabel('选择 .wproof 证书').setInputFiles(path.resolve('test-institution-selected.wproof'));await expect(submit).toBeDisabled();
     await dialog.getByText('我同意将所选证书发送给机构服务器检查', {exact:true}).click();await expect(consent).toBeChecked();await submit.click();await expect(dialog.getByText('只检查本次分享的记录',{exact:false})).toBeVisible();await expect(dialog.getByText('未检查全部过程记录，不能据此判断未分享的过程。',{exact:true})).toBeVisible();await expect(dialog.getByText(fingerprint,{exact:true})).toBeVisible();
+    // Real Java -> Rust inspection, not a mocked actions response. The fixture
+    // carries deterministic signed counts and explicitly declares demo status.
+    const actionFixture=path.resolve('apps/verifier/public/demo/actions-demo.txt.wproof');
+    await dialog.getByLabel('选择 .wproof 证书').setInputFiles(actionFixture);
+    await dialog.getByText('我同意将所选证书发送给机构服务器检查',{exact:true}).click();await submit.click();
+    const actionRegion=dialog.getByRole('region',{name:'已披露记录的动作统计'});
+    await expect(actionRegion).toContainText('退格');await expect(actionRegion).toContainText('3 次');
+    await expect(actionRegion).toContainText('格式变化');await expect(actionRegion).toContainText('版式变化');
+    await expect(actionRegion).toContainText('键盘指令不代表执行成功');
+    await page.screenshot({path:'test-results/institution-signed-action-chart.png',fullPage:true});
+    await dialog.getByLabel('选择 .wproof 证书').setInputFiles(path.resolve('apps/verifier/public/demo/actions-demo.selected.wproof'));
+    await dialog.getByText('我同意将所选证书发送给机构服务器检查',{exact:true}).click();await submit.click();
+    await expect(actionRegion).toContainText('版式变化');
+    await expect(actionRegion.getByText('格式变化',{exact:true})).toHaveCount(0);
+    const changedActions=JSON.parse(fs.readFileSync(actionFixture,'utf8'));
+    changedActions.records[1].event.metrics.copy=999;
+    await dialog.getByLabel('选择 .wproof 证书').setInputFiles({name:'changed-actions.wproof',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(changedActions))});
+    await dialog.getByText('我同意将所选证书发送给机构服务器检查',{exact:true}).click();await submit.click();
+    await expect(dialog.getByText('证书内容未能确认',{exact:true})).toBeVisible();
+    await expect(actionRegion).toHaveCount(0);
     proof.records[1].event.inserted++;
     await dialog.getByLabel('选择 .wproof 证书').setInputFiles({name:'changed.wproof',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(proof))});await dialog.getByText('我同意将所选证书发送给机构服务器检查', {exact:true}).click();await expect(consent).toBeChecked();await submit.click();await expect(dialog.getByText('证书内容未能确认',{exact:true})).toBeVisible();
     await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile modal must not overflow');await page.screenshot({path:'test-results/institution-certificate-inspection-mobile.png',fullPage:true});
