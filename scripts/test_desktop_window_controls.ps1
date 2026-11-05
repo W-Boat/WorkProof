@@ -28,6 +28,11 @@ $start=New-Object Diagnostics.ProcessStartInfo
 $start.FileName=(Resolve-Path -LiteralPath $Executable).Path
 $start.UseShellExecute=$false
 $start.Environment['WORKPROOF_DATA_DIR']=$directory
+# CI has no screen reader to activate WebView2's on-demand accessibility tree.
+# Enable the documented automation mode only for this isolated child process;
+# do not impose accessibility flags on the shipped app or the runner globally.
+# https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/webview-features-flags
+$start.Environment['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS']='--force-renderer-accessibility=complete'
 [void]$start.Environment.Remove('WORKPROOF_HEADLESS')
 $owned=[Diagnostics.Process]::Start($start)
 try{
