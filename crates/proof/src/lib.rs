@@ -159,9 +159,11 @@ pub struct CertificateInspection{
     pub signature_valid:bool,pub chain_valid:bool,pub merkle_valid:Option<bool>,
     pub scope:String,pub disclosed_events:u64,pub total_events:u64,pub errors:Vec<String>,
     pub manifest:Option<Manifest>,pub signature:Option<String>,
+    #[serde(default,skip_serializing_if="std::collections::BTreeMap::is_empty")]
+    pub actions:std::collections::BTreeMap<String,u64>,
 }
 impl CertificateInspection{
-    pub fn rejected(code:&str)->Self{Self{protocol:"workproof-inspection/1".into(),certificate_valid:false,artifact_checked:false,identity_verified:false,time_verified:false,signature_valid:false,chain_valid:false,merkle_valid:None,scope:"unknown".into(),disclosed_events:0,total_events:0,errors:vec![code.into()],manifest:None,signature:None}}
+    pub fn rejected(code:&str)->Self{Self{protocol:"workproof-inspection/1".into(),certificate_valid:false,artifact_checked:false,identity_verified:false,time_verified:false,signature_valid:false,chain_valid:false,merkle_valid:None,scope:"unknown".into(),disclosed_events:0,total_events:0,errors:vec![code.into()],manifest:None,signature:None,actions:Default::default()}}
 }
 pub fn inspect_certificate(evidence:&Evidence)->CertificateInspection{
     let (m,signature)=match evidence{Evidence::Full(p)=>(&p.manifest,&p.signature),Evidence::Selective(p)=>(&p.manifest,&p.signature)};
@@ -172,10 +174,26 @@ pub fn inspect_certificate(evidence:&Evidence)->CertificateInspection{
     }
     // The claimed hash checks internal consistency only. The result never exposes file_match.
     let report=verify_evidence(evidence,&m.artifact_hash,m.artifact_bytes);
+    let mut actions=std::collections::BTreeMap::new();
+    if report.valid{
+        let events:Vec<&Event>=match evidence{
+            Evidence::Full(p)=>p.records.iter().map(|r|&r.event).collect(),
+            Evidence::Selective(p)=>p.disclosed.iter().map(|r|&r.record.event).collect(),
+        };
+        for event in events{
+            for (key,value) in &event.metrics{
+                if matches!(key.as_str(),"backspace"|"delete_forward"|"space"|"enter"|"copy"|"paste"|"cut"|"undo_commands"|"redo_commands"|"format_commands"|"cursor_moves"|"spaces_inserted"|"line_breaks_inserted"){
+                    *actions.entry(key.clone()).or_insert(0u64)+=*value;
+                }
+            }
+            let key=match event.kind.as_str(){"format"=>Some("format_changes"),"layout"=>Some("layout_changes"),"undo"=>Some("undo_events"),"redo"=>Some("redo_events"),_=>None};
+            if let Some(key)=key{*actions.entry(key.into()).or_insert(0)+=1;}
+        }
+    }
     CertificateInspection{protocol:"workproof-inspection/1".into(),certificate_valid:report.valid,artifact_checked:false,identity_verified:false,time_verified:false,
         signature_valid:report.signature_valid,chain_valid:report.chain_valid,merkle_valid:report.merkle_valid,
         scope:report.scope,disclosed_events:report.disclosed_events,total_events:report.total_events,errors:report.errors,
-        manifest:Some(m.clone()),signature:report.signature_valid.then(||signature.clone())}
+        manifest:Some(m.clone()),signature:report.signature_valid.then(||signature.clone()),actions}
 }
 pub fn inspect_certificate_json(json:&[u8])->CertificateInspection{
     if json.len()>32*1024*1024{return CertificateInspection::rejected("PROOF_TOO_LARGE");}
@@ -183,6 +201,21 @@ pub fn inspect_certificate_json(json:&[u8])->CertificateInspection{
 }
 #[cfg(test)]mod inspection_tests{
     use super::*;
+    #[test]fn action_summary_requires_valid_records_and_respects_disclosure(){
+        let mut full=tests::sample();full.records[1].event.metrics.insert("copy".into(),3);
+        let mut head=genesis(&full.manifest.session_id);
+        for record in &mut full.records{head=event_hash(&head,&record.event);record.hash=head.clone();}
+        full.manifest.chain_head=head;
+        let full=sign(full.manifest,full.records,&SigningKey::from_bytes(&[7;32]));
+        assert_eq!(inspect_certificate(&Evidence::Full(full.clone())).actions.get("copy"),Some(&3));
+        let hidden=create_disclosure(&full,&[]).unwrap();
+        assert!(inspect_certificate(&Evidence::Selective(hidden)).actions.is_empty());
+        let shared=create_disclosure(&full,&[1]).unwrap();
+        assert_eq!(inspect_certificate(&Evidence::Selective(shared)).actions.get("copy"),Some(&3));
+        let mut changed=full;changed.records[1].event.metrics.insert("copy".into(),999);
+        let report=inspect_certificate(&Evidence::Full(changed));
+        assert!(!report.certificate_valid&&report.actions.is_empty());
+    }
     #[test]fn certificate_inspection_does_not_claim_to_check_the_artifact(){
         let full=tests::sample();let report=inspect_certificate(&Evidence::Full(full.clone()));
         assert!(report.certificate_valid&&report.signature_valid&&report.chain_valid);

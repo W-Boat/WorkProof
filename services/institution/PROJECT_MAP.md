@@ -1,5 +1,8 @@
 # 通用后台管理脚手架项目地图
 
+- `workproof-inspector` → 已核验证书动作合计 `actions` → 现有 `NativeCertificateInspector` JSON → `CertificateInspectionDialog` → 复用 `CertificateActions` / `BarChart`；合计仅在本次检查结果中展示，不改变摘要表或保存原始事件。新增 Rust 披露/篡改边界检查待 Actions。
+
+
 - `AiAnalysisService.submit` → `PrivateJobSpool.createTempFile` → 新空文件权限封闭/校验 → 原始文档写入 → 原取消/超时/删除链；复用同一POSIX/Windows ACL底座，新增三平台原生权限探针待Actions。不把权限通过扩展为完整Windows模型服务验收。
 
 - 中文辅助说明导出在 `fe8e377` 的常规及三模型真实浏览器专项 `41634102837` / `41634144103` 已成功，精确范围见 `docs/evidence/institution-ui-fe8e377/acceptance.json`。下文早期“待验收”保留为历史状态，不影响此源码/任务范围的结果。

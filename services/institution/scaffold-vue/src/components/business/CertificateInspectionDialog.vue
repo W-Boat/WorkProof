@@ -5,6 +5,7 @@ import Field from '@/components/ui/Field.vue'
 import Checkbox from '@/components/ui/Checkbox.vue'
 import Tag from '@/components/ui/Tag.vue'
 import FilePicker from '@/components/ui/FilePicker.vue'
+import CertificateActions from './CertificateActions.vue'
 import { ApiError, certificateApi, type CertificateCapabilities, type CertificateInspection } from '@/api'
 
 const props = defineProps<{open: boolean; saveToCatalog?: boolean}>()
@@ -65,6 +66,7 @@ async function inspect() {
       <p v-if="saveToCatalog && result.certificate_valid" role="status">摘要已保存，可关闭窗口在列表查看。相同文件不会重复创建。</p>
       <p v-else>请向提供者索取原始 .wproof 文件，并确认它没有被修改。</p>
       <p v-if="result.scope === 'selective'" class="field-hint">未检查全部过程记录，不能据此判断未分享的过程。</p>
+      <CertificateActions v-if="result.certificate_valid" :counts="result.actions"/>
       <p class="field-hint">作品仍需在本机单独检查。这里没有确认作者身份，也没有确认实际创作时间。</p>
       <Field v-if="result.certificateId" label="证书指纹" group>
         <code style="overflow-wrap:anywhere">{{ result.certificateId }}</code>

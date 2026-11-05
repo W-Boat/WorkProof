@@ -17,6 +17,7 @@ export interface CertificateCapabilities {
   message: string // 可读的准备状态说明
 }
 export interface CertificateInspection {
+  actions?: Record<string,number> // 已披露且核验通过的动作合计；旧检查器可不提供，不持久化原始事件
   protocol: 'workproof-inspection/1' // 检查结果格式版本
   certificate_valid: boolean // 证书内部内容是否一致，不表示作品通过
   artifact_checked: false // 未读取作品文件
