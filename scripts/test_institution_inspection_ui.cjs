@@ -51,7 +51,7 @@ const {chromium,expect}=require('@playwright/test');
     await expect(actionRegion).toContainText('退格');await expect(actionRegion).toContainText('3 次');
     await expect(actionRegion).toContainText('格式变化');await expect(actionRegion).toContainText('版式变化');
     await expect(actionRegion).toContainText('键盘指令不代表执行成功');
-    await page.screenshot({path:'test-results/institution-signed-action-chart.png',fullPage:true});
+    await page.screenshot({path:'test-results/institution-certificate-inspection-actions.png',fullPage:true});
     await dialog.getByLabel('选择 .wproof 证书').setInputFiles(path.resolve('apps/verifier/public/demo/actions-demo.selected.wproof'));
     await dialog.getByText('我同意将所选证书发送给机构服务器检查',{exact:true}).click();await submit.click();
     await expect(actionRegion).toContainText('版式变化');
