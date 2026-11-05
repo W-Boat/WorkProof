@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "workbench-events",
+  "description": "Allow only the local workbench to receive native close requests before flushing its editor.",
+  "windows": ["status"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

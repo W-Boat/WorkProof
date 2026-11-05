@@ -1,5 +1,5 @@
 // Existing offline DOCX converter. No network, credentials, or format codec here.
-import {parseDOCX,generateDOCXSync} from '@docen/docx/core';
+import {parseDOCX,generateDOCXSync} from '@docen/docx/converters/docx';
 
 function checkZip(bytes){
   if(bytes.byteLength>8*1024*1024)throw new Error('Word 文件超过 8 MB，请先缩小文件。');
