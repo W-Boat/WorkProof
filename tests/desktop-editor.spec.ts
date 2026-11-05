@@ -179,6 +179,6 @@ test('Markdown source keeps exact source in saved document and mode switching pr
   await page.locator('[data-mode=word]').click();await expect(body.locator('h1')).toHaveText('标题');
   await page.locator('[data-mode=markdown]').click();await page.locator('#toggle-source').click();await expect(source).toContainText('保留   源码空格');
   await page.locator('[data-mode=word]').click();await body.click();await body.press('ControlOrMeta+a');await page.getByRole('button',{name:'下划线',exact:true}).click();
-  await page.locator('[data-mode=markdown]').click();await expect(body.locator('u')).toBeVisible();
-  await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source-panel')).toBeHidden();await expect(body.locator('u')).toBeVisible();
+  await page.locator('[data-mode=markdown]').click();await expect(body.locator('u')).toHaveText(['标题','保留   源码空格']);
+  await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source-panel')).toBeHidden();await expect(body.locator('u')).toHaveText(['标题','保留   源码空格']);
 });
