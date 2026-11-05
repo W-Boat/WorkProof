@@ -192,6 +192,7 @@ function wordOperation(action,data){
     const timeout=setTimeout(()=>done('Word 转换超时，已停止本次操作。原文档仍保留。'),20000);
     worker.onmessage=event=>done(event.data.error,event.data.result);worker.onerror=()=>done('Word 插件未能加载，请更新完整安装包。');worker.postMessage({action,...data});
   });
+}
 let importing=false;
 $('import-word').addEventListener('click',()=>$('word-file').click());
 $('word-file').addEventListener('change',async event=>{
