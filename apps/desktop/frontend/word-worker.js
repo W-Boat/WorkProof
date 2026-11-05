@@ -37,3 +37,4 @@ self.onmessage=async({data})=>{
     }else throw new Error('不支持的 Word 操作。');
   }catch(error){self.postMessage({error:error instanceof Error?error.message:'Word 插件未能完成转换。'});}
 };
+self.postMessage({ready:true});

@@ -55,7 +55,8 @@ test('real Tiptap edits and formats persist and reopen with independent navigati
   await expect(page.locator('#save-state')).toHaveText('已保存到本机');
   await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions).map((a:any)=>a.kind))).toEqual(expect.arrayContaining(['edit','format','space','enter','backspace']));
   await page.getByRole('tab',{name:'过程',exact:true}).click();await expect(page.locator('#version-flow button')).not.toHaveCount(0);
-  await expect(page.locator('.workspace-nav [aria-current=page]')).toHaveText('我的文档');
+  await expect(page.locator('.workspace-nav [aria-current=page]')).toHaveCount(1);
+  await expect(page.locator('.workspace-nav [aria-current=page] .nav-label')).toHaveText('我的文档');
   await page.locator('#version-flow button').first().click();await expect(page.locator('#history-version-label')).toHaveText('版本 1');await expect(page.locator('#history-preview')).not.toContainText('second');
   await page.screenshot({path:info.outputPath('fluent-editor-process.png')});
   await page.reload();await page.getByRole('button',{name:'继续编辑 学术写作记录'}).click();
@@ -71,7 +72,8 @@ test('failed save keeps the same request and all pending edits before retry',asy
   await expect(body).toContainText('失败后仍要保留的文字');
   const first=await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).request_id);
   await page.locator('#save-document').click();await expect(page.locator('#save-state')).toHaveText('已保存到本机');
-  expect(await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).request_id)).toBe(first);
+  const retried=await page.evaluate(id=>(window as any).editorHarness.saves.filter((s:any)=>s.request_id===id),first);
+  expect(retried).toHaveLength(2);expect(retried[1]).toEqual(retried[0]);
   await page.reload();await page.getByRole('button',{name:'继续编辑 未命名文档'}).click();await expect(body).toContainText('失败后仍要保留的文字');
 });
 

@@ -136,6 +136,7 @@ test('desktop remembers software and keeps the workbench readable at desktop and
   await desktop(page);
   await page.getByLabel('你用什么软件创作？').selectOption('powerpoint');
   await page.reload();
+  await page.getByRole('button',{name:'应用连接',exact:true}).click();
   await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('powerpoint');
   await expect(page.getByRole('button',{name:'打开 PowerPoint 并开始记录'})).toBeVisible();
   await expect(page.locator('#tool-requirement')).toContainText('PowerPoint 原生加载项');
