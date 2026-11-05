@@ -39,7 +39,7 @@ try{
     Await-State {$owned.Refresh();-not $owned.HasExited -and $owned.MainWindowHandle -ne [IntPtr]::Zero} 'initial visible window'
     $window=$owned.MainWindowHandle
     # Native caption style must be absent, independent of web content labels.
-    if(([WorkProofWindowProbe]::GetWindowLong($window,-16) -band 0x00C00000) -ne 0){throw 'System titlebar is still enabled'}
+    Await-State {([WorkProofWindowProbe]::GetWindowLong($window,-16) -band 0x00C00000) -eq 0} 'system caption removed after initialization'
     $root=[Windows.Automation.AutomationElement]::FromHandle($window)
     function Invoke-WindowButton([string]$Name){
         $script:button=$null
