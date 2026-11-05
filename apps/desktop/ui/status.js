@@ -143,8 +143,8 @@ for(const [id,command] of [['install','install_vscode'],['verify','open_verifier
 }
 
 const guides={
-  word:{steps:['点击“打开 Word 并开始记录”。已有文档会继续使用，新文档会先提示保存。','首次使用时，在这里允许 Word 连接。Word 显示“已开始记录”后即可创作。','完成后在 Word 的 WorkProof 侧栏导出作品和证书，将两个文件一起交付。'],note:'Windows 桌面版 Word 需先双击安装包中的 Install Word.cmd。你也可以在 Word 的 WorkProof 标签中手动开始。网页版和 Mac 使用单独的网页加载项安装方式。'},
-  powerpoint:{steps:['点击“打开 PowerPoint 并开始记录”，新演示文稿请先保存。','首次使用时在这里允许 PowerPoint 连接。侧栏显示已开始后再创作。','完成后在 PowerPoint 的 WorkProof 侧栏导出演示文稿和证书，一起交付。'],note:'需要 Windows 桌面版 PowerPoint 和对应的 WorkProof 原生加载项。请先安装完整包。'},
+  word:{steps:['点击“打开 Word 并开始记录”。已有文档会继续使用，新文档会先提示保存。','首次使用时，在这里允许 Word 连接。Word 显示“已开始记录”后即可创作。','完成后在 Word 的 WorkProof 侧栏导出作品和证书，将两个文件一起交付。'],note:'Windows 桌面版 Word：先点击上方“检查安装状态”。未安装时，保存并退出 Word，再点击“安装 / 修复加载项”。安装后即可从这里打开 Word；也可以使用 Word 中的 WorkProof 标签。网页版和 Mac 需要单独安装网页加载项。'},
+  powerpoint:{steps:['点击“打开 PowerPoint 并开始记录”，新演示文稿请先保存。','首次使用时在这里允许 PowerPoint 连接。侧栏显示已开始后再创作。','完成后在 PowerPoint 的 WorkProof 侧栏导出演示文稿和证书，一起交付。'],note:'需要 Windows 桌面版 PowerPoint。先点击上方“检查安装状态”。未安装时，保存并退出 PowerPoint，再点击“安装 / 修复加载项”；安装后从这里打开软件即可。'},
   wps:{steps:['打开 WPS 文档，在 WorkProof 标签中选择“打开记录工作台”。','点击开始记录，回到这里核对网址并允许连接。','完成后导出作品和证书，将这两个文件一起交付。'],note:'WPS 暂未提供面向普通用户的一键安装包，当前需按接入说明安装。没有安装入口时，请联系学校或团队。'},
   vscode:{steps:['先点击下方按钮，安装 WorkProof 插件。','打开文件，点击 VS Code 底部的 WorkProof，选择记录当前文件。','完成后导出证书，将它与这份作品一起交付。'],note:'需要先安装 VS Code。插件会自动连接本机的 WorkProof。'},
   photoshop:{steps:['先安装 WorkProof 插件，再从 Photoshop 的插件菜单打开它。','选择作品副本的位置，点击开始，并回到这里允许连接。','完成后导出 PSD 副本和证书，将这两个文件一起交付。'],note:'Photoshop 当前提供测试版插件文件，尚未提供正式的一键安装包。请交付本次导出的 PSD 副本。'},
