@@ -14,17 +14,22 @@ public static class WorkProofWindowProbe {
  [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hwnd,ref POINT point);
  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);
  [DllImport("user32.dll")] public static extern int GetSystemMetricsForDpi(int index,uint dpi);
+ [DllImport("user32.dll")] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
  public static int[] CaptionGeometry(IntPtr hwnd) {
-   RECT outer;POINT origin=new POINT();
-   if(!GetWindowRect(hwnd,out outer)||!ClientToScreen(hwnd,ref origin))return new int[0];
-   uint dpi=GetDpiForWindow(hwnd);
-   return new int[]{outer.Left,outer.Top,outer.Right,outer.Bottom,origin.X,origin.Y,(int)dpi,GetSystemMetricsForDpi(4,dpi)};
+   // GetWindowRect is DPI-virtualized. Read both coordinate systems under one
+   // per-monitor-v2 context and restore the test thread even on API failure.
+   IntPtr previous=SetThreadDpiAwarenessContext(new IntPtr(-4));
+   if(previous==IntPtr.Zero)return new int[0];
+   try {
+     RECT outer;POINT origin=new POINT();
+     if(!GetWindowRect(hwnd,out outer)||!ClientToScreen(hwnd,ref origin))return new int[0];
+     uint dpi=GetDpiForWindow(hwnd);
+     return new int[]{outer.Left,outer.Top,outer.Right,outer.Bottom,origin.X,origin.Y,(int)dpi,GetSystemMetricsForDpi(4,dpi)};
+   } finally { SetThreadDpiAwarenessContext(previous); }
  }
  public static bool CaptionHasNoClientInset(IntPtr hwnd) {
-   RECT outer;POINT origin=new POINT();
-   if(!GetWindowRect(hwnd,out outer)||!ClientToScreen(hwnd,ref origin))return false;
-   int caption=GetSystemMetricsForDpi(4,GetDpiForWindow(hwnd)); // SM_CYCAPTION
-   int inset=origin.Y-outer.Top;
+   int[] geometry=CaptionGeometry(hwnd);if(geometry.Length!=8)return false;
+   int caption=geometry[7],inset=geometry[5]-geometry[1];
    return caption>0&&inset>=0&&inset<caption;
  }
  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
