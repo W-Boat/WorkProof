@@ -142,6 +142,54 @@
       "tarball_sha256": "def17caea2f370ebebb6e1ec49b6e29460096a7647e96083094a1734a6d4453c",
       "source_commit": "513effe6fb1652f1a993029c841c57f82331b03d",
       "binding": "npm registry gitHead for exact locked release; archive integrity and package manifest checked"
+    },
+    {
+      "name": "@microsoft/fast-element",
+      "version": "3.1.2",
+      "integrity": "sha512-LmyiGq1zjszwgcqSkiOsZph+9NUZJqnmBhuqPDmqndWfyo0bMXKPTevQX9q3nEKCuIIFDMsGdPNGcQ1xoK7sGw==",
+      "folder": ".",
+      "notices": [
+        {
+          "file": "microsoft__fast-element__3.1.2__LICENSE",
+          "upstream_path": "LICENSE",
+          "sha256": "efd3e2455191853bb2fb22f794e521f9097f4e95c9327c2a34be53fb172a2d5a",
+          "url": "https://raw.githubusercontent.com/microsoft/fast/8f42cb3a66e5efae36941715c250fcb95240f0f2/LICENSE",
+          "kind": "upstream-version-license"
+        }
+      ],
+      "evidence_complete": true,
+      "unresolved": [],
+      "tarball_url": "https://registry.npmjs.org/@microsoft/fast-element/-/fast-element-3.1.2.tgz",
+      "tarball_sha256": "2e1d2c73f3fd82d811faa49f12b018797f7d4dc3e1695c0e57fdfb8b4b0fd600",
+      "source_commit": "8f42cb3a66e5efae36941715c250fcb95240f0f2",
+      "source_tag": "@microsoft/fast-element_v3.1.2",
+      "source_package_manifest_url": "https://raw.githubusercontent.com/microsoft/fast/8f42cb3a66e5efae36941715c250fcb95240f0f2/packages/fast-element/package.json",
+      "source_package_manifest_sha256": "960a7e25a47521debcea089cf35518795364707f14875f7581fc50ddbb6bba3a",
+      "binding": "Official release tag resolves to source commit; source and installed package name/version/license agree; locked npm archive integrity verified. Not a reproducible build attestation."
+    },
+    {
+      "name": "@microsoft/focusgroup-polyfill",
+      "version": "1.5.0",
+      "integrity": "sha512-2tw+AISULD5xhP+wIqUheej5wZbwiuPaqjuCa8A8jLdq2ikklZBIvSDLLa6j7zbDbtV5BXnrYgSuyW1Bj5JA4A==",
+      "folder": ".",
+      "notices": [
+        {
+          "file": "microsoft__focusgroup-polyfill__1.5.0__LICENSE",
+          "upstream_path": "LICENSE.txt",
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+          "url": "https://raw.githubusercontent.com/microsoft/polyfills/c6e652758f29e0282889379857e6f9c7ef1a476f/LICENSE.txt",
+          "kind": "upstream-version-license"
+        }
+      ],
+      "evidence_complete": true,
+      "unresolved": [],
+      "tarball_url": "https://registry.npmjs.org/@microsoft/focusgroup-polyfill/-/focusgroup-polyfill-1.5.0.tgz",
+      "tarball_sha256": "f5616ca1372f1157f5348f9beda9490dfce741972c246ea496f9d38759757b62",
+      "source_commit": "c6e652758f29e0282889379857e6f9c7ef1a476f",
+      "source_tag": "@microsoft/focusgroup-polyfill_v1.5.0",
+      "source_package_manifest_url": "https://raw.githubusercontent.com/microsoft/polyfills/c6e652758f29e0282889379857e6f9c7ef1a476f/packages/focusgroup/package.json",
+      "source_package_manifest_sha256": "4eb08adaaeca24a7d49270391cc993d02a8682b98e485e229e9fa6a05992cc6b",
+      "binding": "Official release tag resolves to source commit; source and installed package name/version/license agree; locked npm archive integrity verified. Not a reproducible build attestation."
     }
   ]
 }
