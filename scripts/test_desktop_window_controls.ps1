@@ -8,6 +8,19 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class WorkProofWindowProbe {
+ [StructLayout(LayoutKind.Sequential)] public struct RECT {public int Left,Top,Right,Bottom;}
+ [StructLayout(LayoutKind.Sequential)] public struct POINT {public int X,Y;}
+ [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd,out RECT rect);
+ [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hwnd,ref POINT point);
+ [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);
+ [DllImport("user32.dll")] public static extern int GetSystemMetricsForDpi(int index,uint dpi);
+ public static bool CaptionHasNoClientInset(IntPtr hwnd) {
+   RECT outer;POINT origin=new POINT();
+   if(!GetWindowRect(hwnd,out outer)||!ClientToScreen(hwnd,ref origin))return false;
+   int caption=GetSystemMetricsForDpi(4,GetDpiForWindow(hwnd)); // SM_CYCAPTION
+   int inset=origin.Y-outer.Top;
+   return caption>0&&inset>=0&&inset<caption;
+ }
  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
  [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr hwnd);
  [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hwnd);
@@ -38,8 +51,10 @@ $owned=[Diagnostics.Process]::Start($start)
 try{
     Await-State {$owned.Refresh();-not $owned.HasExited -and $owned.MainWindowHandle -ne [IntPtr]::Zero} 'initial visible window'
     $window=$owned.MainWindowHandle
-    # Native caption style must be absent, independent of web content labels.
-    Await-State {([WorkProofWindowProbe]::GetWindowLong($window,-16) -band 0x00C00000) -eq 0} 'system caption removed after initialization'
+    # Tao 0.37.2 retains WS_CAPTION on top-level frameless windows and handles
+    # WM_NCCALCSIZE. Check actual native client geometry, not that style flag.
+    # Locked source: window_state.rs::to_window_styles / event_loop.rs::WM_NCCALCSIZE.
+    Await-State {[WorkProofWindowProbe]::CaptionHasNoClientInset($window)} 'no native caption height above client area'
     $root=[Windows.Automation.AutomationElement]::FromHandle($window)
     function Invoke-WindowButton([string]$Name){
         $script:button=$null
