@@ -61,9 +61,16 @@ const dismissPath=document.createElementNS('http://www.w3.org/2000/svg','path');
 dismissPath.setAttribute('d','M5.5 5.5l9 9m0-9l-9 9');dismissPath.setAttribute('fill','none');dismissPath.setAttribute('stroke','currentColor');dismissPath.setAttribute('stroke-width','1.5');dismissPath.setAttribute('stroke-linecap','round');
 dismissIcon.append(dismissPath);feedbackDismiss.append(dismissIcon);
 feedback.replaceChildren(feedbackText,feedbackDismiss);feedback.hidden=true;
-let feedbackTimer=null,feedbackHovered=false,feedbackFocused=false;
+let feedbackTimer=null,feedbackHovered=false,feedbackFocused=false,feedbackPreviousFocus=null;
 function pauseFeedback(){clearTimeout(feedbackTimer);feedbackTimer=null;}
-function dismissFeedback(){pauseFeedback();feedback.hidden=true;feedbackText.textContent='';}
+function dismissFeedback(){
+  const restoreFocus=feedback.contains(document.activeElement);
+  pauseFeedback();feedback.hidden=true;feedbackText.textContent='';feedbackFocused=false;feedbackHovered=false;
+  if(restoreFocus){
+    const target=feedbackPreviousFocus?.isConnected&&!feedbackPreviousFocus.closest('[inert],[hidden]')?feedbackPreviousFocus:document.querySelector('.workspace-nav [aria-current=page]');
+    target?.focus({preventScroll:true});
+  }
+}
 function scheduleFeedback(){
   pauseFeedback();
   if(!feedback.hidden&&feedback.dataset.state!=='error'&&!feedbackHovered&&!feedbackFocused)feedbackTimer=setTimeout(dismissFeedback,6000);
@@ -75,6 +82,7 @@ feedback.addEventListener('focusout',event=>{if(!feedback.contains(event.related
 feedbackDismiss.addEventListener('click',dismissFeedback);
 function showMessage(text,state='info'){
   if(!text){dismissFeedback();return;}
+  if(!feedback.contains(document.activeElement))feedbackPreviousFocus=document.activeElement;
   feedbackText.textContent=text;feedback.dataset.state=state;feedback.hidden=false;
   feedbackHovered=feedback.matches(':hover');feedbackFocused=feedback.contains(document.activeElement);
   scheduleFeedback();
