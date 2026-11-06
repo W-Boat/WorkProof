@@ -280,9 +280,6 @@ test('desktop notices expire without hiding newer notices or connection approval
   await desktop(page,false,true);
   await expect.poll(()=>page.evaluate(()=>typeof (window as any).workproofUI?.showMessage)).toBe('function');
   await page.clock.install();
-  // State polling is unrelated to notice lifetimes. Avoid replaying its
-  // intervals while the virtual clock exercises the user-visible timer.
-  await page.evaluate(()=>{const marker=setInterval(()=>{},1000000);for(let id=1;id<=Number(marker);id++)clearInterval(id);});
   const notice=page.locator('#message'),copy=page.locator('#message-text');
   await page.mouse.move(0,0);
   await page.evaluate(()=>(window as any).workproofUI.showMessage('第一条临时提示','info'));
@@ -302,13 +299,14 @@ test('desktop errors remain until dismissed and notices pause for pointer or key
   await desktop(page);
   await expect.poll(()=>page.evaluate(()=>typeof (window as any).workproofUI?.showMessage)).toBe('function');
   await page.clock.install();
-  await page.evaluate(()=>{const marker=setInterval(()=>{},1000000);for(let id=1;id<=Number(marker);id++)clearInterval(id);});
   const notice=page.locator('#message'),copy=page.locator('#message-text'),dismiss=page.locator('#dismiss-message');
   await page.mouse.move(0,0);
+  const previousFocus=page.getByRole('button',{name:'应用连接',exact:true});
+  await previousFocus.focus();
   await page.evaluate(()=>(window as any).workproofUI.showMessage('需要处理的保存错误','error'));
   await page.clock.runFor(20000);
   await expect(copy).toHaveText('需要处理的保存错误');await expect(notice).toBeVisible();
-  await dismiss.click();await expect(notice).toBeHidden();
+  await dismiss.click();await expect(notice).toBeHidden();await expect(previousFocus).toBeFocused();
   await page.mouse.move(0,0);
   await page.evaluate(()=>(window as any).workproofUI.showMessage('停留时可以读完这条提示','info'));
   await notice.hover();await page.clock.runFor(20000);await expect(notice).toBeVisible();

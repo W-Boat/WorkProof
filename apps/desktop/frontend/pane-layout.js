@@ -54,7 +54,9 @@ export function initializePaneLayout() {
     const inspectorWidth=parseFloat(styles.getPropertyValue('--inspector-width'))||270;
     // Document tabs and mode controls share the document header. The tools
     // share one command row, including when its advanced controls are folded.
-    const chromeHeight=document.querySelector('.doc-head').offsetHeight+document.querySelector('.writing-chrome').offsetHeight;
+    const commandbarHeight=document.querySelector('.writing-chrome').offsetHeight;
+    workspace.style.setProperty('--commandbar-height',`${commandbarHeight}px`);
+    const chromeHeight=document.querySelector('.doc-head').offsetHeight+commandbarHeight;
     const writingAreaTarget=innerWidth*innerHeight*.7;
     const automatic = {ribbon: !markdown && totalWidth*(totalHeight-chromeHeight)>=writingAreaTarget, outline:false, inspector:false};
     const usableHeight=Math.max(0,totalHeight-chromeHeight);
@@ -132,7 +134,14 @@ export function initializePaneLayout() {
     persist('ribbon','open');render();
   });
   new MutationObserver(render).observe(workspace, {attributes: true, attributeFilter: ['data-edit-mode']});
-  new ResizeObserver(render).observe(workspace);
+  new ResizeObserver(render).observe(document.querySelector('.writing-chrome'));
+  let previousWorkspaceSize=null;
+  new ResizeObserver(()=>{
+    const size={width:workspace.clientWidth,height:workspace.clientHeight};
+    if(previousWorkspaceSize&&(size.width!==previousWorkspaceSize.width||size.height!==previousWorkspaceSize.height))overlayDismissed=false;
+    previousWorkspaceSize=size;
+    render();
+  }).observe(workspace);
   render();
   requestAnimationFrame(() => workspace.classList.add('panes-ready'));
 }
