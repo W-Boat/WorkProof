@@ -64,6 +64,10 @@ fluent-button.icon-button::part(control){min-width:32px;padding:4px}
 .ribbon-page{display:flex;flex-wrap:wrap;gap:14px;min-height:105px;padding:8px 12px 6px;overflow-x:auto;scrollbar-width:thin;animation:page-enter 140ms var(--ease)}
 .ribbon-group{display:flex;flex-direction:column;justify-content:space-between;gap:5px;padding-right:14px;border-right:1px solid var(--stroke);flex-shrink:0}
 .ribbon-group:last-child{border-right:0;padding-right:0}
+#ribbon-home .ribbon-group:first-child{flex:0 0 86px}
+#ribbon-home .ribbon-group:nth-child(2){flex:1 1 350px;min-width:0}
+#ribbon-home .ribbon-group:last-child{flex:1 1 270px;min-width:0}
+#ribbon-home .ribbon-group .ribbon-controls{max-width:100%}
 .ribbon-controls{display:flex;align-items:center;align-content:flex-start;flex-wrap:wrap;gap:4px;max-width:440px;min-height:68px}
 .ribbon-group:first-child .ribbon-controls{max-width:108px}
 #ribbon-home .ribbon-group:last-child .ribbon-controls{max-width:340px}
