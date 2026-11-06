@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 export const sourceLabels={editor:'内置编辑器',word:'Word',powerpoint:'PowerPoint',wps:'WPS',vscode:'VS Code',photoshop:'Photoshop',blender:'Blender'};
-export function sourceLabel(source){return sourceLabels[source]||source||'其他应用';}
+export function sourceLabel(source){return Object.hasOwn(sourceLabels,source)?sourceLabels[source]:source||'其他应用';}
 export function recordTime(document){
   if(Number.isFinite(document.modified_ms))return document.modified_ms;
   const started=Date.parse(document.started_at);
@@ -31,9 +31,12 @@ export function externalRecords({ipc,flush,ui}){
   }
   function renderRecord(record){
     const event=record.event,row=element('li','event-item'),details=element('details','action-details');
-    const summary=element('summary','',`${actionLabels[event.kind]||'文档操作'} · 第 ${event.seq+1} 条`);
+    const editingLabels={powerpoint:'修改演示文稿',blender:'修改模型',photoshop:'修改画面'};
+    const label=event.kind==='edit'&&Object.hasOwn(editingLabels,current.source)?editingLabels[current.source]:actionLabels[event.kind]||({layout:'调整版式',save:'保存作品',pause:'暂停记录',resume:'继续记录',interaction:'操作软件'}[event.kind])||'文档操作';
+    const summary=element('summary','',`${label} · 第 ${event.seq+1} 条`);
     const start=Date.parse(current.started_at),date=Number.isFinite(start)?displayTime(start+event.elapsed_ms):`开始后 ${Math.round(event.elapsed_ms/1000)} 秒`;
-    details.append(summary,element('small','',`${date} · +${event.inserted} / −${event.deleted} 字符`));
+    const delta=event.inserted||event.deleted?` · +${event.inserted} / −${event.deleted} 字符`:'';
+    details.append(summary,element('small','',`${date}${delta}`));
     let populated=false;details.addEventListener('toggle',()=>{if(details.open&&!populated){populated=true;details.append(element('pre','',JSON.stringify({动作:event.kind,指标:event.metrics||{},记录指纹:record.hash},null,2)));}});
     row.append(details);return row;
   }
