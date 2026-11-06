@@ -11,12 +11,13 @@ const labels={edit:'修改文字',format:'调整格式或结构',undo:'撤销修
 let editor=null,active=null,documents=[],pending=[],inflight=null,dirty=false,saving=null,saveTimer,maxSaveTimer,refreshTimer;
 let suppressed=false,opening=false,exporting=false,intent=null,lastSelection='',selectionAt=0,historyToken=0;
 let recentFrame=null;
+let closing=false,editableBeforeClose=true,creating=false;
 const workspace=initializeWritingWorkspace({getEditor:()=>editor,getActive:()=>active,record:addAction,hint,flush,showMessage:(...args)=>ui.showMessage(...args)});
 const requestId=()=>crypto.randomUUID().replaceAll('-','');
 const errorText=e=>e instanceof Error?e.message:String(e);
 const time=ms=>new Date(ms).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 const fullText=doc=>doc.textBetween(0,doc.content.size,'\n');
-function setEditable(value){const was=suppressed;suppressed=true;try{editor?.setEditable(value,false);}finally{suppressed=was;}}
+function setEditable(value){const was=suppressed;suppressed=true;try{editor?.setEditable(value&&!closing,false);}finally{suppressed=was;}}
 function state(text,kind='pending'){$('save-state').textContent=text;$('save-state').dataset.state=kind;$('editor-status').textContent=text;}
 function changedText(before,after){
   const a=Array.from(before),b=Array.from(after);let prefix=0,suffix=0;
@@ -104,27 +105,43 @@ async function flush(){
   })();
   try{await saving;}finally{saving=null;}
 }
-window.workproofBeforeClose=async()=>{try{await flush();}catch(error){reportError(error);throw new Error('文档尚未保存，窗口已保留。请重试保存后再关闭。');}};
+window.workproofCancelClose=()=>{
+  if(!closing)return;
+  closing=false;workspace.setClosing(false);
+  document.querySelector('main').inert=false;document.querySelector('.workspace-nav').inert=false;
+  setEditable(editableBeforeClose||(!dirty&&!pending.length&&!inflight));
+};
+window.workproofBeforeClose=async()=>{
+  if(opening||creating||importing||exporting)throw new Error('文档正在打开、导入或导出，请完成后再关闭或退出。');
+  if(editor?.view.composing)throw new Error('请先完成当前输入，再关闭或退出。');
+  if(closing)return;
+  editableBeforeClose=editor?.isEditable??true;closing=true;
+  setEditable(false);workspace.setClosing(true);
+  document.querySelector('main').inert=true;document.querySelector('.workspace-nav').inert=true;
+  try{await flush();}
+  catch(error){window.workproofCancelClose();reportError(error);throw new Error('文档尚未保存，窗口已保留。请重试保存后再关闭。');}
+};
 window.addEventListener('beforeunload',event=>{if(dirty||pending.length||inflight){event.preventDefault();event.returnValue='';}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)flush().catch(reportError);});
 
 async function openDocument(doc){
   if(opening||exporting)return;opening=true;
   try{
-    await flush();workspace.closeSource();suppressed=true;editor?.destroy();active=doc;pending=[];inflight=null;dirty=false;intent=null;lastSelection='';
+    await flush();workspace.closeSource();workspace.rememberPagination();suppressed=true;editor?.destroy();active=doc;pending=[];inflight=null;dirty=false;intent=null;lastSelection='';
     $('document-title').value=doc.title;
     const domEvents={keydown,copy:()=>{commandAction('copy');return false;},paste:()=>{commandAction('paste');return false;},cut:()=>{commandAction('cut');return false;},beforeinput:(_v,event)=>{addAction('beforeinput',{detail:{input_type:event.inputType}});if(event.inputType==='historyUndo')hint('undo');if(event.inputType==='historyRedo')hint('redo');return false;},input:(_v,event)=>{addAction('input',{detail:{input_type:event.inputType}});return false;},focus:()=>{addAction('focus');return false;},blur:()=>{addAction('blur');return false;}};
     for(const type of ['compositionstart','compositionupdate','compositionend','drop','dragstart','dragend'])domEvents[type]=(_v,event)=>{addAction(type,{detail:{data:typeof event.data==='string'?event.data.slice(0,2048):null}});return false;};
     editor=new Editor({element:$('tiptap-editor'),extensions:extensions(true),content:doc.content,editorProps:{attributes:{'aria-label':'文档正文',role:'textbox','aria-multiline':'true',spellcheck:'true'},handleDOMEvents:domEvents},onTransaction:transaction,onSelectionUpdate:({editor:e})=>updateToolbar(e)});
-    restorePageLayout();suppressed=false;workspace.changed();state('已保存到本机','saved');$('editor-word-count').textContent=`${Array.from(editor.getText()).length.toLocaleString()} 字符`;
+    restorePageLayout();workspace.applyMode();suppressed=false;workspace.changed();state('已保存到本机','saved');$('editor-word-count').textContent=`${Array.from(editor.getText()).length.toLocaleString()} 字符`;
     $('certificate-result').hidden=true;$('certificate-empty').hidden=false;renderRecent();updateToolbar();ui.selectView('document');selectTab('write');
   }catch(error){reportError(error);}finally{suppressed=false;opening=false;}
 }
 async function createDocument(){
-  if(opening||exporting)return;
+  if(opening||creating||exporting||closing)return;
+  creating=true;
   const buttons=[$('new-document'),$('first-document')];buttons.forEach(b=>b.disabled=true);
   try{await flush();const doc=await ipc('editor_create',{title:'未命名文档',started:new Date().toISOString()});await openDocument(doc);$('document-title').focus();$('document-title').select();await loadLibrary();}
-  catch(error){ui.showMessage(errorText(error),'error');}finally{buttons.forEach(b=>b.disabled=false);}
+  catch(error){ui.showMessage(errorText(error),'error');}finally{creating=false;buttons.forEach(b=>b.disabled=false);}
 }
 function element(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
 function renderLibrary(){
@@ -206,7 +223,7 @@ document.querySelectorAll('[data-command]').forEach(b=>{b.addEventListener('mous
     if(command==='print'){window.print();return;}
     if(command==='indent'||command==='outdent'){indentParagraph(command==='indent'?1:-1);return;}
     hint(['undo','redo'].includes(command)?command:'format');commands[command]?.(editor.chain().focus()).run();
-    if(command==='pages')addAction('layout',{detail:{command:'togglePagination'},metrics:{layout_changes:1}});updateToolbar();
+    if(command==='pages'){workspace.rememberPagination();b.setAttribute('aria-pressed',String(editor.storage.PaginationPlus.enabled));addAction('layout',{detail:{command:'togglePagination'},metrics:{layout_changes:1}});}updateToolbar();
   }catch(error){ui.showMessage(errorText(error),'error');}
 });});
 $('font-family').addEventListener('change',event=>{if(!editor)return;hint('format');const chain=editor.chain().focus();(event.target.value?chain.setFontFamily(event.target.value):chain.unsetFontFamily()).run();});
@@ -241,9 +258,9 @@ for(const id of ['page-size','page-orientation','page-margin'])$(id).addEventLis
 $('paragraph-style').addEventListener('change',event=>{if(!editor)return;hint('format');const value=event.target.value,chain=editor.chain().focus();if(value==='paragraph')chain.setParagraph().run();else chain.setHeading({level:Number(value.slice(1))}).run();});
 $('text-align').addEventListener('change',event=>{if(editor){hint('format');editor.chain().focus().setTextAlign(event.target.value).run();}});
 async function exportDocument(){
-  if(!active||exporting)return;
+  if(!active||exporting||closing)return;
   const buttons=[$('export-document'),$('export-from-certificate')];buttons.forEach(b=>b.disabled=true);
-  try{await flush();workspace.closeSource();exporting=true;setEditable(false);let docx=null,markdown=null;if($('export-format').value==='docx'){const bytes=await wordOperation('export',{content:editor.getJSON()});docx=Array.from(bytes);}if($('export-format').value==='markdown'){markdown=workspace.markdownText();}const out=await ipc('editor_export',{id:active.id,docx,markdown});if(out?.cancelled)return;
+  try{workspace.validate();if(!workspace.closeSource())return;exporting=true;setEditable(false);await flush();let docx=null,markdown=null;if($('export-format').value==='docx'){const bytes=await wordOperation('export',{content:editor.getJSON()});docx=Array.from(bytes);}if($('export-format').value==='markdown'){markdown=workspace.markdownText();}const out=await ipc('editor_export',{id:active.id,docx,markdown});if(out?.cancelled)return;
     if(out?.saved!==true||out.report?.valid!==true||out.report?.file_match!==true||out.report?.signature_valid!==true||typeof out.html!=='string'||!/^[a-f0-9]{64}$/.test(out.fingerprint))throw new Error('导出结果未能确认，请不要交付未经核验的文件。');
     $('export-preview').srcdoc=out.html;$('exported-name').textContent=out.file_name;$('certificate-name').textContent=active.title;$('certificate-count').textContent=`${out.event_count} 条核验记录`;$('certificate-fingerprint').textContent=out.fingerprint;$('certificate-empty').hidden=true;$('certificate-result').hidden=false;selectTab('certificate');ui.showMessage('作品和证书已保存，请将两个文件一起交付。');
   }catch(error){ui.showMessage(errorText(error),'error');}finally{exporting=false;setEditable(true);buttons.forEach(b=>b.disabled=false);}

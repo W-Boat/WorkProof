@@ -81,6 +81,29 @@ int main(){
        eventBodies.back().find("\"seq\":"+std::to_string(sequenceBefore+1)+",")==std::string::npos){
         std::puts("FAIL: next event did not use the following sequence");return 1;
     }
+    // A single sample must preserve both independently observed changes.
+    g.layoutSignature=L"old-layout";g.formatSignature=L"old-format";
+    g.selectionStart=current.selectionStart=4;g.selectionEnd=current.selectionEnd=9;
+    current.layoutSignature=L"new-layout";current.formatSignature=L"new-format";
+    const size_t combinedBefore=eventBodies.size();
+    Sample();
+    if(eventBodies.size()!=combinedBefore+2||eventBodies[combinedBefore].find("\"kind\":\"layout\"")==std::string::npos||
+       eventBodies[combinedBefore+1].find("\"kind\":\"format\"")==std::string::npos){
+        std::puts("FAIL: simultaneous layout/format observation lost an event");return 1;
+    }
+    const size_t unchangedBefore=eventBodies.size();Sample();
+    if(eventBodies.size()!=unchangedBefore){std::puts("FAIL: unchanged metadata duplicated observations");return 1;}
+    // A same-count structure change still produces an edit event.
+    g.structureSignature=L"old-structure";current.structureSignature=L"new-structure";
+    Sample();
+    if(eventBodies.size()!=unchangedBefore+1||eventBodies.back().find("\"kind\":\"edit\"")==std::string::npos||
+       g.structureSignature!=current.structureSignature){std::puts("FAIL: same-count structure did not reach evidence");return 1;}
+    // An unavailable or timed-out scan cannot replace the last complete baseline.
+    const size_t beforeUnavailable=eventBodies.size();
+    current.structureSignature.clear();Sample();
+    if(g.structureSignature!=L"new-structure"||eventBodies.size()!=beforeUnavailable){std::puts("FAIL: incomplete structure scan replaced baseline");return 1;}
+    current.structureSignature=L"changed-after-unavailable";Sample();
+    if(eventBodies.size()!=beforeUnavailable+1||g.structureSignature!=current.structureSignature){std::puts("FAIL: resumed structure sampling lost observed change");return 1;}
     // Pausing after a document switch must stop sampling locally without sending B's metrics.
     current.identity=L"C:\\fixture\\B.docx";current.name=L"B.docx";
     const int beforePause=httpCalls;

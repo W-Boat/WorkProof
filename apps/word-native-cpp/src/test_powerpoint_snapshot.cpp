@@ -7,8 +7,8 @@
 #include <cwchar>
 namespace workproof { std::wstring EnginePath(){return L"unused.exe";} }
 namespace {
-enum Property {ActivePresentation=1,Path,Name,FullName,Slides,Count,Item,Shapes,ReadOnly,Saved,Save,FileDialog,Show,Execute,ActiveWindow,Hwnd,PageSetup,SlideWidth,SlideHeight};
-enum Role {Application,Presentation,SlideList,Slide,ShapeList,Dialog,DocumentWindow,Page};
+enum Property {ActivePresentation=1,Path,Name,FullName,Slides,Count,Item,Shapes,ReadOnly,Saved,Save,FileDialog,Show,Execute,ActiveWindow,Hwnd,PageSetup,SlideWidth,SlideHeight,SlideId,ShapeId,ShapeType,Left,Top,Width,Height,Rotation,ZOrder};
+enum Role {Application,Presentation,SlideList,Slide,ShapeList,Dialog,DocumentWindow,Page,Shape};
 struct Fixture;
 class Object final:public IDispatch {
 public:
@@ -24,18 +24,19 @@ public:
 };
 struct Fixture {
     Object application{this,Application},presentation{this,Presentation},slides{this,SlideList},slide{this,Slide},shapes{this,ShapeList};
-    Object dialog{this,Dialog},window{this,DocumentWindow},page{this,Page};
+    Object dialog{this,Dialog},window{this,DocumentWindow},page{this,Page},shape{this,Shape};
+    long activeSlide=0,activeShape=0;double shapeLeft=12;bool reverseShapes=false;int shapeCalls=0;
     bool unsaved=false,executeFailure=false,executeNoPath=false,showFailure=false,saveFailure=false;
     long choice=-1;int showCalls=0,executeCalls=0;
     LONG slideCount=3,shapeCount=4;
     Role failRole=Application;DISPID failProperty=0;bool wrongType=false;
     int forbiddenAccess=0,itemCalls=0,saveCalls=0;
-    bool balanced(){return application.refs==1&&presentation.refs==1&&slides.refs==1&&slide.refs==1&&shapes.refs==1&&dialog.refs==1&&window.refs==1&&page.refs==1;}
+    bool balanced(){return application.refs==1&&presentation.refs==1&&slides.refs==1&&slide.refs==1&&shapes.refs==1&&dialog.refs==1&&window.refs==1&&page.refs==1&&shape.refs==1;}
 };
 STDMETHODIMP Object::GetIDsOfNames(REFIID,LPOLESTR* names,UINT n,LCID,DISPID* ids){
-    const wchar_t* keys[]={L"",L"ActivePresentation",L"Path",L"Name",L"FullName",L"Slides",L"Count",L"Item",L"Shapes",L"ReadOnly",L"Saved",L"Save",L"FileDialog",L"Show",L"Execute",L"ActiveWindow",L"HWND",L"PageSetup",L"SlideWidth",L"SlideHeight"};
+    const wchar_t* keys[]={L"",L"ActivePresentation",L"Path",L"Name",L"FullName",L"Slides",L"Count",L"Item",L"Shapes",L"ReadOnly",L"Saved",L"Save",L"FileDialog",L"Show",L"Execute",L"ActiveWindow",L"HWND",L"PageSetup",L"SlideWidth",L"SlideHeight",L"SlideID",L"Id",L"Type",L"Left",L"Top",L"Width",L"Height",L"Rotation",L"ZOrderPosition"};
     if(!names||!ids)return E_POINTER;
-    for(UINT i=0;i<n;++i){ids[i]=DISPID_UNKNOWN;for(int k=1;k<=SlideHeight;++k)if(!wcscmp(names[i],keys[k])){ids[i]=k;break;}if(ids[i]==DISPID_UNKNOWN){++fixture->forbiddenAccess;return DISP_E_UNKNOWNNAME;}}
+    for(UINT i=0;i<n;++i){ids[i]=DISPID_UNKNOWN;for(int k=1;k<=ZOrder;++k)if(!wcscmp(names[i],keys[k])){ids[i]=k;break;}if(ids[i]==DISPID_UNKNOWN){++fixture->forbiddenAccess;return DISP_E_UNKNOWNNAME;}}
     return S_OK;
 }
 STDMETHODIMP Object::Invoke(DISPID id,REFIID,LCID,WORD flags,DISPPARAMS* params,VARIANT* out,EXCEPINFO*,UINT*){
@@ -55,7 +56,23 @@ STDMETHODIMP Object::Invoke(DISPID id,REFIID,LCID,WORD flags,DISPPARAMS* params,
     if(role==Presentation&&id==Slides)object=&fixture->slides;
     if(role==SlideList&&id==Item){
         if(!(flags&(DISPATCH_METHOD|DISPATCH_PROPERTYGET))||!params||params->cArgs!=1||params->rgvarg[0].vt!=VT_I4||params->rgvarg[0].lVal<1||params->rgvarg[0].lVal>fixture->slideCount)return DISP_E_BADINDEX;
-        ++fixture->itemCalls;object=&fixture->slide;
+        ++fixture->itemCalls;fixture->activeSlide=params->rgvarg[0].lVal;object=&fixture->slide;
+    }
+    if(role==Slide&&id==SlideId){out->vt=VT_I4;out->lVal=fixture->activeSlide+100;return S_OK;}
+    if(role==ShapeList&&id==Item){
+        if(!params||params->cArgs!=1||params->rgvarg[0].vt!=VT_I4||params->rgvarg[0].lVal<1||params->rgvarg[0].lVal>fixture->shapeCount)return DISP_E_BADINDEX;
+        fixture->activeShape=params->rgvarg[0].lVal;++fixture->shapeCalls;object=&fixture->shape;
+    }
+    if(role==Shape){
+        out->vt=VT_R8;
+        switch(id){
+            case ShapeId:out->dblVal=fixture->activeSlide*10000+(fixture->reverseShapes?fixture->shapeCount+1-fixture->activeShape:fixture->activeShape);return S_OK;
+            case ShapeType:out->dblVal=1;return S_OK;
+            case Left:out->dblVal=fixture->shapeLeft;return S_OK;
+            case Top:case Width:case Height:out->dblVal=30;return S_OK;
+            case Rotation:out->dblVal=0;return S_OK;
+            case ZOrder:out->dblVal=fixture->activeShape;return S_OK;
+        }
     }
     if(role==Slide&&id==Shapes)object=&fixture->shapes;
     if(object){out->vt=VT_DISPATCH;out->pdispVal=object;object->AddRef();return S_OK;}
@@ -68,13 +85,25 @@ bool Check(Fixture& f,bool expected,const char* label){
     workproof::DocSnapshot snapshot={};std::wstring error;int previous=f.itemCalls;
     bool actual=workproof::ReadDocument(&f.application,snapshot,error);
     bool valid=actual==expected&&f.balanced()&&f.forbiddenAccess==0&&(actual||!error.empty());
-    if(actual)valid=valid&&snapshot.slides==f.slideCount&&snapshot.shapes==static_cast<long long>(f.slideCount)*f.shapeCount&&snapshot.characters==0&&snapshot.paragraphs==0&&!snapshot.readOnly&&snapshot.saved&&(f.itemCalls-previous)==f.slideCount;
+    if(actual)valid=valid&&snapshot.slides==f.slideCount&&snapshot.shapes==static_cast<long long>(f.slideCount)*f.shapeCount&&snapshot.characters==0&&snapshot.paragraphs==0&&!snapshot.readOnly&&snapshot.saved&&(f.itemCalls-previous)==f.slideCount*2;
     if(!valid)std::printf("FAIL: %s result=%d balanced=%d forbidden=%d\n",label,actual,f.balanced(),f.forbiddenAccess);
     return valid;
 }
 }
 int main(){
     Fixture f;if(!Check(f,true,"three slides twelve shapes"))return 1;
+    workproof::DocSnapshot baseline,moved,reordered;std::wstring structureError;
+    if(!workproof::ReadDocument(&f.application,baseline,structureError)||baseline.structureSignature.size()!=64)return 1;
+    f.shapeLeft+=20;
+    if(!workproof::ReadDocument(&f.application,moved,structureError)||moved.structureSignature==baseline.structureSignature||moved.shapes!=baseline.shapes){std::puts("FAIL: same-count geometry change missed");return 1;}
+    f.reverseShapes=true;
+    if(!workproof::ReadDocument(&f.application,reordered,structureError)||reordered.structureSignature==moved.structureSignature||reordered.shapes!=moved.shapes){std::puts("FAIL: same-count shape reorder missed");return 1;}
+    f.failRole=Shape;f.failProperty=Left;
+    if(!workproof::ReadDocument(&f.application,reordered,structureError)||!reordered.structureSignature.empty()||!f.balanced()){std::puts("FAIL: unavailable geometry produced a partial signature");return 1;}
+    f.failProperty=0;
+    f.shapeCount=4097;const int calls=f.shapeCalls;
+    if(!workproof::ReadDocument(&f.application,reordered,structureError)||!reordered.structureSignature.empty()||f.shapeCalls!=calls){std::puts("FAIL: bounded optional geometry collection");return 1;}
+    f.shapeCount=4;
     f.slideCount=0;if(!Check(f,true,"empty presentation"))return 1;
     f.slideCount=2;f.shapeCount=0;if(!Check(f,true,"zero shapes"))return 1;
     f.slideCount=2000;if(!Check(f,true,"exact slide limit"))return 1;

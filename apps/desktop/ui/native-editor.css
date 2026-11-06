@@ -85,6 +85,7 @@ fluent-button.icon-button::part(control){min-width:32px;padding:4px}
 #markdown-source .cm-selectionBackground{background:color-mix(in srgb,var(--accent) 22%,transparent)!important}
 #write-panel[data-edit-mode=markdown] .editor-paper{max-width:800px;border:0;box-shadow:none;min-height:calc(100% - 30px);padding:28px 40px;background:var(--content)}
 #write-panel[data-edit-mode=markdown] .editor-canvas{background:var(--content)}
+#write-panel[data-edit-mode=markdown] .tiptap.rm-with-pagination{width:100%!important;border:0!important;padding-inline:0!important;min-height:0!important}
 .tiptap img,.history-paper img{max-width:100%;height:auto;border-radius:3px}
 .tiptap a,.history-paper a{color:var(--accent);text-decoration:underline}
 .tiptap ul[data-type=taskList]{list-style:none;padding-left:6px}

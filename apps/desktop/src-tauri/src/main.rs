@@ -11,7 +11,13 @@ fn window_action(window:tauri::WebviewWindow,action:String)->Result<(),String>{
     let result=match action.as_str(){
         "minimize"=>window.minimize(),
         "maximize"=>if window.is_maximized().map_err(|_|"无法读取窗口状态。")?{window.unmaximize()}else{window.maximize()},
-        "close"=>{ALLOW_CLOSE.store(true,std::sync::atomic::Ordering::Release);window.close()},
+        "close"=>{
+            ALLOW_CLOSE.store(true,std::sync::atomic::Ordering::Release);
+            let result=window.close();
+            if result.is_err(){ALLOW_CLOSE.store(false,std::sync::atomic::Ordering::Release);}
+            result
+        },
+        "quit"=>{window.app_handle().exit(0);Ok(())},
         "drag"=>window.start_dragging(),
         _=>return Err("不支持的窗口操作。".into())
     };
@@ -122,7 +128,12 @@ fn main(){
         let menu=Menu::with_items(app,&[&open,&quit])?;
         TrayIconBuilder::new().icon(app.default_window_icon().expect("bundled icon").clone()).tooltip("WorkProof · 创作过程记录")
             .menu(&menu).on_menu_event(|app,event|match event.id.as_ref(){
-                "quit"=>app.exit(0),
+                "quit"=>{
+                    if let Some(w)=app.get_webview_window("status"){
+                        let _=w.unminimize();let _=w.show();let _=w.set_focus();
+                        let _=app.emit_to("status","workproof-quit-requested",());
+                    }else{app.exit(0);}
+                },
                 "open"=>{if let Some(w)=app.get_webview_window("status"){let _=w.unminimize();let _=w.show();let _=w.set_focus();}else{let _=tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").decorations(!cfg!(windows)).inner_size(960.,780.).min_inner_size(360.,520.).resizable(true).build();}},_=>{}
             }).build(app)?;
         if std::env::var_os("WORKPROOF_HEADLESS").is_none(){tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").decorations(!cfg!(windows)).inner_size(960.,780.).min_inner_size(360.,520.).resizable(true).build()?;}

@@ -2,6 +2,9 @@
 #include "addin.h"
 #include "controlled_process.h"
 #include <winhttp.h>
+#include <bcrypt.h>
+#include <cmath>
+#pragma comment(lib, "bcrypt.lib")
 #include <cstdlib>
 #include <vector>
 #include <initializer_list>
@@ -57,6 +60,58 @@ HRESULT GetProperty(IDispatch* object, const wchar_t* name, VARIANT* result) {
     VariantInit(result);
     return object->Invoke(id, IID_NULL, LOCALE_USER_DEFAULT, DISPATCH_PROPERTYGET, &params, result, nullptr, nullptr);
 }
+
+#ifdef WORKPROOF_POWERPOINT
+// Optional bounded structure sampling. Never read text, names, pixels or notes.
+std::wstring PresentationStructure(IDispatch* slides,long slideCount,long long shapeCount){
+    if(shapeCount>4096)return {};
+    const ULONGLONG started=GetTickCount64();
+    std::wstring data=L"workproof-ppt-structure-v1;";
+    auto fields=[&](IDispatch* object,std::initializer_list<const wchar_t*> names){
+        for(auto name:names){
+            Variant value,number;
+            if(FAILED(GetProperty(object,name,value.get()))||
+               FAILED(VariantChangeType(number.get(),value.get(),0,VT_R8))||
+               !std::isfinite(number.value.dblVal)||std::abs(number.value.dblVal)>1e12)return false;
+            data+=std::to_wstring(number.value.dblVal)+L";";
+        }
+        return true;
+    };
+    auto item=[](IDispatch* collection,long index,Variant& output){
+        LPOLESTR name=const_cast<LPOLESTR>(L"Item");DISPID id=0;
+        if(FAILED(collection->GetIDsOfNames(IID_NULL,&name,1,LOCALE_USER_DEFAULT,&id)))return false;
+        VARIANT arg={};arg.vt=VT_I4;arg.lVal=index;
+        DISPPARAMS parameters={&arg,nullptr,1,0};
+        return SUCCEEDED(collection->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_METHOD|DISPATCH_PROPERTYGET,&parameters,output.get(),nullptr,nullptr))&&
+            output.value.vt==VT_DISPATCH&&output.value.pdispVal;
+    };
+    long observed=0;
+    for(long i=1;i<=slideCount;++i){
+        if(GetTickCount64()-started>=75)return {};
+        Variant slide,shapes,count;
+        if(!item(slides,i,slide)||!fields(slide.value.pdispVal,{L"SlideID"})||
+           FAILED(GetProperty(slide.value.pdispVal,L"Shapes",shapes.get()))||shapes.value.vt!=VT_DISPATCH||!shapes.value.pdispVal||
+           FAILED(GetProperty(shapes.value.pdispVal,L"Count",count.get()))||count.value.vt!=VT_I4||count.value.lVal<0||count.value.lVal>4096-observed)return {};
+        data+=L"count="+std::to_wstring(count.value.lVal)+L";";
+        for(long j=1;j<=count.value.lVal;++j){
+            // Discard incomplete scans and retain count-based recording. This
+            // budget is checked between COM calls, which the host controls.
+            if(GetTickCount64()-started>=75)return {};
+            Variant shape;
+            if(!item(shapes.value.pdispVal,j,shape)||
+               !fields(shape.value.pdispVal,{L"Id",L"Type",L"Left",L"Top",L"Width",L"Height",L"Rotation",L"ZOrderPosition"}))return {};
+            ++observed;
+        }
+    }
+    if(observed!=shapeCount)return {}; // Changed while enumerating; establish no baseline.
+    unsigned char digest[32]{};
+    const auto size=static_cast<ULONG>(data.size()*sizeof(wchar_t));
+    if(BCryptHash(BCRYPT_SHA256_ALG_HANDLE,nullptr,0,reinterpret_cast<PUCHAR>(data.data()),size,digest,sizeof(digest))<0)return {};
+    const wchar_t* hex=L"0123456789abcdef";std::wstring output;
+    for(auto byte:digest){output+=hex[byte>>4];output+=hex[byte&15];}
+    return output;
+}
+#endif
 
 bool WideToUtf8(const std::wstring& text, std::string& output) {
     if (text.empty()) { output.clear(); return true; }
@@ -142,7 +197,7 @@ bool RunEngine(const std::wstring& arguments, std::string& output, std::wstring&
 }
 
 bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& error) {
-    snapshot.editorWindow=nullptr;snapshot.layoutSignature.clear();snapshot.formatSignature.clear();
+    snapshot.editorWindow=nullptr;snapshot.layoutSignature.clear();snapshot.formatSignature.clear();snapshot.structureSignature.clear();
     snapshot.selectionStart=-1;snapshot.selectionEnd=-1;
     if (!application) { error = std::wstring(kHostName)+L" 尚未完成加载，请稍后重试。"; return false; }
     Variant documentOwner;
@@ -186,7 +241,7 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
     }
     snapshot.slides=slideCountOwner.value.vt==VT_I4?slideCountOwner.value.lVal:slideCountOwner.value.iVal;
     if(snapshot.slides<0 || snapshot.slides>2000){error=L"幻灯片数量无效或超过本版 2000 页记录范围。";return false;}
-    // Only structure counts are sampled: no slide text, images or notes are read.
+    // No slide text, images, object names or notes are read.
     if(snapshot.slides>0){
         LPOLESTR itemName=const_cast<LPOLESTR>(L"Item");DISPID itemId=0;
         if(FAILED(slidesOwner.value.pdispVal->GetIDsOfNames(IID_NULL,&itemName,1,LOCALE_USER_DEFAULT,&itemId))){error=L"暂时无法读取幻灯片结构，已停止本次采样。";return false;}
@@ -205,6 +260,7 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
             snapshot.shapes+=value;
         }
     }
+    snapshot.structureSignature=PresentationStructure(slidesOwner.value.pdispVal,snapshot.slides,snapshot.shapes);
 #else
     Variant contentOwner, endOwner;
     VARIANT& content=contentOwner.value;
@@ -285,7 +341,18 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
            SUCCEEDED(GetProperty(selection.value.pdispVal,L"ParagraphFormat",paragraphFormat.get()))&&paragraphFormat.value.vt==VT_DISPATCH&&paragraphFormat.value.pdispVal){
             auto fontValues=signature(font.value.pdispVal,{L"Bold",L"Italic",L"Underline",L"Size"});
             auto paragraphValues=signature(paragraphFormat.value.pdispVal,{L"Alignment",L"SpaceBefore",L"SpaceAfter",L"LineSpacing"});
-            if(!fontValues.empty()&&!paragraphValues.empty())snapshot.formatSignature=fontValues+paragraphValues;
+            if(!fontValues.empty()&&!paragraphValues.empty()){
+                snapshot.formatSignature=fontValues+paragraphValues;
+                Variant name;
+                if(SUCCEEDED(GetProperty(font.value.pdispVal,L"Name",name.get()))&&name.value.vt==VT_BSTR&&name.value.bstrVal&&SysStringLen(name.value.bstrVal)<=128)
+                    snapshot.formatSignature+=L"name="+std::wstring(name.value.bstrVal,SysStringLen(name.value.bstrVal))+L";";
+                snapshot.formatSignature+=L"color="+signature(font.value.pdispVal,{L"Color"});
+                snapshot.formatSignature+=L"effects="+signature(font.value.pdispVal,{L"StrikeThrough",L"Subscript",L"Superscript"});
+                Variant range,list;
+                if(SUCCEEDED(GetProperty(selection.value.pdispVal,L"Range",range.get()))&&range.value.vt==VT_DISPATCH&&range.value.pdispVal&&
+                   SUCCEEDED(GetProperty(range.value.pdispVal,L"ListFormat",list.get()))&&list.value.vt==VT_DISPATCH&&list.value.pdispVal)
+                    snapshot.formatSignature+=L"list="+signature(list.value.pdispVal,{L"ListType",L"ListLevelNumber"});
+            }
         }
     }
 #endif

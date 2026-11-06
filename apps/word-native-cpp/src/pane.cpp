@@ -39,7 +39,7 @@ struct State {
     HHOOK editorHook = nullptr;
     ActionMetrics actions;
     HWND editorWindow=nullptr;
-    std::wstring layoutSignature,formatSignature;
+    std::wstring layoutSignature,formatSignature,structureSignature;
     long selectionStart=-1,selectionEnd=-1;
     HWND window = nullptr;
     IDispatch* word = nullptr;
@@ -343,7 +343,7 @@ void FinishPairing(PairResult* result) {
     g.documentName = snapshot.name;
     g.lastCharacters = snapshot.characters;
     g.actions.Clear();g.editorWindow=snapshot.editorWindow;
-    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;
+    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;g.structureSignature=snapshot.structureSignature;
     g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
     g.lastParagraphs = snapshot.paragraphs;
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
@@ -388,22 +388,35 @@ void Sample() {
     const bool layoutChanged=!g.layoutSignature.empty()&&!snapshot.layoutSignature.empty()&&g.layoutSignature!=snapshot.layoutSignature;
     const bool formatChanged=g.selectionStart>=0&&g.selectionStart==snapshot.selectionStart&&g.selectionEnd==snapshot.selectionEnd&&
         !g.formatSignature.empty()&&!snapshot.formatSignature.empty()&&g.formatSignature!=snapshot.formatSignature;
-    if((layoutChanged||formatChanged)&&!SendEvent(layoutChanged?"layout":"format",snapshot,0,0,std::string(),error)){
-        g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+    // Advance each baseline only after its own event is acknowledged. If the
+    // second event fails, retrying cannot erase it or duplicate the first event.
+    if(layoutChanged){
+        if(!SendEvent("layout",snapshot,0,0,std::string(),error)){
+            g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+        }
+        g.layoutSignature=snapshot.layoutSignature;
     }
+    if(formatChanged){
+        if(!SendEvent("format",snapshot,0,0,std::string(),error)){
+            g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+        }
+        g.formatSignature=snapshot.formatSignature;
+    }
+    const bool structureChanged=!g.structureSignature.empty()&&!snapshot.structureSignature.empty()&&g.structureSignature!=snapshot.structureSignature;
     g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;
     g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
     g.editorWindow=snapshot.editorWindow;
-    bool changed = snapshot.characters != g.lastCharacters || snapshot.paragraphs != g.lastParagraphs || snapshot.slides!=g.lastSlides || snapshot.shapes!=g.lastShapes;
+    bool changed = structureChanged || snapshot.characters != g.lastCharacters || snapshot.paragraphs != g.lastParagraphs || snapshot.slides!=g.lastSlides || snapshot.shapes!=g.lastShapes;
     if (changed && g.lastCharacters >= 0) {
         long long inserted = snapshot.characters > g.lastCharacters ? snapshot.characters - g.lastCharacters : 0;
         long long deleted = g.lastCharacters > snapshot.characters ? g.lastCharacters - snapshot.characters : 0;
         if (!SendEvent("edit", snapshot, inserted, deleted, std::string(), error)) {
             g.paused = true;
             KillTimer(g.window, kSampleTimer);
-            SetStatus(error);
+            SetStatus(error);PaintState();return;
         }
     }
+    if(!snapshot.structureSignature.empty())g.structureSignature=snapshot.structureSignature;
     g.lastCharacters = snapshot.characters;
     g.lastParagraphs = snapshot.paragraphs;
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
@@ -439,7 +452,7 @@ void TogglePause() {
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
     g.paused = false;
     g.actions.Clear();g.editorWindow=snapshot.editorWindow;
-    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;
+    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;g.structureSignature=snapshot.structureSignature;
     g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
     g.lastSampleMs = ElapsedMs();
     SetTimer(g.window, kSampleTimer, kSampleIntervalMs, nullptr);
@@ -455,7 +468,7 @@ bool ResetPausedRecording(){
     if(!FlushPending(error)){SetStatus(L"旧记录还有操作未保存，暂时不能开始另一份。"+error);PaintState();return false;}
     KillTimer(g.window,kSampleTimer);
     g.token.clear();g.session.clear();g.pendingEvent.clear();g.identity.clear();g.documentName.clear();
-    g.actions.Clear();g.editorWindow=nullptr;g.layoutSignature.clear();g.formatSignature.clear();
+    g.actions.Clear();g.editorWindow=nullptr;g.layoutSignature.clear();g.formatSignature.clear();g.structureSignature.clear();
     g.sequence=0;g.lastSampleMs=0;g.lastCharacters=-1;g.lastParagraphs=-1;g.lastSlides=-1;g.lastShapes=-1;
     g.started={};g.launchFeedback=false;g.cancelPairing=false;++g.pairingGeneration;
     SetStatus(L"已结束本地记录。旧记录仍保留在 WorkProof 中。");PaintState();return true;

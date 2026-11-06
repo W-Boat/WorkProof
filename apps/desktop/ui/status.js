@@ -2,11 +2,26 @@ let last=-1;
 let refreshing=false,engineReady=false,launching=false;
 let visibleConnections=[],connectionsKnown=false;
 document.body.dataset.platform=/Win/i.test(navigator.platform)?'windows':'other';
+let closingAction=null,closeTask=null;
 async function performWindowAction(action){
-  try{if(action==='close')await window.workproofBeforeClose?.();await window.__TAURI__.core.invoke('window_action',{action});}
-  catch(error){showMessage(errorText(error),'error');}
+  if(action!=='close'&&action!=='quit'){
+    try{await window.__TAURI__.core.invoke('window_action',{action});}catch(error){showMessage(errorText(error),'error');}
+    return;
+  }
+  if(!closingAction||action==='quit')closingAction=action;
+  if(closeTask)return closeTask;
+  closeTask=Promise.resolve().then(async()=>{
+    try{
+      if(typeof window.workproofBeforeClose!=='function')throw new Error('工作台正在加载，请稍后再试。');
+      await window.workproofBeforeClose();
+      await window.__TAURI__.core.invoke('window_action',{action:closingAction});
+    }catch(error){window.workproofCancelClose?.();showMessage(errorText(error),'error');}
+    finally{closingAction=null;closeTask=null;}
+  });
+  return closeTask;
 }
 window.__TAURI__?.event?.listen('workproof-close-requested',()=>performWindowAction('close')).catch(()=>{});
+window.__TAURI__?.event?.listen('workproof-quit-requested',()=>performWindowAction('quit')).catch(()=>{});
 for(const button of document.querySelectorAll('[data-window]'))button.addEventListener('click',()=>performWindowAction(button.dataset.window));
 const titlebar=document.querySelector('.app-header');
 titlebar.addEventListener('mousedown',event=>{

@@ -14,8 +14,8 @@ async function desktop(page:Page){
     const w=window as any;
     const read=()=>JSON.parse(localStorage.getItem('test.editor.documents')||'{}');
     const write=(docs:any)=>localStorage.setItem('test.editor.documents',JSON.stringify(docs));
-    w.editorHarness={failNext:false,saves:[],exports:0};
-    w.__TAURI__={core:{invoke:async(command:string,args:any)=>{
+    w.editorHarness={failNext:false,saves:[],exports:0,listeners:{},windowActions:[]};
+    w.__TAURI__={event:{listen:async(name:string,listener:any)=>{w.editorHarness.listeners[name]=listener;return ()=>delete w.editorHarness.listeners[name];}},core:{invoke:async(command:string,args:any)=>{
       const docs=read();
       if(command==='engine_status')return {ready:true,sessions:0,events:0};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
@@ -36,7 +36,7 @@ async function desktop(page:Page){
         doc.versions.unshift({revision:doc.revision,saved:Date.now(),count:input.actions.length});doc.snapshots[doc.revision]=input.content;write(docs);return {revision:doc.revision};
       }
       if(command==='editor_export'){w.editorHarness.exports++;return {cancelled:true};}
-      if(command==='window_action'){w.editorHarness.closed=true;return null;}
+      if(command==='window_action'){w.editorHarness.closed=true;w.editorHarness.windowActions.push(args.action);return null;}
       if(command==='verifier_url')return 'http://127.0.0.1:4173/embedded-test/';
       throw new Error('Unexpected IPC '+command);
     }}};
@@ -216,4 +216,66 @@ test('offline Word bridge preserves headings lists tables and supported rich mar
   await page.locator('#word-file').setInputFiles({name:'丰富格式往返.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',buffer:Buffer.from(result.bytes)});
   await expect(page.locator('#tiptap-editor h2')).toHaveText('标题必须保留',{timeout:25000});
   await expect(page.locator('#tiptap-editor ul')).toBeVisible();await expect(page.locator('#tiptap-editor ol')).toBeVisible();
+});
+
+test('Markdown uses continuous layout and restores Word pagination preference without changing the document',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill(Array.from({length:80},(_,i)=>`第 ${i+1} 行连续写作内容。`).join('\n'));
+  await page.locator('#save-document').click();
+  const original=await page.evaluate(()=>JSON.stringify((window as any).editorHarness.saves.at(-1).content));
+  await page.locator('[data-ribbon=layout]').click();const pagination=page.locator('[data-command=pages]');
+  await pagination.click();await expect(pagination).toHaveAttribute('aria-pressed','false');
+  await page.locator('[data-mode=markdown]').click();await expect(body).toHaveAttribute('rm-pagination-disabled','');await expect(pagination).toBeDisabled();
+  await page.locator('[data-mode=word]').click();await expect(body).toHaveAttribute('rm-pagination-disabled','');await expect(pagination).toBeEnabled();
+  await pagination.click();await expect(pagination).toHaveAttribute('aria-pressed','true');await expect(body).not.toHaveAttribute('rm-pagination-disabled','');
+  await page.locator('[data-mode=markdown]').click();await expect(body).toHaveAttribute('rm-pagination-disabled','');
+  await expect(body.locator('[data-rm-pagination]')).toHaveCount(0);
+  await page.locator('[data-mode=word]').click();await expect(body).not.toHaveAttribute('rm-pagination-disabled','');
+  await page.locator('#save-document').click();
+  expect(await page.evaluate(()=>JSON.stringify((window as any).editorHarness.saves.at(-1).content))).toBe(original);
+  await page.locator('[data-mode=markdown]').click();await page.locator('.workspace-nav [data-view=library]').click();await page.locator('#new-document').click();
+  await expect(body).toHaveAttribute('rm-pagination-disabled','');
+  await page.locator('[data-mode=word]').click();await expect(body).not.toHaveAttribute('rm-pagination-disabled','');
+});
+
+test('lossless Markdown tables tasks and embedded images remain editable and export their exact source',async({page})=>{
+  await desktop(page);
+  const text='# 可编辑 Markdown\n\n| 项目 | 状态 |\n| --- | --- |\n| 表格正文 | 完成 |\n\n- [ ] 待办事项\n- [x] 已完成事项\n\n![小图](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6yoAAAAAASUVORK5CYII=)';
+  await page.locator('#markdown-file').setInputFiles({name:'无损编辑.md',mimeType:'text/markdown',buffer:Buffer.from(text)});
+  const body=page.locator('#tiptap-editor .tiptap');await expect(body.locator('table')).toHaveCount(1);await expect(body.locator('li[data-type=taskItem]')).toHaveCount(2);await expect(body.locator('img')).toHaveCount(1);
+  await page.locator('#toggle-source').click();const source=page.locator('#markdown-source .cm-content');await expect(source).toBeVisible();await expect(source).toContainText('待办事项');
+  await source.press('ControlOrMeta+End');await source.press('Enter');await source.pressSequentially('源码继续编辑');await page.locator('#toggle-source').click();await expect(body).toContainText('源码继续编辑');
+  await page.evaluate(()=>{const w=window as any,invoke=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(command:string,args:any)=>{if(command==='editor_export')w.exportedMarkdown=args.markdown;return invoke(command,args);};});
+  await page.locator('#export-format').selectOption('markdown');await page.locator('#export-document').click();await expect.poll(()=>page.evaluate(()=>(window as any).exportedMarkdown)).toBe(text+'\n源码继续编辑');
+});
+
+test('closing freezes Markdown and waits for durable save before issuing the native close',async({page})=>{
+  await desktop(page);const body=await create(page);
+  await page.locator('[data-mode=markdown]').click();await page.locator('#toggle-source').click();
+  await page.evaluate(()=>{
+    const w=window as any,invoke=w.__TAURI__.core.invoke;
+    w.__TAURI__.core.invoke=(command:string,args:any)=>command==='editor_save'?new Promise(resolve=>{w.releaseCloseSave=()=>resolve(invoke(command,args));}):invoke(command,args);
+  });
+  await page.locator('#markdown-source .cm-content').fill('关闭时必须保存的源码');
+  await page.evaluate(()=>{(window as any).editorHarness.listeners['workproof-close-requested']();});
+  await expect(page.locator('main')).toHaveAttribute('inert','');
+  await expect(page.locator('#tiptap-editor .tiptap')).toHaveAttribute('contenteditable','false');
+  await expect(page.locator('#markdown-source .cm-content')).toHaveAttribute('contenteditable','false');
+  expect(await page.evaluate(()=>(window as any).editorHarness.windowActions)).toEqual([]);
+  await expect.poll(()=>page.evaluate(()=>typeof (window as any).releaseCloseSave)).toBe('function');
+  await page.evaluate(()=>(window as any).releaseCloseSave());
+  await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.windowActions)).toEqual(['close']);
+  await expect(page.locator('main')).toHaveAttribute('inert','');
+  await expect(page.locator('#markdown-source .cm-content')).toHaveAttribute('contenteditable','false');
+  expect(await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).content.attrs.markdownSource)).toBe('关闭时必须保存的源码');
+});
+
+test('failed save blocks tray quit and restores editing before a successful quit retry',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('退出前必须保存');
+  await page.evaluate(()=>{const h=(window as any).editorHarness;h.failNext=true;h.listeners['workproof-quit-requested']();});
+  await expect(page.locator('#message')).toContainText('文档尚未保存');
+  await expect(body).toHaveAttribute('contenteditable','true');
+  expect(await page.evaluate(()=>(window as any).editorHarness.windowActions)).toEqual([]);
+  await page.evaluate(()=>{(window as any).editorHarness.listeners['workproof-quit-requested']();});
+  await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.windowActions)).toEqual(['quit']);
+  expect(await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).content.content[0].content[0].text)).toBe('退出前必须保存');
 });

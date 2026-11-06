@@ -1,19 +1,43 @@
 import {EditorView,basicSetup} from 'codemirror';
 import {markdown} from '@codemirror/lang-markdown';
+import {Compartment,EditorState} from '@codemirror/state';
 
 const $=id=>document.getElementById(id);
 // Both presentations edit the same Tiptap document and use its recording pipeline.
 export function initializeWritingWorkspace({getEditor,getActive,record,hint,flush,showMessage}){
   let mode='word',source=null,sourceId=null,syncing=false,sourceError=null,sourceIntent=null;
+  let wordPagination=true;
+  try{wordPagination=localStorage.getItem('workproof.word-pagination')!=='false';}catch{}
   const drafts=new Map();
+  const sourceEditability=new Compartment();
+  let closing=false;
+  function setClosing(value){
+    if(value&&source?.composing)throw new Error('请先完成当前输入法输入，再关闭窗口。');
+    closing=value;
+    source?.dispatch({effects:sourceEditability.reconfigure([EditorView.editable.of(!closing),EditorState.readOnly.of(closing)])});
+  }
   const sourceVisible=()=>!$('markdown-source-panel').hidden;
-  const requiresRichDocument=node=>{
-    if(['image','pageBreak','taskList','taskItem','table'].includes(node.type))return true;
-    if(node.marks?.some(mark=>!['bold','italic','strike','code','link'].includes(mark.type)))return true;
-    const a=node.attrs||{};
-    if(a.indent||a.spaceAfter||a.textAlign&&a.textAlign!=='left')return true;
-    return node.content?.some(requiresRichDocument)||false;
-  };
+  function losslessMarkdown(){
+    const editor=getEditor();if(!editor)return null;
+    const matches=text=>typeof text==='string'&&editor.schema.nodeFromJSON(editor.markdown.parse(text)).content.eq(editor.state.doc.content);
+    try{
+      const saved=editor.state.doc.attrs.markdownSource;
+      if(matches(saved))return saved;
+      const text=editor.getMarkdown();return matches(text)?text:null;
+    }catch{return null;}
+  }
+  function rememberPagination(){
+    const editor=getEditor();if(!editor||mode!=='word')return;
+    wordPagination=editor.storage.PaginationPlus.enabled;
+    try{localStorage.setItem('workproof.word-pagination',String(wordPagination));}catch{}
+  }
+  function applyMode(){
+    const editor=getEditor();if(!editor)return;
+    const enabled=mode==='word'&&wordPagination;
+    editor.commands[enabled?'enablePagination':'disablePagination']();
+    const button=document.querySelector('[data-command=pages]');
+    button.disabled=mode==='markdown';button.setAttribute('aria-pressed',String(enabled));
+  }
   function rememberDraft(){if(source&&sourceId)drafts.set(sourceId,{text:source.state.doc.toString(),document:JSON.stringify(getEditor()?.getJSON())});}
   function sourceChanged(update){
     if(syncing)return;
@@ -69,26 +93,29 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   };
   function openSource(){
     const editor=getEditor();if(!editor)return;
-    if(requiresRichDocument(editor.getJSON())){showMessage('这份文档包含分页、表格或精细排版，请在正文中继续编辑。Markdown 模式仍可直接使用。');return;}
+    const compatible=losslessMarkdown();
+    if(compatible===null){showMessage('这份文档含有 Markdown 无法完整保留的格式，请在正文中继续编辑。');return;}
     const id=getActive()?.id,draft=drafts.get(id),json=JSON.stringify(editor.getJSON());
     let stored=editor.state.doc.attrs.markdownSource;
     if(typeof stored==='string'){
       try{if(!editor.schema.nodeFromJSON(editor.markdown.parse(stored)).content.eq(editor.state.doc.content))stored=null;}catch{stored=null;}
     }
-    const text=draft?.document===json?draft.text:stored??editor.getMarkdown();
+    const text=draft?.document===json?draft.text:stored??compatible;
     source?.destroy();sourceId=id;
     $('markdown-source-panel').hidden=false;
     $('tiptap-editor').hidden=true;
-    source=new EditorView({doc:text,parent:$('markdown-source'),extensions:[basicSetup,markdown(),EditorView.lineWrapping,EditorView.contentAttributes.of({'aria-label':'Markdown 源码'}),EditorView.updateListener.of(sourceChanged),EditorView.domEventHandlers(sourceEvents)]});
+    source=new EditorView({doc:text,parent:$('markdown-source'),extensions:[basicSetup,markdown(),sourceEditability.of([EditorView.editable.of(!closing),EditorState.readOnly.of(closing)]),EditorView.lineWrapping,EditorView.contentAttributes.of({'aria-label':'Markdown 源码'}),EditorView.updateListener.of(sourceChanged),EditorView.domEventHandlers(sourceEvents)]});
     $('toggle-source').setAttribute('aria-pressed','true');source.focus();
   }
   function closeSource(){if(sourceError){showMessage(sourceError.message,'error');return false;}rememberDraft();source?.destroy();source=null;$('markdown-source').replaceChildren();$('markdown-source-panel').hidden=true;$('tiptap-editor').hidden=false;$('toggle-source').setAttribute('aria-pressed','false');return true;}
   $('toggle-source').addEventListener('click',()=>sourceVisible()?closeSource():openSource());
   document.querySelectorAll('[data-mode]').forEach(button=>button.addEventListener('click',()=>{
     if(button.dataset.mode==='word'&&!closeSource())return;
+    rememberPagination();
     mode=button.dataset.mode;
     $('write-panel').dataset.editMode=mode;
     document.querySelectorAll('[data-mode]').forEach(item=>item.setAttribute('aria-pressed',String(item.dataset.mode===mode)));
+    applyMode();
     document.dispatchEvent(new Event('workproof:editor-mode'));
     record('layout',{detail:{mode},metrics:{layout_changes:1}});
   }));
@@ -112,10 +139,9 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   function nextMatch(backward){const editor=getEditor();editor?.commands[backward?'goToPreviousResult':'goToNextResult']();updateFindCount();}
   $('find-next').addEventListener('click',()=>nextMatch(false));$('find-previous').addEventListener('click',()=>nextMatch(true));
   for(const [id,command] of [['replace-one','replace'],['replace-all','replaceAll']])$(id).addEventListener('click',()=>{hint('format');getEditor()?.commands[command]();updateFindCount();});
-  return {outline,changed(){outline();if(source&&sourceId!==getActive()?.id)closeSource();},validate(){if(sourceError)throw sourceError;},markdownText(){
-    const editor=getEditor();if(requiresRichDocument(editor.getJSON()))throw new Error('文档含有 Markdown 无法保留的排版，请选择 Word 或网页作品导出。');
-    if(source)return source.state.doc.toString();const text=editor.state.doc.attrs.markdownSource;
-    if(typeof text==='string'){try{if(editor.schema.nodeFromJSON(editor.markdown.parse(text)).content.eq(editor.state.doc.content))return text;}catch{}}
-    return editor.getMarkdown();
+  return {outline,applyMode,rememberPagination,setClosing,changed(){outline();if(source&&sourceId!==getActive()?.id)closeSource();},validate(){if(sourceError)throw sourceError;},markdownText(){
+    if(sourceError)throw sourceError;
+    const text=losslessMarkdown();if(text===null)throw new Error('文档含有 Markdown 无法完整保留的格式，请选择 Word 或网页作品导出。');
+    return source?.state.doc.toString()??text;
   },openFind(){ $('find-panel').hidden=false;$('find-text').focus();},closeSource};
 }

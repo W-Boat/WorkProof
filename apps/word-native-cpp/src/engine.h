@@ -21,6 +21,7 @@ struct DocSnapshot {
     HWND editorWindow = nullptr; // Local document-window boundary; never serialized.
     std::wstring layoutSignature; // Optional numeric style samples, kept local.
     std::wstring formatSignature;
+    std::wstring structureSignature; // Local SHA-256 of bounded PPT object metadata; no content.
     long selectionStart = -1, selectionEnd = -1;
 };
 
