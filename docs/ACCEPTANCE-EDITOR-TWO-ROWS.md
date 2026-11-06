@@ -28,4 +28,4 @@ Artifact `13504341607`，名称 `workproof-native-word-windows-dev`，来源为�
 
 本机包：`E:/work/WorkProof-Delivery/WorkProof-PC-0059dd0.zip`。解压目录：`E:/work/WorkProof-Delivery/WorkProof-PC-0059dd0`。
 
-截至本记录，旧版 `6e900d6` 仍在托盘运行，等待用户保存并退出后切换。包核对与远程测试不能表述为新版已在用户机器启动。
+用户确认退出后，本机已核对旧进程与记录端口释放，并从上述目录启动新版。进程 `21120` 的路径匹配该目录，窗口标题为“WorkProof · 创作工作台”，窗口句柄有效且正常响应；127.0.0.1:43127 的监听进程也是 `21120`。两个当前桌面快捷方式、开始菜单入口和 Word／PowerPoint 当前用户加载项注册已更新。安装前没有 Word／PowerPoint 运行实例，没有强制结束应用或关闭文档。此记录证明启动和端口归属，实际宿主操作、DPI 和真实输入仍按人工验收范围区分。

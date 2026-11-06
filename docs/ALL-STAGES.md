@@ -2,6 +2,10 @@
 
 ## 桌面编辑器交付更新（2026-11-06）
 
+两层编辑栏修复的交付源码为 `0059dd0`。[三浏览器回归 42221813143](https://github.com/W-Boat/WorkProof/actions/runs/42221813143) 的 144 项界面检查通过，覆盖提示自动消失、保存重试、浮动侧栏不遮挡命令、窗口变化恢复偏好、宽屏布局与编辑引擎按需加载；该运行与交付包的桌面源码相同。[Windows 完整包 42220220448](https://github.com/W-Boat/WorkProof/actions/runs/42220220448) 三任务全部通过，产物 `13504341607` 已在本机核对外层摘要、全部 2526 个包内文件摘要及 Wasm 来源，再解压到 `E:/work/WorkProof-Delivery/WorkProof-PC-0059dd0`。用户确认退出旧版后，新版工作台已启动并响应，监听 43127 端口的进程与新版路径一致，当前桌面快捷方式及 Word/PPT 用户级注册已更新。[验收与哈希明细](ACCEPTANCE-EDITOR-TWO-ROWS.md)。后续 Linux 原生交互检查仍由完整回归运行，不能用浏览器结果代替全部跨平台验收。
+
+以下段落保留此前桌面交付记录。
+
 后续源码 `6e900d6` 的[桌面回归 42157555162](https://github.com/W-Boat/WorkProof/actions/runs/42157555162)已通过 126 项三浏览器测试、18 项引擎测试和 5 项动作合并测试。覆盖整窗 70% 编辑画布布局、精简模式及恢复、外部应用记录统一列表与分页、字体与链接编辑、图标说明和内嵌主题同步。[Windows 完整便携包 42157555155](https://github.com/W-Boat/WorkProof/actions/runs/42157555155)三任务成功。产物 `13475568695` 外层 SHA256 为 `771ffd31dc52baf693898c71eb663429222b83c21cf68a2b7a2a7854ba72105f`，内层包为 `eafde8077e5490ba1dcbeab74a3ef859283e709c14da9b80428e6d0dee15a424`，全部 2526 项文件摘要已核对。本机包位于 `E:/work/WorkProof-Delivery/WorkProof-PC-6e900d6`，桌面快捷方式和 Word/PPT 用户级加载项注册已更新，用户确认退出旧版后，新版工作台已从该目录启动并正常响应，127.0.0.1:43127 监听进程与新版主进程一致。
 
 后续 `57d50c6` 对收起导航栏的图标居中增加样式与位置检查，[三浏览器回归 42158955972](https://github.com/W-Boat/WorkProof/actions/runs/42158955972)已通过；该后续样式未包含在上述 `6e900d6` 安装包。Linux 原生核验页演示按钮激活仍待新验收，`264588e` 增加布局就绪、原生键盘交互与有界失败诊断，由[完整回归 42158434821](https://github.com/W-Boat/WorkProof/actions/runs/42158434821)验证。
