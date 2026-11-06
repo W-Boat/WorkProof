@@ -2,7 +2,7 @@
 
 ## 桌面编辑器交付更新（2026-11-06）
 
-后续源码 `6e900d6` 的[桌面回归 42157555162](https://github.com/W-Boat/WorkProof/actions/runs/42157555162)已通过 126 项三浏览器测试、18 项引擎测试和 5 项动作合并测试。覆盖整窗 70% 编辑画布布局、精简模式及恢复、外部应用记录统一列表与分页、字体与链接编辑、图标说明和内嵌主题同步。[Windows 完整便携包 42157555155](https://github.com/W-Boat/WorkProof/actions/runs/42157555155)三任务成功。产物 `13475568695` 外层 SHA256 为 `771ffd31dc52baf693898c71eb663429222b83c21cf68a2b7a2a7854ba72105f`，内层包为 `eafde8077e5490ba1dcbeab74a3ef859283e709c14da9b80428e6d0dee15a424`，全部 2526 项文件摘要已核对。本机包位于 `E:/work/WorkProof-Delivery/WorkProof-PC-6e900d6`，桌面快捷方式和 Word/PPT 用户级加载项注册已更新，旧版托盘进程仍在运行，待正常退出后启动新版。
+后续源码 `6e900d6` 的[桌面回归 42157555162](https://github.com/W-Boat/WorkProof/actions/runs/42157555162)已通过 126 项三浏览器测试、18 项引擎测试和 5 项动作合并测试。覆盖整窗 70% 编辑画布布局、精简模式及恢复、外部应用记录统一列表与分页、字体与链接编辑、图标说明和内嵌主题同步。[Windows 完整便携包 42157555155](https://github.com/W-Boat/WorkProof/actions/runs/42157555155)三任务成功。产物 `13475568695` 外层 SHA256 为 `771ffd31dc52baf693898c71eb663429222b83c21cf68a2b7a2a7854ba72105f`，内层包为 `eafde8077e5490ba1dcbeab74a3ef859283e709c14da9b80428e6d0dee15a424`，全部 2526 项文件摘要已核对。本机包位于 `E:/work/WorkProof-Delivery/WorkProof-PC-6e900d6`，桌面快捷方式和 Word/PPT 用户级加载项注册已更新，用户确认退出旧版后，新版工作台已从该目录启动并正常响应，127.0.0.1:43127 监听进程与新版主进程一致。
 
 后续 `57d50c6` 对收起导航栏的图标居中增加样式与位置检查，[三浏览器回归 42158955972](https://github.com/W-Boat/WorkProof/actions/runs/42158955972)已通过；该后续样式未包含在上述 `6e900d6` 安装包。Linux 原生核验页演示按钮激活仍待新验收，`264588e` 增加布局就绪、原生键盘交互与有界失败诊断，由[完整回归 42158434821](https://github.com/W-Boat/WorkProof/actions/runs/42158434821)验证。
 
