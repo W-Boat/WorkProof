@@ -13,7 +13,10 @@ export default defineConfig({
   fullyParallel:false,
   outputDir:'test-results/editor-stress-traces',
   reporter:[['list'],['html',{outputFolder:'test-results/editor-stress-report',open:'never'}]],
-  use:{baseURL:'http://127.0.0.1:4178',viewport:{width:1280,height:900},actionTimeout:20000,navigationTimeout:30000,trace:'retain-on-failure'},
+  // Trace snapshots serialize the full long document around every action and
+  // would distort the input latency being measured. Explicit case diagnostics
+  // and screenshots are collected outside the timed operations instead.
+  use:{baseURL:'http://127.0.0.1:4178',viewport:{width:1280,height:900},actionTimeout:20000,navigationTimeout:30000,trace:'off'},
   projects:[{name:'chromium',use:{browserName:'chromium'}}],
   webServer:{command:'python3 -m http.server 4178 --bind 127.0.0.1 --directory apps/desktop/ui',url:'http://127.0.0.1:4178/index.html',reuseExistingServer:false},
 });

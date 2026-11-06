@@ -93,6 +93,7 @@ for(const target of [100000,150000,200000,300000])test(`real persisted Chinese d
   const seed=fixture(target),title=`真实长文压测${target}`;
   const metrics:any={target_chars:target,actual_chars:null,tail_marker:seed.tail,open_ms:null,keypress_ms:[],save_ms:null,exports:{},errors:[],scope:'Chromium 1280x900 on Actions, real Tiptap/SQLite/Ed25519 and offline Word worker. Keydown to double-rAF is a next-paint proxy. File-picker human wait excluded; bridge writes actual files. Native WebView and Chinese IME composition are outside this run.'};
   const proofs:Record<string,any>={};let initial:Awaited<ReturnType<typeof openDesktop>>|null=null;
+  metrics.environment={platform:os.platform(),architecture:os.arch(),node:process.version,browser:browser.version(),logical_cpus:os.cpus().length,cpu:os.cpus()[0]?.model,host_memory_bytes:os.totalmem(),trace:'off'};
   let id='';
   try{
     const created=await engine.invoke('editor_create',{title,started:new Date().toISOString()});id=created.id;
