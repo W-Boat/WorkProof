@@ -112,6 +112,8 @@ window.workproofCancelClose=()=>{
   setEditable(editableBeforeClose||(!dirty&&!pending.length&&!inflight));
 };
 window.workproofBeforeClose=async()=>{
+  // Let the editor observe the final browser input before freezing its DOM.
+  await new Promise(resolve=>requestAnimationFrame(resolve));
   if(opening||creating||importing||exporting)throw new Error('文档正在打开、导入或导出，请完成后再关闭或退出。');
   if(editor?.view.composing)throw new Error('请先完成当前输入，再关闭或退出。');
   if(closing)return;

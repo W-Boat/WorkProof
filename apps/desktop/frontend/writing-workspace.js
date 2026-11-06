@@ -19,7 +19,12 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   const sourceVisible=()=>!$('markdown-source-panel').hidden;
   function losslessMarkdown(){
     const editor=getEditor();if(!editor)return null;
-    const matches=text=>typeof text==='string'&&editor.schema.nodeFromJSON(editor.markdown.parse(text)).content.eq(editor.state.doc.content);
+    const matches=text=>{
+      if(typeof text!=='string')return false;
+      const parsed=editor.markdown.parse(text);
+      if(!parsed.content?.length)parsed.content=[{type:'paragraph'}];
+      return editor.schema.nodeFromJSON(parsed).content.eq(editor.state.doc.content);
+    };
     try{
       const saved=editor.state.doc.attrs.markdownSource;
       if(matches(saved))return saved;
