@@ -224,7 +224,7 @@ body[data-view=external-document] #external-document-workspace{display:block}
 @media(forced-colors:active){.source-badge{border-color:CanvasText}#external-actions>li::before{background:Highlight;box-shadow:none}}
 
 /* Keep the writing surface large while allowing deliberate tool expansion. */
-#document-workspace{grid-template-rows:64px 38px minmax(0,1fr);transition:grid-template-rows 180ms var(--ease)}
+#document-workspace{grid-template-rows:56px 34px minmax(0,1fr);transition:grid-template-rows 180ms var(--ease)}
 .doc-head{min-height:0;padding:7px 20px}
 .doc-identity{gap:1px}
 .doc-identity input{font-size:18px;line-height:1.35}
