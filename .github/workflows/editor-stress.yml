@@ -1,0 +1,63 @@
+name: Large document editor and real export stress
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/editor-stress.yml'
+      - 'crates/engine/examples/editor_stress_harness.rs'
+      - 'tests/desktop-editor-stress.spec.ts'
+      - 'playwright.desktop-stress.config.ts'
+      - 'scripts/summarize_editor_stress.py'
+permissions:
+  contents: read
+concurrency:
+  group: editor-stress-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  large-documents:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      WORKPROOF_EDITOR_STRESS_HARNESS: ${{ github.workspace }}/target/release/examples/editor_stress_harness
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - name: Build the actual private editor storage and export bridge
+        run: cargo build --release --locked -p workproof-engine --example editor_stress_harness
+      - name: Build the shipped desktop UI and offline Word converter
+        run: node scripts/stage_desktop_ui.cjs
+      - name: Chinese font for representative text layout
+        timeout-minutes: 3
+        run: |
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y fonts-noto-cjk
+      - name: Install the benchmark browser
+        run: npx playwright install --with-deps chromium
+      - name: Measure large document opening editing saving and signed exports
+        run: npx playwright test --config playwright.desktop-stress.config.ts
+      - name: Check complete exported text and summarize all observed results
+        if: always()
+        run: python3 scripts/summarize_editor_stress.py --root test-results/editor-stress --output test-results/editor-stress/summary
+      - name: Publish the measured report
+        if: always()
+        run: |
+          if [ -f test-results/editor-stress/summary.md ]; then
+            cat test-results/editor-stress/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: large-document-stress-report
+          path: |
+            test-results/editor-stress/
+            test-results/editor-stress-traces/
+            test-results/editor-stress-report/
+          if-no-files-found: error
