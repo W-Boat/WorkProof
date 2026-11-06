@@ -2,7 +2,7 @@ name: Desktop workbench UI
 on:
   workflow_dispatch:
   push:
-    paths: ['apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'crates/engine/src/editor.rs', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'scripts/test_editor_flows.cjs', 'tests/desktop-*.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
+    paths: ['apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'apps/desktop/src-tauri/tauri.conf.json', 'crates/engine/src/editor.rs', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'scripts/test_editor_flows.cjs', 'tests/desktop-*.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
 permissions:
   contents: read
 jobs:
