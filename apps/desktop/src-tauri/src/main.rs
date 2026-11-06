@@ -123,7 +123,7 @@ async fn install_vscode(window:tauri::WebviewWindow,app:tauri::AppHandle)->Resul
     Ok("插件安装完成。在 VS Code 状态栏点击 WorkProof 即可开始记录。".into())
 }
 fn main(){
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![window_action,office_setup,engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,verifier_url,install_vscode,open_word,open_powerpoint,verify_image,embed_image,editor::editor_list,editor::editor_create,editor::editor_load,editor::editor_save,editor::editor_version,editor::editor_export,external_documents::external_documents_list,external_documents::external_document_load,external_documents::external_document_open]).setup(|app|{
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![window_action,office_setup,engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,verifier_url,install_vscode,open_word,open_powerpoint,verify_image,embed_image,editor::editor_list,editor::editor_create,editor::editor_load,editor::editor_save,editor::editor_version,editor::editor_export,external_documents::external_documents_list,external_documents::external_document_load,external_documents::external_document_open,external_documents::external_document_locate]).setup(|app|{
         let open=MenuItem::with_id(app,"open","WorkProof · 状态与帮助",true,None::<&str>)?;
         let quit=MenuItem::with_id(app,"quit","退出 WorkProof",true,None::<&str>)?;
         let menu=Menu::with_items(app,&[&open,&quit])?;

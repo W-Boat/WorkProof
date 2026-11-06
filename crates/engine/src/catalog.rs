@@ -1,5 +1,6 @@
-//! Desktop-only catalog of external-app sessions. All reads use read-only
-//! SQLite connections. No HTTP listing, proof mutation or file reading occurs.
+//! Desktop-only catalog of external-app sessions. Listing/history use read-only
+//! SQLite connections; explicit location updates write only a private hint.
+//! No HTTP listing, proof mutation or file-content reading occurs.
 use std::{path::Path,time::Duration};
 use rusqlite::{Connection,OpenFlags};
 use serde::Serialize;
@@ -59,6 +60,27 @@ pub fn list(root:&Path)->Result<Vec<ExternalDocument>>{
     let Some(db)=open(root)? else{return Ok(vec![]);};
     documents(&db,None)
 }
+/// Associate a user-selected file with an existing record. This private hint
+/// does not change event bytes, receipt times, or signed proof fields.
+pub fn locate(root:&Path,id:&str,path:&Path)->Result<ExternalDocument>{
+    let previous=load(root,id,None,1)?.document;
+    let text=path.to_str().ok_or("文件位置无法保存，请使用有效的文件名。")?;
+    if !path.is_absolute()||!path.is_file()||text.len()>32768||text.chars().any(char::is_control){return Err("请选择当前可以访问的原文件。".into());}
+    let name=path.file_name().and_then(|name|name.to_str()).ok_or("文件名无法读取。")?;
+    let matches=if cfg!(windows){name.to_lowercase()==previous.title.to_lowercase()}else{name==previous.title};
+    if !matches{return Err(format!("请选择文件名为“{}”的作品。",previous.title));}
+    let mut db=Connection::open_with_flags(root.join("records.sqlite"),OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(storage)?;
+    db.busy_timeout(Duration::from_secs(3)).map_err(storage)?;
+    db.execute_batch("PRAGMA foreign_keys=ON;").map_err(storage)?;
+    let tx=db.transaction().map_err(storage)?;
+    tx.execute_batch("CREATE TABLE IF NOT EXISTS session_files(session TEXT PRIMARY KEY,local_path TEXT NOT NULL,FOREIGN KEY(session) REFERENCES sessions(id));").map_err(storage)?;
+    let exists:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM sessions WHERE id=?1 AND name=?2)",rusqlite::params![id,previous.title],|row|row.get(0)).map_err(storage)?;
+    if !exists{return Err("记录已变化，请重新打开文档列表。".into());}
+    tx.execute("INSERT INTO session_files(session,local_path) VALUES(?1,?2) ON CONFLICT(session) DO UPDATE SET local_path=excluded.local_path",rusqlite::params![id,text]).map_err(storage)?;
+    let document=documents(&tx,Some(id))?.pop().ok_or("创作记录未找到。")?;
+    tx.commit().map_err(storage)?;
+    Ok(document)
+}
 /// Read at most 500 recent records and 2MiB per page. `before_seq` is exclusive.
 /// The local path is a hint; callers must check file existence themselves and
 /// obtain an explicit user action before opening it in its host application.
@@ -108,6 +130,20 @@ mod tests{
         (Arc::new(Mutex::new(store)),headers)
     }
     fn input(path:Option<String>)->Start{serde_json::from_value(serde_json::json!({"file_name":"draft.docx","started_at":"2026-11-06T00:00:00Z","source":"word","local_path":path})).unwrap()}
+    #[test]
+    fn locating_a_legacy_file_keeps_record_bytes_and_accepts_only_the_original_name(){
+        let temp=Temp::new();let db=Connection::open(temp.0.join("records.sqlite")).unwrap();db.execute_batch(BASE).unwrap();
+        let id="c".repeat(32);db.execute("INSERT INTO sessions VALUES(?1,'draft.docx','2020-01-01','word',0)",[&id]).unwrap();
+        let json=serde_json::to_string(&event(0,"start")).unwrap();let hash="a".repeat(64);
+        db.execute("INSERT INTO events VALUES(?1,0,?2,?3)",rusqlite::params![id,json,hash]).unwrap();
+        let right=temp.0.join("draft.docx");let wrong=temp.0.join("other.docx");std::fs::write(&right,b"fixture").unwrap();std::fs::write(&wrong,b"fixture").unwrap();
+        assert!(locate(&temp.0,&id,&wrong).is_err());assert!(locate(&temp.0,&id,Path::new("draft.docx")).is_err());
+        let located=locate(&temp.0,&id,&right).unwrap();assert_eq!(located.local_path.as_deref(),right.to_str());assert_eq!(located.event_count,1);assert!(located.modified_ms.is_none());
+        let stored:(String,String)=db.query_row("SELECT json,hash FROM events WHERE session=?1",[&id],|row|Ok((row.get(0)?,row.get(1)?))).unwrap();assert_eq!(stored,(json,hash));
+        assert!(!exists(&db,"session_activity").unwrap());
+        std::fs::remove_file(&right).unwrap();assert!(locate(&temp.0,&id,&right).is_err());
+        assert_eq!(list(&temp.0).unwrap()[0].local_path,located.local_path);
+    }
     #[test]
     fn legacy_reads_never_migrate_and_history_pages_are_stable(){
         let temp=Temp::new();assert!(list(&temp.0).unwrap().is_empty());assert!(!temp.0.join("records.sqlite").exists());

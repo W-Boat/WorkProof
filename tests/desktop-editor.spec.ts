@@ -436,3 +436,34 @@ test('leaving the editor exits simple writing and releases navigation controls',
   await page.evaluate(()=>(window as any).workproofUI.selectView('connections',true));
   await expect(page.locator('body')).toHaveAttribute('data-view','connections');await expect(page.locator('body')).not.toHaveClass(/simple-writing/);await expect(page.locator('#exit-simple-writing')).toBeHidden();await expect(page.locator('.workspace-nav')).not.toHaveAttribute('inert','');
 });
+
+test('locating a legacy original file preserves history across cancel error and successful association',async({page})=>{
+  await desktop(page);await page.evaluate(()=>{
+    const w=window as any,document={id:'legacy-location',title:'待定位作品.docx',source:'word',started_at:'2026-11-01T08:00:00Z',event_count:1,last_elapsed_ms:1000,local_path:null,file_available:false,can_open:false,recent_order:1,demo:false};
+    w.editorHarness.externalDocuments=[document];w.editorHarness.externalRecords={[document.id]:[{event:{seq:0,elapsed_ms:1000,kind:'edit',inserted:3,deleted:0,chars:3,checkpoint:'0'.repeat(64),metrics:{}},hash:'a'.repeat(64)}]};
+    const invoke=w.__TAURI__.core.invoke;w.editorHarness.locateAttempts=0;
+    w.__TAURI__.core.invoke=async(command:string,args:any)=>{
+      if(command!=='external_document_locate')return invoke(command,args);
+      w.editorHarness.locateAttempts++;w.editorHarness.lastLocateArgs=args;
+      if(w.editorHarness.locateAttempts===1)return {cancelled:true};
+      if(w.editorHarness.locateAttempts===2)throw new Error('请选择名为“待定位作品.docx”的原文件。');
+      const updated={...document,local_path:'C:\\创作\\待定位作品.docx',file_available:true,can_open:true};w.editorHarness.externalDocuments=[updated];return {cancelled:false,document:updated};
+    };
+  });
+  await page.locator('#reload-documents').click();await page.getByRole('button',{name:'查看记录 待定位作品.docx',exact:true}).click();
+  const locate=page.locator('#external-locate-file');await expect(locate).toBeVisible();await expect(page.locator('#external-actions > li')).toHaveCount(1);
+  await locate.click();await expect(locate).toBeEnabled();await expect(page.locator('#external-file-status')).toContainText('文件位置未记录');await expect(page.locator('#external-open-file')).toBeHidden();
+  await locate.click();await expect(page.locator('#message')).toContainText('待定位作品.docx');await expect(locate).toBeEnabled();await expect(page.locator('#external-actions > li')).toHaveCount(1);
+  await locate.click();await expect(locate).toBeHidden();await expect(page.locator('#external-open-file')).toBeEnabled();await expect(page.locator('#external-actions > li')).toHaveCount(1);
+  expect(await page.evaluate(()=>(window as any).editorHarness.lastLocateArgs)).toEqual({id:'legacy-location'});
+  await page.locator('#external-open-file').click();await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.openedExternalIds)).toEqual(['legacy-location']);
+});
+
+test('moved originals can be located and picker failures restore controls without changing history',async({page})=>{
+  await desktop(page);await page.evaluate(()=>{
+    const w=window as any;w.editorHarness.externalDocuments=[{id:'moved-location',title:'搬移演示.pptx',source:'powerpoint',started_at:'2026-11-01T08:00:00Z',event_count:0,last_elapsed_ms:null,local_path:'C:\\旧目录\\搬移演示.pptx',file_available:false,can_open:false,recent_order:1,demo:false}];
+    const invoke=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(command:string,args:any)=>command==='external_document_locate'?Promise.reject(new Error('文件选择暂未完成，请重试。')):invoke(command,args);
+  });
+  await page.locator('#reload-documents').click();await page.getByRole('button',{name:'查看记录 搬移演示.pptx',exact:true}).click();await expect(page.locator('#external-file-status')).toContainText('请确认文件仍在原位置');
+  await page.locator('#external-locate-file').click();await expect(page.locator('#message')).toContainText('文件选择暂未完成');await expect(page.locator('#external-locate-file')).toBeEnabled();await expect(page.locator('#external-open-file')).toBeDisabled();await expect(page.locator('#external-empty')).toBeVisible();
+});

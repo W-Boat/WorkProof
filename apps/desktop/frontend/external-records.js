@@ -23,10 +23,11 @@ export function groupExternalDocuments(documents){
 function element(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
 const actionLabels={edit:'修改文字',text_delta:'修改文字',format:'调整格式',undo:'撤销',redo:'重做',copy:'复制',paste:'粘贴',cut:'剪切',backspace:'退格',delete_forward:'删除',space:'空格',enter:'回车',cursor:'移动光标',selection:'选择内容',checkpoint:'保存检查点',start:'开始记录',stop:'停止记录',layer:'调整图层',structure:'调整结构',snapshot:'记录快照'};
 export function externalRecords({ipc,flush,ui}){
-  let current=null,nextBefore=null,token=0,loading=false,sessions=[];
+  let current=null,nextBefore=null,token=0,loading=false,locating=false,sessions=[];
   const seen=new Set();
   function renderFileState(){
     $('external-open-file').hidden=!current?.local_path;$('external-open-file').disabled=!current?.can_open;
+    if($('external-locate-file')){$('external-locate-file').hidden=Boolean(current?.file_available);$('external-locate-file').disabled=loading||locating;}
     if($('external-file-status'))$('external-file-status').textContent=current?.file_available?(current.can_open?'可打开这次记录对应的本机文件。':'请在原应用中打开此文件。'):current?.local_path?'原文件当前无法打开，请确认文件仍在原位置。':'文件位置未记录。你可以在原应用中打开文件，继续记录。';
   }
   function renderRecord(record){
@@ -41,7 +42,7 @@ export function externalRecords({ipc,flush,ui}){
     row.append(details);return row;
   }
   async function loadPage(id,beforeSeq,requestToken){
-    if(loading)return;loading=true;$('external-load-more').disabled=true;
+    if(loading||locating)return;loading=true;$('external-load-more').disabled=true;
     try{
       const result=await ipc('external_document_load',{id,beforeSeq,limit:200});
       if(requestToken!==token)return;
@@ -56,10 +57,10 @@ export function externalRecords({ipc,flush,ui}){
       nextBefore=result.next_before;
       $('external-load-more').hidden=!result.has_more;
       if(result.has_more&&!Number.isSafeInteger(nextBefore))throw new Error('更早的记录暂时无法读取，请重新打开这份文档。');
-    }finally{loading=false;$('external-load-more').disabled=false;if($('external-session-select'))$('external-session-select').disabled=false;}
+    }finally{loading=false;$('external-load-more').disabled=false;if($('external-session-select'))$('external-session-select').disabled=locating;renderFileState();}
   }
   async function open(document,group=[document],focus=true){
-    if(loading)return;
+    if(loading||locating)return;
     await flush();const requestToken=++token;current=document;sessions=group;nextBefore=null;seen.clear();
     const select=$('external-session-select');
     if(select){select.replaceChildren(...sessions.map(session=>{const option=element('option','',`${displayTime(recordTime(session))} · ${session.event_count} 条记录`);option.value=session.id;return option;}));select.value=document.id;select.hidden=sessions.length<2;select.disabled=true;}
@@ -75,6 +76,20 @@ export function externalRecords({ipc,flush,ui}){
   $('external-open-file').addEventListener('click',async()=>{
     if(!current?.can_open)return;const button=$('external-open-file');button.disabled=true;
     try{await ipc('external_document_open',{id:current.id});}catch(error){ui.showMessage(String(error),'error');}finally{button.disabled=!current?.can_open;}
+  });
+  $('external-locate-file')?.addEventListener('click',async()=>{
+    if(!current||loading||locating)return;
+    const id=current.id,requestToken=token;locating=true;renderFileState();$('external-load-more').disabled=true;
+    if($('external-session-select'))$('external-session-select').disabled=true;
+    try{
+      await flush();
+      const result=await ipc('external_document_locate',{id});
+      if(result?.cancelled===true)return;
+      if(result?.cancelled!==false||result.document?.id!==id)throw new Error('文件位置未能确认，请重新定位原文件。');
+      sessions=sessions.map(session=>session.id===id?result.document:session);
+      if(token===requestToken&&current?.id===id){current=result.document;renderFileState();ui.showMessage(current.can_open?'文件位置已更新，可以打开原文件。':'文件位置已更新，请在原应用中打开此文件。');}
+    }catch(error){ui.showMessage(String(error),'error');}
+    finally{locating=false;renderFileState();$('external-load-more').disabled=loading;if($('external-session-select'))$('external-session-select').disabled=loading;}
   });
   $('external-connection-help')?.addEventListener('click',()=>{
     const select=$('creation-tool');if([...select.options].some(option=>option.value===current?.source)){select.value=current.source;select.dispatchEvent(new Event('change'));}

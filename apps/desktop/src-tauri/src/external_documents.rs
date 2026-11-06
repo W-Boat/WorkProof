@@ -43,6 +43,24 @@ pub async fn external_document_load(window:WebviewWindow,id:String,before_seq:Op
 }
 
 #[tauri::command]
+pub async fn external_document_locate(window:WebviewWindow,id:String)->Result<Value,String>{
+    let root=root(&window)?;
+    tauri::async_runtime::spawn_blocking(move||{
+        let history=catalog::load(&root,&id,None,1)?;
+        let filter=match history.document.source.as_str(){
+            "word"|"wps"=>"文档作品|*.doc;*.docx;*.docm;*.odt;*.rtf;*.wps",
+            "powerpoint"=>"演示文稿|*.ppt;*.pptx;*.pptm;*.pps;*.ppsx",
+            "photoshop"=>"设计作品|*.psd;*.psb;*.png;*.jpg;*.jpeg;*.webp",
+            "blender"=>"Blender 工程|*.blend",
+            _=>"作品文件|*.*",
+        };
+        let Some(path)=super::c2pa::pick("定位原文件，仅更新本机文件位置",filter,false,"")?else{return Ok(serde_json::json!({"cancelled":true}));};
+        let document=catalog::locate(&root,&id,&path)?;
+        Ok(serde_json::json!({"cancelled":false,"document":annotate(&document)?}))
+    }).await.map_err(|_|"文件位置未更新，请重试。")?
+}
+
+#[tauri::command]
 pub async fn external_document_open(window:WebviewWindow,id:String)->Result<(),String>{
     let root=root(&window)?;
     tauri::async_runtime::spawn_blocking(move||{
