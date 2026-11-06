@@ -51,9 +51,33 @@ function updateConnectionBadges(){
 }
 const launchIds=['open-word','open-powerpoint','install','check-office','install-office'];
 function updateLaunchButtons(){for(const id of launchIds)document.getElementById(id).disabled=!engineReady||launching;}
+const feedback=document.getElementById('message');
+const feedbackText=document.createElement('span');feedbackText.id='message-text';
+const feedbackDismiss=document.createElement('button');feedbackDismiss.id='dismiss-message';
+feedbackDismiss.type='button';feedbackDismiss.setAttribute('aria-label','关闭提示');
+const dismissIcon=document.createElementNS('http://www.w3.org/2000/svg','svg');
+dismissIcon.setAttribute('viewBox','0 0 20 20');dismissIcon.setAttribute('width','20');dismissIcon.setAttribute('height','20');dismissIcon.setAttribute('aria-hidden','true');
+const dismissPath=document.createElementNS('http://www.w3.org/2000/svg','path');
+dismissPath.setAttribute('d','M5.5 5.5l9 9m0-9l-9 9');dismissPath.setAttribute('fill','none');dismissPath.setAttribute('stroke','currentColor');dismissPath.setAttribute('stroke-width','1.5');dismissPath.setAttribute('stroke-linecap','round');
+dismissIcon.append(dismissPath);feedbackDismiss.append(dismissIcon);
+feedback.replaceChildren(feedbackText,feedbackDismiss);feedback.hidden=true;
+let feedbackTimer=null,feedbackHovered=false,feedbackFocused=false;
+function pauseFeedback(){clearTimeout(feedbackTimer);feedbackTimer=null;}
+function dismissFeedback(){pauseFeedback();feedback.hidden=true;feedbackText.textContent='';}
+function scheduleFeedback(){
+  pauseFeedback();
+  if(!feedback.hidden&&feedback.dataset.state!=='error'&&!feedbackHovered&&!feedbackFocused)feedbackTimer=setTimeout(dismissFeedback,6000);
+}
+feedback.addEventListener('pointerenter',()=>{feedbackHovered=true;pauseFeedback();});
+feedback.addEventListener('pointerleave',()=>{feedbackHovered=false;scheduleFeedback();});
+feedback.addEventListener('focusin',()=>{feedbackFocused=true;pauseFeedback();});
+feedback.addEventListener('focusout',event=>{if(!feedback.contains(event.relatedTarget)){feedbackFocused=false;scheduleFeedback();}});
+feedbackDismiss.addEventListener('click',dismissFeedback);
 function showMessage(text,state='info'){
-  const message=document.getElementById('message');message.textContent=text;message.dataset.state=state;
-  if(state==='error')message.scrollIntoView({block:'nearest',behavior:'auto'});
+  if(!text){dismissFeedback();return;}
+  feedbackText.textContent=text;feedback.dataset.state=state;feedback.hidden=false;
+  feedbackHovered=feedback.matches(':hover');feedbackFocused=feedback.contains(document.activeElement);
+  scheduleFeedback();
 }
 const errorText=error=>error instanceof Error?error.message:String(error);
 updateLaunchButtons();

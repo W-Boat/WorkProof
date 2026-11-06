@@ -137,6 +137,7 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   const ribbonTabs=[...document.querySelectorAll('[data-ribbon]')];
   function selectRibbon(button){
     ribbonTabs.forEach(item=>{const selected=item===button;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;$('ribbon-'+item.dataset.ribbon).hidden=!selected;});
+    document.dispatchEvent(new Event('workproof:ribbon-selected'));
   }
   ribbonTabs.forEach((button,index)=>{
     button.addEventListener('click',()=>selectRibbon(button));
@@ -147,7 +148,7 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
       else if(event.key==='Home')target=ribbonTabs[0];
       else if(event.key==='End')target=ribbonTabs.at(-1);
       else if(event.key==='ArrowDown'){
-        event.preventDefault();$('ribbon-'+button.dataset.ribbon).querySelector('fluent-button:not([disabled]),button:not([disabled]),select:not([disabled])')?.focus();return;
+        event.preventDefault();selectRibbon(button);$('ribbon-'+button.dataset.ribbon).querySelector('fluent-button:not([disabled]),button:not([disabled]),select:not([disabled])')?.focus();return;
       }else return;
       event.preventDefault();selectRibbon(target);target.focus();
     });

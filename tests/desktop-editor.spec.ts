@@ -5,10 +5,13 @@ import fs from 'node:fs';
 // fixture; engine editor::tests cover actual SQLite and Ed25519 separately.
 async function desktop(page:Page){
   await page.route('**/desktop-status/**',route=>{
-    const name=new URL(route.request().url()).pathname.split('/').at(-1)!;
+    const asset=new URL(route.request().url()).pathname.slice('/desktop-status/'.length);
+    const name=asset.split('/').at(-1)!;
     const type:Record<string,string>={'index.html':'text/html','word-worker.js':'application/javascript','components.js':'application/javascript','theme.css':'text/css','native-editor.css':'text/css','brand.png':'image/png'};
     const headers=name==='index.html'?{'Content-Security-Policy':JSON.parse(fs.readFileSync('apps/desktop/src-tauri/tauri.conf.json','utf8')).app.security.csp}:{};
-    return type[name]?route.fulfill({contentType:type[name],headers,body:fs.readFileSync('apps/desktop/ui/'+name)}):route.abort();
+    const chunk=/^chunks\/[A-Za-z0-9_-]+\.js$/.test(asset);
+    if(!chunk&&(!type[name]||asset!==name))return route.abort();
+    return route.fulfill({contentType:chunk?'application/javascript':type[name],headers,body:fs.readFileSync('apps/desktop/ui/'+asset)});
   });
   await page.addInitScript(()=>{
     if(window!==window.top)return;
@@ -54,12 +57,18 @@ async function desktop(page:Page){
   await expect(page.getByRole('button',{name:'新建文档',exact:true})).toBeVisible();
 }
 async function create(page:Page){await page.getByRole('button',{name:'新建文档',exact:true}).click();await expect(page.getByRole('textbox',{name:'文档正文'})).toBeVisible();return page.getByRole('textbox',{name:'文档正文'});}
+async function ensureRibbonOpen(page:Page){
+  await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');
+  if(await page.locator('#write-panel').getAttribute('data-ribbon-open')!=='true')await page.locator('#toggle-ribbon').click();
+  await expect(page.locator('#write-panel')).toHaveAttribute('data-ribbon-open','true');
+  await expect(page.locator('#writing-ribbon')).not.toHaveAttribute('inert','');
+}
 
 test('real Tiptap edits and formats persist and reopen with independent navigation',async({page},info)=>{
   await desktop(page);const body=await create(page);
   await page.getByLabel('文档名称',{exact:true}).fill('学术写作记录');
   await body.fill('这是一份写作笔记。');await body.press('End');await body.pressSequentially(' hello world');await body.press('Enter');await body.pressSequentially('second paragraph');await body.press('Backspace');
-  await page.locator('#toggle-ribbon').click();await body.press('Control+a');await page.getByRole('button',{name:'加粗',exact:true}).click();
+  await ensureRibbonOpen(page);await body.press('Control+a');await page.getByRole('button',{name:'加粗',exact:true}).click();
   await expect(body.locator('strong')).not.toHaveCount(0);
   await expect(page.locator('#save-state')).toHaveText('已保存到本机');
   await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions).map((a:any)=>a.kind))).toEqual(expect.arrayContaining(['edit','format','space','enter','backspace']));
@@ -89,7 +98,7 @@ test('failed save keeps the same request and all pending edits before retry',asy
 test('undo redo and cancelled export preserve the document and do not show a certificate',async({page})=>{
   await desktop(page);const body=await create(page);
   await body.fill('初稿');await body.press('End');await body.pressSequentially(' changed');
-  await page.locator('#toggle-ribbon').click();await page.getByRole('button',{name:'撤销',exact:true}).click();await expect(page.getByRole('button',{name:'重做',exact:true})).toBeEnabled();await page.getByRole('button',{name:'重做',exact:true}).click();
+  await ensureRibbonOpen(page);await page.getByRole('button',{name:'撤销',exact:true}).click();await expect(page.getByRole('button',{name:'重做',exact:true})).toBeEnabled();await page.getByRole('button',{name:'重做',exact:true}).click();
   await page.locator('#export-document').click();await expect(page.locator('#export-document')).toBeEnabled();
   expect(await page.evaluate(()=>(window as any).editorHarness.exports)).toBe(1);
   await expect(page.locator('#certificate-result')).toBeHidden();await expect(body).toContainText('changed');
@@ -128,7 +137,7 @@ test('offline Word module exports real DOCX and imports it through the existing 
 
 test('table pagebreak code rendering and non-content transactions are recorded',async({page})=>{
   await desktop(page);const body=await create(page);await body.fill('结构编辑');await body.press('End');await body.press('Enter');
-  await page.locator('#toggle-ribbon').click();await page.locator('[data-ribbon=insert]').click();await page.getByRole('button',{name:'插入表格',exact:true}).click();await expect(body.locator('table')).toHaveCount(1);await page.getByRole('button',{name:'删除表格',exact:true}).click();
+  await ensureRibbonOpen(page);await page.locator('[data-ribbon=insert]').click();await page.getByRole('button',{name:'插入表格',exact:true}).click();await expect(body.locator('table')).toHaveCount(1);await page.getByRole('button',{name:'删除表格',exact:true}).click();
   await page.getByRole('button',{name:'分页符',exact:true}).click();await expect(body.locator('[data-page-break]')).toHaveCount(1);
   await body.press('ArrowDown');await page.getByRole('button',{name:'代码块',exact:true}).click();await expect(body.locator('pre')).toHaveCount(1);
   await body.press('ArrowLeft');await page.locator('#save-document').click();
@@ -139,7 +148,9 @@ test('writing panes follow window space and preserve manual choices after reopen
   await page.setViewportSize({width:1600,height:900});
   await desktop(page);await create(page);
   const workspace=page.locator('#write-panel');
+  await expect(workspace).toHaveAttribute('data-panes-initialized','true');
   await expect(workspace).toHaveAttribute('data-inspector-open','false');
+  await expect.poll(()=>page.locator('#document-workspace').evaluate(element=>{const frame=element.getBoundingClientRect(),canvas=element.querySelector('.editor-canvas')!.getBoundingClientRect();return canvas.width*canvas.height/(frame.width*frame.height);})).toBeGreaterThanOrEqual(.7);
   await page.setViewportSize({width:760,height:800});
   await expect(workspace).toHaveAttribute('data-inspector-open','false');
   await expect(page.locator('#action-inspector')).toHaveAttribute('inert','');
@@ -155,18 +166,21 @@ test('writing panes follow window space and preserve manual choices after reopen
   await page.reload();
   await page.getByRole('button',{name:'继续编辑 未命名文档'}).click();
   await expect(workspace).toHaveAttribute('data-inspector-open','false');
+  const ribbonBeforeFocus=await workspace.getAttribute('data-ribbon-open');
   await page.locator('#focus-writing').click();
   await expect(workspace).toHaveAttribute('data-ribbon-open','false');
   await expect(workspace).toHaveAttribute('data-outline-open','false');
   await page.keyboard.press('Escape');
-  await expect(workspace).toHaveAttribute('data-ribbon-open','false');
+  await expect(workspace).toHaveAttribute('data-ribbon-open',ribbonBeforeFocus!);
   await expect(workspace).toHaveAttribute('data-inspector-open','false');
 });
 
 test('reduced motion removes pane animation and collapsing a focused pane restores keyboard focus',async({page})=>{
   await page.setViewportSize({width:1600,height:900});
   await page.emulateMedia({reducedMotion:'reduce'});
-  await desktop(page);await create(page);await page.locator('#toggle-inspector').click();await page.locator('#toggle-ribbon').click();
+  await desktop(page);await create(page);
+  if(await page.locator('#write-panel').getAttribute('data-inspector-open')!=='true')await page.locator('#toggle-inspector').click();
+  await ensureRibbonOpen(page);
   expect(await page.locator('#writing-ribbon').evaluate(element=>getComputedStyle(element).transitionDuration)).toBe('0s');
   await page.locator('#view-process').focus();
   await page.evaluate(()=>document.getElementById('toggle-inspector')!.click());
@@ -187,7 +201,7 @@ test('Markdown source keeps exact source in saved document and mode switching pr
   expect(saved.attrs.markdownSource).toBe('# 标题\n\n保留   源码空格');
   await page.locator('[data-mode=word]').click();await expect(body.locator('h1')).toHaveText('标题');
   await page.locator('[data-mode=markdown]').click();await page.locator('#toggle-source').click();await expect(source).toContainText('保留   源码空格');
-  await page.locator('[data-mode=word]').click();await body.click();await body.press('ControlOrMeta+a');await page.locator('#toggle-ribbon').click();await page.getByRole('button',{name:'下划线',exact:true}).click();
+  await page.locator('[data-mode=word]').click();await body.click();await body.press('ControlOrMeta+a');await ensureRibbonOpen(page);await page.getByRole('button',{name:'下划线',exact:true}).click();
   await page.locator('[data-mode=markdown]').click();await expect(body.locator('u')).toHaveText(['标题','保留   源码空格']);
   await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source-panel')).toBeVisible();
   await page.locator('#toggle-source').click();await expect(body.locator('u')).toHaveText(['标题','保留   源码空格']);
@@ -232,7 +246,7 @@ test('Markdown uses continuous layout and restores Word pagination preference wi
   await desktop(page);const body=await create(page);await body.fill(Array.from({length:80},(_,i)=>`第 ${i+1} 行连续写作内容。`).join('\n'));
   await page.locator('#save-document').click();
   const original=await page.evaluate(()=>JSON.stringify((window as any).editorHarness.saves.at(-1).content));
-  await page.locator('#toggle-ribbon').click();await page.locator('[data-ribbon=layout]').click();const pagination=page.locator('[data-command=pages]');
+  await ensureRibbonOpen(page);await page.locator('[data-ribbon=layout]').click();const pagination=page.locator('[data-command=pages]');
   await pagination.click();await expect(pagination).toHaveAttribute('aria-pressed','false');
   await page.locator('[data-mode=markdown]').click();await expect(body).toHaveAttribute('rm-pagination-disabled','');await expect(pagination).toBeDisabled();
   await page.locator('[data-mode=word]').click();await expect(body).toHaveAttribute('rm-pagination-disabled','');await expect(pagination).toBeEnabled();
@@ -294,9 +308,23 @@ test('failed save blocks tray quit and restores editing before a successful quit
   expect(await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).content.content[0].content[0].text)).toBe('退出前必须保存');
 });
 
+test('library defers the editor runtime until the first document and reuses it across documents',async({page})=>{
+  const runtimeRequests:string[]=[];
+  page.on('request',request=>{if(/\/desktop-status\/chunks\/editor-runtime-[A-Za-z0-9_-]+\.js$/.test(new URL(request.url()).pathname))runtimeRequests.push(request.url());});
+  await desktop(page);
+  await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');
+  expect(runtimeRequests).toEqual([]);
+  const body=await create(page);await body.fill('首次打开后加载完整编辑能力');
+  expect(runtimeRequests).toHaveLength(1);
+  await page.locator('#save-document').click();
+  await page.locator('.workspace-nav [data-view=library]').click();
+  await create(page);await expect(body).toBeVisible();
+  expect(runtimeRequests).toHaveLength(1);
+});
+
 test('ribbon keyboard navigation exposes the selected page and returns focus from controls',async({page})=>{
   await desktop(page);await create(page);
-  await page.locator('#toggle-ribbon').click();const home=page.locator('#toolbar-home'),insert=page.locator('#toolbar-insert'),layout=page.locator('#toolbar-layout');
+  await ensureRibbonOpen(page);const home=page.locator('#toolbar-home'),insert=page.locator('#toolbar-insert'),layout=page.locator('#toolbar-layout');
   await home.focus();await home.press('ArrowRight');await expect(insert).toBeFocused();await expect(insert).toHaveAttribute('aria-selected','true');await expect(page.locator('#ribbon-insert')).toBeVisible();
   await insert.press('End');await expect(layout).toBeFocused();await expect(page.locator('#ribbon-layout')).toBeVisible();
   await layout.press('Home');await expect(home).toBeFocused();await home.press('ArrowDown');
@@ -305,7 +333,7 @@ test('ribbon keyboard navigation exposes the selected page and returns focus fro
 });
 
 test('toolbar follows cursor formats and represents mixed font sizes truthfully',async({page})=>{
-  await desktop(page);const body=await create(page);await page.locator('#toggle-ribbon').click();await body.fill('大号文字');await body.press('ControlOrMeta+a');
+  await desktop(page);const body=await create(page);await ensureRibbonOpen(page);await body.fill('大号文字');await body.press('ControlOrMeta+a');
   await page.locator('#font-size').selectOption('18pt');await body.press('End');await page.locator('#font-size').selectOption('12pt');await body.pressSequentially('小号文字');
   await body.press('ControlOrMeta+a');await expect(page.locator('#font-size')).toHaveValue('__mixed');await expect(page.locator('#font-size option:checked')).toHaveText('多种格式');
   await body.press('ControlOrMeta+a');await body.press('ArrowLeft');await body.press('ArrowRight');await expect(page.locator('#font-size')).toHaveValue('18pt');
@@ -466,4 +494,33 @@ test('moved originals can be located and picker failures restore controls withou
   });
   await page.locator('#reload-documents').click();await page.getByRole('button',{name:'查看记录 搬移演示.pptx',exact:true}).click();await expect(page.locator('#external-file-status')).toContainText('请确认文件仍在原位置');
   await page.locator('#external-locate-file').click();await expect(page.locator('#message')).toContainText('文件选择暂未完成');await expect(page.locator('#external-locate-file')).toBeEnabled();await expect(page.locator('#external-open-file')).toBeDisabled();await expect(page.locator('#external-empty')).toBeVisible();
+});
+
+test('wide dark editor keeps two compact command rows and unclipped navigation icons',async({page},info)=>{
+  await page.setViewportSize({width:1919,height:1023});
+  await page.addInitScript(()=>{localStorage.setItem('workproof.appearance','dark');});
+  await desktop(page);const body=await create(page);await body.fill('让正文成为工作区的中心。工具随时可用，写作始终清楚。');
+  await page.locator('#save-document').click();await expect(page.locator('#save-state')).toHaveText('已保存到本机');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await expect(page.locator('body')).toHaveClass(/compact-nav/);
+  await expect.poll(()=>page.evaluate(()=>{
+    const head=document.querySelector('.doc-head')!.getBoundingClientRect(),chrome=document.querySelector('.writing-chrome')!.getBoundingClientRect();
+    const mode=document.querySelector('.doc-head .mode-switch')!.getBoundingClientRect(),tabs=document.querySelector('.doc-head .document-tabs')!.getBoundingClientRect();
+    return head.height+chrome.height<=112&&Math.abs(chrome.top-head.bottom)<=1&&mode.top>=head.top&&mode.bottom<=head.bottom&&tabs.top>=head.top&&tabs.bottom<=head.bottom&&Math.abs((mode.top+mode.height/2)-(tabs.top+tabs.height/2))<=4;
+  })).toBe(true);
+  await expect.poll(()=>page.locator('#document-workspace').evaluate(element=>{
+    const frame=element.getBoundingClientRect(),canvas=element.querySelector('.editor-canvas')!.getBoundingClientRect();
+    return canvas.width*canvas.height/(frame.width*frame.height);
+  })).toBeGreaterThanOrEqual(.7);
+  const rail=await page.locator('.workspace-nav').evaluate(element=>{
+    const bounds=element.getBoundingClientRect();
+    return {overflow:element.scrollWidth>element.clientWidth,buttons:[...element.querySelectorAll('.nav-item')].map(button=>{
+      const rect=button.getBoundingClientRect(),icon=button.querySelector('.wp-icon svg')!.getBoundingClientRect();
+      return {width:rect.width,insideRail:rect.left>=bounds.left&&rect.right<=bounds.right,iconVisible:icon.width>=18&&icon.height>=18&&icon.left>=rect.left&&icon.right<=rect.right&&icon.top>=rect.top&&icon.bottom<=rect.bottom};
+    })};
+  });
+  expect(rail.overflow).toBe(false);expect(rail.buttons.length).toBeGreaterThan(0);
+  for(const button of rail.buttons){expect(button.width).toBe(44);expect(button.insideRail).toBe(true);expect(button.iconVisible).toBe(true);}
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:info.outputPath('editor-two-rows-1919-dark.png')});
 });

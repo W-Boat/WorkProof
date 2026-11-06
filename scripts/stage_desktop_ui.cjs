@@ -6,10 +6,18 @@ for(const [source,destination] of [
   ['assets/brand/workproof-icon.png','apps/desktop/ui/brand.png'],
 ])fs.copyFileSync(path.join(root,source),path.join(root,destination));
 // Compile on Actions only; this script is never invoked as a local dev server.
+// Remove only this build's generated chunk files in CI. Source UI files and
+// unrelated output folders are outside this cleanup.
+const chunkDirectory=path.join(root,'apps/desktop/ui/chunks');
+if(process.env.GITHUB_ACTIONS==='true'&&fs.existsSync(chunkDirectory)){
+  for(const entry of fs.readdirSync(chunkDirectory,{withFileTypes:true})){
+    if(entry.isFile()&&/^[A-Za-z0-9_-]+\.js$/.test(entry.name))fs.unlinkSync(path.join(chunkDirectory,entry.name));
+  }
+}
 require('esbuild').buildSync({
   entryPoints:[path.join(root,'apps/desktop/frontend/components.js')],
-  outfile:path.join(root,'apps/desktop/ui/components.js'),
-  bundle:true,format:'esm',platform:'browser',target:['es2022'],minify:true,
+  outdir:path.join(root,'apps/desktop/ui'),chunkNames:'chunks/[name]-[hash]',
+  bundle:true,splitting:true,format:'esm',platform:'browser',target:['es2022'],minify:true,
   legalComments:'eof',loader:{'.svg':'text'},
 });
 require('esbuild').buildSync({entryPoints:[path.join(root,'apps/desktop/frontend/word-worker.js')],outfile:path.join(root,'apps/desktop/ui/word-worker.js'),bundle:true,format:'esm',platform:'browser',target:['es2022'],minify:true,legalComments:'eof'});

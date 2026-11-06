@@ -280,3 +280,65 @@ body.simple-writing #markdown-source .cm-editor{min-height:calc(100dvh - 190px)}
   .doc-identity input{font-size:17px;line-height:1.25}
   .mode-strip{min-height:38px;padding-block:2px}
 }
+
+/* Two compact rows keep document navigation and editing within easy reach. */
+#document-workspace{grid-template-rows:48px minmax(0,1fr)}
+.doc-head{padding:5px 14px;gap:16px;min-width:0;justify-content:flex-start}
+.doc-head>.doc-identity{display:flex;align-items:center;gap:8px;flex:1 1 240px;max-width:420px;min-width:100px}
+.doc-identity>.text-link{width:30px;min-width:30px;height:30px;justify-content:center;font-size:0}
+.doc-identity>.text-link .wp-icon{width:20px;height:20px;font-size:20px}
+.doc-identity input{font-size:16px;font-weight:600;padding:4px 6px;line-height:1.5;margin:0;min-width:0}
+.doc-head>.document-tabs{align-self:stretch;padding:0;gap:18px;flex:0 0 auto;min-width:0;border-bottom:0}
+.doc-head>.document-tabs>button{height:100%;padding:0 2px;min-width:0;font-size:13px;gap:5px;white-space:nowrap}
+.doc-head>.document-tabs .wp-icon{display:none}
+.doc-head>.mode-switch{flex:0 0 auto;margin-left:auto;padding:2px;border-radius:5px;gap:1px}
+.doc-head>.mode-switch fluent-button{min-height:28px;height:28px;font-size:12px;padding-inline:7px}
+.doc-head>.mode-switch fluent-button::part(control){min-height:28px;height:28px;padding:3px 7px}
+.doc-head>.mode-switch .wp-icon{display:none}
+.mode-short{display:none}
+.doc-head>.doc-actions{gap:5px;flex:0 0 auto}
+.doc-actions>#save-state{font-size:12px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc-actions select{min-height:30px;height:30px;max-width:96px;font-size:12px;padding:3px 6px}
+.doc-actions fluent-button{min-height:30px;height:30px;font-size:12px}
+.doc-actions fluent-button::part(control){min-height:30px;height:30px;padding-block:3px}
+.writing-chrome{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;column-gap:8px;min-height:42px;padding:3px 10px;border-bottom:1px solid var(--stroke)}
+.writing-chrome>.ribbon-tabs{grid-column:1;grid-row:1;display:flex;align-items:center;gap:10px;height:34px;min-height:34px;padding:0 8px 0 0;border:0;border-right:1px solid var(--stroke)}
+.ribbon-tabs button{height:32px;min-height:32px;font-size:13px;white-space:nowrap}
+.ribbon-tabs button[aria-selected=true]::after{bottom:0}
+.writing-chrome>.writing-ribbon{grid-column:2;grid-row:1;min-width:0;max-width:100%;align-self:start}
+.writing-ribbon>.ribbon-inner{min-height:0;min-width:0;max-width:100%;overflow:hidden}
+.ribbon-page,.ribbon-page[role=toolbar]{min-height:38px;height:38px;max-height:38px;padding:0;display:flex;flex-flow:row nowrap;align-items:center;gap:10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--muted) transparent;scroll-padding-inline:12px}
+.ribbon-page::-webkit-scrollbar{height:5px}
+.ribbon-page::-webkit-scrollbar-track{background:transparent}
+.ribbon-page::-webkit-scrollbar-thumb{background:var(--stroke);border-radius:3px}
+.ribbon-page:hover::-webkit-scrollbar-thumb{background:var(--muted)}
+.ribbon-page[hidden]{display:none!important}
+.ribbon-page .ribbon-group,#ribbon-home .ribbon-group:first-child,#ribbon-home .ribbon-group:nth-child(2),#ribbon-home .ribbon-group:last-child{display:flex;flex:0 0 auto;flex-direction:row;align-items:center;min-width:0;height:32px;gap:0;padding-right:10px}
+.ribbon-page .ribbon-group:last-child{border-right:0;padding-right:0}
+.ribbon-page .ribbon-controls,#ribbon-home .ribbon-group .ribbon-controls,#ribbon-home .ribbon-group:last-child .ribbon-controls,#ribbon-insert .ribbon-controls{display:flex;flex-flow:row nowrap;gap:2px;min-height:32px;height:32px;max-width:none;align-items:center}
+.ribbon-caption{display:none}
+.ribbon-controls select{min-height:28px;height:28px;padding:3px 6px;font-size:12px;max-width:130px}
+#font-family{width:110px}#font-size{width:50px}#paragraph-style{width:72px}#text-align{width:72px}#line-height{width:82px}#paragraph-space{width:82px}
+.writing-chrome fluent-button.icon-button,.writing-chrome fluent-button.icon-button::part(control){width:28px;min-width:28px;height:30px;min-height:30px;padding:4px}
+.writing-chrome>.mode-strip{grid-column:3;grid-row:1;display:flex;align-items:center;min-height:34px;height:34px;padding:0 0 0 6px;border-left:1px solid var(--stroke);gap:0;overflow:visible}
+.mode-strip>.view-switch{gap:1px;flex-wrap:nowrap}
+.writing-chrome>#find-panel{grid-column:1/-1;grid-row:2;margin-top:4px}
+.writing-chrome:has(#find-panel:not([hidden])){row-gap:4px}
+.workspace-nav{overflow-x:hidden;min-width:0}
+body.compact-nav:not(.nav-drawer-open) .workspace-nav{align-items:center;padding-inline:4px}
+body.compact-nav:not(.nav-drawer-open) .nav-top,body.compact-nav:not(.nav-drawer-open) .nav-footer{width:44px;min-width:0;padding-inline:0}
+body.compact-nav:not(.nav-drawer-open) .nav-item{width:44px;max-width:44px;min-width:0;flex-shrink:0;overflow:visible}
+body.compact-nav:not(.nav-drawer-open) .nav-item::part(control){box-sizing:border-box;width:44px;min-width:0;padding:0;justify-content:center}
+body.compact-nav:not(.nav-drawer-open) .nav-item::part(content){flex:0 0 20px;width:20px;min-width:20px;justify-content:center;overflow:visible}
+body.compact-nav:not(.nav-drawer-open) .nav-item .wp-icon{flex:0 0 20px;overflow:visible}
+body.simple-writing #document-workspace{grid-template-rows:0 minmax(0,1fr)}
+body.simple-writing .writing-chrome{padding:0;min-height:0;gap:0}
+.feedback{position:fixed;top:48px;right:18px;left:auto;width:max-content;max-width:min(560px,calc(100vw - 36px));display:flex;align-items:center;gap:14px;margin:0;padding:10px 10px 10px 16px;border:1px solid var(--stroke);border-left:3px solid var(--accent);border-radius:6px;box-shadow:0 5px 20px #0002;z-index:80;background:var(--content);line-height:1.7;animation:page-enter 160ms var(--ease)}
+#message[hidden]{display:none}
+#message-text{min-width:0;overflow-wrap:anywhere}
+#dismiss-message{display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;min-width:32px;border:0;border-radius:4px;padding:6px;background:transparent;color:var(--muted)}
+#dismiss-message:hover{background:var(--hover);color:var(--text)}
+#dismiss-message svg{width:20px;height:20px;fill:currentColor}
+@media(max-width:1100px){.doc-head{gap:10px}.doc-actions>#save-state{display:none}.doc-head>.doc-identity{max-width:none}.doc-actions>#export-document{font-size:0;width:30px;min-width:30px;padding:0}.doc-actions>#export-document::part(control){width:30px;min-width:30px;padding:5px}.doc-head>.document-tabs{gap:12px}}
+@media(max-width:760px){.doc-head{flex-wrap:nowrap;gap:7px;padding-inline:8px}.doc-head>.doc-identity{min-width:70px}.doc-head>.document-tabs{gap:9px}.doc-head>.mode-switch{gap:0}.doc-head>.mode-switch fluent-button{padding-inline:3px}.doc-head>.mode-switch fluent-button::part(control){padding-inline:4px}.doc-actions select{display:none}.writing-chrome{gap:5px;padding-inline:7px}.writing-chrome>.ribbon-tabs{gap:8px;padding-right:6px}.writing-chrome>.mode-strip{padding-left:4px}.mode-strip>.view-switch{gap:0}.writing-chrome fluent-button.icon-button,.writing-chrome fluent-button.icon-button::part(control){width:28px;min-width:28px;height:30px;min-height:30px;padding:4px}.doc-identity>.text-link{display:none}}
+@media(max-width:540px){#document-workspace{grid-template-rows:44px minmax(0,1fr)}.doc-head>.document-tabs{gap:7px}.doc-head>.document-tabs>button{font-size:12px}.doc-head>.mode-switch fluent-button{font-size:11px}.doc-head>.mode-switch fluent-button::part(control){padding-inline:3px}.mode-name{display:none}.mode-short{display:inline}.doc-head>.doc-identity{min-width:45px}.doc-identity input{font-size:14px;padding-inline:2px}.doc-actions>#save-document{display:none}.doc-head{gap:5px}.writing-chrome>.ribbon-tabs{gap:6px}.ribbon-tabs button{font-size:12px}.writing-chrome>.mode-strip{max-width:120px;overflow-x:auto;scrollbar-width:none}.writing-chrome>.mode-strip::-webkit-scrollbar{display:none}.feedback{top:44px;right:10px;max-width:calc(100vw - 20px)}body.simple-writing #document-workspace{grid-template-rows:0 minmax(0,1fr)}}

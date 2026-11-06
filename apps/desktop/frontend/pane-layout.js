@@ -52,18 +52,20 @@ export function initializePaneLayout() {
     const styles=getComputedStyle(workspace);
     const outlineWidth=parseFloat(styles.getPropertyValue('--outline-width'))||210;
     const inspectorWidth=parseFloat(styles.getPropertyValue('--inspector-width'))||270;
-    const chromeHeight=document.querySelector('.doc-head').offsetHeight+document.querySelector('.document-tabs').offsetHeight+document.querySelector('.mode-strip').offsetHeight+document.querySelector('.ribbon-tabs').offsetHeight;
-    const ribbonHeight=document.querySelector('.ribbon-inner').scrollHeight;
-    const automatic = {ribbon: !markdown && totalHeight-chromeHeight-ribbonHeight>=totalHeight*.7, outline:false, inspector:false};
-    const usableHeight=Math.max(0,totalHeight-chromeHeight-(automatic.ribbon?ribbonHeight:0));
-    const minimumWidth=usableHeight?totalWidth*totalHeight*.7/usableHeight:totalWidth;
+    // Document tabs and mode controls share the document header. The tools
+    // share one command row, including when its advanced controls are folded.
+    const chromeHeight=document.querySelector('.doc-head').offsetHeight+document.querySelector('.writing-chrome').offsetHeight;
+    const writingAreaTarget=innerWidth*innerHeight*.7;
+    const automatic = {ribbon: !markdown && totalWidth*(totalHeight-chromeHeight)>=writingAreaTarget, outline:false, inspector:false};
+    const usableHeight=Math.max(0,totalHeight-chromeHeight);
+    const minimumWidth=usableHeight?writingAreaTarget/usableHeight:totalWidth;
     if(width-inspectorWidth>=minimumWidth)automatic.inspector=true;
     const visible = {};
     for (const name of Object.keys(panes)) {
       visible[name] = !focused && (preferences[name] === 'open' || (preferences[name] === 'auto' && automatic[name]));
     }
     const sidebarWidth=(visible.outline?outlineWidth:0)+(visible.inspector?inspectorWidth:0);
-    const overlay=compact||width-sidebarWidth<width*.7;
+    const overlay=compact||width-sidebarWidth<minimumWidth;
     if (overlay) {
       if (overlayDismissed) visible.outline = visible.inspector = false;
       else if (visible.outline && visible.inspector) visible[lastOpened === 'outline' ? 'inspector' : 'outline'] = false;
@@ -125,6 +127,10 @@ export function initializePaneLayout() {
     else if (focused) setFocused(false);
   });
   document.addEventListener('workproof:editor-mode', render);
+  document.addEventListener('workproof:ribbon-selected',()=>{
+    if(focused)setFocused(false);
+    persist('ribbon','open');render();
+  });
   new MutationObserver(render).observe(workspace, {attributes: true, attributeFilter: ['data-edit-mode']});
   new ResizeObserver(render).observe(workspace);
   render();

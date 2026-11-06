@@ -1,5 +1,3 @@
-import {Editor, generateHTML,getMarkRange} from '@tiptap/core';
-import {editorExtensions} from './editor-extensions.js';
 import {initializeWritingWorkspace} from './writing-workspace.js';
 import {groupActions} from './action-flow.mjs';
 import {externalRecords,sourceLabel,groupExternalDocuments,displayTime} from './external-records.js';
@@ -8,7 +6,13 @@ import {icon} from './icons.js';
 const $=id=>document.getElementById(id);
 const ipc=(command,args)=>window.__TAURI__.core.invoke(command,args);
 const ui=window.workproofUI;
-const extensions=editorExtensions;
+let editorRuntime=null,runtimeLoading=null;
+async function loadEditorRuntime(){
+  if(editorRuntime)return editorRuntime;
+  if(!runtimeLoading)runtimeLoading=import('./editor-runtime.js');
+  try{editorRuntime=await runtimeLoading;return editorRuntime;}
+  catch(error){runtimeLoading=null;throw error;}
+}
 const labels={edit:'修改文字',format:'调整格式或结构',undo:'撤销修改',redo:'重做修改',copy:'复制命令',paste:'粘贴命令',cut:'剪切命令',backspace:'退格命令',delete_forward:'向后删除命令',space:'空格键',enter:'回车键',cursor:'移动光标',selection:'调整选区',focus:'回到编辑',blur:'离开编辑',transaction:'编辑器事务',keyboard:'键盘操作',input:'完成输入',beforeinput:'准备输入',compositionstart:'开始输入法合成',compositionupdate:'输入法合成',compositionend:'完成输入法合成',drop:'放入内容',dragstart:'开始拖动',dragend:'结束拖动',import:'导入 Word',layout:'切换页面布局'};
 let editor=null,active=null,documents=[],pending=[],inflight=null,dirty=false,saving=null,saveTimer,maxSaveTimer,refreshTimer;
 let externalDocuments=[],libraryLoadError='';
@@ -166,11 +170,11 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)flush().cat
 async function openDocument(doc){
   if(opening||exporting)return;opening=true;
   try{
-    await flush();workspace.closeSource();workspace.rememberPagination();suppressed=true;editor?.destroy();active=doc;pending=[];inflight=null;dirty=false;intent=null;lastSelection='';
+    await flush();await loadEditorRuntime();workspace.closeSource();workspace.rememberPagination();suppressed=true;editor?.destroy();active=doc;pending=[];inflight=null;dirty=false;intent=null;lastSelection='';
     $('document-title').value=doc.title;
     const domEvents={keydown,copy:()=>{commandAction('copy');return false;},paste:()=>{commandAction('paste');return false;},cut:()=>{commandAction('cut');return false;},beforeinput:(_v,event)=>{addAction('beforeinput',{detail:{input_type:event.inputType}});if(event.inputType==='historyUndo')hint('undo');if(event.inputType==='historyRedo')hint('redo');return false;},input:(_v,event)=>{addAction('input',{detail:{input_type:event.inputType}});return false;},focus:()=>{addAction('focus');return false;},blur:()=>{addAction('blur');return false;}};
     for(const type of ['compositionstart','compositionupdate','compositionend','drop','dragstart','dragend'])domEvents[type]=(_v,event)=>{addAction(type,{detail:{data:typeof event.data==='string'?event.data.slice(0,2048):null}});return false;};
-    editor=new Editor({element:$('tiptap-editor'),extensions:extensions(true),content:doc.content,editorProps:{attributes:{'aria-label':'文档正文',role:'textbox','aria-multiline':'true',spellcheck:'true'},handleDOMEvents:domEvents},onTransaction:transaction,onSelectionUpdate:({editor:e})=>updateToolbar(e)});
+    editor=new editorRuntime.Editor({element:$('tiptap-editor'),extensions:editorRuntime.editorExtensions(true),content:doc.content,editorProps:{attributes:{'aria-label':'文档正文',role:'textbox','aria-multiline':'true',spellcheck:'true'},handleDOMEvents:domEvents},onTransaction:transaction,onSelectionUpdate:({editor:e})=>updateToolbar(e)});
     restorePageLayout();workspace.applyMode();suppressed=false;workspace.changed();state('已保存到本机','saved');$('editor-word-count').textContent=`${Array.from(editor.getText()).length.toLocaleString()} 字符`;
     $('certificate-result').hidden=true;$('certificate-empty').hidden=false;renderRecent();updateToolbar();ui.selectView('document');selectTab('write');
   }catch(error){reportError(error);}finally{suppressed=false;opening=false;}
@@ -272,7 +276,7 @@ function renderProcess(){
 }
 async function showVersion(revision){
   const token=++historyToken,id=active.id;
-  try{const content=await ipc('editor_version',{id,revision});if(token!==historyToken||active?.id!==id)return;$('history-preview').innerHTML=generateHTML(content,extensions());$('history-version-label').textContent=`版本 ${revision+1}`;$('version-caption').textContent=`版本 ${revision+1} · 只读预览`;
+  try{const content=await ipc('editor_version',{id,revision});if(token!==historyToken||active?.id!==id)return;$('history-preview').innerHTML=editorRuntime.generateHTML(content,editorRuntime.editorExtensions());$('history-version-label').textContent=`版本 ${revision+1}`;$('version-caption').textContent=`版本 ${revision+1} · 只读预览`;
     const versions=[...active.versions].reverse();$('version-slider').value=versions.findIndex(v=>v.revision===revision);for(const button of document.querySelectorAll('[data-revision]'))button.setAttribute('aria-pressed',String(Number(button.dataset.revision)===revision));
   }catch(error){ui.showMessage(errorText(error),'error');}
 }
@@ -310,7 +314,7 @@ function linkError(text){$('link-url').setCustomValidity(text);if($('link-error'
 function openLinkDialog(){
   if(!editor||closing||exporting||!workspace.closeSource())return;
   editor.view.domObserver.flush();
-  const {from,to,$from}=editor.state.selection,range=getMarkRange($from,editor.schema.marks.link),withinLink=range&&from>=range.from&&to<=range.to;
+  const {from,to,$from}=editor.state.selection,range=editorRuntime.getMarkRange($from,editor.schema.marks.link),withinLink=range&&from>=range.from&&to<=range.to;
   linkContext={id:active.id,from,to,range:withinLink?range:{from,to},existing:withinLink,applied:false};
   const existingMark=withinLink?editor.state.doc.nodeAt(range.from)?.marks.find(mark=>mark.type===editor.schema.marks.link):null;
   $('link-url').value=existingMark?.attrs.href||'';linkError('');

@@ -3,10 +3,12 @@ import fs from 'node:fs';
 
 async function desktop(page:import('@playwright/test').Page,fail=false,nativeWord=false){
   await page.route('**/desktop-status/**',route=>{
-    const name=new URL(route.request().url()).pathname.split('/').at(-1)||'index.html';
+    const asset=new URL(route.request().url()).pathname.slice('/desktop-status/'.length)||'index.html';
+    const name=asset.split('/').at(-1)!;
     const types:Record<string,string>={'word-worker.js':'application/javascript','components.js':'application/javascript','status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','fluent-workbench.css':'text/css','native-editor.css':'text/css','brand.png':'image/png'};
-    if(!types[name])return route.abort();
-    return route.fulfill({contentType:types[name],body:fs.readFileSync('apps/desktop/ui/'+name)});
+    const chunk=/^chunks\/[A-Za-z0-9_-]+\.js$/.test(asset);
+    if(!chunk&&(!types[name]||asset!==name))return route.abort();
+    return route.fulfill({contentType:chunk?'application/javascript':types[name],body:fs.readFileSync('apps/desktop/ui/'+asset)});
   });
   await page.addInitScript(({fail,nativeWord})=>{
     let connections=[{ticket:'word-ticket',origin:'https://school.example',source:'word',channel:'browser',expires_in_seconds:1800,sessions:2},{ticket:'wps-ticket',origin:'https://wps.example',source:'wps',channel:'browser',expires_in_seconds:3600,sessions:1}];
@@ -271,4 +273,48 @@ test('desktop Office configuration reports failures and actual returned installa
   await page.getByRole('button',{name:'安装 / 修复加载项',exact:true}).click();
   await expect(page.locator('#office-setup-result')).toContainText('加载项已安装');
   expect(await page.evaluate(()=>(window as any).setupRequests)).toEqual([{host:'word',install:false},{host:'word',install:true},{host:'word',install:true}]);
+});
+
+
+test('desktop notices expire without hiding newer notices or connection approvals',async({page})=>{
+  await desktop(page,false,true);
+  await expect.poll(()=>page.evaluate(()=>typeof (window as any).workproofUI?.showMessage)).toBe('function');
+  await page.clock.install();
+  // State polling is unrelated to notice lifetimes. Avoid replaying its
+  // intervals while the virtual clock exercises the user-visible timer.
+  await page.evaluate(()=>{const marker=setInterval(()=>{},1000000);for(let id=1;id<=Number(marker);id++)clearInterval(id);});
+  const notice=page.locator('#message'),copy=page.locator('#message-text');
+  await page.mouse.move(0,0);
+  await page.evaluate(()=>(window as any).workproofUI.showMessage('第一条临时提示','info'));
+  await expect(notice).toBeVisible();await expect(copy).toHaveText('第一条临时提示');
+  await page.clock.runFor(5000);
+  await page.evaluate(()=>(window as any).workproofUI.showMessage('这是后来的一条提示','success'));
+  await page.clock.runFor(1100);
+  await expect(copy).toHaveText('这是后来的一条提示');await expect(notice).toBeVisible();
+  await page.clock.runFor(5100);
+  await expect(notice).toBeHidden();
+  expect(await notice.evaluate(node=>(node as HTMLElement).hidden&&node.getBoundingClientRect().height===0)).toBe(true);
+  await expect(page.getByText('Word 想连接 WorkProof',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'允许连接',exact:true})).toBeVisible();
+});
+
+test('desktop errors remain until dismissed and notices pause for pointer or keyboard interaction',async({page})=>{
+  await desktop(page);
+  await expect.poll(()=>page.evaluate(()=>typeof (window as any).workproofUI?.showMessage)).toBe('function');
+  await page.clock.install();
+  await page.evaluate(()=>{const marker=setInterval(()=>{},1000000);for(let id=1;id<=Number(marker);id++)clearInterval(id);});
+  const notice=page.locator('#message'),copy=page.locator('#message-text'),dismiss=page.locator('#dismiss-message');
+  await page.mouse.move(0,0);
+  await page.evaluate(()=>(window as any).workproofUI.showMessage('需要处理的保存错误','error'));
+  await page.clock.runFor(20000);
+  await expect(copy).toHaveText('需要处理的保存错误');await expect(notice).toBeVisible();
+  await dismiss.click();await expect(notice).toBeHidden();
+  await page.mouse.move(0,0);
+  await page.evaluate(()=>(window as any).workproofUI.showMessage('停留时可以读完这条提示','info'));
+  await notice.hover();await page.clock.runFor(20000);await expect(notice).toBeVisible();
+  await page.mouse.move(0,0);await page.clock.runFor(6100);await expect(notice).toBeHidden();
+  await page.evaluate(()=>(window as any).workproofUI.showMessage('键盘停留也会暂停关闭','info'));
+  await dismiss.focus();await page.clock.runFor(20000);await expect(notice).toBeVisible();
+  await page.getByRole('button',{name:'应用连接',exact:true}).focus();
+  await page.clock.runFor(6100);await expect(notice).toBeHidden();
 });
