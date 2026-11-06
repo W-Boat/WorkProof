@@ -314,7 +314,7 @@ test('toolbar follows cursor formats and represents mixed font sizes truthfully'
 
 test('link dialog inserts edits validates and removes links while preserving their visible text',async({page})=>{
   await desktop(page);const body=await create(page);await body.fill('需要链接的正文');await body.press('ControlOrMeta+a');await body.press('ControlOrMeta+k');
-  await expect(page.locator('#link-dialog')).toBeVisible();await page.locator('#link-url').fill('https://example.com/first');await page.locator('#link-confirm').click();
+  await expect(page.locator('#link-dialog')).toBeVisible();await page.locator('#link-url').fill('https://example.com/first');await page.locator('#link-confirm').click();await expect(body).toBeFocused();
   await expect(body.locator('a')).toHaveAttribute('href','https://example.com/first');await expect(body.locator('a')).toHaveText('需要链接的正文');
   await body.press('ControlOrMeta+a');await body.press('ArrowLeft');await body.press('ArrowRight');await body.press('ControlOrMeta+k');await expect(page.locator('#link-url')).toHaveValue('https://example.com/first');
   await page.locator('#link-url').fill('javascript:alert(1)');await page.locator('#link-confirm').click();await expect(page.locator('#link-dialog')).toBeVisible();await expect(body.locator('a')).toHaveAttribute('href','https://example.com/first');
@@ -371,7 +371,7 @@ test('My Documents combines external sessions with internal documents and pagina
 
 test('legacy external records explain missing file locations and offer the matching connection guide',async({page})=>{
   await desktop(page);await page.evaluate(()=>{(window as any).editorHarness.externalDocuments=[{id:'legacy-ppt',title:'历史演示文稿',source:'powerpoint',started_at:'2026-11-01T08:00:00Z',event_count:0,last_elapsed_ms:null,local_path:null,file_available:false,can_open:false,recent_order:1,demo:false}];});
-  await page.locator('#reload-documents').click();await page.locator('#document-search').fill('PowerPoint');await expect(page.locator('#document-list .document-row')).toHaveCount(1);
+  await page.locator('#reload-documents').click();await page.locator('#document-search input').fill('PowerPoint');await expect(page.locator('#document-list .document-row')).toHaveCount(1);
   await page.getByRole('button',{name:'查看记录 历史演示文稿',exact:true}).click();await expect(page.locator('#external-empty')).toBeVisible();await expect(page.locator('#external-file-status')).toContainText('文件位置未记录');await expect(page.locator('#external-open-file')).toBeHidden();
   await page.locator('#external-connection-help').click();await expect(page.locator('body')).toHaveAttribute('data-view','connections');await expect(page.locator('#creation-tool')).toHaveValue('powerpoint');
 });

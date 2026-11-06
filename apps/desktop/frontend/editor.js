@@ -192,7 +192,7 @@ function renderLibrary(){
     const {doc}=entry,row=element('div','document-row');row.setAttribute('role','listitem');row.dataset.documentKey=`${entry.type}:${doc.id}`;row.dataset.source=entry.source;
     const label=element('div'),description=entry.type==='editor'?`${doc.revision+1} 个保存版本`:`${entry.sessions.length} 次记录 · ${entry.sessions.reduce((sum,session)=>sum+Number(session.event_count),0).toLocaleString()} 条记录${doc.demo?' · 演示记录':''}`;
     label.append(element('strong','',doc.title),element('p','',`${sourceLabel(entry.source)} · ${displayTime(entry.time)} · ${description}`));
-    const action=entry.type==='editor'?'继续编辑':'查看记录',open=element('fluent-button','',action);open.setAttribute('aria-label',`${action} ${doc.title}`);
+    const action=entry.type==='editor'?'继续编辑':'查看记录',open=element('fluent-button','',action);open.setAttribute('aria-label',`${action} ${doc.title}`);open.dataset.icon=entry.type==='external'?'text_bullet_list_ltr':'document_text';
     open.addEventListener('click',async()=>{if(closing)return;open.disabled=true;try{
       if(entry.type==='external')await externalLibrary.open(doc,entry.sessions);else{await flush();await openDocument(await ipc('editor_load',{id:doc.id}));}
     }catch(error){ui.showMessage(errorText(error),'error');}finally{open.disabled=false;}});
@@ -323,7 +323,7 @@ function applyLink(remove=false){
     catch{linkError('请输入完整的 https://、http:// 或 mailto: 链接。');$('link-url').focus();return;}
   }
   if(!remove&&!href&&!linkContext.existing){linkError('请填写链接地址。');$('link-url').focus();return;}
-  hint('format');const {range}=linkContext,chain=editor.chain().focus().setTextSelection(range);
+  hint('format');const {range}=linkContext,chain=editor.chain().setTextSelection(range);
   if(remove||!href)chain.unsetLink().run();
   else if(range.from===range.to)chain.insertContent({type:'text',text:href,marks:[{type:'link',attrs:{href}}]}).run();
   else chain.setLink({href}).run();
@@ -335,7 +335,7 @@ $('link-confirm').addEventListener('click',event=>{event.preventDefault();applyL
 $('link-remove')?.addEventListener('click',event=>{event.preventDefault();applyLink(true);});
 $('link-dialog').querySelector('form').addEventListener('submit',event=>{event.preventDefault();applyLink();});
 $('link-dialog').addEventListener('close',()=>{
-  if(editor&&linkContext?.id===active?.id&&!closing){if(!linkContext.applied)editor.commands.setTextSelection({from:linkContext.from,to:linkContext.to});editor.commands.focus();}
+  if(editor&&linkContext?.id===active?.id&&!closing){if(!linkContext.applied)editor.commands.setTextSelection({from:linkContext.from,to:linkContext.to});editor.view.focus();}
   linkContext=null;
 });
 $('image-file').addEventListener('change',async event=>{
