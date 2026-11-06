@@ -150,6 +150,9 @@ fluent-button.icon-button::part(control){min-width:32px;padding:4px}
 .compact-nav .nav-item::part(content){justify-content:center;gap:0}
 .compact-nav .nav-top{justify-content:center;padding-inline:0}
 .compact-nav .nav-top>fluent-button{width:36px;min-width:36px}
+body.compact-nav:not(.nav-drawer-open) .nav-item{padding:0!important;min-width:0;justify-content:center!important}
+body.compact-nav:not(.nav-drawer-open) .nav-item::part(control){min-width:0;width:44px;padding:0;justify-content:center}
+body.compact-nav:not(.nav-drawer-open) .nav-item::part(content){width:auto;gap:0;justify-content:center}
 .doc-head{padding-block:12px;gap:20px}
 .doc-identity>.text-link{font-size:13px;line-height:1.5;color:var(--muted);display:flex;align-items:center;gap:5px}
 .doc-identity>.text-link:hover{color:var(--accent)}

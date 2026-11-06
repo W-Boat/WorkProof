@@ -406,6 +406,8 @@ for(const viewport of [{width:1280,height:800},{width:960,height:780}]){
       return Math.min(canvas.width*canvas.height/(frame.width*frame.height),canvas.height/frame.height,canvas.width*canvas.height/(innerWidth*innerHeight));
     })).toBeGreaterThanOrEqual(.7);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    const iconCentered=await page.locator('.workspace-nav [data-view=library] .wp-icon').evaluate(icon=>{const rail=icon.closest('nav')!.getBoundingClientRect(),rect=icon.getBoundingClientRect();return Math.abs((rect.left+rect.width/2)-(rail.left+rail.width/2))<=3;});
+    expect(iconCentered).toBe(true);
     if(viewport.width===1280)await page.screenshot({path:info.outputPath('default-editor-wide.png')});
   });
 }
