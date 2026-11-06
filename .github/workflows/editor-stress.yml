@@ -29,6 +29,13 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Bound package mirror retries for remote browser setup
+        run: |
+          sudo tee /etc/apt/apt.conf.d/99workproof-timeouts > /dev/null <<'EOF'
+          Acquire::Retries "1";
+          Acquire::http::Timeout "20";
+          Acquire::https::Timeout "20";
+          EOF
       - run: npm ci
       - name: Build the actual private editor storage and export bridge
         run: cargo build --release --locked -p workproof-engine --example editor_stress_harness
@@ -40,6 +47,7 @@ jobs:
           sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update
           sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y fonts-noto-cjk
       - name: Install the benchmark browser
+        timeout-minutes: 5
         run: npx playwright install --with-deps chromium
       - name: Measure large document opening editing saving and signed exports
         run: npx playwright test --config playwright.desktop-stress.config.ts
