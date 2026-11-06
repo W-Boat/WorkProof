@@ -403,7 +403,7 @@ for(const viewport of [{width:1280,height:800},{width:960,height:780}]){
     await page.setViewportSize(viewport);await desktop(page);const body=await create(page);await body.fill('把空间留给写作。');
     await expect.poll(()=>page.locator('#document-workspace').evaluate(workspace=>{
       const frame=workspace.getBoundingClientRect(),canvas=workspace.querySelector('.editor-canvas')!.getBoundingClientRect();
-      return Math.min(canvas.width*canvas.height/(frame.width*frame.height),canvas.height/frame.height);
+      return Math.min(canvas.width*canvas.height/(frame.width*frame.height),canvas.height/frame.height,canvas.width*canvas.height/(innerWidth*innerHeight));
     })).toBeGreaterThanOrEqual(.7);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     if(viewport.width===1280)await page.screenshot({path:info.outputPath('default-editor-wide.png')});

@@ -184,7 +184,7 @@ const narrowNavigation=matchMedia('(max-width:640px)');
 let navigationMode='auto',drawerOpen=false;
 try{const saved=localStorage.getItem('workproof.navigation-mode'),legacy=localStorage.getItem('workproof.compact-nav');navigationMode=['auto','open','closed'].includes(saved)?saved:legacy===null?'auto':legacy==='true'?'closed':'open';}catch{}
 function renderNavigation(){
-  const compact=narrowNavigation.matches||navigationMode==='closed';
+  const compact=narrowNavigation.matches||navigationMode==='closed'||navigationMode==='auto'&&document.body.dataset.view==='document';
   document.body.classList.toggle('compact-nav',compact);
   document.body.classList.toggle('nav-drawer-open',narrowNavigation.matches&&drawerOpen);
   document.getElementById('nav-dismiss').hidden=!narrowNavigation.matches||!drawerOpen;
@@ -201,6 +201,7 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape')dismissNavig
 document.querySelectorAll('.workspace-nav [data-view]').forEach(button=>button.addEventListener('click',()=>{if(narrowNavigation.matches){drawerOpen=false;renderNavigation();}}));
 navPreference.addEventListener('change',()=>{navigationMode=navPreference.value;drawerOpen=narrowNavigation.matches&&navigationMode==='open';saveNavigation();});
 drawerOpen=narrowNavigation.matches&&navigationMode==='open';renderNavigation();
+window.addEventListener('workproof-view',renderNavigation);
 function applyMotion(){document.documentElement.dataset.reduceMotion=String(motionPreference.checked);try{localStorage.setItem('workproof.reduce-motion',String(motionPreference.checked));}catch{}sendVerifierAppearance();}
 try{motionPreference.checked=localStorage.getItem('workproof.reduce-motion')==='true';}catch{}applyMotion();motionPreference.addEventListener('change',applyMotion);
 
