@@ -62,7 +62,9 @@ async function desktop(page:Page){
 async function create(page:Page){await page.getByRole('button',{name:'新建文档',exact:true}).click();await expect(page.getByRole('textbox',{name:'文档正文'})).toBeVisible();return page.getByRole('textbox',{name:'文档正文'});}
 async function ensureRibbonOpen(page:Page){
   await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');
-  if(await page.locator('#write-panel').getAttribute('data-ribbon-open')!=='true')await page.locator('#toggle-ribbon').click();
+  // Selecting a tool tab explicitly expands its page even if automatic layout
+  // changes between the preceding observation and this user interaction.
+  await page.locator('#toolbar-home').click();
   await expect(page.locator('#write-panel')).toHaveAttribute('data-ribbon-open','true');
   await expect(page.locator('#writing-ribbon')).not.toHaveAttribute('inert','');
 }
