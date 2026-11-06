@@ -10,6 +10,7 @@ const MAX_SIGNALS:usize=8;
 const BULK:u64=500;
 const BURST_MS:u64=1000;
 const RATE_WINDOW_MS:u64=5000;
+const RATE_MAX_WINDOW_MS:u64=10000;
 
 #[derive(Debug,Serialize,Deserialize)]
 pub struct BehaviorSignal{
@@ -55,6 +56,7 @@ impl BehaviorAssessment{
             ("bulk_dominated_inserted".into(),2000),("bulk_dominated_percent".into(),75),
             ("replacement_inserted".into(),300),("replacement_deleted".into(),300),
             ("rate_window_ms".into(),RATE_WINDOW_MS),("rate_min_events".into(),5),
+            ("rate_max_window_ms".into(),RATE_MAX_WINDOW_MS),
             ("rate_min_inserted".into(),300),("rate_chars_per_second".into(),30),
             ("rate_max_gap_ms".into(),2000),("rate_excludes_single_insert_at_least".into(),BULK),
             ("regular_min_events".into(),21),("regular_min_duration_ms".into(),5000),
@@ -136,9 +138,10 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
         if event.inserted>=300&&event.deleted>=300{
             add_hit(&mut replacement_hits,Hit{code:"mass_replacement",severity:"notice",left:right,right,details:details(&[("inserted_threshold",300.0),("deleted_threshold",300.0)])},&mut truncated);
         }
-        // Keep the closest predecessor at least five seconds earlier. This
-        // captures sustained input without dividing zero-duration event bursts.
-        while rate_left<right&&event.elapsed_ms-edits[rate_left+1].elapsed_ms>=RATE_WINDOW_MS{rate_left+=1;}
+        // Retain up to ten seconds of uninterrupted input. Keeping only the
+        // nearest five-second predecessor would prevent modest sustained rates
+        // from ever accumulating the independent 300-character minimum.
+        while rate_left<right&&event.elapsed_ms-edits[rate_left].elapsed_ms>RATE_MAX_WINDOW_MS{rate_left+=1;}
         let duration=event.elapsed_ms-edits[rate_left].elapsed_ms;
         let count=rate_events[right+1]-rate_events[rate_left];let amount=rate_inserted[right+1]-rate_inserted[rate_left];
         if duration>=RATE_WINDOW_MS&&count>=5&&amount>=300&&amount*1000>=30*duration{
@@ -228,5 +231,23 @@ mod tests{
         let events:Vec<_>=(0..1000).map(|i|(i*2000,600,0)).collect();let result=assess_behavior(&Evidence::Full(proof("word",&events)));
         assert!(result.signals.len()<=MAX_SIGNALS);assert_eq!(result.summary.inserted,600000);assert_eq!(result.summary.bulk_inserted,600000);
         assert!(result.signals_truncated);
+    }
+    #[test]fn rate_window_accumulates_three_hundred_characters_without_weakening_other_gates(){
+        let sustained:Vec<_>=(0..12).map(|i|(i*1000,40,0)).collect();
+        let result=assess_behavior(&Evidence::Full(proof("workproof-tiptap",&sustained)));
+        let signal=result.signals.iter().find(|signal|signal.code=="sustained_fast_input").expect("40 characters/second accumulates at least 300 over the longer bounded window");
+        assert!(signal.inserted>=300);assert!(signal.details["window_ms"]>=5000.0);assert!(signal.details["window_ms"]<=10000.0);
+        assert_eq!(result.thresholds["rate_max_window_ms"],10000);
+        let polling:Vec<_>=(0..30).map(|i|(i*1500,10,0)).collect();
+        for source in ["word","wps"]{assert!(!has(&assess_behavior(&Evidence::Full(proof(source,&polling))),"sustained_fast_input"));}
+        let simultaneous:Vec<_>=(0..10).map(|_|(1000,400,0)).collect();
+        let burst=assess_behavior(&Evidence::Full(proof("workproof-tiptap",&simultaneous)));
+        assert!(has(&burst,"bulk_insertion"));assert!(!has(&burst,"sustained_fast_input"));
+        let too_short:Vec<_>=(0..5).map(|i|(i*1000,80,0)).collect();
+        assert!(!has(&assess_behavior(&Evidence::Full(proof("vscode",&too_short))),"sustained_fast_input"));
+        let too_slow:Vec<_>=(0..30).map(|i|(i*1000,20,0)).collect();
+        assert!(!has(&assess_behavior(&Evidence::Full(proof("vscode",&too_slow))),"sustained_fast_input"));
+        let separated=[(0,80,0),(1000,80,0),(2000,80,0),(6000,80,0),(7000,80,0),(8000,80,0)];
+        assert!(!has(&assess_behavior(&Evidence::Full(proof("vscode",&separated))),"sustained_fast_input"));
     }
 }
