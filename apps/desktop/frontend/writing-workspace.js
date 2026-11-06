@@ -133,9 +133,29 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   }));
   $('write-panel').dataset.editMode=mode;
   $('writing-ribbon').addEventListener('pointerdown',event=>{if(sourceVisible()&&!closeSource()){event.preventDefault();event.stopPropagation();}},true);
-  document.querySelectorAll('[data-ribbon]').forEach(button=>button.addEventListener('click',()=>{
-    document.querySelectorAll('[data-ribbon]').forEach(item=>{const selected=item===button;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;$('ribbon-'+item.dataset.ribbon).hidden=!selected;});
-  }));
+  const ribbonTabs=[...document.querySelectorAll('[data-ribbon]')];
+  function selectRibbon(button){
+    ribbonTabs.forEach(item=>{const selected=item===button;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;$('ribbon-'+item.dataset.ribbon).hidden=!selected;});
+  }
+  ribbonTabs.forEach((button,index)=>{
+    button.addEventListener('click',()=>selectRibbon(button));
+    button.addEventListener('keydown',event=>{
+      let target;
+      if(event.key==='ArrowRight')target=ribbonTabs[(index+1)%ribbonTabs.length];
+      else if(event.key==='ArrowLeft')target=ribbonTabs[(index+ribbonTabs.length-1)%ribbonTabs.length];
+      else if(event.key==='Home')target=ribbonTabs[0];
+      else if(event.key==='End')target=ribbonTabs.at(-1);
+      else if(event.key==='ArrowDown'){
+        event.preventDefault();$('ribbon-'+button.dataset.ribbon).querySelector('fluent-button:not([disabled]),button:not([disabled]),select:not([disabled])')?.focus();return;
+      }else return;
+      event.preventDefault();selectRibbon(target);target.focus();
+    });
+  });
+  $('writing-ribbon').addEventListener('keydown',event=>{
+    if(event.key!=='Escape'||event.defaultPrevented)return;
+    const selected=ribbonTabs.find(button=>button.getAttribute('aria-selected')==='true');
+    if(selected){event.preventDefault();selected.focus();}
+  });
   function outline(){
     const editor=getEditor();if(!editor)return;
     const headings=[];editor.state.doc.descendants((node,pos)=>{if(node.type.name==='heading')headings.push({node,pos});});
@@ -155,5 +175,5 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
     if(sourceError)throw sourceError;
     const text=losslessMarkdown();if(text===null)throw new Error('文档含有 Markdown 无法完整保留的格式，请选择 Word 或网页作品导出。');
     return source?.state.doc.toString()??text;
-  },openFind(){ $('find-panel').hidden=false;$('find-text').focus();},closeSource};
+  },openFind(replace=false){ $('find-panel').hidden=false;$(replace?'replace-text':'find-text').focus();},closeSource};
 }

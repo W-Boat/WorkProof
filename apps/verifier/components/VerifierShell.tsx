@@ -1,28 +1,55 @@
 'use client';
-import {useEffect,useState,type ReactNode} from 'react';
+import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {Fingerprint,ShieldCheck,Info,Sun,Moon,ExternalLink,LockKeyhole} from 'lucide-react';
+import {useReducedMotion} from 'motion/react';
+import {desktopAppearance} from '../lib/desktop-appearance';
 import {Button} from './button';
 import {Tag} from './institution-ui';
 
+export function useVerifierReducedMotion(){
+  const system=useReducedMotion();
+  const [desktop,setDesktop]=useState(false);
+  useEffect(()=>{
+    const update=()=>setDesktop(document.documentElement.dataset.workproofMotion==='reduced');
+    update();window.addEventListener('workproof:appearance-changed',update);
+    return()=>window.removeEventListener('workproof:appearance-changed',update);
+  },[]);
+  return Boolean(system||desktop);
+}
+
 export function VerifierShell({children}:{children:ReactNode}){
-  const [dark,setDark]=useState(false);
+  const [dark,setDark]=useState(false),[embedded,setEmbedded]=useState(false);
+  const controlled=useRef(false);
   useEffect(()=>{
     const query=window.matchMedia('(prefers-color-scheme: dark)');
     const apply=()=>{
+      if(controlled.current)return;
       let saved:{theme?:string;density?:string}={};try{saved=JSON.parse(localStorage.getItem('scaffold.appearance')||'{}');}catch{}
       const value=saved?.theme==='dark'||(saved?.theme==='auto'&&query.matches);
       document.documentElement.dataset.theme=value?'dark':'light';
       document.documentElement.dataset.density=['regular','compact','comfy'].includes(saved?.density||'')?saved.density:'regular';setDark(value);
     };
+    const receive=(event:MessageEvent)=>{
+      if(window.parent===window)return;
+      const appearance=desktopAppearance(event,window.parent,window.location.search);
+      if(!appearance)return;
+      controlled.current=true;setEmbedded(true);setDark(appearance.theme==='dark');
+      document.documentElement.dataset.theme=appearance.theme;
+      document.documentElement.dataset.workproofEmbedded='true';
+      document.documentElement.dataset.workproofMotion=appearance.reduceMotion?'reduced':'full';
+      window.dispatchEvent(new Event('workproof:appearance-changed'));
+    };
+    window.addEventListener('message',receive);
+    if(window.parent!==window&&new URLSearchParams(window.location.search).get('embedded')==='1')window.parent.postMessage({type:'workproof:verifier-ready'},'*');
     apply();query.addEventListener('change',apply);window.addEventListener('storage',apply);
-    return()=>{query.removeEventListener('change',apply);window.removeEventListener('storage',apply);};
+    return()=>{query.removeEventListener('change',apply);window.removeEventListener('storage',apply);window.removeEventListener('message',receive);delete document.documentElement.dataset.workproofEmbedded;delete document.documentElement.dataset.workproofMotion;};
   },[]);
   function toggle(){
     const value=!dark;let saved:Record<string,unknown>={};try{const raw=JSON.parse(localStorage.getItem('scaffold.appearance')||'{}');if(raw&&typeof raw==='object'&&!Array.isArray(raw))saved=raw;}catch{}
     try{localStorage.setItem('scaffold.appearance',JSON.stringify({...saved,theme:value?'dark':'light',density:saved.density||'regular'}));}catch{}
     document.documentElement.dataset.theme=value?'dark':'light';setDark(value);
   }
-  return <div className="wp-stage"><div className="wp-frame">
+  return <div className={`wp-stage${embedded?' wp-embedded':''}`}><div className="wp-frame">
     <aside className="rail m-rail wp-rail" aria-label="主导航">
       <a className="rail-brand" href="/" aria-label="WorkProof 首页"><span className="brand-mark"><img src="/icon.png" alt="" width="34" height="34"/></span><span className="brand-text"><span className="brand-name">WorkProof</span><span className="brand-sub">开源证人</span></span></a>
       <nav className="rail-nav"><div className="nav-group-title">创作证据</div><div className="nav-list"><a className="nav-item is-active m-pill" aria-current="page" href="#verify"><ShieldCheck className="nav-ico" size={18}/><span className="nav-label">证据核验</span></a><a className="nav-item" href="#principles"><Info className="nav-ico" size={18}/><span className="nav-label">核验说明</span></a></div></nav>

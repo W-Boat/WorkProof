@@ -100,7 +100,7 @@ test('settings use upright icons and equal window buttons with reduced motion',a
 });
 
 test('verification loads inside the shell without exposing native commands to that frame',async({page})=>{
-  await desktop(page);await page.route('**/embedded-test/',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><h1>核验页测试夹具</h1>'}));
+  await desktop(page);await page.route('**/embedded-test/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><h1>核验页测试夹具</h1>'}));
   await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.getByRole('button',{name:'在 WorkProof 内核验作品',exact:true}).click();
   await expect(page.frameLocator('#verifier-frame').getByRole('heading')).toHaveText('核验页测试夹具');await expect(page.locator('.workspace-nav')).toBeVisible();
   expect(await page.frameLocator('#verifier-frame').locator('body').evaluate(()=>typeof (window as any).__TAURI__)).toBe('undefined');
@@ -284,4 +284,62 @@ test('failed save blocks tray quit and restores editing before a successful quit
   await page.evaluate(()=>{(window as any).editorHarness.listeners['workproof-quit-requested']();});
   await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.windowActions)).toEqual(['quit']);
   expect(await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).content.content[0].content[0].text)).toBe('退出前必须保存');
+});
+
+test('ribbon keyboard navigation exposes the selected page and returns focus from controls',async({page})=>{
+  await desktop(page);await create(page);
+  const home=page.locator('#toolbar-home'),insert=page.locator('#toolbar-insert'),layout=page.locator('#toolbar-layout');
+  await home.focus();await home.press('ArrowRight');await expect(insert).toBeFocused();await expect(insert).toHaveAttribute('aria-selected','true');await expect(page.locator('#ribbon-insert')).toBeVisible();
+  await insert.press('End');await expect(layout).toBeFocused();await expect(page.locator('#ribbon-layout')).toBeVisible();
+  await layout.press('Home');await expect(home).toBeFocused();await home.press('ArrowDown');
+  expect(await page.locator('#ribbon-home').evaluate(element=>element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');await expect(home).toBeFocused();
+});
+
+test('toolbar follows cursor formats and represents mixed font sizes truthfully',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('大号文字');await body.press('ControlOrMeta+a');
+  await page.locator('#font-size').selectOption('18pt');await body.press('End');await page.locator('#font-size').selectOption('12pt');await body.pressSequentially('小号文字');
+  await body.press('ControlOrMeta+a');await expect(page.locator('#font-size')).toHaveValue('__mixed');await expect(page.locator('#font-size option:checked')).toHaveText('多种格式');
+  await body.press('Home');await body.press('ArrowRight');await expect(page.locator('#font-size')).toHaveValue('18pt');
+  await body.press('End');await expect(page.locator('#font-size')).toHaveValue('12pt');
+});
+
+test('link dialog inserts edits validates and removes links while preserving their visible text',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('需要链接的正文');await body.press('ControlOrMeta+a');await body.press('ControlOrMeta+k');
+  await expect(page.locator('#link-dialog')).toBeVisible();await page.locator('#link-url').fill('https://example.com/first');await page.locator('#link-confirm').click();
+  await expect(body.locator('a')).toHaveAttribute('href','https://example.com/first');await expect(body.locator('a')).toHaveText('需要链接的正文');
+  await body.press('Home');await body.press('ArrowRight');await body.press('ControlOrMeta+k');await expect(page.locator('#link-url')).toHaveValue('https://example.com/first');
+  await page.locator('#link-url').fill('javascript:alert(1)');await page.locator('#link-confirm').click();await expect(page.locator('#link-dialog')).toBeVisible();await expect(body.locator('a')).toHaveAttribute('href','https://example.com/first');
+  await page.locator('#link-url').fill('https://example.com/updated');await page.locator('#link-url').press('Enter');await expect(page.locator('#link-dialog')).not.toBeVisible();await expect(body.locator('a')).toHaveAttribute('href','https://example.com/updated');
+  await body.press('Home');await body.press('ArrowRight');await body.press('ControlOrMeta+k');await page.locator('#link-remove').click();await expect(body.locator('a')).toHaveCount(0);await expect(body).toHaveText('需要链接的正文');
+});
+
+test('navigation drawer closes on Escape and manual rail choice survives reopening',async({page})=>{
+  await page.setViewportSize({width:390,height:820});await desktop(page);
+  await expect(page.locator('body')).toHaveClass(/compact-nav/);
+  await page.locator('#collapse-nav').click();await expect(page.locator('body')).toHaveClass(/nav-drawer-open/);
+  await expect(page.locator('#nav-dismiss')).toBeVisible();await page.keyboard.press('Escape');
+  await expect(page.locator('#nav-dismiss')).toBeHidden();await expect(page.locator('#collapse-nav')).toBeFocused();
+  await page.locator('#collapse-nav').click();await page.getByRole('button',{name:'设置',exact:true}).click();
+  await expect(page.locator('body')).not.toHaveClass(/nav-drawer-open/);
+  await page.locator('#navigation-mode').selectOption('auto');await page.setViewportSize({width:1280,height:820});
+  await expect(page.locator('body')).not.toHaveClass(/compact-nav/);
+  await page.locator('#navigation-mode').selectOption('closed');await page.reload();
+  await expect(page.locator('body')).toHaveClass(/compact-nav/);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('icon command tooltips explain their action and shortcut for keyboard users',async({page})=>{
+  await desktop(page);await create(page);await page.locator('#save-document').focus();
+  const tooltip=page.getByRole('tooltip');await expect(tooltip).toBeVisible();await expect(tooltip).toContainText('保存');await expect(tooltip).toContainText('Ctrl+S');
+  await expect(page.locator('#save-document')).toHaveAttribute('aria-describedby','workproof-command-tooltip');
+  await page.keyboard.press('Escape');await expect(tooltip).toBeHidden();
+});
+
+test('embedded verification receives desktop appearance when theme and motion change',async({page})=>{
+  await desktop(page);await page.route('**/embedded-test/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><h1>核验页测试夹具</h1><script>addEventListener("message",event=>{if(event.source===parent&&event.data.type==="workproof:appearance"){document.documentElement.dataset.theme=event.data.theme;document.documentElement.dataset.motion=String(event.data.reduceMotion);}});parent.postMessage({type:"workproof:verifier-ready"},"*");</script>'}));
+  await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
+  const child=page.frameLocator('#verifier-frame').locator('html');await expect(child).toHaveAttribute('data-theme','light');
+  await page.getByRole('button',{name:'设置',exact:true}).click();await page.locator('fluent-radio[value=dark]').click();
+  await expect(child).toHaveAttribute('data-theme','dark');await page.locator('#reduce-motion').click();await expect(child).toHaveAttribute('data-motion','true');
 });

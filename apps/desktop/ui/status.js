@@ -33,7 +33,7 @@ titlebar.addEventListener('dblclick',event=>{
 const appearance=document.getElementById('appearance-mode'),systemAppearance=matchMedia('(prefers-color-scheme: dark)');
 let appearanceMode='system';
 try{const saved=localStorage.getItem('workproof.appearance');if(['system','light','dark'].includes(saved))appearanceMode=saved;}catch{}
-function applyAppearance(){document.documentElement.dataset.theme=appearanceMode==='system'?(systemAppearance.matches?'dark':'light'):appearanceMode;appearance.value=appearanceMode;}
+function applyAppearance(){document.documentElement.dataset.theme=appearanceMode==='system'?(systemAppearance.matches?'dark':'light'):appearanceMode;appearance.value=appearanceMode;sendVerifierAppearance();}
 appearance.addEventListener('change',()=>{appearanceMode=appearance.value;applyAppearance();try{localStorage.setItem('workproof.appearance',appearanceMode);}catch{}});
 systemAppearance.addEventListener('change',applyAppearance);applyAppearance();
 function updateConnectionBadges(){
@@ -72,6 +72,7 @@ function selectView(view,focus=false){
   window.dispatchEvent(new CustomEvent('workproof-view',{detail:view}));
 }
 window.workproofUI={selectView,showMessage};
+document.querySelector('.brand').addEventListener('click',event=>{event.preventDefault();selectView('library',true);});
 for(const button of document.querySelectorAll('.workspace-nav [data-view]'))button.addEventListener('click',()=>selectView(button.dataset.view,true));
 for(const button of document.querySelectorAll('[data-tool]'))button.addEventListener('click',()=>{
   const select=document.getElementById('creation-tool');select.value=button.dataset.tool;select.dispatchEvent(new Event('change'));selectView('connections',true);
@@ -160,20 +161,47 @@ for(const [id,command] of [['install','install_vscode'],['verify-browser','open_
     finally{button.textContent=label;if(isLaunch){launching=false;updateLaunchButtons();}else button.disabled=false;}
   });
 }
+function sendVerifierAppearance(){
+  const frame=document.getElementById('verifier-frame');if(!frame||frame.hidden||!frame.getAttribute('src'))return;
+  try{const url=new URL(frame.src);if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port)return;
+    frame.contentWindow?.postMessage({type:'workproof:appearance',theme:document.documentElement.dataset.theme,reduceMotion:document.documentElement.dataset.reduceMotion==='true'||matchMedia('(prefers-reduced-motion: reduce)').matches},url.origin);
+  }catch{}
+}
+document.getElementById('verifier-frame').addEventListener('load',sendVerifierAppearance);
+window.addEventListener('message',event=>{
+  const frame=document.getElementById('verifier-frame');if(event.source!==frame.contentWindow||event.data?.type!=='workproof:verifier-ready'||!frame.getAttribute('src'))return;
+  try{if(event.origin===new URL(frame.src).origin)sendVerifierAppearance();}catch{}
+});
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',sendVerifierAppearance);
 document.getElementById('verify').addEventListener('click',async()=>{
   const button=document.getElementById('verify');button.disabled=true;
-  try{const raw=await window.__TAURI__.core.invoke('verifier_url'),url=new URL(raw);if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port||url.username||url.password)throw new Error('核验地址无效，请更新完整安装包。');const frame=document.getElementById('verifier-frame');frame.src=url.href;frame.hidden=false;document.getElementById('verification-intro').hidden=true;}
+  try{const raw=await window.__TAURI__.core.invoke('verifier_url'),url=new URL(raw);if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port||url.username||url.password)throw new Error('核验地址无效，请更新完整安装包。');url.searchParams.set('embedded','1');url.searchParams.set('parentOrigin',window.location.origin);const frame=document.getElementById('verifier-frame');frame.src=url.href;frame.hidden=false;document.getElementById('verification-intro').hidden=true;}
   catch(error){showMessage(errorText(error),'error');}finally{button.disabled=false;}
 });
 
-const navPreference=document.getElementById('expanded-navigation'),motionPreference=document.getElementById('reduce-motion');
+const navPreference=document.getElementById('navigation-mode'),motionPreference=document.getElementById('reduce-motion');
 const narrowNavigation=matchMedia('(max-width:640px)');
-function collapseNavigation(collapsed,remember=true){document.body.classList.toggle('compact-nav',collapsed);navPreference.checked=!collapsed;const toggle=document.getElementById('collapse-nav');toggle.setAttribute('aria-expanded',String(!collapsed));toggle.setAttribute('aria-label',collapsed?'展开侧栏':'收起侧栏');if(remember)try{localStorage.setItem('workproof.compact-nav',String(collapsed));}catch{}}
-let compact=false;try{compact=localStorage.getItem('workproof.compact-nav')==='true';}catch{}collapseNavigation(narrowNavigation.matches||compact,false);
-narrowNavigation.addEventListener('change',event=>{let preference=false;try{preference=localStorage.getItem('workproof.compact-nav')==='true';}catch{}collapseNavigation(event.matches||preference,false);});
-document.getElementById('collapse-nav').addEventListener('click',()=>collapseNavigation(!document.body.classList.contains('compact-nav')));
-navPreference.addEventListener('change',()=>collapseNavigation(!navPreference.checked));
-function applyMotion(){document.documentElement.dataset.reduceMotion=String(motionPreference.checked);try{localStorage.setItem('workproof.reduce-motion',String(motionPreference.checked));}catch{}}
+let navigationMode='auto',drawerOpen=false;
+try{const saved=localStorage.getItem('workproof.navigation-mode'),legacy=localStorage.getItem('workproof.compact-nav');navigationMode=['auto','open','closed'].includes(saved)?saved:legacy===null?'auto':legacy==='true'?'closed':'open';}catch{}
+function renderNavigation(){
+  const compact=narrowNavigation.matches||navigationMode==='closed';
+  document.body.classList.toggle('compact-nav',compact);
+  document.body.classList.toggle('nav-drawer-open',narrowNavigation.matches&&drawerOpen);
+  document.getElementById('nav-dismiss').hidden=!narrowNavigation.matches||!drawerOpen;
+  const expanded=narrowNavigation.matches?drawerOpen:!compact;
+  const toggle=document.getElementById('collapse-nav');toggle.setAttribute('aria-expanded',String(expanded));toggle.setAttribute('aria-label',expanded?'收起侧栏':'展开侧栏');
+  navPreference.value=navigationMode;
+}
+function saveNavigation(){try{localStorage.setItem('workproof.navigation-mode',navigationMode);}catch{}renderNavigation();}
+function dismissNavigation(){if(!drawerOpen)return;drawerOpen=false;renderNavigation();document.getElementById('collapse-nav').focus();}
+narrowNavigation.addEventListener('change',()=>{drawerOpen=narrowNavigation.matches&&navigationMode==='open';renderNavigation();});
+document.getElementById('collapse-nav').addEventListener('click',()=>{if(narrowNavigation.matches){drawerOpen=!drawerOpen;navigationMode=drawerOpen?'open':'closed';}else navigationMode=document.body.classList.contains('compact-nav')?'open':'closed';saveNavigation();});
+document.getElementById('nav-dismiss').addEventListener('click',dismissNavigation);
+document.addEventListener('keydown',event=>{if(event.key==='Escape')dismissNavigation();});
+document.querySelectorAll('.workspace-nav [data-view]').forEach(button=>button.addEventListener('click',()=>{if(narrowNavigation.matches){drawerOpen=false;renderNavigation();}}));
+navPreference.addEventListener('change',()=>{navigationMode=navPreference.value;drawerOpen=narrowNavigation.matches&&navigationMode==='open';saveNavigation();});
+drawerOpen=narrowNavigation.matches&&navigationMode==='open';renderNavigation();
+function applyMotion(){document.documentElement.dataset.reduceMotion=String(motionPreference.checked);try{localStorage.setItem('workproof.reduce-motion',String(motionPreference.checked));}catch{}sendVerifierAppearance();}
 try{motionPreference.checked=localStorage.getItem('workproof.reduce-motion')==='true';}catch{}applyMotion();motionPreference.addEventListener('change',applyMotion);
 
 const guides={

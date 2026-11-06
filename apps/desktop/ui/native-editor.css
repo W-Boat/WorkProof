@@ -122,3 +122,65 @@ fluent-button.icon-button::part(control){min-width:32px;padding:4px}
 @media(prefers-reduced-motion:reduce){#write-panel,#write-panel *,#link-dialog[open]{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 :root[data-reduce-motion=true] #write-panel,:root[data-reduce-motion=true] #write-panel *,:root[data-reduce-motion=true] #link-dialog{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 @media print{html,body{display:block;height:auto;overflow:visible;background:white}body>*:not(main){display:none!important}main{display:block!important;overflow:visible!important;border:0}main>*:not(#document-workspace),#document-workspace>*:not(#write-panel),#write-panel>aside,.writing-chrome,#markdown-source-panel{display:none!important}#document-workspace,#write-panel,#write-panel .editor-main,.editor-canvas{display:block!important;height:auto!important;overflow:visible!important;padding:0!important;background:white!important}.editor-paper{border:0!important;margin:0!important;padding:0!important;max-width:none!important;min-height:0!important;color:black!important}.tiptap{min-height:0!important}.tiptap p{color:black!important}}
+
+/* App chrome keeps a stable rhythm from the title bar to the writing tools. */
+.app-header{gap:16px;padding-left:14px}
+.app-header .brand{gap:9px;font-size:12px;font-weight:600;letter-spacing:.1px}
+.app-header .brand img{width:21px;height:21px;object-fit:contain}
+.service-status{max-width:min(320px,40vw);font-size:12px;line-height:1.4;margin-right:8px}
+.service-status::before{width:7px;height:7px}
+.workspace-nav{gap:5px;padding:12px 8px 10px;scrollbar-width:thin}
+.nav-top{gap:10px;padding:0 4px 14px;min-height:44px}
+.nav-top>span{color:var(--muted);font-size:13px;font-weight:600;letter-spacing:.1px}
+.nav-item{height:42px!important;min-height:42px!important;border-radius:5px!important;transition:background 120ms ease,color 120ms ease}
+.nav-item::part(content){width:100%;justify-content:flex-start;gap:12px}
+.nav-item .wp-icon{color:var(--muted)}
+.nav-item:hover{background:var(--hover)!important}
+.nav-item[aria-current=page]{background:color-mix(in srgb,var(--accent) 8%,var(--content))!important;font-weight:600!important}
+.nav-item[aria-current=page] .wp-icon{color:var(--accent)}
+.nav-item[aria-current=page]::before{top:13px}
+.nav-footer{padding-top:16px}
+.rail-note{font-size:12px;line-height:1.7;padding:14px 12px 2px}
+.compact-nav .workspace-nav{padding-inline:6px}
+.compact-nav .nav-item{width:44px;height:42px!important;min-height:42px!important;padding-inline:12px!important}
+.compact-nav .nav-item::part(content){justify-content:center;gap:0}
+.compact-nav .nav-top{justify-content:center;padding-inline:0}
+.compact-nav .nav-top>fluent-button{width:36px;min-width:36px}
+.doc-head{padding-block:12px;gap:20px}
+.doc-identity>.text-link{font-size:13px;line-height:1.5;color:var(--muted);display:flex;align-items:center;gap:5px}
+.doc-identity>.text-link:hover{color:var(--accent)}
+.doc-identity input{font-size:20px;line-height:1.4;letter-spacing:-.2px}
+.doc-actions{gap:8px}
+.doc-actions>#save-state{font-size:13px;font-variant-numeric:tabular-nums}
+.document-tabs{gap:24px}
+.document-tabs>button{display:flex;align-items:center;gap:7px}
+.writing-chrome fluent-button.icon-button{width:34px;min-width:34px;height:34px;min-height:34px;padding:0;border-radius:4px}
+.writing-chrome fluent-button.icon-button::part(control){width:34px;height:34px;min-height:34px;padding:6px;border-radius:4px}
+.writing-chrome fluent-button.icon-button:hover{background:var(--hover)}
+.writing-chrome fluent-button[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 11%,var(--content));color:var(--accent)}
+.ribbon-controls{gap:3px 4px;min-height:72px}
+.ribbon-page{min-height:110px;padding-top:7px}
+.editor-canvas{scrollbar-width:thin}
+.editor-paper{border-radius:2px;box-shadow:0 2px 8px #00000008}
+.tiptap p.is-editor-empty:first-child::before{font-size:17px;color:var(--muted);font-weight:400}
+.command-tooltip{position:fixed;z-index:10000;display:flex;align-items:center;gap:18px;max-width:min(320px,calc(100vw - 16px));padding:8px 12px;border:1px solid var(--stroke);border-radius:5px;background:var(--content);color:var(--text);box-shadow:0 4px 14px #0002;font:13px/1.6 'Segoe UI Variable Text','Segoe UI','Microsoft YaHei UI',sans-serif;animation:tooltip-enter 120ms var(--ease) both;overflow-wrap:anywhere;user-select:none}
+.command-tooltip kbd{flex-shrink:0;padding:0;border:0;background:none;color:var(--muted);font-family:inherit;font-size:12px;line-height:1.5;white-space:nowrap}
+@keyframes tooltip-enter{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:640px){.app-header{padding-left:8px;gap:8px}.service-status{max-width:150px;font-size:12px;margin-right:0}.doc-head{gap:6px;padding:10px 14px}.doc-identity input{font-size:17px}.doc-actions{gap:4px}.mode-strip{padding-inline:6px}.editor-paper{box-shadow:none}}
+@media(forced-colors:active){.nav-item[aria-current=page]{outline:1px solid Highlight}.nav-item[aria-current=page] .wp-icon{color:Highlight}.command-tooltip{border:1px solid CanvasText;background:Canvas;color:CanvasText}}
+.nav-dismiss{display:none}
+.setting-row>select{min-width:120px;max-width:100%;min-height:34px;padding:4px 9px;border:1px solid var(--stroke);border-radius:4px;background:var(--content)}
+@media(max-width:860px){.setting-row>select{grid-column:2;justify-self:start}}
+#text-color-button,#highlight-button{position:relative}
+#text-color-button::after,#highlight-button::after{content:'';position:absolute;bottom:5px;left:calc(50% - 8px);width:16px;height:3px;border-radius:1px;background:var(--format-color,var(--accent));pointer-events:none}
+#text-color-button[data-mixed=true]::after,#highlight-button[data-mixed=true]::after{background:repeating-linear-gradient(90deg,var(--text) 0 3px,var(--content) 3px 5px)}
+.writing-chrome fluent-button[aria-pressed=mixed]{background:var(--hover);box-shadow:inset 0 -2px var(--muted)}
+@media(max-width:640px){
+  body.nav-drawer-open .workspace-nav{position:fixed;left:0;top:36px;bottom:26px;width:232px;z-index:30;background:var(--shell);border-right:1px solid var(--stroke);padding:12px 8px 10px;box-shadow:4px 0 20px #0003;animation:nav-enter 200ms var(--ease) both}
+  body.nav-drawer-open .nav-label,body.nav-drawer-open .nav-top>span,body.nav-drawer-open .rail-note{display:block}
+  body.nav-drawer-open .nav-item{width:100%;padding-inline:12px!important}
+  body.nav-drawer-open .nav-item::part(content){justify-content:flex-start;gap:12px}
+  body.nav-drawer-open .nav-top{justify-content:flex-start;gap:10px;padding-inline:4px}
+  body.nav-drawer-open #nav-dismiss{display:block;position:fixed;inset:36px 0 26px;z-index:29;border:0;border-radius:0;padding:0;background:#0004;animation:pane-shade 160ms ease both}
+}
+@keyframes nav-enter{from{opacity:.5;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}

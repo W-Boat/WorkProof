@@ -65,6 +65,10 @@ HRESULT GetProperty(IDispatch* object, const wchar_t* name, VARIANT* result) {
 // Optional bounded structure sampling. Never read text, names, pixels or notes.
 std::wstring PresentationStructure(IDispatch* slides,long slideCount,long long shapeCount){
     if(shapeCount>4096)return {};
+    // The shape limit is a safety ceiling, not a throughput promise. A slow
+    // host stops this optional scan after 75ms at the next COM boundary. The
+    // count recorder continues; an incomplete digest never becomes evidence.
+    // Individual synchronous Office calls cannot be preempted on its UI thread.
     const ULONGLONG started=GetTickCount64();
     std::wstring data=L"workproof-ppt-structure-v1;";
     auto fields=[&](IDispatch* object,std::initializer_list<const wchar_t*> names){
@@ -103,7 +107,7 @@ std::wstring PresentationStructure(IDispatch* slides,long slideCount,long long s
             ++observed;
         }
     }
-    if(observed!=shapeCount)return {}; // Changed while enumerating; establish no baseline.
+    if(GetTickCount64()-started>=75||observed!=shapeCount)return {}; // Changed while enumerating; establish no baseline.
     unsigned char digest[32]{};
     const auto size=static_cast<ULONG>(data.size()*sizeof(wchar_t));
     if(BCryptHash(BCRYPT_SHA256_ALG_HANDLE,nullptr,0,reinterpret_cast<PUCHAR>(data.data()),size,digest,sizeof(digest))<0)return {};
