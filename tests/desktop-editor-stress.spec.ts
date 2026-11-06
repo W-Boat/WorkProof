@@ -5,7 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import readline from 'node:readline';
 import {spawn} from 'node:child_process';
-import {performance} from 'node:perf_hooks';
+import {performance as nodePerformance} from 'node:perf_hooks';
 
 test.skip(!process.env.WORKPROOF_EDITOR_STRESS_HARNESS||process.env.GITHUB_ACTIONS!=='true','Actions-only real Rust persistence stress acceptance');
 
@@ -26,7 +26,7 @@ function bridge(directory:string,diagnostics:string){
     try{response=JSON.parse(line);}catch{fail(new Error('Rust bridge returned a non-JSON response'));return;}
     const request=pending.get(response.request_id);if(!request)return;
     pending.delete(response.request_id);clearTimeout(request.timer);
-    calls.push({command:request.command,ok:response.ok,elapsed_ms:response.elapsed_ms,wall_ms:performance.now()-request.started,error:response.error});
+    calls.push({command:request.command,ok:response.ok,elapsed_ms:response.elapsed_ms,wall_ms:nodePerformance.now()-request.started,error:response.error});
     if(response.ok){if(request.command==='editor_export')exports.push(response.result);request.resolve(response.result);}
     else request.reject(new Error(response.error||'Real editor IPC failed'));
   });
@@ -34,7 +34,7 @@ function bridge(directory:string,diagnostics:string){
     return new Promise<any>((resolve,reject)=>{
       const request_id=crypto.randomUUID();
       const timer=setTimeout(()=>{pending.delete(request_id);reject(new Error(`Rust ${command} timed out after 60 seconds`));},60000);
-      pending.set(request_id,{resolve,reject,timer,started:performance.now(),command});
+      pending.set(request_id,{resolve,reject,timer,started:nodePerformance.now(),command});
       child.stdin.write(JSON.stringify({command,args,request_id})+'\n',error=>{if(error){clearTimeout(timer);pending.delete(request_id);reject(error);}});
     });
   }
@@ -78,11 +78,11 @@ async function openDesktop(browser:Browser,engine:ReturnType<typeof bridge>,titl
   const csp=JSON.parse(fs.readFileSync('apps/desktop/src-tauri/tauri.conf.json','utf8')).app.security.csp;
   await page.route('**/index.html',async route=>{const response=await route.fetch();await route.fulfill({response,headers:{...response.headers(),'Content-Security-Policy':csp}});});
   await page.goto('http://127.0.0.1:4178/index.html');
-  const start=performance.now();
+  const start=nodePerformance.now();
   await page.getByRole('button',{name:`继续编辑 ${title}`,exact:true}).click();
   await expect(page.locator('#tiptap-editor .tiptap')).toBeVisible({timeout:45000});
   await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
-  return {context,page,openMs:performance.now()-start};
+  return {context,page,openMs:nodePerformance.now()-start};
   }catch(error){await context.close().catch(()=>{});throw error;}
 }
 
@@ -97,9 +97,11 @@ for(const target of [100000,150000,200000,300000])test(`real persisted Chinese d
   let id='';
   try{
     const created=await engine.invoke('editor_create',{title,started:new Date().toISOString()});id=created.id;
-    const seeded=performance.now();await engine.invoke('editor_save',{input:{id,expected_revision:created.revision,request_id:crypto.randomUUID().replaceAll('-',''),title,content:seed.document,actions:[{kind:'import',elapsed_ms:0,inserted:target,deleted:0,chars:target,steps:[],selection:{from:1,to:1},detail:{source:'synthetic_stress_fixture'},metrics:{}}]}});metrics.seed_save_ms=performance.now()-seeded;
+    const seeded=nodePerformance.now();await engine.invoke('editor_save',{input:{id,expected_revision:created.revision,request_id:crypto.randomUUID().replaceAll('-',''),title,content:seed.document,actions:[{kind:'import',elapsed_ms:0,inserted:target,deleted:0,chars:target,steps:[],selection:{from:1,to:1},detail:{source:'synthetic_stress_fixture'},metrics:{}}]}});metrics.seed_save_ms=nodePerformance.now()-seeded;
     try{
       initial=await openDesktop(browser,engine,title);const {page}=initial;metrics.open_ms=initial.openMs;
+      metrics.browser_errors=[];
+      page.on('pageerror',error=>{if(metrics.browser_errors.length<12)metrics.browser_errors.push(error.message.slice(0,500));});
       expect(await page.locator('#tiptap-editor .tiptap').evaluate(element=>[...element.querySelectorAll(':scope > p')].map(node=>node.textContent).join(''))).toBe(seed.text);
       const body=page.locator('#tiptap-editor .tiptap');
       await body.focus();await expect(body).toBeFocused();
@@ -115,8 +117,10 @@ for(const target of [100000,150000,200000,300000])test(`real persisted Chinese d
           const entry={type:'keydown',key:event.key,code:event.code,ctrl:event.ctrlKey,meta:event.metaKey,shift:event.shiftKey,alt:event.altKey,trusted:event.isTrusted,target:(event.target as Element).tagName,default_prevented:false};
           remember(entry);
           if(!/^Key[A-T]$/.test(event.code)||!/^[a-t]$/.test(event.key)||event.ctrlKey||event.metaKey||event.altKey)return;
-          const started=performance.now();
-          requestAnimationFrame(()=>requestAnimationFrame(()=>{entry.default_prevented=event.defaultPrevented;w.stressPaint.push(performance.now()-started);}));
+          // Use the browser clock explicitly. A Node performance import inside
+          // this serialized callback becomes an unavailable module reference.
+          const started=window.performance.now();
+          requestAnimationFrame(()=>requestAnimationFrame(()=>{entry.default_prevented=event.defaultPrevented;w.stressPaint.push(window.performance.now()-started);}));
         },true);
         document.addEventListener('beforeinput',(event:InputEvent)=>{
           if(!isEditor(event.target))return;
@@ -131,7 +135,7 @@ for(const target of [100000,150000,200000,300000])test(`real persisted Chinese d
         // Real physical key input supplies both keydown and beforeinput. The
         // following Chinese insertion exercises text entry, not key latency.
         await page.keyboard.press(code);
-        await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+        await page.waitForFunction(expected=>(window as any).stressPaint.length===expected,index+1,{timeout:20000});
         const observed=await page.evaluate(letter=>({paint:(window as any).stressPaint.length,input:(window as any).stressBeforeInput.filter((event:any)=>event.input_type==='insertText'&&event.data===letter&&event.trusted).length}),letter);
         expect(observed.paint,'Each physical key must produce one next-paint sample').toBe(index+1);
         expect(observed.input,'Each physical letter must reach real beforeinput').toBe(1);
@@ -141,7 +145,8 @@ for(const target of [100000,150000,200000,300000])test(`real persisted Chinese d
       metrics.keypress_ms=await page.evaluate(()=>(window as any).stressPaint);metrics.keypress_summary=summarize(metrics.keypress_ms);
       metrics.keyboard_events=await page.evaluate(()=>(window as any).stressKeys);
       expect(metrics.keypress_ms).toHaveLength(20);
-      const savesBefore=engine.calls.filter(call=>call.command==='editor_save').length,started=performance.now();await page.locator('#save-document').click();await expect(page.locator('#save-state')).toHaveText('已保存到本机',{timeout:45000});metrics.save_ms=performance.now()-started;
+      expect(metrics.browser_errors,'Serialized keyboard measurement must not throw in the browser').toEqual([]);
+      const savesBefore=engine.calls.filter(call=>call.command==='editor_save').length,started=nodePerformance.now();await page.locator('#save-document').click();await expect(page.locator('#save-state')).toHaveText('已保存到本机',{timeout:45000});metrics.save_ms=nodePerformance.now()-started;
       const saves=engine.calls.filter(call=>call.command==='editor_save');metrics.manual_save_had_pending_work=saves.length>savesBefore;metrics.last_storage_save_ms=saves.at(-1)?.elapsed_ms;
       await page.screenshot({path:path.join(output,'editing.png'),timeout:15000});
     }catch(error){metrics.errors.push({phase:'open_edit_save',error:String(error)});}
@@ -160,8 +165,8 @@ for(const target of [100000,150000,200000,300000])test(`real persisted Chinese d
       const entry:any={path:`artifact.${extension}`,ms:null,verified:false};metrics.exports[format]=entry;
       try{
         view=await openDesktop(browser,engine,title);entry.reopen_ms=view.openMs;
-        await view.page.locator('#export-format').selectOption(option);const previous=engine.exports.length,start=performance.now();
-        await view.page.locator('#export-document').click();await expect(view.page.locator('#export-document')).toBeEnabled({timeout:45000});entry.ms=performance.now()-start;
+        await view.page.locator('#export-format').selectOption(option);const previous=engine.exports.length,start=nodePerformance.now();
+        await view.page.locator('#export-document').click();await expect(view.page.locator('#export-document')).toBeEnabled({timeout:45000});entry.ms=nodePerformance.now()-start;
         const exported=engine.exports[previous];
         if(!exported)throw new Error(await view.page.locator('#message').textContent()||'UI did not produce an actual artifact');
         proofs[format]=exported.report;
