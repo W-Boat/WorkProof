@@ -49,6 +49,7 @@ function show(button){
   const name=document.createElement('span');name.textContent=label;tooltip.replaceChildren(name);
   if(key){const shortcut=document.createElement('kbd');shortcut.textContent=/Mac/i.test(navigator.platform)?key.replace('Ctrl','⌘'):key;tooltip.append(shortcut);}
   const ids=new Set((button.getAttribute('aria-describedby')||'').split(/\s+/).filter(Boolean));ids.add(tooltip.id);button.setAttribute('aria-describedby',[...ids].join(' '));
+  tooltip.style.pointerEvents=button.matches(':focus-within')?'none':'auto';
   tooltip.hidden=false;position();
 }
 function schedule(button,delay){clearTimeout(hideTimer);clearTimeout(showTimer);showTimer=setTimeout(()=>show(button),delay);}
