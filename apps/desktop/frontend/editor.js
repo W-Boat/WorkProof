@@ -276,7 +276,8 @@ function openLinkDialog(){
   if(!editor||closing||exporting||!workspace.closeSource())return;
   const {from,to,$from}=editor.state.selection,range=getMarkRange($from,editor.schema.marks.link),withinLink=range&&from>=range.from&&to<=range.to;
   linkContext={id:active.id,from,to,range:withinLink?range:{from,to},existing:withinLink,applied:false};
-  $('link-url').value=withinLink?editor.getAttributes('link').href||'':'';linkError('');
+  const existingMark=withinLink?editor.state.doc.nodeAt(range.from)?.marks.find(mark=>mark.type===editor.schema.marks.link):null;
+  $('link-url').value=existingMark?.attrs.href||'';linkError('');
   if($('link-dialog-title'))$('link-dialog-title').textContent=withinLink?'编辑链接':'插入链接';
   if($('link-remove'))$('link-remove').hidden=!withinLink;
   $('link-dialog').showModal();$('link-url').focus();$('link-url').select();
