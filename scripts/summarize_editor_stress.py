@@ -134,7 +134,7 @@ def compare(expected: str, actual: str, marker: str):
                 break
             common += 1
     return {"match": same, "expected_chars": len(expected), "actual_chars": len(actual),
-            "tail_marker_present": bool(marker) and actual.endswith(marker),
+            "tail_marker_present": bool(marker) and actual.count(marker) == 1,
             "first_mismatch_index": None if same else common}
 
 
@@ -164,8 +164,8 @@ def summarize_case(case: Path):
             result["errors"].append("case timed out")
         expected = bounded_file(case, "expected_text.txt", (".txt",)).read_text(encoding="utf-8")
         marker = metrics.get("tail_marker")
-        if not isinstance(marker, str) or not marker or not expected.endswith(marker):
-            raise ValueError("expected final saved text lacks its declared tail marker")
+        if not isinstance(marker, str) or not marker or expected.count(marker) != 1:
+            raise ValueError("expected final saved text lacks one unique declared tail marker")
         result["expected_chars"] = len(expected)
         if len(expected) < int(case.name.removeprefix("case-")):
             result["errors"].append("saved text is shorter than the requested stress size")

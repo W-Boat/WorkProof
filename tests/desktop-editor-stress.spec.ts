@@ -99,27 +99,57 @@ for(const target of [100000,150000,200000,300000])test(`real persisted Chinese d
     try{
       initial=await openDesktop(browser,engine,title);const {page}=initial;metrics.open_ms=initial.openMs;
       expect(await page.locator('#tiptap-editor .tiptap').evaluate(element=>[...element.querySelectorAll(':scope > p')].map(node=>node.textContent).join(''))).toBe(seed.text);
+      const body=page.locator('#tiptap-editor .tiptap');
+      await body.focus();await expect(body).toBeFocused();
+      await page.keyboard.press('ControlOrMeta+End');await expect(body).toBeFocused();
+      metrics.typed_suffix=Array.from({length:20},(_,index)=>String.fromCharCode(97+index)+`中文${index}`).join('');
       await page.evaluate(()=>{
-        const w=window as any;w.stressPaint=[];
-        document.querySelector('#tiptap-editor')!.addEventListener('keydown',(event:Event)=>{
-          const key=event as KeyboardEvent;if(!/^[a-z]$/.test(key.key)||key.ctrlKey||key.metaKey)return;
-          const started=performance.now();requestAnimationFrame(()=>requestAnimationFrame(()=>w.stressPaint.push(performance.now()-started)));
+        const w=window as any;w.stressPaint=[];w.stressKeys=[];w.stressBeforeInput=[];
+        const editor=document.querySelector('#tiptap-editor .tiptap')!;
+        const isEditor=(target:EventTarget|null)=>target instanceof Node&&(target===editor||editor.contains(target));
+        const remember=(entry:any)=>{if(w.stressKeys.length<64)w.stressKeys.push(entry);};
+        document.addEventListener('keydown',(event:KeyboardEvent)=>{
+          if(!isEditor(event.target))return;
+          const entry={type:'keydown',key:event.key,code:event.code,ctrl:event.ctrlKey,meta:event.metaKey,shift:event.shiftKey,alt:event.altKey,trusted:event.isTrusted,target:(event.target as Element).tagName,default_prevented:false};
+          remember(entry);
+          if(!/^Key[A-T]$/.test(event.code)||!/^[a-t]$/.test(event.key)||event.ctrlKey||event.metaKey||event.altKey)return;
+          const started=performance.now();
+          requestAnimationFrame(()=>requestAnimationFrame(()=>{entry.default_prevented=event.defaultPrevented;w.stressPaint.push(performance.now()-started);}));
+        },true);
+        document.addEventListener('beforeinput',(event:InputEvent)=>{
+          if(!isEditor(event.target))return;
+          const entry={type:'beforeinput',input_type:event.inputType,data:event.data?.slice(0,12)||'',trusted:event.isTrusted,target:(event.target as Element).tagName};
+          remember(entry);
+          if(w.stressBeforeInput.length<40)w.stressBeforeInput.push(entry);
         },true);
       });
-      await page.locator('#tiptap-editor .tiptap').click();await page.keyboard.press('ControlOrMeta+End');
       for(let index=0;index<20;index++){
-        await page.keyboard.type(String.fromCharCode(97+index));await page.keyboard.insertText(`中文${index}`);
+        const letter=String.fromCharCode(97+index),code='Key'+String.fromCharCode(65+index);
+        await expect(body).toBeFocused();
+        // Real physical key input supplies both keydown and beforeinput. The
+        // following Chinese insertion exercises text entry, not key latency.
+        await page.keyboard.press(code);
+        await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+        const observed=await page.evaluate(letter=>({paint:(window as any).stressPaint.length,input:(window as any).stressBeforeInput.filter((event:any)=>event.input_type==='insertText'&&event.data===letter&&event.trusted).length}),letter);
+        expect(observed.paint,'Each physical key must produce one next-paint sample').toBe(index+1);
+        expect(observed.input,'Each physical letter must reach real beforeinput').toBe(1);
+        await page.keyboard.insertText(`中文${index}`);
         await page.waitForTimeout(40+crypto.randomInt(141));
       }
-      metrics.typed_suffix=Array.from({length:20},(_,index)=>String.fromCharCode(97+index)+`中文${index}`).join('');
-      await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
       metrics.keypress_ms=await page.evaluate(()=>(window as any).stressPaint);metrics.keypress_summary=summarize(metrics.keypress_ms);
+      metrics.keyboard_events=await page.evaluate(()=>(window as any).stressKeys);
       expect(metrics.keypress_ms).toHaveLength(20);
       const savesBefore=engine.calls.filter(call=>call.command==='editor_save').length,started=performance.now();await page.locator('#save-document').click();await expect(page.locator('#save-state')).toHaveText('已保存到本机',{timeout:45000});metrics.save_ms=performance.now()-started;
       const saves=engine.calls.filter(call=>call.command==='editor_save');metrics.manual_save_had_pending_work=saves.length>savesBefore;metrics.last_storage_save_ms=saves.at(-1)?.elapsed_ms;
       await page.screenshot({path:path.join(output,'editing.png'),timeout:15000});
     }catch(error){metrics.errors.push({phase:'open_edit_save',error:String(error)});}
-    finally{await initial?.context.close().catch(()=>{});}
+    finally{
+      if(initial)try{
+        const captured=await initial.page.evaluate(()=>({samples:(window as any).stressPaint||[],keys:(window as any).stressKeys||[]}));
+        metrics.keypress_ms=captured.samples;metrics.keypress_summary=summarize(captured.samples);metrics.keyboard_events=captured.keys;
+      }catch(error){metrics.keyboard_diagnostic_error=String(error);}
+      await initial?.context.close().catch(()=>{});
+    }
     const stored=await engine.invoke('editor_load',{id}),expected=documentText(stored.content);
     metrics.actual_chars=Array.from(expected).length;fs.writeFileSync(path.join(output,'expected_text.txt'),expected);
     if(!expected.startsWith(seed.text)||expected.length<target||metrics.typed_suffix&&expected!==seed.text+metrics.typed_suffix)metrics.errors.push({phase:'persisted_content',error:'Persisted document lost original text, the unique tail marker or typed suffix'});
