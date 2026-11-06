@@ -52,7 +52,7 @@ function show(button){
   tooltip.hidden=false;position();
 }
 function schedule(button,delay){clearTimeout(hideTimer);clearTimeout(showTimer);showTimer=setTimeout(()=>show(button),delay);}
-function leave(){clearTimeout(showTimer);clearTimeout(hideTimer);hideTimer=setTimeout(hide,120);}
+function leave(){clearTimeout(showTimer);clearTimeout(hideTimer);hideTimer=setTimeout(()=>{if(owner?.matches(':focus-within'))return;hide();},120);}
 document.addEventListener('pointerover',event=>{const button=target(event);if(button&&!button.contains(event.relatedTarget))schedule(button,450);});
 document.addEventListener('pointerout',event=>{const button=target(event);if(button&&!button.contains(event.relatedTarget)&&!tooltip.contains(event.relatedTarget))leave();});
 document.addEventListener('focusin',event=>{const button=target(event);if(button)schedule(button,0);});
@@ -60,4 +60,4 @@ document.addEventListener('focusout',event=>{if(target(event))leave();});
 document.addEventListener('pointerdown',hide);
 document.addEventListener('keydown',event=>{if(event.key==='Escape')hide();});
 tooltip.addEventListener('pointerenter',()=>clearTimeout(hideTimer));tooltip.addEventListener('pointerleave',leave);
-document.addEventListener('scroll',hide,true);window.addEventListener('resize',hide);
+document.addEventListener('scroll',()=>{if(owner?.matches(':focus-within'))position();else hide();},true);window.addEventListener('resize',hide);
