@@ -316,10 +316,10 @@ test('link dialog inserts edits validates and removes links while preserving the
   await desktop(page);const body=await create(page);await body.click();await body.pressSequentially('需要链接的正文');await body.press('ControlOrMeta+a');await body.press('ControlOrMeta+k');
   await expect(page.locator('#link-dialog')).toBeVisible();await page.locator('#link-url').fill('https://example.com/first');await page.locator('#link-confirm').click();await expect(body).toBeFocused();
   await expect(body.locator('a')).toHaveAttribute('href','https://example.com/first');await expect(body.locator('a')).toHaveText('需要链接的正文');
-  await body.press('ControlOrMeta+a');await body.press('ArrowLeft');await body.press('ArrowRight');await body.press('ControlOrMeta+k');await expect(page.locator('#link-url')).toHaveValue('https://example.com/first');
+  await body.locator('a').click({position:{x:5,y:5}});await body.press('ControlOrMeta+k');await expect(page.locator('#link-url')).toHaveValue('https://example.com/first');
   await page.locator('#link-url').fill('javascript:alert(1)');await page.locator('#link-confirm').click();await expect(page.locator('#link-dialog')).toBeVisible();await expect(body.locator('a')).toHaveAttribute('href','https://example.com/first');
   await page.locator('#link-url').fill('https://example.com/updated');await page.locator('#link-url').press('Enter');await expect(page.locator('#link-dialog')).not.toBeVisible();await expect(body.locator('a')).toHaveAttribute('href','https://example.com/updated');
-  await body.press('ControlOrMeta+a');await body.press('ArrowLeft');await body.press('ArrowRight');await body.press('ControlOrMeta+k');await page.locator('#link-remove').click();await expect(body.locator('a')).toHaveCount(0);await expect(body).toHaveText('需要链接的正文');
+  await body.locator('a').click({position:{x:5,y:5}});await body.press('ControlOrMeta+k');await page.locator('#link-remove').click();await expect(body.locator('a')).toHaveCount(0);await expect(body).toHaveText('需要链接的正文');
 });
 
 test('navigation drawer closes on Escape and manual rail choice survives reopening',async({page})=>{
