@@ -20,8 +20,13 @@ async function performWindowAction(action){
   });
   return closeTask;
 }
-window.__TAURI__?.event?.listen('workproof-close-requested',()=>performWindowAction('close')).catch(()=>{});
-window.__TAURI__?.event?.listen('workproof-quit-requested',()=>performWindowAction('quit')).catch(()=>{});
+window.workproofTrayListeners=Promise.all([
+  window.__TAURI__?.event?.listen('workproof-close-requested',()=>performWindowAction('close')),
+  window.__TAURI__?.event?.listen('workproof-quit-requested',()=>performWindowAction('quit')),
+  window.__TAURI__?.event?.listen('workproof-tray-view',event=>{
+    if(['library','verification','connections','settings'].includes(event.payload))selectView(event.payload,true);
+  }),
+]);
 for(const button of document.querySelectorAll('[data-window]'))button.addEventListener('click',()=>performWindowAction(button.dataset.window));
 const titlebar=document.querySelector('.app-header');
 titlebar.addEventListener('mousedown',event=>{

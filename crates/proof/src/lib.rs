@@ -8,6 +8,8 @@ pub const VERSION: &str = "workproof/3";
 pub const MAX_EVENTS: usize = 100_000;
 pub mod merkle;
 pub mod evolution;
+pub mod behavior;
+pub use behavior::{assess_behavior,BehaviorAssessment};
 pub use merkle::{create_disclosure, verify_disclosure, Disclosure};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -50,6 +52,12 @@ pub struct Proof { pub manifest: Manifest, pub records: Vec<Record>, pub signatu
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum Evidence { Full(Proof), Selective(Disclosure) }
+#[cfg_attr(feature="wasm",wasm_bindgen)]
+pub fn behavior_json(proof_json:&str)->String{
+    let assessment=if proof_json.len()>32*1024*1024{BehaviorAssessment::unavailable()}
+        else{match serde_json::from_str::<Evidence>(proof_json){Ok(proof)=>assess_behavior(&proof),Err(_)=>BehaviorAssessment::unavailable()}};
+    serde_json::to_string(&assessment).expect("bounded behavior assessment contains finite numeric values")
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Report {
     pub valid: bool,

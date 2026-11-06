@@ -5,14 +5,15 @@ async function desktop(page:import('@playwright/test').Page,fail=false,nativeWor
   await page.route('**/desktop-status/**',route=>{
     const asset=new URL(route.request().url()).pathname.slice('/desktop-status/'.length)||'index.html';
     const name=asset.split('/').at(-1)!;
-    const types:Record<string,string>={'word-worker.js':'application/javascript','components.js':'application/javascript','status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','fluent-workbench.css':'text/css','native-editor.css':'text/css','brand.png':'image/png'};
+    const types:Record<string,string>={'word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','fluent-workbench.css':'text/css','native-editor.css':'text/css','brand.png':'image/png'};
     const chunk=/^chunks\/[A-Za-z0-9_-]+\.js$/.test(asset);
     if(!chunk&&(!types[name]||asset!==name))return route.abort();
     return route.fulfill({contentType:chunk?'application/javascript':types[name],body:fs.readFileSync('apps/desktop/ui/'+asset)});
   });
   await page.addInitScript(({fail,nativeWord})=>{
     let connections=[{ticket:'word-ticket',origin:'https://school.example',source:'word',channel:'browser',expires_in_seconds:1800,sessions:2},{ticket:'wps-ticket',origin:'https://wps.example',source:'wps',channel:'browser',expires_in_seconds:3600,sessions:1}];
-    (window as any).__TAURI__={core:{invoke:async(command:string,args?:{ticket:string})=>{
+    (window as any).__TAURI__={core:{invoke:async(command:string,args?:{ticket?:string;action?:string})=>{
+      if(command==='window_action'&&args?.action==='ready')return null;
       if(command==='engine_status')return {ready:true,sessions:3,events:12};
       if(command==='pending_adapters')return nativeWord?[{ticket:'native-word',origin:'',source:'word',channel:'native'}]:[];
       if(command==='adapter_connections')return connections;

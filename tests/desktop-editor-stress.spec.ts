@@ -65,6 +65,7 @@ async function openDesktop(browser:Browser,engine:ReturnType<typeof bridge>,titl
   try{
   page.setDefaultTimeout(20000);
   await page.exposeFunction('stressNativeInvoke',async(command:string,args:any)=>{
+    if(command==='window_action'&&args?.action==='ready')return null;
     if(command==='engine_status')return {ready:true,sessions:0,events:0};
     if(['pending_adapters','adapter_connections','external_documents_list'].includes(command))return [];
     if(command.startsWith('editor_'))return engine.invoke(command,args);

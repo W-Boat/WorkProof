@@ -18,6 +18,26 @@ fn main(){
     std::fs::write(format!("{dir}/essay.md.selected.wproof"),serde_json::to_string_pretty(&selected).unwrap()).unwrap();
     generate_evolution_fixture(&dir);
     generate_actions_fixture(&dir);
+    generate_behavior_fixtures(&dir);
+}
+
+fn generate_behavior_fixtures(dir:&str){
+    use std::collections::BTreeMap;
+    let content="测试".repeat(1500);
+    let key=SigningKey::from_bytes(&[45;32]);let id="demo-behavior-bulk-001";
+    let mut head=genesis(id);let mut records=vec![];
+    for(seq,kind)in ["start","edit","save"].iter().enumerate(){
+        let event=Event{seq:seq as u64,elapsed_ms:seq as u64*1000,kind:(*kind).into(),inserted:if *kind=="edit"{3000}else{0},deleted:0,chars:if *kind=="start"{0}else{3000},checkpoint:if *kind=="save"{digest(content.as_bytes())}else{String::new()},metrics:if *kind=="edit"{BTreeMap::from([("paste".into(),1)])}else{BTreeMap::new()}};
+        head=event_hash(&head,&event);records.push(Record{event,hash:head.clone()});
+    }
+    let proof=sign(Manifest{protocol:VERSION.into(),session_id:id.into(),file_name:"behavior-bulk.txt".into(),started_at:"2026-11-06T00:00:00Z".into(),source:"workproof-tiptap".into(),event_count:records.len() as u64,chain_head:head,artifact_hash:digest(content.as_bytes()),artifact_bytes:content.len() as u64,public_key:hex::encode(key.verifying_key().to_bytes()),identity:"self-signed".into(),time_evidence:"none".into(),demo:true,merkle_root:String::new()},records,&key);
+    assert!(verify(&proof,&digest(content.as_bytes()),content.len() as u64).valid);
+    let assessed=assess_behavior(&Evidence::Full(proof.clone()));assert_eq!(assessed.status,"review");assert!(assessed.signals.iter().any(|signal|signal.code=="bulk_insertion"&&signal.first_seq==1));
+    let partial=create_disclosure(&proof,&[]).unwrap();assert_eq!(assess_behavior(&Evidence::Selective(partial.clone())).status,"insufficient");
+    std::fs::write(format!("{dir}/behavior-bulk.txt"),&content).unwrap();
+    let full_json=serde_json::to_vec_pretty(&proof).unwrap();let partial_json=serde_json::to_vec_pretty(&partial).unwrap();
+    for name in ["behavior-bulk.wproof","behavior-bulk.txt.wproof"]{std::fs::write(format!("{dir}/{name}"),&full_json).unwrap();}
+    for name in ["behavior-bulk-selected.wproof","behavior-bulk.txt.selected.wproof"]{std::fs::write(format!("{dir}/{name}"),&partial_json).unwrap();}
 }
 
 fn generate_actions_fixture(dir:&str){

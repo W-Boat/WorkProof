@@ -34,3 +34,7 @@ await import('../ui/status.js');
 await import('./editor.js');
 const {initializePaneLayout}=await import('./pane-layout.js');
 initializePaneLayout();
+// A restored tray window is ready only after event listeners, document saving
+// and pane controls exist. Native pending navigation and quit requests follow.
+await window.workproofTrayListeners;
+await window.__TAURI__?.core.invoke('window_action',{action:'ready'});

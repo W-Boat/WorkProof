@@ -38,10 +38,13 @@ impl Store {
         std::fs::create_dir_all(dir)?;
         // Restrict app state to the current Windows user before writing secrets.
         #[cfg(windows)] {
-            let who=std::process::Command::new("whoami").output()?;
+            use std::os::windows::process::CommandExt;
+            // A GUI-subsystem parent does not hide console-subsystem children.
+            // Keep the existing ACL checks while preventing startup console flashes.
+            let who=std::process::Command::new("whoami").creation_flags(0x08000000).output()?;
             if !who.status.success(){return Err("Cannot identify state owner".into());}
             let user=String::from_utf8(who.stdout)?.trim().to_string();
-            let status=std::process::Command::new("icacls").arg(dir).args(["/inheritance:r","/grant:r",&format!("{}:(OI)(CI)F",user)])
+            let status=std::process::Command::new("icacls").creation_flags(0x08000000).arg(dir).args(["/inheritance:r","/grant:r",&format!("{}:(OI)(CI)F",user)])
                 .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status()?;
             if !status.success(){return Err("Cannot restrict state permissions".into());}
         }

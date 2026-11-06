@@ -14,12 +14,31 @@ if(process.env.GITHUB_ACTIONS==='true'&&fs.existsSync(chunkDirectory)){
     if(entry.isFile()&&/^[A-Za-z0-9_-]+\.js$/.test(entry.name))fs.unlinkSync(path.join(chunkDirectory,entry.name));
   }
 }
-require('esbuild').buildSync({
-  entryPoints:[path.join(root,'apps/desktop/frontend/components.js')],
+const uiBuild=require('esbuild').buildSync({
+  entryPoints:[path.join(root,'apps/desktop/frontend/components.js'),path.join(root,'apps/desktop/frontend/markdown-source-runtime.js')],
   outdir:path.join(root,'apps/desktop/ui'),chunkNames:'chunks/[name]-[hash]',
-  bundle:true,splitting:true,format:'esm',platform:'browser',target:['es2022'],minify:true,
+  bundle:true,splitting:true,metafile:true,format:'esm',platform:'browser',target:['es2022'],minify:true,
   legalComments:'eof',loader:{'.svg':'text'},
 });
+// Check actual compiled static imports. The document controller is loaded by
+// startup as well, so include its static closure without following lazy edges.
+const outputs=uiBuild.metafile.outputs,visited=new Set();
+function assertSourceEditorDeferred(outputName){
+  if(visited.has(outputName))return;visited.add(outputName);
+  const output=outputs[outputName];if(!output)return;
+  for(const input of Object.keys(output.inputs)){
+    if(/(?:^|[\\/])node_modules[\\/](?:@codemirror|@lezer|codemirror)(?:[\\/]|$)/.test(input))throw new Error('CodeMirror was loaded by the initial desktop shell: '+input);
+  }
+  for(const imported of output.imports){
+    if(imported.external||imported.kind==='dynamic-import')continue;
+    const dependency=outputs[imported.path]?imported.path:Object.keys(outputs).find(name=>path.resolve(name)===path.resolve(path.dirname(outputName),imported.path));
+    if(!dependency)throw new Error('Cannot inspect a desktop static chunk: '+imported.path);
+    assertSourceEditorDeferred(dependency);
+  }
+}
+for(const [name,output] of Object.entries(outputs)){
+  if(output.entryPoint&&/(?:^|[\\/])(?:components|editor|status|pane-layout)\.js$/.test(output.entryPoint))assertSourceEditorDeferred(name);
+}
 require('esbuild').buildSync({entryPoints:[path.join(root,'apps/desktop/frontend/word-worker.js')],outfile:path.join(root,'apps/desktop/ui/word-worker.js'),bundle:true,format:'esm',platform:'browser',target:['es2022'],minify:true,legalComments:'eof'});
 fs.copyFileSync(path.join(root,'apps/desktop/frontend/vendor/FOLIO-LICENSE.txt'),path.join(root,'apps/desktop/ui/FOLIO-LICENSE.txt'));
 // Preserve notices from the installed runtime dependency graph in every bundle.

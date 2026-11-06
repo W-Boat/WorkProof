@@ -3,7 +3,7 @@ self.onmessage = async ({data}) => {
   try {
     self.postMessage({type:'progress',phase:'加载核验引擎',progress:0});
     ready ||= import('/wasm/workproof_protocol.js').then(async mod=>{await mod.default();return mod;});
-    const {FileHasher,create_disclosure_json,verify_evolution_json}=await ready;
+    const {FileHasher,create_disclosure_json,verify_evolution_json,behavior_json}=await ready;
     const {artifact,proof}=data;
     if(proof.size>32*1024*1024)throw new Error('证据文件超过 32 MB 限制');
     const json=await proof.text();
@@ -40,7 +40,11 @@ self.onmessage = async ({data}) => {
       const certificateMatch=expected?(/^[a-f0-9]{64}$/.test(expected)&&certificateId===expected):null;
       if(certificateMatch===false){report.valid=false;report.errors.push('证书指纹不一致：这不是发送者指定的证书。');}
       const display=parsed.format?{...parsed,records:(parsed.disclosed||[]).map(entry=>entry.record)}:parsed;
-      self.postMessage({type:'result',report,proof:display,fingerprint:hasher.finish(),certificateId,certificateMatch});
+      let behavior=null;
+      if(report.valid&&typeof behavior_json==='function'){
+        try{behavior=JSON.parse(behavior_json(json));}catch{behavior=null;}
+      }
+      self.postMessage({type:'result',report,proof:display,fingerprint:hasher.finish(),certificateId,certificateMatch,behavior});
     } finally {hasher.free();}
   }catch(error){self.postMessage({type:'error',message:String(error?.message||error)});}
 };

@@ -1,15 +1,78 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use tauri::{menu::{Menu,MenuItem},tray::TrayIconBuilder,Manager,Emitter};
+use tauri::{menu::{Menu,MenuItem,PredefinedMenuItem},tray::{TrayIconBuilder,TrayIconEvent,MouseButton,MouseButtonState},Manager,Emitter};
 mod platform;
 mod c2pa;
 mod office_setup;
 mod editor;
 mod external_documents;
 static ALLOW_CLOSE:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
+static RESTORING:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
+static WORKBENCH_READY:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
+static PENDING_QUIT:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
+static PENDING_TRAY_VIEW:std::sync::Mutex<Option<&'static str>>=std::sync::Mutex::new(None);
+struct TrayStatus{item:MenuItem<tauri::Wry>,ready:std::sync::Mutex<Option<bool>>}
+fn refresh_tray_status(app:&tauri::AppHandle,ready:bool){
+    let Some(status)=app.try_state::<TrayStatus>() else{return;};
+    {
+        let Ok(mut previous)=status.ready.lock() else{return;};
+        if *previous==Some(ready){return;}
+        *previous=Some(ready);
+    }
+    // Native menu updates may dispatch to the UI thread. Release our state
+    // lock first so a simultaneous tray event cannot block that dispatch.
+    let label=if ready{"记录服务已就绪"}else{"记录服务准备中"};
+    if status.item.set_text(label).is_ok(){
+        if let Some(tray)=app.tray_by_id("workproof"){let _=tray.set_tooltip(Some(format!("WorkProof · {label}")));}
+    }else if let Ok(mut previous)=status.ready.lock(){*previous=None;}
+
+}
+fn build_workbench(app:&tauri::AppHandle)->tauri::Result<tauri::WebviewWindow>{
+    tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into()))
+        // WebView2's native drop handler otherwise intercepts HTML5 File drops,
+        // including the local verification iframe. Files stay in browser APIs.
+        .disable_drag_drop_handler()
+        .title("WorkProof · 创作工作台").decorations(!cfg!(windows))
+        .inner_size(960.,780.).min_inner_size(360.,520.).resizable(true)
+        .build()
+}
+fn restore_workbench(app:&tauri::AppHandle,view:Option<&'static str>,quit:bool){
+    if let Some(window)=app.get_webview_window("status"){
+        let _=window.unminimize();let _=window.show();let _=window.set_focus();
+        if !WORKBENCH_READY.load(std::sync::atomic::Ordering::Acquire){
+            if let Some(view)=view{if let Ok(mut pending)=PENDING_TRAY_VIEW.lock(){*pending=Some(view);}}
+            if quit{PENDING_QUIT.store(true,std::sync::atomic::Ordering::Release);}
+            return;
+        }
+        if quit{let _=window.emit("workproof-quit-requested",());}
+        else if let Some(view)=view{let _=window.emit("workproof-tray-view",view);}
+        return;
+    }
+    if let Ok(mut pending)=PENDING_TRAY_VIEW.lock(){*pending=view;}
+    if quit{PENDING_QUIT.store(true,std::sync::atomic::Ordering::Release);}
+    if RESTORING.swap(true,std::sync::atomic::Ordering::AcqRel){return;}
+    let app=app.clone();
+    // Creating a WebView2 window inside a synchronous tray callback can deadlock.
+    std::thread::spawn(move||{
+        let result=build_workbench(&app);
+        RESTORING.store(false,std::sync::atomic::Ordering::Release);
+        if let Ok(window)=result{
+            let _=window.show();let _=window.set_focus();
+        }
+    });
+}
 #[tauri::command]
 fn window_action(window:tauri::WebviewWindow,action:String)->Result<(),String>{
     workbench_only(&window)?;
     let result=match action.as_str(){
+        "ready"=>{
+            // Frontend calls after tray/quit listeners are registered. This
+            // prevents losing a menu action while a destroyed window reopens.
+            WORKBENCH_READY.store(true,std::sync::atomic::Ordering::Release);
+            let pending=PENDING_TRAY_VIEW.lock().ok().and_then(|mut pending|pending.take());
+            if let Some(view)=pending{let _=window.emit("workproof-tray-view",view);}
+            if PENDING_QUIT.swap(false,std::sync::atomic::Ordering::AcqRel){let _=window.emit("workproof-quit-requested",());}
+            Ok(())
+        },
         "minimize"=>window.minimize(),
         "maximize"=>if window.is_maximized().map_err(|_|"无法读取窗口状态。")?{window.unmaximize()}else{window.maximize()},
         "close"=>{
@@ -65,7 +128,12 @@ async fn open_word(window:tauri::WebviewWindow)->Result<String,String>{
     Ok("已向 Word 发出开始请求。首次连接请在此允许 Word；记录成功后，Word 会显示确认提示。".into())
 }
 #[tauri::command]
-fn engine_status(window:tauri::WebviewWindow)->Result<workproof_engine::EngineSnapshot,String>{workbench_only(&window)?;workproof_engine::snapshot()}
+fn engine_status(window:tauri::WebviewWindow)->Result<workproof_engine::EngineSnapshot,String>{
+    workbench_only(&window)?;
+    let snapshot=workproof_engine::snapshot()?;
+    refresh_tray_status(window.app_handle(),snapshot.ready);
+    Ok(snapshot)
+}
 #[tauri::command]
 fn pending_adapters(window:tauri::WebviewWindow)->Result<Vec<workproof_engine::pairing::Pending>,String>{workbench_only(&window)?;Ok(workproof_engine::pairing::pending())}
 #[tauri::command]
@@ -98,6 +166,7 @@ async fn open_verifier(window:tauri::WebviewWindow,app:tauri::AppHandle)->Result
     }else{
         let url=format!("http://127.0.0.1:{p}/").parse().map_err(|_|"核验页面地址无效。".to_string())?;
         tauri::WebviewWindowBuilder::new(&app,"verifier",tauri::WebviewUrl::External(url))
+            .disable_drag_drop_handler()
             .title("WorkProof · 作品核验").inner_size(1120.,800.).min_inner_size(420.,480.)
             .on_navigation(move|url|verifier_navigation(url,p))
             .on_new_window(|_,_|tauri::webview::NewWindowResponse::Deny)
@@ -124,20 +193,36 @@ async fn install_vscode(window:tauri::WebviewWindow,app:tauri::AppHandle)->Resul
 }
 fn main(){
     tauri::Builder::default().invoke_handler(tauri::generate_handler![window_action,office_setup,engine_status,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,verifier_url,install_vscode,open_word,open_powerpoint,verify_image,embed_image,editor::editor_list,editor::editor_create,editor::editor_load,editor::editor_save,editor::editor_version,editor::editor_export,external_documents::external_documents_list,external_documents::external_document_load,external_documents::external_document_open,external_documents::external_document_locate]).setup(|app|{
-        let open=MenuItem::with_id(app,"open","WorkProof · 状态与帮助",true,None::<&str>)?;
+        let open=MenuItem::with_id(app,"open","打开工作台",true,None::<&str>)?;
+        let library=MenuItem::with_id(app,"library","我的文档",true,None::<&str>)?;
+        let verification=MenuItem::with_id(app,"verification","文件核验",true,None::<&str>)?;
+        let connections=MenuItem::with_id(app,"connections","应用连接",true,None::<&str>)?;
+        let settings=MenuItem::with_id(app,"settings","设置",true,None::<&str>)?;
+        let status=MenuItem::with_id(app,"service-status","记录服务准备中",false,None::<&str>)?;
         let quit=MenuItem::with_id(app,"quit","退出 WorkProof",true,None::<&str>)?;
-        let menu=Menu::with_items(app,&[&open,&quit])?;
-        TrayIconBuilder::new().icon(app.default_window_icon().expect("bundled icon").clone()).tooltip("WorkProof · 创作过程记录")
+        let first=PredefinedMenuItem::separator(app)?;
+        let second=PredefinedMenuItem::separator(app)?;
+        let menu=Menu::with_items(app,&[&open,&library,&verification,&connections,&settings,&first,&status,&second,&quit])?;
+        app.manage(TrayStatus{item:status,ready:std::sync::Mutex::new(None)});
+        TrayIconBuilder::with_id("workproof").icon(app.default_window_icon().expect("bundled icon").clone())
+            .tooltip("WorkProof · 记录服务准备中").show_menu_on_left_click(false)
             .menu(&menu).on_menu_event(|app,event|match event.id.as_ref(){
-                "quit"=>{
-                    if let Some(w)=app.get_webview_window("status"){
-                        let _=w.unminimize();let _=w.show();let _=w.set_focus();
-                        let _=app.emit_to("status","workproof-quit-requested",());
-                    }else{app.exit(0);}
-                },
-                "open"=>{if let Some(w)=app.get_webview_window("status"){let _=w.unminimize();let _=w.show();let _=w.set_focus();}else{let _=tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").decorations(!cfg!(windows)).inner_size(960.,780.).min_inner_size(360.,520.).resizable(true).build();}},_=>{}
+                "quit"=>restore_workbench(app,None,true),
+                "open"=>restore_workbench(app,None,false),
+                "library"=>restore_workbench(app,Some("library"),false),
+                "verification"=>restore_workbench(app,Some("verification"),false),
+                "connections"=>restore_workbench(app,Some("connections"),false),
+                "settings"=>restore_workbench(app,Some("settings"),false),
+                _=>{}
+            }).on_tray_icon_event(|tray,event|{
+                match event{
+                    TrayIconEvent::Click{button:MouseButton::Left,button_state:MouseButtonState::Up,..}|
+                    TrayIconEvent::DoubleClick{button:MouseButton::Left,..}=>restore_workbench(tray.app_handle(),None,false),
+                    TrayIconEvent::Enter{..}=>{if let Ok(snapshot)=workproof_engine::snapshot(){refresh_tray_status(tray.app_handle(),snapshot.ready);}},
+                    _=>{}
+                }
             }).build(app)?;
-        if std::env::var_os("WORKPROOF_HEADLESS").is_none(){tauri::WebviewWindowBuilder::new(app,"status",tauri::WebviewUrl::App("index.html".into())).title("WorkProof · 创作工作台").decorations(!cfg!(windows)).inner_size(960.,780.).min_inner_size(360.,520.).resizable(true).build()?;}
+        if std::env::var_os("WORKPROOF_HEADLESS").is_none(){build_workbench(app.handle())?;}
         let handle=app.handle().clone();
         std::thread::spawn(move||{
             let rt=tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().expect("runtime");
@@ -147,6 +232,9 @@ fn main(){
         });Ok(())
     }).build(tauri::generate_context!()).expect("WorkProof desktop failed")
         .run(|app,event|{
+            if let tauri::RunEvent::WindowEvent{label,event:tauri::WindowEvent::Destroyed,..}=&event{
+                if label=="status"{WORKBENCH_READY.store(false,std::sync::atomic::Ordering::Release);}
+            }
             if let tauri::RunEvent::WindowEvent{label,event:tauri::WindowEvent::CloseRequested{api,..},..}=&event{
                 if label=="status"&&!ALLOW_CLOSE.swap(false,std::sync::atomic::Ordering::AcqRel){api.prevent_close();let _=app.emit_to("status","workproof-close-requested",());}
             }

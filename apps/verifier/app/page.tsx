@@ -7,16 +7,19 @@ import {PageHeader,Panel,Tag,EmptyState,TextInput} from '../components/instituti
 import {VerifierShell,useVerifierReducedMotion} from '../components/VerifierShell';
 import {Upload} from '../components/FileDrop';
 import {Timeline} from '../components/ProcessTimeline';
+import {BehaviorPanel} from '../components/BehaviorPanel';
 import {CertificateCard,VerificationChecks,DisclosurePanel,DisclosedEvents} from '../components/ProofPanels';
-import {type Stage,type Result,download,escape,time} from '../lib/evidence';
+import {type Stage,type Result,download,escape,time,behaviorSummary} from '../lib/evidence';
 import {TimestampPanel} from '../components/TimestampPanel';
 import {MetadataPanel} from '../components/MetadataPanel';
 import {EmbeddedCertificatePanel} from '../components/EmbeddedCertificatePanel';
 import {EvolutionPanel} from '../components/EvolutionPanel';
 
 export default function Page(){
+  const [focusedEventSeq,setFocusedEventSeq]=useState<number|null>(null);
   const [artifact,setArtifact]=useState<File|null>(null),[proofFile,setProofFile]=useState<File|null>(null),[stage,setStage]=useState<Stage>('idle'),[progress,setProgress]=useState(0),[phase,setPhase]=useState(''),[result,setResult]=useState<Result|null>(null),[error,setError]=useState(''),[demoBusy,setDemoBusy]=useState(false);
   const demoRequest=useRef<AbortController|null>(null);
+  useEffect(()=>{setFocusedEventSeq(null);},[result]);
   const worker=useRef<Worker|null>(null),disclosureWorker=useRef<Worker|null>(null);const reduced=useVerifierReducedMotion();
   const resultHeading=useRef<HTMLDivElement|null>(null);
   const errorMessage=useRef<HTMLDivElement|null>(null),returnToUpload=useRef(false);
@@ -65,8 +68,9 @@ export default function Page(){
   }
   const m=result?.proof.manifest,r=result?.report;const records=result?.proof.records||[];
   const partial=r?.scope==='selective';
+  const behaviorNote=behaviorSummary(result?.behavior,r?.scope),behaviorReview=r?.valid&&result?.behavior?.status==='review';
   const gaps=records.filter(x=>x.event.kind==='gap').length;const duration=records.at(-1)?.event.elapsed_ms||0;
-  function shareText(){return `WorkProof 签名证书\n作品：${m?.file_name}\n证书指纹（SHA-256 / 签名字节）：${result?.certificateId}\n请在独立的 WorkProof 核验页打开作品原文件和 .wproof，并填写上方指纹。签名可检查内容改动，不认证作者身份或原创性。${partial?'此证书仅披露部分事件。':'此文件包含全部过程记录；转发前请确认可以公开。'}${m?.demo?' 演示数据，不用于实际交付。':''}`;}
+  function shareText(){return `WorkProof 签名证书\n作品：${m?.file_name}\n证书指纹（SHA-256 / 签名字节）：${result?.certificateId}\n编辑过程：${behaviorNote}。统计提醒仅供人工复核。\n请在独立的 WorkProof 核验页打开作品原文件和 .wproof，并填写上方指纹。签名可检查内容改动，不认证作者身份或原创性。${partial?'此证书仅披露部分事件。':'此文件包含全部过程记录；转发前请确认可以公开。'}${m?.demo?' 演示数据，不用于实际交付。':''}`;}
   async function shareCertificate(){
     if(!proofFile||!r?.valid||!result?.certificateId)return;
     const text=shareText();
@@ -115,7 +119,7 @@ export default function Page(){
   }
   async function exportImage(){
     if(!m||!r?.valid)return;
-    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960"><rect width="1440" height="960" fill="#f1f0e8"/><rect x="40" y="40" width="1360" height="880" rx="4" fill="none" stroke="#b9c4b9"/><g fill="#243d31" font-family="Segoe UI, Microsoft YaHei, sans-serif"><text x="100" y="125" font-size="25" letter-spacing="6">WORKPROOF / PROCESS RECORD</text><text x="100" y="270" font-size="64">${partial?'创作过程记录 · 部分披露':'创作过程记录证书'}</text><text x="100" y="345" font-size="36">${escape(m.file_name.slice(0,38)+(m.file_name.length>38?'…':''))}</text><text x="100" y="440" font-size="30">文件匹配 · ${partial?'所选事件归属一致':'记录链完整'} · 签名有效${m.demo?' · 演示数据':''}</text><text x="100" y="510" font-size="30">${partial?`${records.length} / ${m.event_count} 条已披露事件`:`${m.event_count} 条事件`} / ${time(duration)}记录跨度</text><text x="100" y="555" font-size="22">${partial?'完整记录链未核验 · 未披露区间不能用于连续性判断':`${gaps} 个已记录采集缺口`}</text><text x="100" y="610" font-size="20">BLAKE3 文件指纹</text><text x="100" y="650" font-family="monospace" font-size="20">${m.artifact_hash}</text><text x="100" y="740" font-size="22">签名身份未经认证 · 图片未附时间凭据</text><text x="100" y="795" font-size="20">此图为核验结果展示。复核需要作品和 .wproof；不证明人类创作或原创性。</text><text x="100" y="850" font-size="20">证书指纹 · SHA-256（签名字节）</text><text x="100" y="885" font-family="monospace" font-size="20">${result?.certificateId||''}</text></g></svg>`;
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960"><rect width="1440" height="960" fill="#f1f0e8"/><rect x="40" y="40" width="1360" height="880" rx="4" fill="none" stroke="#b9c4b9"/><g fill="#243d31" font-family="Segoe UI, Microsoft YaHei, sans-serif"><text x="100" y="125" font-size="25" letter-spacing="6">WORKPROOF / PROCESS RECORD</text><text x="100" y="270" font-size="64">${partial?'创作过程记录 · 部分披露':'创作过程记录证书'}</text><text x="100" y="345" font-size="36">${escape(m.file_name.slice(0,38)+(m.file_name.length>38?'…':''))}</text><text x="100" y="440" font-size="30">文件匹配 · ${partial?'所选事件归属一致':'记录链完整'} · 签名有效${m.demo?' · 演示数据':''}</text><text x="100" y="510" font-size="30">${partial?`${records.length} / ${m.event_count} 条已披露事件`:`${m.event_count} 条事件`} / ${time(duration)}记录跨度</text><text x="100" y="555" font-size="22">${partial?'完整记录链未核验 · 未披露区间不能用于连续性判断':`${gaps} 个已记录采集缺口`}</text><text x="100" y="610" font-size="20">BLAKE3 文件指纹</text><text x="100" y="650" font-family="monospace" font-size="20">${m.artifact_hash}</text><text x="100" y="700" font-size="26" fill="${behaviorReview?'#8a5100':'#5b655d'}">${escape(behaviorNote)} · 供人工复核</text><text x="100" y="740" font-size="22">签名身份未经认证 · 图片未附时间凭据</text><text x="100" y="795" font-size="20">此图为核验结果展示。复核需要作品和 .wproof；不证明人类创作或原创性。</text><text x="100" y="850" font-size="20">证书指纹 · SHA-256（签名字节）</text><text x="100" y="885" font-family="monospace" font-size="20">${result?.certificateId||''}</text></g></svg>`;
     const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
     try{const image=new Image();image.src=url;await image.decode();const canvas=document.createElement('canvas');canvas.width=1440;canvas.height=960;canvas.getContext('2d')!.drawImage(image,0,0);const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/png'));if(blob)download(blob,'WorkProof-certificate.png');}catch{download(new Blob([svg],{type:'image/svg+xml'}),'WorkProof-certificate.svg');}finally{URL.revokeObjectURL(url);}
   }
@@ -131,15 +135,16 @@ export default function Page(){
       {stage==='error'&&<div ref={errorMessage} tabIndex={-1} className="error-box" role="alert"><AlertTriangle size={18}/><div><strong>暂时无法完成核验</strong><p>{error}</p></div></div>}
     </Panel>
     {result&&m&&r?<motion.div initial={reduced?false:{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:reduced?0:.18}} className="result">
-      <div id="verification-result" ref={resultHeading} tabIndex={-1} role="status" className={`result-banner ${r.valid?'success':'failure'}`}><span>{r.valid?<ShieldCheck size={21}/>:<AlertTriangle size={21}/>}<strong>{r.valid?(partial?'部分证据核验通过':'证据核验通过'):'证据核验未通过'}</strong>{m.demo&&<Tag tone="neutral">演示数据</Tag>}</span><span>{r.valid?(partial?'所选事件属于已签名记录集；完整链未核验':'文件、记录链与签名一致'):'请检查文件配对及证据完整性'}</span></div>
-      <div className="result-grid"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId}/><VerificationChecks proof={result.proof} report={r}/></div>
+      <div id="verification-result" ref={resultHeading} tabIndex={-1} role="status" className={`result-banner ${r.valid?'success':'failure'}`}><span>{r.valid?<ShieldCheck size={21}/>:<AlertTriangle size={21}/>}<strong>{r.valid?(partial?'部分证据核验通过':'证据核验通过'):'证据核验未通过'}</strong>{m.demo&&<Tag tone="neutral">演示数据</Tag>}</span><span>{r.valid?(behaviorReview?'文件与签名一致 · 编辑过程有待复核提醒':partial?'所选事件属于已签名记录集；完整链未核验':'文件、记录链与签名一致'):'请检查文件配对及证据完整性'}</span></div>
+      <div className="result-grid"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId} behaviorNote={behaviorNote} behaviorReview={!!behaviorReview}/><VerificationChecks proof={result.proof} report={r}/></div>
+      <BehaviorPanel assessment={result.behavior} valid={r.valid} onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}/>
       {result.certificateMatch===false&&<p className="error-box" role="alert">证书指纹不一致：这不是发送者指定的证书。请向发送者确认，勿作为有效交付凭据。</p>}
       {result.certificateMatch===true&&<p className="caption">证书指纹一致：与发送者提供的证书相符。</p>}
       <div className="export-row"><span><LockKeyhole size={13}/>本次核验未上传作品或证书</span><div><Button disabled={!r.valid} onClick={exportImage} className="embedded-tool" aria-label="保存证书图片" title="保存证书图片"><ArrowDownToLine size={15}/><span className="action-label">保存证书图片</span></Button><Button disabled={!r.valid} onClick={()=>window.print()} className="embedded-tool" aria-label="打印 / PDF" title="打印 / PDF"><FileText size={15}/><span className="action-label">打印 / PDF</span></Button><Button variant="ghost" onClick={()=>{returnToUpload.current=true;invalidate();setArtifact(null);setProofFile(null);setExpectedId('');}} aria-label="清空重新核验" title="核验另一份作品" className="embedded-tool"><RotateCcw size={16}/><span className="action-label">核验另一份作品</span></Button></div></div>
       {r.valid&&<Panel title="分享可复核的签名证书" className="share-panel"><p>把签名证书和作品原文件发给对方，对方即可重新核验。证书图片方便展示，复核时仍需 .wproof 文件。</p><p>{partial?'此证书仅包含已披露的事件。':'此证书包含完整过程记录。如需减少公开内容，请先在下方导出部分证据，再载入核验后分享。'}</p><label className="field"><span className="field-label">证书指纹 · 用于识别证书是否被替换</span><code className="share-fingerprint" tabIndex={0}>{result.certificateId}</code></label><div className="share-actions"><Button variant="primary" onClick={shareCertificate}>分享签名证书</Button><Button className="embedded-tool" aria-label="下载签名证书" title="下载签名证书" onClick={()=>{if(proofFile)download(proofFile,proofFile.name);}}><ArrowDownToLine size={16}/><span className="action-label">下载签名证书</span></Button><Button className="embedded-tool" aria-label="复制指纹与核验说明" title="复制指纹与核验说明" onClick={copyFingerprint}><Fingerprint size={16}/><span className="action-label">复制指纹与核验说明</span></Button></div><p role="status">{shareMessage}</p><p className="caption">请经可信渠道发送指纹。当前不生成公网链接；本机地址无法供他人远程访问。签名可以查出内容改动，签名者身份仍未经认证。</p></Panel>}
       {r.valid&&<TimestampPanel key={result.certificateId} signature={result.proof.signature}/>}
       {r.valid&&!partial&&m.protocol==='workproof/3'&&<DisclosurePanel selection={selection} busy={disclosureBusy} error={disclosureError} onChange={setSelection} onExport={exportDisclosure}/>}
-      {r.chain_valid&&<Timeline records={records}/>}
+      {r.valid&&r.chain_valid&&<Timeline key={result.certificateId+String(proofFile?.lastModified)} records={records} signals={result.behavior?.signals} selectedSeq={focusedEventSeq} onSelect={setFocusedEventSeq}/>}
       {r.valid&&partial&&<DisclosedEvents records={records}/>}
       {r.valid&&proofFile&&<EvolutionPanel key={result.certificateId+proofFile.name} proof={proofFile}/>}
     </motion.div>:<Panel className="empty-proof"><EmptyState icon={<Fingerprint size={28}/>} title={stage==='working'?'正在核验作品和证书…':demoBusy?'正在载入演示…':stage==='error'?'请按上方提示检查后重试':artifact&&proofFile?'文件已选好，可以开始核验':artifact?'下一步：选择配套证书':proofFile?'下一步：选择对应作品':'载入一份作品，开始核验。'} desc={stage==='working'?'请稍候；需要更换文件时，可以先取消核验。':demoBusy?'你也可以直接选择自己的作品和证书。':artifact&&proofFile?'点击“开始本地核验”，查看文件、签名和记录的检查结果。':artifact?'请选择提供者发来的 .wproof 文件。只有作品还不能核对创作记录。':proofFile?'请选择与这份证书一同收到的原始作品文件。':'你将看到文件匹配、记录完整性、签名与过程轨迹，也可以先体验标明来源的演示证据。'}/></Panel>}

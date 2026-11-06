@@ -6,7 +6,7 @@ import {Panel,Tag,TextInput} from './institution-ui';
 import {ActionBreakdown} from './ActionBreakdown';
 import {type Proof,type Report,type RecordEntry,time,shorten,labels} from '../lib/evidence';
 
-export function CertificateCard({proof,report,certificateId}:{proof:Proof;report:Report;certificateId?:string}){
+export function CertificateCard({proof,report,certificateId,behaviorNote,behaviorReview=false}:{proof:Proof;report:Report;certificateId?:string;behaviorNote?:string;behaviorReview?:boolean}){
   const m=proof.manifest,partial=report.scope==='selective';
   const duration=proof.records.at(-1)?.event.elapsed_ms||0,gaps=proof.records.filter(r=>r.event.kind==='gap').length;
   return <article className={`certificate ${report.valid?'':'invalid'}`} aria-label="过程记录证书">
@@ -14,6 +14,7 @@ export function CertificateCard({proof,report,certificateId}:{proof:Proof;report
     <div className="certificate-main"><div className="certificate-kicker">可复核 · 可携带 · 隐私优先</div><h2>{partial?'创作过程记录 · 部分披露':'创作过程记录证书'}</h2><p className="certificate-name">{m.file_name}</p>
       <div className="certificate-emblem">{report.valid?<ShieldCheck size={35} strokeWidth={1.2}/>:<AlertTriangle size={35}/>}</div>
       <div className="certificate-stats"><div><strong>{partial?`${proof.records.length} / ${m.event_count.toLocaleString()}`:m.event_count.toLocaleString()}</strong><span>{partial?'已披露 / 总事件':'已记录事件'}</span></div><div><strong>{time(duration)}</strong><span>记录时间跨度</span></div><div><strong>{partial?'未核验':gaps}</strong><span>{partial?'完整连续性':'采集缺口'}</span></div></div>
+      {report.valid&&behaviorNote&&<p className={`certificate-behavior ${behaviorReview?'needs-review':''}`}>{behaviorNote} · 供人工复核</p>}
     </div>
     <footer className="certificate-footer"><div><span>BLAKE3 文件指纹</span><code>{m.artifact_hash}</code></div><span className="certificate-note">{report.valid?'核验一致':'核验失败'}<br/>{m.demo?'演示样本':'本地签名'}</span></footer>
     {report.valid&&certificateId&&<div className="certificate-id"><span>证书指纹 · SHA-256（签名字节）</span><code>{certificateId}</code></div>}

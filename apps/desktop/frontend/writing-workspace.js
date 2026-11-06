@@ -1,7 +1,3 @@
-import {EditorView,basicSetup} from 'codemirror';
-import {markdown} from '@codemirror/lang-markdown';
-import {Compartment,EditorState} from '@codemirror/state';
-
 const $=id=>document.getElementById(id);
 // Both presentations edit the same Tiptap document and use its recording pipeline.
 export function initializeWritingWorkspace({getEditor,getActive,record,hint,flush,showMessage}){
@@ -9,12 +5,30 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   let wordPagination=true;
   try{wordPagination=localStorage.getItem('workproof.word-pagination')!=='false';}catch{}
   const drafts=new Map();
-  const sourceEditability=new Compartment();
+  let sourceRuntime=null,runtimeLoading=null,runtimeAttempt=0,sourceEditability=null;
+  let sourceGeneration=0,pendingSource=null;
   let closing=false;
+  async function loadSourceRuntime(){
+    if(sourceRuntime)return sourceRuntime;
+    if(!runtimeLoading){
+      const url=new URL('markdown-source-runtime.js',document.baseURI);
+      if(runtimeAttempt)url.searchParams.set('retry',String(runtimeAttempt));
+      runtimeAttempt++;
+      runtimeLoading=import(url.href);
+    }
+    const loading=runtimeLoading;
+    try{sourceRuntime=await loading;return sourceRuntime;}
+    catch(error){if(runtimeLoading===loading)runtimeLoading=null;throw error;}
+  }
+  function cancelPendingSource(){
+    sourceGeneration++;pendingSource=null;
+    $('toggle-source').disabled=false;$('toggle-source').removeAttribute('aria-busy');
+  }
   function setClosing(value){
     if(value&&source?.composing)throw new Error('请先完成当前输入法输入，再关闭窗口。');
     closing=value;
-    source?.dispatch({effects:sourceEditability.reconfigure([EditorView.editable.of(!closing),EditorState.readOnly.of(closing)])});
+    if(value)cancelPendingSource();
+    if(source){const {EditorView,EditorState}=sourceRuntime;source.dispatch({effects:sourceEditability.reconfigure([EditorView.editable.of(!closing),EditorState.readOnly.of(closing)])});}
   }
   const sourceVisible=()=>!$('markdown-source-panel').hidden;
   function losslessMarkdown(){
@@ -103,23 +117,34 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   for(const type of ['compositionstart','compositionupdate','compositionend','drop','dragstart','dragend'])sourceEvents[type]=event=>{
     record(type,{detail:{source:'markdown',data:typeof event.data==='string'?event.data.slice(0,2048):null}});
   };
-  function openSource(){
-    const editor=getEditor();if(!editor)return;
-    const compatible=losslessMarkdown();
-    if(compatible===null){showMessage('这份文档含有 Markdown 无法完整保留的格式，请在正文中继续编辑。');return;}
-    const id=getActive()?.id,draft=drafts.get(id),json=JSON.stringify(editor.getJSON());
-    let stored=editor.state.doc.attrs.markdownSource;
-    if(typeof stored==='string'){
-      try{if(!editor.schema.nodeFromJSON(editor.markdown.parse(stored)).content.eq(editor.state.doc.content))stored=null;}catch{stored=null;}
-    }
-    const text=draft?.document===json?draft.text:stored??compatible;
-    source?.destroy();sourceId=id;
-    $('markdown-source-panel').hidden=false;
-    $('tiptap-editor').hidden=true;
-    source=new EditorView({doc:text,parent:$('markdown-source'),extensions:[basicSetup,markdown(),sourceEditability.of([EditorView.editable.of(!closing),EditorState.readOnly.of(closing)]),EditorView.lineWrapping,EditorView.contentAttributes.of({'aria-label':'Markdown 源码'}),EditorView.updateListener.of(sourceChanged),EditorView.domEventHandlers(sourceEvents)]});
-    $('toggle-source').setAttribute('aria-pressed','true');source.focus();
+  async function openSource(){
+    const editor=getEditor();if(!editor||closing||pendingSource)return;
+    const id=getActive()?.id,generation=++sourceGeneration;
+    const applicable=()=>generation===sourceGeneration&&!closing&&getEditor()===editor&&getActive()?.id===id&&document.body.dataset.view==='document'&&$('tab-write').getAttribute('aria-selected')==='true';
+    if(!applicable())return;
+    pendingSource={editor,generation};$('toggle-source').disabled=true;$('toggle-source').setAttribute('aria-busy','true');
+    try{
+      const {EditorView,basicSetup,markdown,Compartment,EditorState}=await loadSourceRuntime();
+      if(!applicable())return;
+      // The user may keep writing while the module downloads. Recompute from
+      // the current document, rather than replacing it with an earlier snapshot.
+      const compatible=losslessMarkdown();
+      if(compatible===null){showMessage('这份文档含有 Markdown 无法完整保留的格式，请在正文中继续编辑。');return;}
+      const draft=drafts.get(id),json=JSON.stringify(editor.getJSON());
+      let stored=editor.state.doc.attrs.markdownSource;
+      if(typeof stored==='string'){
+        try{if(!editor.schema.nodeFromJSON(editor.markdown.parse(stored)).content.eq(editor.state.doc.content))stored=null;}catch{stored=null;}
+      }
+      const text=draft?.document===json?draft.text:stored??compatible;
+      source?.destroy();sourceId=id;sourceEditability=new Compartment();
+      source=new EditorView({doc:text,parent:$('markdown-source'),extensions:[basicSetup,markdown(),sourceEditability.of([EditorView.editable.of(!closing),EditorState.readOnly.of(closing)]),EditorView.lineWrapping,EditorView.contentAttributes.of({'aria-label':'Markdown 源码'}),EditorView.updateListener.of(sourceChanged),EditorView.domEventHandlers(sourceEvents)]});
+      $('markdown-source-panel').hidden=false;$('tiptap-editor').hidden=true;
+      $('toggle-source').setAttribute('aria-pressed','true');source.focus();
+    }catch(error){
+      if(applicable())showMessage('源码编辑器暂未加载，请重试。若仍无法打开，请先保存文档，再退出并重开 WorkProof。','error');
+    }finally{if(generation===sourceGeneration){pendingSource=null;$('toggle-source').disabled=false;$('toggle-source').removeAttribute('aria-busy');}}
   }
-  function closeSource(){if(sourceError){showMessage(sourceError.message,'error');return false;}rememberDraft();source?.destroy();source=null;$('markdown-source').replaceChildren();$('markdown-source-panel').hidden=true;$('tiptap-editor').hidden=false;$('toggle-source').setAttribute('aria-pressed','false');return true;}
+  function closeSource(){cancelPendingSource();if(sourceError){showMessage(sourceError.message,'error');return false;}rememberDraft();source?.destroy();source=null;$('markdown-source').replaceChildren();$('markdown-source-panel').hidden=true;$('tiptap-editor').hidden=false;$('toggle-source').setAttribute('aria-pressed','false');return true;}
   $('toggle-source').addEventListener('click',()=>sourceVisible()?closeSource():openSource());
   document.querySelectorAll('[data-mode]').forEach(button=>button.addEventListener('click',()=>{
     if(button.dataset.mode==='word'&&!closeSource())return;
@@ -132,6 +157,8 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
     record('layout',{detail:{mode},metrics:{layout_changes:1}});
   }));
   $('write-panel').dataset.editMode=mode;
+  window.addEventListener('workproof-view',event=>{if(event.detail!=='document')cancelPendingSource();});
+  document.addEventListener('workproof-editor-tab',event=>{if(event.detail!=='write')cancelPendingSource();});
   document.addEventListener('workproof:simple-writing',applyMode);
   $('writing-ribbon').addEventListener('pointerdown',event=>{if(sourceVisible()&&!closeSource()){event.preventDefault();event.stopPropagation();}},true);
   const ribbonTabs=[...document.querySelectorAll('[data-ribbon]')];
@@ -173,7 +200,7 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   function nextMatch(backward){const editor=getEditor();editor?.commands[backward?'goToPreviousResult':'goToNextResult']();updateFindCount();}
   $('find-next').addEventListener('click',()=>nextMatch(false));$('find-previous').addEventListener('click',()=>nextMatch(true));
   for(const [id,command] of [['replace-one','replace'],['replace-all','replaceAll']])$(id).addEventListener('click',()=>{hint('format');getEditor()?.commands[command]();updateFindCount();});
-  return {outline,applyMode,rememberPagination,setClosing,changed(){outline();if(source&&sourceId!==getActive()?.id)closeSource();},validate(){if(sourceError)throw sourceError;},markdownText(){
+  return {outline,applyMode,rememberPagination,setClosing,changed(){outline();if(pendingSource&&pendingSource.editor!==getEditor())cancelPendingSource();if(source&&sourceId!==getActive()?.id)closeSource();},validate(){if(sourceError)throw sourceError;},markdownText(){
     if(sourceError)throw sourceError;
     const text=losslessMarkdown();if(text===null)throw new Error('文档含有 Markdown 无法完整保留的格式，请选择 Word 或网页作品导出。');
     return source?.state.doc.toString()??text;

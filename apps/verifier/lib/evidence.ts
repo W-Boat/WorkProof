@@ -1,8 +1,18 @@
 export type RecordEntry={event:{seq:number;elapsed_ms:number;kind:string;inserted:number;deleted:number;chars:number;checkpoint:string;metrics?:Record<string,number>};hash:string};
 export type Proof={manifest:{protocol:string;session_id:string;file_name:string;started_at:string;source:string;event_count:number;chain_head:string;artifact_hash:string;artifact_bytes:number;public_key:string;identity:string;time_evidence:string;demo:boolean;merkle_root?:string};records:RecordEntry[];signature:string};
 export type Report={valid:boolean;file_match:boolean;chain_valid:boolean;signature_valid:boolean;merkle_valid:boolean|null;scope:"full"|"selective";disclosed_events:number;total_events:number;errors:string[]};
-export type Result={proof:Proof;report:Report;fingerprint:string;certificateId:string;certificateMatch:boolean|null};
+export type BehaviorSignal={code:string;severity:'notice'|'warning';start_ms:number;end_ms:number;first_seq:number;last_seq:number;event_count:number;inserted:number;deleted:number;details:Record<string,number>};
+export type BehaviorAssessment={version:string;rule_version:string;status:'review'|'no_flags'|'insufficient'|'unavailable'|'not_applicable';scope:'full'|'selective';signals:BehaviorSignal[];signals_truncated?:boolean;summary:{events:number;edits:number;inserted:number;deleted:number;paste_commands:number;bulk_inserted:number;bulk_share:number;duration_ms:number};thresholds:Record<string,number>;limitations:string[]};
+export type Result={proof:Proof;report:Report;fingerprint:string;certificateId:string;certificateMatch:boolean|null;behavior?:BehaviorAssessment|null};
 export type Stage='idle'|'working'|'done'|'error';
+export function behaviorSummary(assessment?:BehaviorAssessment|null,scope:'full'|'selective'='full'){
+  if(scope==='selective')return '过程信息不足（仅披露部分记录）';
+  if(!assessment||['insufficient','unavailable'].includes(assessment.status))return '过程信息不足';
+  if(assessment.status==='not_applicable')return '文字过程规则不适用';
+  if(assessment.status==='review'&&assessment.signals.length)return `${assessment.signals_truncated?'至少 ':''}${assessment.signals.length} 项过程提醒，需进一步复核`;
+  if(assessment.status==='no_flags')return '过程统计暂未触发提醒';
+  return '过程信息不足';
+}
 export const size=(n:number)=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
 export const time=(ms:number)=>ms<60000?`${Math.floor(ms/1000)} 秒`:`${Math.floor(ms/60000)} 分 ${Math.floor(ms/1000)%60} 秒`;
 export const shorten=(s:string)=>s.slice(0,12)+'…'+s.slice(-8);

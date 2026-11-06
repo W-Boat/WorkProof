@@ -7,7 +7,7 @@ async function desktop(page:Page){
   await page.route('**/desktop-status/**',route=>{
     const asset=new URL(route.request().url()).pathname.slice('/desktop-status/'.length);
     const name=asset.split('/').at(-1)!;
-    const type:Record<string,string>={'index.html':'text/html','word-worker.js':'application/javascript','components.js':'application/javascript','theme.css':'text/css','native-editor.css':'text/css','brand.png':'image/png'};
+    const type:Record<string,string>={'index.html':'text/html','word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','theme.css':'text/css','native-editor.css':'text/css','brand.png':'image/png'};
     const headers=name==='index.html'?{'Content-Security-Policy':JSON.parse(fs.readFileSync('apps/desktop/src-tauri/tauri.conf.json','utf8')).app.security.csp}:{};
     const chunk=/^chunks\/[A-Za-z0-9_-]+\.js$/.test(asset);
     if(!chunk&&(!type[name]||asset!==name))return route.abort();
@@ -48,7 +48,10 @@ async function desktop(page:Page){
         doc.versions.unshift({revision:doc.revision,saved:Date.now(),count:input.actions.length});doc.snapshots[doc.revision]=input.content;write(docs);return {revision:doc.revision};
       }
       if(command==='editor_export'){w.editorHarness.exports++;return {cancelled:true};}
-      if(command==='window_action'){w.editorHarness.closed=true;w.editorHarness.windowActions.push(args.action);return null;}
+      if(command==='window_action'){
+        if(args.action==='ready'){w.editorHarness.ready={listeners:Object.keys(w.editorHarness.listeners),hasCloseGate:typeof w.workproofBeforeClose==='function'};return null;}
+        w.editorHarness.closed=true;w.editorHarness.windowActions.push(args.action);return null;
+      }
       if(command==='verifier_url')return 'http://127.0.0.1:4173/embedded-test/';
       throw new Error('Unexpected IPC '+command);
     }}};
@@ -63,6 +66,79 @@ async function ensureRibbonOpen(page:Page){
   await expect(page.locator('#write-panel')).toHaveAttribute('data-ribbon-open','true');
   await expect(page.locator('#writing-ribbon')).not.toHaveAttribute('inert','');
 }
+
+test('tray navigation is registered after the save gate and accepts only workspace pages',async({page})=>{
+  await desktop(page);
+  await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.ready?.hasCloseGate)).toBe(true);
+  expect(await page.evaluate(()=>(window as any).editorHarness.ready.listeners)).toEqual(expect.arrayContaining(['workproof-close-requested','workproof-quit-requested','workproof-tray-view']));
+  await page.evaluate(()=>(window as any).editorHarness.listeners['workproof-tray-view']({payload:'settings'}));
+  await expect(page.locator('body')).toHaveAttribute('data-view','settings');
+  await page.evaluate(()=>(window as any).editorHarness.listeners['workproof-tray-view']({payload:'document'}));
+  await expect(page.locator('body')).toHaveAttribute('data-view','settings');
+  await page.evaluate(()=>(window as any).editorHarness.listeners['workproof-tray-view']({payload:'library'}));
+  await expect(page.getByRole('button',{name:'新建文档',exact:true})).toBeVisible();
+});
+async function delayMarkdownRuntime(page:Page){
+  let release!:()=>void,requested!:()=>void;
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  const requestStarted=new Promise<void>(resolve=>{requested=resolve;});
+  await page.route('**/desktop-status/markdown-source-runtime.js*',async route=>{requested();await held;await route.fallback();});
+  return {requestStarted,release};
+}
+
+test('CodeMirror loads only for Markdown source and reuses its runtime',async({page})=>{
+  const requests:string[]=[];
+  page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/desktop-status/markdown-source-runtime.js'))requests.push(request.url());});
+  await desktop(page);await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');expect(requests).toEqual([]);
+  const body=await create(page);await body.fill('正文编辑无需源码组件');expect(requests).toEqual([]);
+  await page.locator('[data-mode=markdown]').click();await expect(body).toBeVisible();expect(requests).toEqual([]);
+  await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toBeVisible();expect(requests).toHaveLength(1);
+  await page.locator('#toggle-source').click();await expect(body).toBeVisible();await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toBeVisible();expect(requests).toHaveLength(1);
+});
+
+test('switching to Word cancels a pending source open and reopening uses the latest document',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('等待加载时的原稿');await page.locator('[data-mode=markdown]').click();
+  const delayed=await delayMarkdownRuntime(page);
+  await page.locator('#toggle-source').click();await delayed.requestStarted;
+  await expect(page.locator('#toggle-source')).toHaveAttribute('aria-busy','true');await expect(body).toBeVisible();
+  await page.locator('[data-mode=word]').click();await body.fill('加载期间更新后的正文');
+  const loaded=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/desktop-status/markdown-source-runtime.js'));
+  delayed.release();await loaded;
+  await page.evaluate(async()=>{await import(new URL('markdown-source-runtime.js',document.baseURI).href);await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));});
+  await expect(page.locator('#markdown-source-panel')).toBeHidden();await expect(page.locator('#markdown-source .cm-content')).toHaveCount(0);await expect(body).toHaveText('加载期间更新后的正文');
+  await page.locator('[data-mode=markdown]').click();await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toHaveText('加载期间更新后的正文');
+});
+
+test('tray quit saves while a source runtime is pending and prevents its late view from opening',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('退出前保留的正文');await page.locator('[data-mode=markdown]').click();
+  const delayed=await delayMarkdownRuntime(page);
+  await page.locator('#toggle-source').click();await delayed.requestStarted;
+  await page.evaluate(()=>{(window as any).editorHarness.listeners['workproof-quit-requested']();});
+  await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.windowActions)).toEqual(['quit']);
+  expect(await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).content.content[0].content[0].text)).toBe('退出前保留的正文');
+  const loaded=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/desktop-status/markdown-source-runtime.js'));
+  delayed.release();await loaded;
+  await page.evaluate(async()=>{await import(new URL('markdown-source-runtime.js',document.baseURI).href);await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));});
+  await expect(page.locator('#markdown-source .cm-content')).toHaveCount(0);await expect(page.locator('#markdown-source-panel')).toBeHidden();await expect(page.locator('main')).toHaveAttribute('inert','');
+});
+
+test('a delayed source request cannot replace a different document opened from the library',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('第一份文档的正文');
+  const delayed=await delayMarkdownRuntime(page);await page.locator('#toggle-source').click();await delayed.requestStarted;
+  await page.locator('#back-library').click();await create(page);await body.fill('第二份文档保留自己的内容');
+  const loaded=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/desktop-status/markdown-source-runtime.js'));
+  delayed.release();await loaded;
+  await page.evaluate(async()=>{await import(new URL('markdown-source-runtime.js',document.baseURI).href);await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));});
+  await expect(body).toHaveText('第二份文档保留自己的内容');await expect(page.locator('#markdown-source .cm-content')).toHaveCount(0);await expect(page.locator('#toggle-source')).toBeEnabled();
+});
+
+test('a failed source entry request preserves text and can be retried without reloading the app',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('网络失败也保留正文');
+  let attempts=0;
+  await page.route('**/desktop-status/markdown-source-runtime.js*',route=>++attempts===1?route.abort('failed'):route.fallback());
+  await page.locator('#toggle-source').click();await expect(page.locator('#message')).toContainText('源码编辑器暂未加载');await expect(page.locator('#toggle-source')).toBeEnabled();await expect(body).toHaveText('网络失败也保留正文');
+  await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toHaveText('网络失败也保留正文');expect(attempts).toBe(2);
+});
 
 test('real Tiptap edits and formats persist and reopen with independent navigation',async({page},info)=>{
   await desktop(page);const body=await create(page);
