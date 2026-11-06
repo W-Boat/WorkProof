@@ -53,6 +53,40 @@ def click_text(text):
     element=execute('return Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes('+json.dumps(text)+'))')
     assert element
     click_element(element)
+def activate_text_with_keyboard(text):
+    # WebKitGTK's pointer coordinates inside a scrolled cross-origin iframe can
+    # target the wrong control. Focus the actual button, assert focus, and send
+    # Enter through the native driver. No synthetic click or app handler runs.
+    element=execute('return Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes('+json.dumps(text)+'))')
+    assert element,'Native keyboard target missing'
+    identifier=element['element-6066-11e4-a52e-4f735466cecf']
+    assert execute("const b=arguments[0];if(b.disabled)return false;b.scrollIntoView({block:'center',behavior:'instant'});b.focus({preventScroll:true});return document.activeElement===b",[element]),'Native keyboard target cannot receive focus'
+    call('POST',f'/session/{session}/element/{identifier}/value',{'text':'\ue007','value':['\ue007']})
+
+def install_failure_diagnostics():
+    # Record only bounded errors from this synthetic CI page. File contents and
+    # host document data are never read; diagnostics are written on failure only.
+    execute("""if(!window.__workproofNativeErrors){
+      window.__workproofNativeErrors=[];
+      const save=(kind,message)=>{if(window.__workproofNativeErrors.length<12)window.__workproofNativeErrors.push({kind,message:String(message).slice(0,400)});};
+      addEventListener('error',event=>save('error',event.message||'resource error'));
+      addEventListener('unhandledrejection',event=>save('rejection',event.reason instanceof Error?event.reason.message:String(event.reason)));
+    }return true;""")
+
+def failure_dom_diagnostics():
+    return execute(r"""const rect=element=>{const r=element.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)};};
+    const resources=performance.getEntriesByType('resource').filter(entry=>/\/(demo|wasm)\/|worker[^/]*\.js/.test(new URL(entry.name,location.href).pathname)).slice(-40);
+    const paths=resources.map(entry=>({path:new URL(entry.name,location.href).pathname.slice(0,180),initiator:entry.initiatorType,duration:Math.round(entry.duration),transferSize:entry.transferSize,responseStatus:entry.responseStatus??null}));
+    const counts={};for(const entry of paths)counts[entry.path]=(counts[entry.path]||0)+1;
+    return {readyState:document.readyState,embedded:document.querySelector('.wp-stage')?.className||null,theme:document.documentElement.dataset.theme||null,
+      viewport:{width:innerWidth,height:innerHeight,scrollX,scrollY},
+      activeElement:document.activeElement?{tag:document.activeElement.tagName,id:document.activeElement.id,role:document.activeElement.getAttribute('role'),label:document.activeElement.getAttribute('aria-label')}:null,
+      buttons:Array.from(document.querySelectorAll('button')).slice(0,32).map(b=>({label:(b.getAttribute('aria-label')||b.textContent||'').trim().slice(0,100),disabled:b.disabled,rect:rect(b)})),
+      selectedFileCounts:Array.from(document.querySelectorAll('input[type=file]')).slice(0,8).map(input=>({label:input.getAttribute('aria-label'),count:input.files?.length||0})),
+      progress:document.querySelector('.progress')?.textContent?.slice(0,300)||null,error:document.querySelector('.error-box')?.textContent?.slice(0,600)||null,
+      resultSuccess:!!document.querySelector('.result-banner.success'),resultFailure:!!document.querySelector('.result-banner.failure'),
+      errors:window.__workproofNativeErrors||[],resources:paths.slice(-40),resourceCounts:counts};""")
+
 def screenshot(name):
     data=call('GET',f'/session/{session}/screenshot');(evidence/name).write_bytes(base64.b64decode(data))
 def open_native_verifier():
@@ -96,9 +130,20 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             call('POST',f'/session/{session}/frame',{'id':frame})
             def frame_loaded():assert execute('return !!document.querySelector(\'input[aria-label="选择最终作品"]\')')
             wait(frame_loaded)
+            install_failure_diagnostics()
+            if execute("return new URLSearchParams(location.search).get('embedded')==='1'"):
+                def appearance_ready():
+                    assert execute("return document.querySelector('.wp-stage')?.classList.contains('wp-embedded')&&document.querySelector('.wp-rail')?.getBoundingClientRect().height===0"),'Desktop appearance did not activate'
+                wait(appearance_ready)
+                # Let React commit the accepted appearance and its layout before
+                # choosing a target in the frame's own browsing context.
+                call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));",'args':[]})
             isolated=call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];const invoke=window.__TAURI__?.core?.invoke;if(!invoke){done(true);}else{invoke('pending_adapters').then(()=>done(false),()=>done(true));}",'args':[]})
             assert isolated is True,'Workspace iframe acquired workbench commands'
-            click_text('先体验一份演示证据')
+            activate_text_with_keyboard('先体验一份演示证据')
+            def demo_activated():
+                assert execute("const button=Array.from(document.querySelectorAll('button')).find(b=>(b.getAttribute('aria-label')||b.textContent).includes('先体验一份演示证据'));return !!button?.disabled||!!document.querySelector('.uploads .upload.filled')||!!document.querySelector('.result-banner')||!!document.querySelector('.error-box')"),'Native Enter did not activate the demo'
+            wait(demo_activated)
             def frame_verified():assert execute("return !!document.querySelector('.result-banner.success')")
             wait(frame_verified);screenshot('workbench-frame-verified.png')
             call('POST',f'/session/{session}/frame',{'id':None})
@@ -108,7 +153,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             result=handles();assert len(result)==2;return next(h for h in result if h!=workbench)
         verifier=wait(second);switch(verifier)
         def loaded():assert execute("return !!document.querySelector('input[aria-label=\"选择最终作品\"]')")
-        wait(loaded)
+        wait(loaded);install_failure_diagnostics()
         url=call('GET',f'/session/{session}/url');assert url.startswith('http://127.0.0.1:')
         blocked=call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];const invoke=window.__TAURI__?.core?.invoke;if(!invoke){done(true);}else{invoke('pending_adapters').then(()=>done(false),()=>done(true));}",'args':[]})
         assert blocked is True,'Embedded page acquired workbench commands'
@@ -161,9 +206,15 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         if iframe_mode:open_native_verifier()
         else:click('#verify')
         assert len(handles())==2,'Repeated open created another verifier'
-        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'workspace_iframe_checked':iframe_mode,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['workspace iframe opens without another window','workspace iframe demo Wasm verification','workspace iframe command isolation'] if iframe_mode else [])+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
+        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'workspace_iframe_checked':iframe_mode,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['workspace iframe opens without another window','workspace iframe native keyboard activation','workspace iframe demo Wasm verification','workspace iframe command isolation'] if iframe_mode else [])+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
         print('PASS: installed native WebView verifies filesystem input, rejects changed bytes, scrolls and reuses the local verifier; workbench commands unavailable')
     except Exception as error:
+        if session:
+            try:
+                diagnostics=failure_dom_diagnostics()
+                (evidence/'failure-dom.json').write_text(json.dumps(diagnostics,indent=2,ensure_ascii=False),encoding='utf-8')
+            except Exception as diagnostic_error:
+                (evidence/'failure-dom.json').write_text(json.dumps({'unavailable':type(diagnostic_error).__name__}),encoding='utf-8')
         (evidence/'failure.json').write_text(json.dumps({'exception_type':type(error).__name__,'driver_exit_code':driver.poll(),'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Synthetic CI installed-package session; diagnostic record is not acceptance.'},indent=2),encoding='utf-8')
         raise
     finally:
