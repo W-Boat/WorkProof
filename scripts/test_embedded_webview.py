@@ -53,16 +53,43 @@ def click_text(text):
     element=execute('return Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes('+json.dumps(text)+'))')
     assert element
     click_element(element)
-def activate_text_with_keyboard(text):
-    # WebKitGTK's pointer coordinates inside a scrolled cross-origin iframe can
-    # target the wrong control. Let native SendKeys perform its own keyboard
-    # focus step, then require actual demo activation. JavaScript focus alone
-    # does not establish native WebKitGTK iframe focus in this driver.
-    element=execute('return Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes('+json.dumps(text)+'))')
-    assert element,'Native keyboard target missing'
-    identifier=element['element-6066-11e4-a52e-4f735466cecf']
-    assert execute("const b=arguments[0];b.scrollIntoView({block:'center',behavior:'instant'});const r=b.getBoundingClientRect();return !b.disabled&&r.width>0&&r.height>0",[element]),'Native keyboard target is not available'
-    call('POST',f'/session/{session}/element/{identifier}/value',{'text':'\ue007','value':['\ue007']})
+def settled_layout():
+    call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));",'args':[]})
+
+def activate_iframe_text_with_pointer(text):
+    # Compute a real pointer target in the TOP-LEVEL viewport. This avoids the
+    # native driver's broken element-click/SendKeys coordinate and focus steps
+    # for a scrolled cross-origin frame; the actual input remains WebDriver.
+    call('POST',f'/session/{session}/frame',{'id':None})
+    frame=execute("return document.getElementById('verifier-frame')")
+    assert frame,'Workspace verifier frame missing'
+    execute("arguments[0].scrollIntoView({block:'center',behavior:'instant'});return true",[frame])
+    settled_layout()
+    call('POST',f'/session/{session}/frame',{'id':frame})
+    try:
+        element=execute('return Array.from(document.querySelectorAll("button")).find(b=>(b.getAttribute("aria-label")||b.textContent).includes('+json.dumps(text)+'))')
+        assert element,'Workspace pointer target missing'
+        execute("arguments[0].scrollIntoView({block:'center',behavior:'instant'});return true",[element])
+        settled_layout()
+        target=execute("""const b=arguments[0],r=b.getBoundingClientRect();
+          const x=r.left+r.width/2,y=r.top+r.height/2,hit=document.elementFromPoint(x,y);
+          return {x,y,available:!b.disabled&&r.width>0&&r.height>0&&x>=0&&y>=0&&x<innerWidth&&y<innerHeight&&!!hit&&(hit===b||b.contains(hit))};""",[element])
+        assert target['available'],'Workspace pointer target is hidden, disabled or covered'
+        call('POST',f'/session/{session}/frame',{'id':None})
+        settled_layout()
+        point=execute("""const f=arguments[0],r=f.getBoundingClientRect(),target=arguments[1];
+          const sx=r.width/f.offsetWidth,sy=r.height/f.offsetHeight;
+          const x=Math.round(r.left+(f.clientLeft+target.x)*sx),y=Math.round(r.top+(f.clientTop+target.y)*sy);
+          return {x,y,available:x>=0&&y>=0&&x<innerWidth&&y<innerHeight&&document.elementFromPoint(x,y)===f};""",[frame,target])
+        assert point['available'],'Workspace frame pointer target is outside the viewport or covered'
+        call('POST',f'/session/{session}/actions',{'actions':[{'type':'pointer','id':'workspace-mouse','parameters':{'pointerType':'mouse'},'actions':[
+            {'type':'pointerMove','duration':80,'origin':'viewport','x':point['x'],'y':point['y']},
+            {'type':'pointerDown','button':0},{'type':'pause','duration':40},{'type':'pointerUp','button':0}]}]})
+    finally:
+        # Restore the frame for crypto assertions and failure diagnostics.
+        call('POST',f'/session/{session}/frame',{'id':None})
+        call('POST',f'/session/{session}/frame',{'id':frame})
+
 
 def install_failure_diagnostics():
     # Record only bounded errors from this synthetic CI page. File contents and
@@ -141,9 +168,9 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
                 call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));",'args':[]})
             isolated=call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];const invoke=window.__TAURI__?.core?.invoke;if(!invoke){done(true);}else{invoke('pending_adapters').then(()=>done(false),()=>done(true));}",'args':[]})
             assert isolated is True,'Workspace iframe acquired workbench commands'
-            activate_text_with_keyboard('先体验一份演示证据')
+            activate_iframe_text_with_pointer('先体验一份演示证据')
             def demo_activated():
-                assert execute("const button=Array.from(document.querySelectorAll('button')).find(b=>(b.getAttribute('aria-label')||b.textContent).includes('先体验一份演示证据'));return !!button?.disabled||!!document.querySelector('.uploads .upload.filled')||!!document.querySelector('.result-banner')||!!document.querySelector('.error-box')"),'Native Enter did not activate the demo'
+                assert execute("const button=Array.from(document.querySelectorAll('button')).find(b=>(b.getAttribute('aria-label')||b.textContent).includes('先体验一份演示证据'));return !!button?.disabled||!!document.querySelector('.uploads .upload.filled')||!!document.querySelector('.result-banner')||!!document.querySelector('.error-box')"),'Native pointer did not activate the demo'
             wait(demo_activated)
             def frame_verified():assert execute("return !!document.querySelector('.result-banner.success')")
             wait(frame_verified);screenshot('workbench-frame-verified.png')
@@ -207,7 +234,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         if iframe_mode:open_native_verifier()
         else:click('#verify')
         assert len(handles())==2,'Repeated open created another verifier'
-        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'workspace_iframe_checked':iframe_mode,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['workspace iframe opens without another window','workspace iframe native keyboard activation','workspace iframe demo Wasm verification','workspace iframe command isolation'] if iframe_mode else [])+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
+        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'workspace_iframe_checked':iframe_mode,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['workspace iframe opens without another window','workspace iframe native viewport pointer activation','workspace iframe demo Wasm verification','workspace iframe command isolation'] if iframe_mode else [])+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
         print('PASS: installed native WebView verifies filesystem input, rejects changed bytes, scrolls and reuses the local verifier; workbench commands unavailable')
     except Exception as error:
         if session:
