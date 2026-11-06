@@ -98,7 +98,10 @@ pub async fn request_native(headers:HeaderMap,Json(input):Json<PairRequest>)->Ap
     insert_request(String::new(),input.source,"native")
 }
 pub async fn poll_native(headers:HeaderMap,Path(ticket):Path<String>)->ApiResult<serde_json::Value>{
-    require_native(&headers)?;poll(&ticket,"","native")
+    require_native(&headers)?;
+    let Json(mut response)=poll(&ticket,"","native")?;
+    if response["approved"]==true{response["local_path_binding"]=serde_json::json!(true);}
+    Ok(Json(response))
 }
 pub async fn cors(request:Request,next:Next)->Response{
     let allowed=origin(request.headers()).ok();

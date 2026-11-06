@@ -41,6 +41,15 @@ try {
 "#;
 
 pub fn open_word()->Result<(),String>{open_office(false)}
+pub fn open_document(path:&Path)->Result<(),String>{
+    #[cfg(windows)]let mut command=Command::new("explorer.exe");
+    #[cfg(target_os="macos")]let mut command=Command::new("open");
+    #[cfg(all(unix,not(target_os="macos")))]let mut command=Command::new("xdg-open");
+    quiet(&mut command);
+    let mut child=command.arg(path).spawn().map_err(|_|"无法启动文件对应的应用，请在原应用中打开。".to_string())?;
+    std::thread::spawn(move||{let _=child.wait();});
+    Ok(())
+}
 pub fn open_powerpoint()->Result<(),String>{open_office(true)}
 fn open_office(powerpoint:bool)->Result<(),String>{
     #[cfg(not(windows))]

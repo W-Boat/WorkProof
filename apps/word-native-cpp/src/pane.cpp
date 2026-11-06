@@ -33,6 +33,7 @@ const int kMaxCharacters = 8000000;
 struct PairResult {
     std::wstring token;
     std::wstring error;
+    bool localPathBinding=false;
 };
 
 struct State {
@@ -282,6 +283,7 @@ void PairingThread(HWND target,unsigned long long generation) {
         if (JsonField(poll, "approved") == "true") {
             PairResult* success = new PairResult();
             success->token = Utf8ToWide(JsonField(poll, "token"));
+            success->localPathBinding=JsonField(poll,"local_path_binding")=="true";
             post(success,true);
             return;
         }
@@ -324,6 +326,7 @@ void FinishPairing(PairResult* result) {
         return;
     }
     g.token = result->token;
+    const bool localPathBinding=result->localPathBinding;
     delete result;
 
     DocSnapshot snapshot;
@@ -334,7 +337,10 @@ void FinishPairing(PairResult* result) {
         g.launchFeedback=false;PaintState();return;
     }
     std::string body = "{\"file_name\":\"" + JsonEscape(WideToUtf8(snapshot.name)) +
-                       "\",\"started_at\":\"" + JsonEscape(WideToUtf8(IsoUtcNow())) + "\",\"source\":\""+kSource+"\"}";
+                       "\",\"started_at\":\"" + JsonEscape(WideToUtf8(IsoUtcNow())) + "\",\"source\":\""+kSource+"\"";
+    const DWORD attributes=GetFileAttributesW(snapshot.identity.c_str());
+    if(localPathBinding&&attributes!=INVALID_FILE_ATTRIBUTES&&!(attributes&FILE_ATTRIBUTE_DIRECTORY))body+=",\"local_path\":\""+JsonEscape(WideToUtf8(snapshot.identity))+"\"";
+    body+="}";
     std::string response;
     if (!Call(L"POST", L"/v1/sessions", body, true, response, error)) { SetStatus(error); PaintState(); return; }
     g.session = Utf8ToWide(JsonField(response, "session_id"));
@@ -686,9 +692,9 @@ void CreateControls(HWND window) {
     g.cancelButton=create(L"BUTTON",L"取消连接",BS_PUSHBUTTON|WS_TABSTOP);
     g.verifierLink=create(L"BUTTON",L"核验已有证书",BS_PUSHBUTTON|WS_TABSTOP);
 #ifdef WORKPROOF_POWERPOINT
-    g.privacy=create(L"STATIC",L"只记录幻灯片数、对象数、时间与保存摘要，不发送文字或图片。\n\n数量不变的文字、图片和样式修改可能无法识别。记录不能单独证明作者身份或原创性。",SS_LEFT);
+    g.privacy=create(L"STATIC",L"记录幻灯片数、对象变化、时间与保存摘要。文件位置仅在本机保存，方便从文档列表打开。\n\n数量不变的文字、图片和样式修改可能无法识别。记录不能单独证明作者身份或原创性。",SS_LEFT);
 #else
-    g.privacy=create(L"STATIC",L"不采集正文。只记录编辑数量、段落数、时间与文件摘要。\n\n记录可能遗漏修改，不能单独证明作者身份或原创性。关闭侧栏后仍可通过 WorkProof 菜单暂停记录。",SS_LEFT);
+    g.privacy=create(L"STATIC",L"不采集正文。记录编辑数量、段落数、时间与文件摘要。文件位置仅在本机保存，方便从文档列表打开。\n\n记录可能遗漏修改，不能单独证明作者身份或原创性。关闭侧栏后仍可通过 WorkProof 菜单暂停记录。",SS_LEFT);
 #endif
     LayoutControls();
 }

@@ -2,7 +2,7 @@ name: Desktop workbench UI
 on:
   workflow_dispatch:
   push:
-    paths: ['apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'apps/desktop/src-tauri/tauri.conf.json', 'crates/engine/src/editor.rs', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'scripts/test_editor_flows.cjs', 'tests/desktop-*.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
+    paths: ['apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'apps/desktop/src-tauri/tauri.conf.json', 'crates/engine/src/editor.rs', 'crates/engine/src/catalog.rs', 'crates/engine/src/lib.rs', 'crates/engine/src/pairing.rs', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'scripts/test_editor_flows.cjs', 'tests/desktop-*.spec.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
 permissions:
   contents: read
 jobs:
@@ -20,8 +20,8 @@ jobs:
       - run: npm ci
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Real editor persistence, retry and signed export boundaries
-        run: cargo test --locked -p workproof-engine editor::tests
+      - name: Real editor persistence, external catalog and signed export boundaries
+        run: cargo test --locked -p workproof-engine
       - name: Stage the canonical design system and brand
         run: node scripts/stage_desktop_ui.cjs
       - name: Group raw editor actions without changing evidence

@@ -1,0 +1,66 @@
+use std::path::{Path,PathBuf};
+use serde_json::Value;
+use tauri::WebviewWindow;
+use workproof_engine::catalog;
+
+fn root(window:&WebviewWindow)->Result<PathBuf,String>{
+    super::workbench_only(window)?;
+    if !workproof_engine::snapshot()?.ready{return Err("记录服务正在准备，请稍后重试。".into());}
+    workproof_engine::data_dir()
+}
+
+fn opens_as_document(path:&Path)->bool{
+    let Some(extension)=path.extension().and_then(|value|value.to_str())else{return false;};
+    matches!(extension.to_ascii_lowercase().as_str(),"doc"|"docx"|"docm"|"dotx"|"dotm"|"rtf"|"odt"|"wps"|"wpt"|"ppt"|"pptx"|"pptm"|"pps"|"ppsx"|"potx"|"pdf"|"txt"|"md"|"markdown"|"psd"|"psb"|"blend"|"png"|"jpg"|"jpeg"|"webp"|"gif"|"bmp"|"tif"|"tiff")
+}
+
+fn annotate(document:&catalog::ExternalDocument)->Result<Value,String>{
+    let mut value=serde_json::to_value(document).map_err(|_|"无法显示文档信息。")?;
+    let path=document.local_path.as_deref().map(Path::new);
+    let available=path.is_some_and(|path|path.is_absolute()&&path.is_file());
+    let can_open=available&&path.is_some_and(opens_as_document);
+    value["file_available"]=available.into();value["can_open"]=can_open.into();
+    Ok(value)
+}
+
+#[tauri::command]
+pub async fn external_documents_list(window:WebviewWindow)->Result<Value,String>{
+    let root=root(&window)?;
+    tauri::async_runtime::spawn_blocking(move||{
+        catalog::list(&root)?.iter().map(annotate).collect::<Result<Vec<_>,_>>().map(Value::from)
+    }).await.map_err(|_|"无法读取外部文档列表。")?
+}
+
+#[tauri::command]
+pub async fn external_document_load(window:WebviewWindow,id:String,before_seq:Option<u64>,limit:Option<usize>)->Result<Value,String>{
+    let root=root(&window)?;
+    tauri::async_runtime::spawn_blocking(move||{
+        let history=catalog::load(&root,&id,before_seq,limit.unwrap_or(200))?;
+        let document=annotate(&history.document)?;
+        let mut value=serde_json::to_value(history).map_err(|_|"无法显示创作记录。")?;
+        value["document"]=document;Ok(value)
+    }).await.map_err(|_|"无法读取创作记录。")?
+}
+
+#[tauri::command]
+pub async fn external_document_open(window:WebviewWindow,id:String)->Result<(),String>{
+    let root=root(&window)?;
+    tauri::async_runtime::spawn_blocking(move||{
+        let history=catalog::load(&root,&id,None,1)?;
+        let path=PathBuf::from(history.document.local_path.ok_or("这份记录未保存文件位置，请在原应用中打开作品。")?);
+        if !path.is_absolute()||!opens_as_document(&path){return Err("请在原应用中打开此类文件。".into());}
+        let resolved=path.canonicalize().map_err(|_|"文件已移动、改名或当前无法访问，请在原应用中打开。")?;
+        if !resolved.is_file()||!opens_as_document(&resolved){return Err("请在原应用中打开此类文件。".into());}
+        super::platform::open_document(&path)
+    }).await.map_err(|_|"无法打开原文件，请在原应用中打开。")?
+}
+
+#[cfg(test)]
+mod embedded_tests{
+    use super::*;
+    #[test]
+    fn document_opening_excludes_programs_and_shortcuts(){
+        for path in ["report.DOCX","slides.pptx","drawing.psd","model.blend","notes.md"]{assert!(opens_as_document(Path::new(path)));}
+        for path in ["app.exe","file.docx.lnk","script.js","script.ps1","script.bat","site.url","file"]{assert!(!opens_as_document(Path::new(path)));}
+    }
+}

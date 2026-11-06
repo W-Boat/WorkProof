@@ -2,6 +2,8 @@ import {Editor, generateHTML,getMarkRange} from '@tiptap/core';
 import {editorExtensions} from './editor-extensions.js';
 import {initializeWritingWorkspace} from './writing-workspace.js';
 import {groupActions} from './action-flow.mjs';
+import {externalRecords,sourceLabel,groupExternalDocuments,displayTime} from './external-records.js';
+import {icon} from './icons.js';
 
 const $=id=>document.getElementById(id);
 const ipc=(command,args)=>window.__TAURI__.core.invoke(command,args);
@@ -9,11 +11,13 @@ const ui=window.workproofUI;
 const extensions=editorExtensions;
 const labels={edit:'修改文字',format:'调整格式或结构',undo:'撤销修改',redo:'重做修改',copy:'复制命令',paste:'粘贴命令',cut:'剪切命令',backspace:'退格命令',delete_forward:'向后删除命令',space:'空格键',enter:'回车键',cursor:'移动光标',selection:'调整选区',focus:'回到编辑',blur:'离开编辑',transaction:'编辑器事务',keyboard:'键盘操作',input:'完成输入',beforeinput:'准备输入',compositionstart:'开始输入法合成',compositionupdate:'输入法合成',compositionend:'完成输入法合成',drop:'放入内容',dragstart:'开始拖动',dragend:'结束拖动',import:'导入 Word',layout:'切换页面布局'};
 let editor=null,active=null,documents=[],pending=[],inflight=null,dirty=false,saving=null,saveTimer,maxSaveTimer,refreshTimer;
+let externalDocuments=[],libraryLoadError='';
 let suppressed=false,opening=false,exporting=false,intent=null,lastSelection='',selectionAt=0,historyToken=0;
 let recentFrame=null;
 let linkContext=null;
 let closing=false,editableBeforeClose=true,creating=false;
 const workspace=initializeWritingWorkspace({getEditor:()=>editor,getActive:()=>active,record:addAction,hint,flush,showMessage:(...args)=>ui.showMessage(...args)});
+const externalLibrary=externalRecords({ipc,flush,ui});
 const requestId=()=>crypto.randomUUID().replaceAll('-','');
 const errorText=e=>e instanceof Error?e.message:String(e);
 const time=ms=>new Date(ms).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -180,21 +184,50 @@ async function createDocument(){
 function element(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
 function renderLibrary(){
   const query=($('document-search').value||'').trim().toLocaleLowerCase();$('document-list').replaceChildren();
-  const filtered=documents.filter(d=>d.title.toLocaleLowerCase().includes(query));
-  for(const doc of filtered){const row=element('div','document-row');row.setAttribute('role','listitem');const icon=element('i','glyph','\uE8A5');icon.setAttribute('aria-hidden','true');const label=element('div');label.append(element('strong','',doc.title),element('p','',`${new Date(doc.modified).toLocaleString('zh-CN')} · ${doc.revision+1} 个保存版本`));const open=element('fluent-button','','继续编辑');open.setAttribute('aria-label',`继续编辑 ${doc.title}`);open.addEventListener('click',async()=>{open.disabled=true;try{await flush();await openDocument(await ipc('editor_load',{id:doc.id}));}catch(error){ui.showMessage(errorText(error),'error');}finally{open.disabled=false;}});row.append(icon,label,open);$('document-list').append(row);}
-  $('library-empty').hidden=documents.length>0;
-  $('library-error').textContent=query&&!filtered.length?'没有找到这份文档。':'';
+  const selectedSource=$('library-source-filter')?.value||'all';
+  const entries=documents.map(doc=>({type:'editor',doc,source:'editor',time:Number(doc.modified)})).concat(groupExternalDocuments(externalDocuments));
+  entries.sort((a,b)=>(b.time??0)-(a.time??0));
+  const filtered=entries.filter(entry=>(selectedSource==='all'||selectedSource===entry.source)&&`${entry.doc.title} ${sourceLabel(entry.source)} ${entry.source}`.toLocaleLowerCase().includes(query));
+  for(const entry of filtered){
+    const {doc}=entry,row=element('div','document-row');row.setAttribute('role','listitem');row.dataset.documentKey=`${entry.type}:${doc.id}`;row.dataset.source=entry.source;
+    const label=element('div'),description=entry.type==='editor'?`${doc.revision+1} 个保存版本`:`${entry.sessions.length} 次记录 · ${entry.sessions.reduce((sum,session)=>sum+Number(session.event_count),0).toLocaleString()} 条记录${doc.demo?' · 演示记录':''}`;
+    label.append(element('strong','',doc.title),element('p','',`${sourceLabel(entry.source)} · ${displayTime(entry.time)} · ${description}`));
+    const action=entry.type==='editor'?'继续编辑':'查看记录',open=element('fluent-button','',action);open.setAttribute('aria-label',`${action} ${doc.title}`);
+    open.addEventListener('click',async()=>{if(closing)return;open.disabled=true;try{
+      if(entry.type==='external')await externalLibrary.open(doc,entry.sessions);else{await flush();await openDocument(await ipc('editor_load',{id:doc.id}));}
+    }catch(error){ui.showMessage(errorText(error),'error');}finally{open.disabled=false;}});
+    row.append(icon('document_text'),label,open);$('document-list').append(row);
+  }
+  $('library-empty').hidden=entries.length>0;
+  $('library-error').textContent=libraryLoadError||(!filtered.length&&entries.length?'没有找到符合条件的文档。':'');
 }
-let listing=false;
+let listing=false,libraryRefreshPending=false,lastLibraryRefresh=0,catalogRefreshTimer=null,lastCatalogStamp='',lastSessionCount=null;
 async function loadLibrary(){
-  if(listing)return;listing=true;
-  try{const result=await ipc('editor_list');if(!Array.isArray(result))throw new Error('文档列表无法识别。');documents=result;renderLibrary();}
-  catch(error){$('library-error').textContent=errorText(error);}finally{listing=false;}
+  if(listing){libraryRefreshPending=true;return;}listing=true;
+  const results=await Promise.allSettled([ipc('editor_list'),ipc('external_documents_list')]);
+  try{
+    libraryLoadError='';
+    for(const [index,result] of results.entries()){
+      if(result.status==='fulfilled'&&Array.isArray(result.value)){if(index===0)documents=result.value;else externalDocuments=result.value;}
+      else libraryLoadError+=(index===0?'内置文档':'外部应用文档')+'暂未读取，请点击刷新重试。';
+    }
+    renderLibrary();
+  }finally{listing=false;lastLibraryRefresh=Date.now();if(libraryRefreshPending){libraryRefreshPending=false;loadLibrary();}}
 }
 let engineSeen=false;
-window.addEventListener('workproof-engine',event=>{if(event.detail.ready&&!engineSeen){engineSeen=true;loadLibrary();}});
+window.addEventListener('workproof-engine',event=>{
+  const status=event.detail;if(!status.ready)return;
+  const stamp=`${status.sessions}:${status.events}`,newSession=lastSessionCount!==status.sessions;
+  lastSessionCount=status.sessions;
+  if(!engineSeen){engineSeen=true;lastCatalogStamp=stamp;loadLibrary();return;}
+  if(stamp===lastCatalogStamp)return;lastCatalogStamp=stamp;
+  if(document.body.dataset.view!=='library')return;
+  if(newSession){clearTimeout(catalogRefreshTimer);catalogRefreshTimer=null;loadLibrary();return;}
+  if(catalogRefreshTimer===null)catalogRefreshTimer=setTimeout(()=>{catalogRefreshTimer=null;if(document.body.dataset.view==='library')loadLibrary();},Math.max(0,10000-(Date.now()-lastLibraryRefresh)));
+});
 window.addEventListener('workproof-view',event=>{if(event.detail==='library')loadLibrary();});
 $('new-document').addEventListener('click',createDocument);$('first-document').addEventListener('click',createDocument);$('reload-documents').addEventListener('click',loadLibrary);$('document-search').addEventListener('input',renderLibrary);
+$('library-source-filter')?.addEventListener('change',renderLibrary);
 $('document-title').addEventListener('input',()=>{if(active){dirty=true;state('待保存');scheduleSave();$('certificate-result').hidden=true;$('certificate-empty').hidden=false;}});
 $('back-library').addEventListener('click',async()=>{try{await flush();ui.selectView('library',true);}catch(error){reportError(error);}});
 $('save-document').addEventListener('click',()=>flush().catch(reportError));

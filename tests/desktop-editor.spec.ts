@@ -21,6 +21,14 @@ async function desktop(page:Page){
       if(command==='engine_status')return {ready:true,sessions:0,events:0};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
       if(command==='editor_list')return Object.values(docs);
+      if(command==='external_documents_list')return w.editorHarness.externalDocuments||[];
+      if(command==='external_document_load'){
+        const document=w.editorHarness.externalDocuments?.find((item:any)=>item.id===args.id);if(!document)throw new Error('记录不存在');
+        const available=(w.editorHarness.externalRecords?.[args.id]||[]).filter((record:any)=>args.beforeSeq===null||record.event.seq<args.beforeSeq);
+        const records=available.slice(0,args.limit),has_more=available.length>records.length;
+        return {document,records,has_more,next_before:has_more?records.at(-1).event.seq:null};
+      }
+      if(command==='external_document_open'){(w.editorHarness.openedExternalIds||=[]).push(args.id);return null;}
       if(command==='editor_create'){
         const id=crypto.randomUUID().replaceAll('-',''),now=Date.now();
         const doc={id,title:args.title,created:now,modified:now,revision:0,content:{type:'doc',content:[{type:'paragraph'}]},actions:[],versions:[{revision:0,saved:now,count:0}],snapshots:{0:{type:'doc',content:[{type:'paragraph'}]}},event_count:1};docs[id]=doc;write(docs);return doc;
@@ -300,18 +308,18 @@ test('toolbar follows cursor formats and represents mixed font sizes truthfully'
   await desktop(page);const body=await create(page);await body.fill('大号文字');await body.press('ControlOrMeta+a');
   await page.locator('#font-size').selectOption('18pt');await body.press('End');await page.locator('#font-size').selectOption('12pt');await body.pressSequentially('小号文字');
   await body.press('ControlOrMeta+a');await expect(page.locator('#font-size')).toHaveValue('__mixed');await expect(page.locator('#font-size option:checked')).toHaveText('多种格式');
-  await body.press('Home');await body.press('ArrowRight');await expect(page.locator('#font-size')).toHaveValue('18pt');
-  await body.press('End');await expect(page.locator('#font-size')).toHaveValue('12pt');
+  await body.press('ControlOrMeta+a');await body.press('ArrowLeft');await body.press('ArrowRight');await expect(page.locator('#font-size')).toHaveValue('18pt');
+  await body.press('ControlOrMeta+a');await body.press('ArrowRight');await expect(page.locator('#font-size')).toHaveValue('12pt');
 });
 
 test('link dialog inserts edits validates and removes links while preserving their visible text',async({page})=>{
   await desktop(page);const body=await create(page);await body.fill('需要链接的正文');await body.press('ControlOrMeta+a');await body.press('ControlOrMeta+k');
   await expect(page.locator('#link-dialog')).toBeVisible();await page.locator('#link-url').fill('https://example.com/first');await page.locator('#link-confirm').click();
   await expect(body.locator('a')).toHaveAttribute('href','https://example.com/first');await expect(body.locator('a')).toHaveText('需要链接的正文');
-  await body.press('Home');await body.press('ArrowRight');await body.press('ControlOrMeta+k');await expect(page.locator('#link-url')).toHaveValue('https://example.com/first');
+  await body.press('ControlOrMeta+a');await body.press('ArrowLeft');await body.press('ArrowRight');await body.press('ControlOrMeta+k');await expect(page.locator('#link-url')).toHaveValue('https://example.com/first');
   await page.locator('#link-url').fill('javascript:alert(1)');await page.locator('#link-confirm').click();await expect(page.locator('#link-dialog')).toBeVisible();await expect(body.locator('a')).toHaveAttribute('href','https://example.com/first');
   await page.locator('#link-url').fill('https://example.com/updated');await page.locator('#link-url').press('Enter');await expect(page.locator('#link-dialog')).not.toBeVisible();await expect(body.locator('a')).toHaveAttribute('href','https://example.com/updated');
-  await body.press('Home');await body.press('ArrowRight');await body.press('ControlOrMeta+k');await page.locator('#link-remove').click();await expect(body.locator('a')).toHaveCount(0);await expect(body).toHaveText('需要链接的正文');
+  await body.press('ControlOrMeta+a');await body.press('ArrowLeft');await body.press('ArrowRight');await body.press('ControlOrMeta+k');await page.locator('#link-remove').click();await expect(body.locator('a')).toHaveCount(0);await expect(body).toHaveText('需要链接的正文');
 });
 
 test('navigation drawer closes on Escape and manual rail choice survives reopening',async({page})=>{
@@ -342,4 +350,50 @@ test('embedded verification receives desktop appearance when theme and motion ch
   const child=page.frameLocator('#verifier-frame').locator('html');await expect(child).toHaveAttribute('data-theme','light');
   await page.getByRole('button',{name:'设置',exact:true}).click();await page.locator('fluent-radio[value=dark]').click();
   await expect(child).toHaveAttribute('data-theme','dark');await page.locator('#reduce-motion').click();await expect(child).toHaveAttribute('data-motion','true');
+});
+
+test('My Documents combines external sessions with internal documents and paginates their read-only history',async({page})=>{
+  await desktop(page);await create(page);await page.locator('#document-title').fill('同名创作');await page.locator('#save-document').click();
+  await page.evaluate(()=>{
+    const w=window as any,internal=Object.values(JSON.parse(localStorage.getItem('test.editor.documents')!))[0] as any;
+    w.editorHarness.externalDocuments=[{id:internal.id,title:'同名创作',source:'word',started_at:'2026-11-01T08:00:00Z',event_count:205,last_elapsed_ms:204000,modified_ms:Date.now(),local_path:'C:\\作品\\同名创作.docx',file_available:true,can_open:true,recent_order:1,demo:false}];
+    w.editorHarness.externalRecords={[internal.id]:Array.from({length:205},(_,i)=>({event:{seq:204-i,elapsed_ms:(204-i)*1000,kind:'edit',inserted:1,deleted:0,chars:205-i,checkpoint:'0'.repeat(64),metrics:{}},hash:'a'.repeat(64)}))};
+  });
+  await page.locator('.workspace-nav [data-view=library]').click();await expect(page.locator('#document-list .document-row')).toHaveCount(2);
+  expect(await page.locator('#document-list .document-row').evaluateAll(rows=>rows.map(row=>(row as HTMLElement).dataset.documentKey))).toEqual(expect.arrayContaining([expect.stringMatching(/^editor:/),expect.stringMatching(/^external:/)]));
+  await page.locator('#library-source-filter').selectOption('word');await expect(page.locator('#document-list .document-row')).toHaveCount(1);await expect(page.locator('#document-list')).toContainText('Word');
+  await page.getByRole('button',{name:'查看记录 同名创作',exact:true}).click();await expect(page.locator('body')).toHaveAttribute('data-view','external-document');
+  await expect(page.locator('#external-actions > li')).toHaveCount(200);await expect(page.locator('#external-document-title')).toHaveText('同名创作');await expect(page.locator('#external-document-summary')).toContainText('205 条记录');
+  await page.locator('#external-load-more').click();await expect(page.locator('#external-actions > li')).toHaveCount(205);await expect(page.locator('#external-load-more')).toBeHidden();
+  await page.locator('#external-open-file').click();await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.openedExternalIds.length)).toBe(1);
+  await page.locator('#external-back-library').click();await page.locator('#library-source-filter').selectOption('editor');await expect(page.getByRole('button',{name:'继续编辑 同名创作',exact:true})).toBeVisible();
+});
+
+test('legacy external records explain missing file locations and offer the matching connection guide',async({page})=>{
+  await desktop(page);await page.evaluate(()=>{(window as any).editorHarness.externalDocuments=[{id:'legacy-ppt',title:'历史演示文稿',source:'powerpoint',started_at:'2026-11-01T08:00:00Z',event_count:0,last_elapsed_ms:null,local_path:null,file_available:false,can_open:false,recent_order:1,demo:false}];});
+  await page.locator('#reload-documents').click();await page.locator('#document-search').fill('PowerPoint');await expect(page.locator('#document-list .document-row')).toHaveCount(1);
+  await page.getByRole('button',{name:'查看记录 历史演示文稿',exact:true}).click();await expect(page.locator('#external-empty')).toBeVisible();await expect(page.locator('#external-file-status')).toContainText('文件位置未记录');await expect(page.locator('#external-open-file')).toBeHidden();
+  await page.locator('#external-connection-help').click();await expect(page.locator('body')).toHaveAttribute('data-view','connections');await expect(page.locator('#creation-tool')).toHaveValue('powerpoint');
+});
+
+test('a new adapter session appears in the open file library without manual refresh',async({page})=>{
+  await desktop(page);
+  await page.evaluate(()=>{
+    const w=window as any;w.editorHarness.externalDocuments=[{id:'new-session',title:'刚在 Word 编辑的文件.docx',source:'word',started_at:new Date().toISOString(),event_count:1,last_elapsed_ms:0,modified_ms:Date.now(),local_path:null,file_available:false,can_open:false,recent_order:1,demo:false}];
+    dispatchEvent(new CustomEvent('workproof-engine',{detail:{ready:true,sessions:1,events:1}}));
+  });
+  await expect(page.getByRole('button',{name:'查看记录 刚在 Word 编辑的文件.docx',exact:true})).toBeVisible();
+});
+
+test('known files group recording sessions while unbound same-name sessions remain distinct',async({page})=>{
+  await desktop(page);await page.evaluate(()=>{
+    const w=window as any,base={title:'多次记录.docx',source:'word',started_at:'2026-11-01T08:00:00Z',event_count:1,last_elapsed_ms:0,file_available:true,can_open:true,demo:false};
+    w.editorHarness.externalDocuments=[{...base,id:'known-new',local_path:'C:\\作品\\多次记录.docx',modified_ms:2000,recent_order:2},{...base,id:'known-old',local_path:'c:/作品/多次记录.docx',modified_ms:1000,recent_order:1},{...base,id:'unbound-a',title:'未绑定的同名文件',local_path:null,can_open:false,file_available:false},{...base,id:'unbound-b',title:'未绑定的同名文件',local_path:null,can_open:false,file_available:false},{...base,id:'script',title:'代码.py',source:'vscode',local_path:'C:\\作品\\代码.py',can_open:false}];
+    w.editorHarness.externalRecords=Object.fromEntries(w.editorHarness.externalDocuments.map((item:any)=>[item.id,[{event:{seq:0,elapsed_ms:0,kind:'edit',inserted:0,deleted:0,chars:0,checkpoint:'0'.repeat(64),metrics:{}},hash:'a'.repeat(64)}]]));
+  });
+  await page.locator('#reload-documents').click();await expect(page.locator('#document-list .document-row')).toHaveCount(4);
+  await page.locator('#library-source-filter').selectOption('word');await expect(page.locator('#document-list .document-row')).toHaveCount(3);await expect(page.getByRole('button',{name:'查看记录 未绑定的同名文件',exact:true})).toHaveCount(2);
+  await page.getByRole('button',{name:'查看记录 多次记录.docx',exact:true}).click();await expect(page.locator('#external-session-select')).toHaveValue('known-new');await expect(page.locator('#external-session-select option')).toHaveCount(2);
+  await page.locator('#external-session-select').selectOption('known-old');await expect(page.locator('#external-actions > li')).toHaveCount(1);await page.locator('#external-open-file').click();await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.openedExternalIds)).toEqual(['known-old']);
+  await page.locator('#external-back-library').click();await page.locator('#library-source-filter').selectOption('vscode');await page.getByRole('button',{name:'查看记录 代码.py',exact:true}).click();await expect(page.locator('#external-open-file')).toBeDisabled();await expect(page.locator('#external-file-status')).toContainText('请在原应用中打开此文件');
 });

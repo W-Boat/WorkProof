@@ -57,12 +57,12 @@ function showMessage(text,state='info'){
 }
 const errorText=error=>error instanceof Error?error.message:String(error);
 updateLaunchButtons();
-const views={library:['我的文档','开始写作，也能回到之前的编辑过程。'],document:['文档',''],verification:['文件核验','核对作品与证书，文件留在本机。'],connections:['应用连接','在熟悉的软件中创作，由 WorkProof 保存过程。'],settings:['设置','调整外观与记录方式。']};
+const views={'external-document':['外部文档',''],library:['我的文档','开始写作，也能回到之前的编辑过程。'],document:['文档',''],verification:['文件核验','核对作品与证书，文件留在本机。'],connections:['应用连接','在熟悉的软件中创作，由 WorkProof 保存过程。'],settings:['设置','调整外观与记录方式。']};
 function selectView(view,focus=false){
   if(!Object.hasOwn(views,view))view='library';
   document.body.dataset.view=view;
   for(const button of document.querySelectorAll('.workspace-nav [data-view]')){
-    if(button.dataset.view===(view==='document'?'library':view))button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+    if(button.dataset.view===(['document','external-document'].includes(view)?'library':view))button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
   }
   document.getElementById('workspace-title').textContent=views[view][0];
   document.getElementById('workspace-description').textContent=views[view][1];

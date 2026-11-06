@@ -5,6 +5,7 @@ fn main() {
             "adapter_connections","revoke_adapter","open_verifier","open_verifier_browser","verifier_url",
             "install_vscode","open_word","open_powerpoint","verify_image","embed_image",
             "editor_list","editor_create","editor_load","editor_save","editor_version","editor_export",
+            "external_documents_list","external_document_load","external_document_open",
         ])
     )).expect("WorkProof build permissions failed");
 }

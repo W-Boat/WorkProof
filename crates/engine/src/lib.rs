@@ -8,6 +8,7 @@ use workproof_protocol::*;
 pub mod pairing;
 pub mod location;
 pub mod editor;
+pub mod catalog;
 
 type Shared = Arc<Mutex<Store>>;
 static READY:AtomicBool=AtomicBool::new(false);
@@ -52,7 +53,9 @@ impl Store {
         let db=Connection::open(dir.join("records.sqlite"))?;
         db.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
             CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,name TEXT NOT NULL,started TEXT NOT NULL,source TEXT NOT NULL,demo INTEGER NOT NULL DEFAULT 0);
-            CREATE TABLE IF NOT EXISTS events(session TEXT NOT NULL,seq INTEGER NOT NULL,json TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(session,seq),FOREIGN KEY(session) REFERENCES sessions(id));")?;
+            CREATE TABLE IF NOT EXISTS events(session TEXT NOT NULL,seq INTEGER NOT NULL,json TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(session,seq),FOREIGN KEY(session) REFERENCES sessions(id));
+            CREATE TABLE IF NOT EXISTS session_files(session TEXT PRIMARY KEY,local_path TEXT NOT NULL,FOREIGN KEY(session) REFERENCES sessions(id));
+            CREATE TABLE IF NOT EXISTS session_activity(session TEXT PRIMARY KEY,received_ms INTEGER NOT NULL,FOREIGN KEY(session) REFERENCES sessions(id));")?;
         Ok(Self{db,key:SigningKey::from_bytes(&seed),info:ConnectionInfo{port,token:random_hex(32)}})
     }
 }
@@ -69,13 +72,25 @@ fn authorize(headers:&HeaderMap,store:&Store)->Result<(),ApiError> {
 }
 fn lock(s:&Shared)->Result<std::sync::MutexGuard<'_,Store>,ApiError>{s.lock().map_err(|_|ApiError(StatusCode::INTERNAL_SERVER_ERROR,"STORE_UNAVAILABLE".into()))}
 #[derive(Deserialize)] #[serde(deny_unknown_fields)]
-struct Start {file_name:String,started_at:String,source:String,#[serde(default)]demo:bool}
+struct Start {file_name:String,started_at:String,source:String,#[serde(default)]demo:bool,#[serde(default)]local_path:Option<String>}
 async fn start(State(shared):State<Shared>,headers:HeaderMap,Json(input):Json<Start>)->ApiResult<serde_json::Value>{
-    let store=lock(&shared)?;authorize(&headers,&store)?;
+    let mut store=lock(&shared)?;authorize(&headers,&store)?;
     if !master_authorized(&headers,&store)&&!pairing::allows(&headers,None,Some(&input.source)){return Err(ApiError(StatusCode::FORBIDDEN,"ADAPTER_SOURCE_MISMATCH".into()));}
     if input.file_name.is_empty()||input.file_name.len()>255||input.file_name.contains(['/', '\\'])||input.started_at.len()>64||input.source.len()>128{return Err(bad("INVALID_SESSION"));}
+    if let Some(path)=input.local_path.as_deref(){
+        // Only an explicitly approved native adapter can provide a local hint.
+        // It never enters the public proof or grants file-reading permission.
+        if headers.contains_key("origin"){return Err(ApiError(StatusCode::FORBIDDEN,"NATIVE_PATH_REQUIRED".into()));}
+        if path.len()>32768||path.chars().any(char::is_control)||!std::path::Path::new(path).is_absolute(){return Err(bad("INVALID_LOCAL_PATH"));}
+    }
     let id=random_hex(16);
-    store.db.execute("INSERT INTO sessions(id,name,started,source,demo) VALUES(?1,?2,?3,?4,?5)",params![id,input.file_name,input.started_at,input.source,input.demo])?;
+    let tx=store.db.transaction()?;
+    tx.execute("INSERT INTO sessions(id,name,started,source,demo) VALUES(?1,?2,?3,?4,?5)",params![id,input.file_name,input.started_at,input.source,input.demo])?;
+    if let Some(path)=input.local_path.as_deref(){
+        tx.execute("INSERT INTO session_files(session,local_path) VALUES(?1,?2)",params![id,path])?;
+    }
+    tx.execute("INSERT INTO session_activity(session,received_ms) VALUES(?1,?2)",params![id,now_ms()])?;
+    tx.commit()?;
     if !master_authorized(&headers,&store){pairing::bind(&headers,&id);}
     Ok(Json(serde_json::json!({"session_id":id,"next_seq":0})))
 }
@@ -104,6 +119,7 @@ async fn append(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<Stri
     let tx=store.db.transaction()?;
     let last:Option<(u64,String,String)>=tx.query_row("SELECT seq,hash,json FROM events WHERE session=?1 ORDER BY seq DESC LIMIT 1",[&id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
     let (mut next,mut head,mut elapsed)=if let Some((seq,hash,json))=last{let e:Event=serde_json::from_str(&json).map_err(|_|bad("CORRUPT_RECORD"))?;(seq+1,hash,e.elapsed_ms)}else{(0,genesis(&id),0)};
+    let mut inserted=false;
     for e in batch.events {
         if !validate_event(&e){return Err(bad("INVALID_EVENT"));}
         let json=serde_json::to_string(&e).map_err(|_|bad("INVALID_EVENT"))?;
@@ -114,7 +130,10 @@ async fn append(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<Stri
         if e.seq!=next||e.elapsed_ms<elapsed||(next==0&&e.kind!="start"){return Err(bad("SEQUENCE_GAP"));}
         head=event_hash(&head,&e);
         tx.execute("INSERT INTO events(session,seq,json,hash) VALUES(?1,?2,?3,?4)",params![id,e.seq,json,head])?;
-        next+=1;elapsed=e.elapsed_ms;
+        inserted=true;next+=1;elapsed=e.elapsed_ms;
+    }
+    if inserted{
+        tx.execute("INSERT INTO session_activity(session,received_ms) VALUES(?1,?2) ON CONFLICT(session) DO UPDATE SET received_ms=excluded.received_ms",params![id,now_ms()])?;
     }
     tx.commit()?;
     Ok(Json(serde_json::json!({"next_seq":next,"chain_head":head})))
