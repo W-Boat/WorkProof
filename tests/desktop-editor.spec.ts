@@ -284,7 +284,7 @@ test('closing freezes Markdown and waits for durable save before issuing the nat
 });
 
 test('failed save blocks tray quit and restores editing before a successful quit retry',async({page})=>{
-  await desktop(page);const body=await create(page);await body.pressSequentially('退出前必须保存');
+  await desktop(page);const body=await create(page);await body.click();await body.pressSequentially('退出前必须保存');
   await page.evaluate(()=>{const h=(window as any).editorHarness;h.failNext=true;h.listeners['workproof-quit-requested']();});
   await expect(page.locator('#message')).toContainText('文档尚未保存');
   await expect(body).toHaveAttribute('contenteditable','true');
@@ -313,7 +313,7 @@ test('toolbar follows cursor formats and represents mixed font sizes truthfully'
 });
 
 test('link dialog inserts edits validates and removes links while preserving their visible text',async({page})=>{
-  await desktop(page);const body=await create(page);await body.pressSequentially('需要链接的正文');await body.press('ControlOrMeta+a');await body.press('ControlOrMeta+k');
+  await desktop(page);const body=await create(page);await body.click();await body.pressSequentially('需要链接的正文');await body.press('ControlOrMeta+a');await body.press('ControlOrMeta+k');
   await expect(page.locator('#link-dialog')).toBeVisible();await page.locator('#link-url').fill('https://example.com/first');await page.locator('#link-confirm').click();await expect(body).toBeFocused();
   await expect(body.locator('a')).toHaveAttribute('href','https://example.com/first');await expect(body.locator('a')).toHaveText('需要链接的正文');
   await body.press('ControlOrMeta+a');await body.press('ArrowLeft');await body.press('ArrowRight');await body.press('ControlOrMeta+k');await expect(page.locator('#link-url')).toHaveValue('https://example.com/first');
