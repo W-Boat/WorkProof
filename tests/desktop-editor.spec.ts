@@ -18,7 +18,7 @@ async function desktop(page:Page){
     w.editorHarness={failNext:false,saves:[],exports:0,listeners:{},windowActions:[]};
     w.__TAURI__={event:{listen:async(name:string,listener:any)=>{w.editorHarness.listeners[name]=listener;return ()=>delete w.editorHarness.listeners[name];}},core:{invoke:async(command:string,args:any)=>{
       const docs=read();
-      if(command==='engine_status')return {ready:true,sessions:0,events:0};
+      if(command==='engine_status')return {ready:true,sessions:0,events:0,...(w.editorHarness.engineStatus||{})};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
       if(command==='editor_list')return Object.values(docs);
       if(command==='external_documents_list')return w.editorHarness.externalDocuments||[];
@@ -380,7 +380,7 @@ test('a new adapter session appears in the open file library without manual refr
   await desktop(page);
   await page.evaluate(()=>{
     const w=window as any;w.editorHarness.externalDocuments=[{id:'new-session',title:'刚在 Word 编辑的文件.docx',source:'word',started_at:new Date().toISOString(),event_count:1,last_elapsed_ms:0,modified_ms:Date.now(),local_path:null,file_available:false,can_open:false,recent_order:1,demo:false}];
-    dispatchEvent(new CustomEvent('workproof-engine',{detail:{ready:true,sessions:1,events:1}}));
+    w.editorHarness.engineStatus={sessions:1,events:1};
   });
   await expect(page.getByRole('button',{name:'查看记录 刚在 Word 编辑的文件.docx',exact:true})).toBeVisible();
 });

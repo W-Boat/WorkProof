@@ -116,7 +116,7 @@ async function refresh(){
     engineReady=s.ready===true;updateLaunchButtons();
     document.getElementById('status').dataset.state=engineReady?'ready':'preparing';
     document.getElementById('status').textContent=s.ready?'记录服务已就绪':'正在准备记录服务…';
-    window.dispatchEvent(new CustomEvent('workproof-engine',{detail:{ready:engineReady}}));
+    window.dispatchEvent(new CustomEvent('workproof-engine',{detail:{ready:engineReady,sessions:s.sessions,events:s.events}}));
     document.getElementById('sessions').textContent=s.sessions.toLocaleString();
     document.getElementById('events').textContent=s.events.toLocaleString();
     document.querySelector('.trace').classList.toggle('active',last>=0&&s.events>last);last=s.events;
