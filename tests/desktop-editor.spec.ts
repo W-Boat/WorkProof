@@ -253,8 +253,11 @@ test('closing freezes Markdown and waits for durable save before issuing the nat
   await desktop(page);const body=await create(page);
   await page.locator('[data-mode=markdown]').click();await page.locator('#toggle-source').click();
   await page.evaluate(()=>{
-    const w=window as any,invoke=w.__TAURI__.core.invoke;
-    w.__TAURI__.core.invoke=(command:string,args:any)=>command==='editor_save'?new Promise(resolve=>{w.releaseCloseSave=()=>resolve(invoke(command,args));}):invoke(command,args);
+    const w=window as any,invoke=w.__TAURI__.core.invoke;let blockNext=true;
+    w.__TAURI__.core.invoke=(command:string,args:any)=>{
+      if(command==='editor_save'&&blockNext){blockNext=false;return new Promise(resolve=>{w.releaseCloseSave=()=>resolve(invoke(command,args));});}
+      return invoke(command,args);
+    };
   });
   await page.locator('#markdown-source .cm-content').fill('关闭时必须保存的源码');
   await page.evaluate(()=>{(window as any).editorHarness.listeners['workproof-close-requested']();});

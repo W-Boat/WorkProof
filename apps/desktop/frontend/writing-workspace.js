@@ -19,11 +19,18 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   const sourceVisible=()=>!$('markdown-source-panel').hidden;
   function losslessMarkdown(){
     const editor=getEditor();if(!editor)return null;
+    // StarterKit adds a cursor paragraph after tables, lists and images. It is
+    // editor scaffolding and must not force a rewrite of the imported source.
+    const contentWithoutCursorParagraph=doc=>{
+      const empty=editor.schema.nodes.paragraph.create();
+      if(doc.childCount>1&&doc.lastChild.eq(empty)&&!doc.child(doc.childCount-2).isTextblock)return doc.content.cut(0,doc.content.size-doc.lastChild.nodeSize);
+      return doc.content;
+    };
     const matches=text=>{
       if(typeof text!=='string')return false;
       const parsed=editor.markdown.parse(text);
       if(!parsed.content?.length)parsed.content=[{type:'paragraph'}];
-      return editor.schema.nodeFromJSON(parsed).content.eq(editor.state.doc.content);
+      return contentWithoutCursorParagraph(editor.schema.nodeFromJSON(parsed)).eq(contentWithoutCursorParagraph(editor.state.doc));
     };
     try{
       const saved=editor.state.doc.attrs.markdownSource;
