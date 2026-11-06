@@ -14,6 +14,16 @@ export function initializePaneLayout() {
   let lastOpened = 'inspector';
   let overlayDismissed = false;
   const focusButton = document.getElementById('focus-writing');
+  const exitButton = document.getElementById('exit-simple-writing');
+  function setFocused(value){
+    focused=value;
+    document.body.classList.toggle('simple-writing',value);
+    document.dispatchEvent(new CustomEvent('workproof:simple-writing',{detail:value}));
+    exitButton.hidden=!value;
+    for(const element of document.querySelectorAll('.workspace-nav,.doc-head,.document-tabs,.writing-chrome'))element.inert=value;
+    render();
+    (value?exitButton:focusButton)?.focus({preventScroll:true});
+  }
   for (const name of Object.keys(panes)) {
     let saved;
     try { saved = localStorage.getItem(`workproof.pane.${name}`); } catch {}
@@ -35,17 +45,31 @@ export function initializePaneLayout() {
     if (!width) return;
     const compact = width < 820;
     const markdown = workspace.dataset.editMode === 'markdown';
-    const automatic = {ribbon: !markdown && width >= 580, outline: width >= 1150, inspector: width >= 960};
+    // Keep seven tenths of the workspace for writing. Explicitly opened panes
+    // become overlays when side-by-side layout would consume that space.
+    const totalWidth=document.getElementById('document-workspace').clientWidth;
+    const totalHeight=document.getElementById('document-workspace').clientHeight;
+    const styles=getComputedStyle(workspace);
+    const outlineWidth=parseFloat(styles.getPropertyValue('--outline-width'))||210;
+    const inspectorWidth=parseFloat(styles.getPropertyValue('--inspector-width'))||270;
+    const chromeHeight=document.querySelector('.doc-head').offsetHeight+document.querySelector('.document-tabs').offsetHeight+document.querySelector('.mode-strip').offsetHeight+document.querySelector('.ribbon-tabs').offsetHeight;
+    const ribbonHeight=document.querySelector('.ribbon-inner').scrollHeight;
+    const automatic = {ribbon: !markdown && totalHeight-chromeHeight-ribbonHeight>=totalHeight*.7, outline:false, inspector:false};
+    const usableHeight=Math.max(0,totalHeight-chromeHeight-(automatic.ribbon?ribbonHeight:0));
+    const minimumWidth=usableHeight?totalWidth*totalHeight*.7/usableHeight:totalWidth;
+    if(width-inspectorWidth>=minimumWidth)automatic.inspector=true;
     const visible = {};
     for (const name of Object.keys(panes)) {
       visible[name] = !focused && (preferences[name] === 'open' || (preferences[name] === 'auto' && automatic[name]));
     }
-    if (compact) {
+    const sidebarWidth=(visible.outline?outlineWidth:0)+(visible.inspector?inspectorWidth:0);
+    const overlay=compact||width-sidebarWidth<width*.7;
+    if (overlay) {
       if (overlayDismissed) visible.outline = visible.inspector = false;
       else if (visible.outline && visible.inspector) visible[lastOpened === 'outline' ? 'inspector' : 'outline'] = false;
     }
-    workspace.classList.toggle('panes-overlay', compact);
-    workspace.classList.toggle('pane-overlay-open', compact && (visible.outline || visible.inspector));
+    workspace.classList.toggle('panes-overlay', overlay);
+    workspace.classList.toggle('pane-overlay-open', overlay && (visible.outline || visible.inspector));
     workspace.classList.toggle('focus-writing', focused);
     focusButton?.setAttribute('aria-pressed', String(focused));
     for (const [name, {element, button}] of Object.entries(panes)) {
@@ -67,7 +91,7 @@ export function initializePaneLayout() {
   for (const [name, {button}] of Object.entries(panes)) {
     button?.addEventListener('click', () => {
       const open = workspace.dataset[`${name}Open`] !== 'true';
-      if (focused) focused = false;
+      if (focused) setFocused(false);
       overlayDismissed = false;
       if (open && name !== 'ribbon') lastOpened = name;
       persist(name, open ? 'open' : 'closed');
@@ -78,12 +102,15 @@ export function initializePaneLayout() {
     const name = select.dataset.panePreference;
     if (!panes[name]) return;
     persist(name, select.value);
-    focused = false;
+    if(focused)setFocused(false);
     overlayDismissed = false;
     if (select.value === 'open') lastOpened = name;
     render();
   });
-  focusButton?.addEventListener('click', () => { focused = !focused; render(); });
+  focusButton?.addEventListener('click', () => setFocused(!focused));
+  exitButton?.addEventListener('click',()=>setFocused(false));
+  window.addEventListener('workproof-view',event=>{if(focused&&event.detail!=='document')setFocused(false);});
+  document.addEventListener('workproof-editor-tab',event=>{if(focused&&event.detail!=='write')setFocused(false);});
   function dismissOverlay() {
     if (!workspace.classList.contains('pane-overlay-open')) return;
     overlayDismissed = true;
@@ -95,7 +122,7 @@ export function initializePaneLayout() {
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape' || event.defaultPrevented) return;
     if (workspace.classList.contains('pane-overlay-open')) dismissOverlay();
-    else if (focused) { focused = false; render(); }
+    else if (focused) setFocused(false);
   });
   document.addEventListener('workproof:editor-mode', render);
   new MutationObserver(render).observe(workspace, {attributes: true, attributeFilter: ['data-edit-mode']});

@@ -150,6 +150,7 @@ window.workproofCancelClose=()=>{
 window.workproofBeforeClose=async()=>{
   // Let the editor observe the final browser input before freezing its DOM.
   await new Promise(resolve=>setTimeout(resolve,0));
+  editor?.view.domObserver.flush();
   if(opening||creating||importing||exporting)throw new Error('文档正在打开、导入或导出，请完成后再关闭或退出。');
   if(editor?.view.composing)throw new Error('请先完成当前输入，再关闭或退出。');
   if(closing)return;
@@ -250,6 +251,7 @@ function renderRecent(){
   if(!active)return;const actions=allActions(),groups=groupActions(actions);$('recent-actions').replaceChildren(...groups.slice(0,12).map(flowItem));$('no-actions').hidden=actions.length>0;$('action-count').textContent=`${groups.length} 段流程`;
 }
 function selectTab(tab){
+  document.dispatchEvent(new CustomEvent('workproof-editor-tab',{detail:tab}));
   for(const button of document.querySelectorAll('[data-tab]')){const selected=button.dataset.tab===tab;button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;$(button.dataset.tab+'-panel').hidden=!selected;}
   if(tab==='process')flush().then(renderProcess).catch(reportError);
 }
@@ -307,6 +309,7 @@ for(const [button,input,command] of [['text-color-button','text-color','setColor
 function linkError(text){$('link-url').setCustomValidity(text);if($('link-error'))$('link-error').textContent=text;else if(text)$('link-url').reportValidity();}
 function openLinkDialog(){
   if(!editor||closing||exporting||!workspace.closeSource())return;
+  editor.view.domObserver.flush();
   const {from,to,$from}=editor.state.selection,range=getMarkRange($from,editor.schema.marks.link),withinLink=range&&from>=range.from&&to<=range.to;
   linkContext={id:active.id,from,to,range:withinLink?range:{from,to},existing:withinLink,applied:false};
   const existingMark=withinLink?editor.state.doc.nodeAt(range.from)?.marks.find(mark=>mark.type===editor.schema.marks.link):null;

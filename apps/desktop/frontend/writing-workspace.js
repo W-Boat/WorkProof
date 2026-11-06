@@ -39,13 +39,13 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
     }catch{return null;}
   }
   function rememberPagination(){
-    const editor=getEditor();if(!editor||mode!=='word')return;
+    const editor=getEditor();if(!editor||mode!=='word'||document.body.classList.contains('simple-writing'))return;
     wordPagination=editor.storage.PaginationPlus.enabled;
     try{localStorage.setItem('workproof.word-pagination',String(wordPagination));}catch{}
   }
   function applyMode(){
     const editor=getEditor();if(!editor)return;
-    const enabled=mode==='word'&&wordPagination;
+    const enabled=mode==='word'&&wordPagination&&!document.body.classList.contains('simple-writing');
     editor.commands[enabled?'enablePagination':'disablePagination']();
     const button=document.querySelector('[data-command=pages]');
     button.disabled=mode==='markdown';button.setAttribute('aria-pressed',String(enabled));
@@ -132,6 +132,7 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
     record('layout',{detail:{mode},metrics:{layout_changes:1}});
   }));
   $('write-panel').dataset.editMode=mode;
+  document.addEventListener('workproof:simple-writing',applyMode);
   $('writing-ribbon').addEventListener('pointerdown',event=>{if(sourceVisible()&&!closeSource()){event.preventDefault();event.stopPropagation();}},true);
   const ribbonTabs=[...document.querySelectorAll('[data-ribbon]')];
   function selectRibbon(button){

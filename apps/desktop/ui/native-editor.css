@@ -222,3 +222,58 @@ body[data-view=external-document] #external-document-workspace{display:block}
 @media(max-width:860px){.external-document-header{flex-wrap:wrap;gap:16px}.external-document-actions{width:100%}}
 @media(max-width:640px){#library-source-filter{flex:1;min-width:140px;max-width:100%}.external-document-page{padding-top:20px}#external-document-title{font-size:24px}#external-back-library{margin-bottom:20px}#external-actions>li{padding-left:19px;padding-bottom:20px}#external-actions pre{padding:12px}#external-empty{padding:20px 16px}}
 @media(forced-colors:active){.source-badge{border-color:CanvasText}#external-actions>li::before{background:Highlight;box-shadow:none}}
+
+/* Keep the writing surface large while allowing deliberate tool expansion. */
+#document-workspace{grid-template-rows:64px 38px minmax(0,1fr);transition:grid-template-rows 180ms var(--ease)}
+.doc-head{min-height:0;padding:7px 20px}
+.doc-identity{gap:1px}
+.doc-identity input{font-size:18px;line-height:1.35}
+.document-tabs{min-height:0;padding-inline:20px;gap:24px}
+.document-tabs>button{min-height:0;font-size:14px}
+.mode-strip{min-height:40px;padding:3px 10px}
+.editor-canvas{padding:16px 20px 32px}
+.editor-paper{max-width:860px;padding:32px 40px}
+#exit-simple-writing{position:fixed;top:48px;right:18px;z-index:10;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;border:1px solid var(--stroke);border-radius:5px;background:var(--content);color:var(--muted);padding:5px 9px;box-shadow:0 2px 7px #0000000a;font-size:13px;animation:page-enter 160ms var(--ease) both}
+#exit-simple-writing:hover,#exit-simple-writing:focus-visible{color:var(--text);background:var(--hover)}
+body.simple-writing{grid-template-columns:0 minmax(0,1fr)}
+body.simple-writing .workspace-nav{width:0;min-width:0;padding:0;overflow:hidden;opacity:0;visibility:hidden}
+body.simple-writing #nav-dismiss{display:none!important}
+body.simple-writing main{border-radius:0;border-left:0}
+body.simple-writing #document-workspace{grid-template-rows:0 0 minmax(0,1fr)}
+body.simple-writing .doc-head,body.simple-writing .document-tabs{height:0;min-height:0;padding:0;border:0;overflow:hidden;opacity:0;visibility:hidden}
+body.simple-writing .writing-chrome{height:0;min-height:0;border:0;overflow:hidden;opacity:0;visibility:hidden}
+body.simple-writing #write-panel{--outline-track:0px;--inspector-track:0px;grid-template-columns:0 minmax(0,1fr) 0}
+body.simple-writing .editor-canvas{padding:24px clamp(16px,4vw,64px) 80px;background:var(--content)}
+body.simple-writing .editor-paper,body.simple-writing #write-panel[data-edit-mode=markdown] .editor-paper{width:100%;max-width:none;min-height:100%;margin:0;padding:24px 0;background:var(--content);border:0;border-radius:0;box-shadow:none}
+body.simple-writing #tiptap-editor>.tiptap{width:100%!important;max-width:860px;margin-inline:auto;padding-inline:0!important;border:0!important;min-height:calc(100dvh - 220px)}
+body.simple-writing .markdown-source-panel{max-width:100%;margin:0;border:0;border-radius:0}
+body.simple-writing #markdown-source{max-width:960px;margin:auto}
+body.simple-writing .markdown-source-panel>p{max-width:960px;margin:auto;padding:14px 8px;border:0}
+body.simple-writing #markdown-source .cm-editor{min-height:calc(100dvh - 190px)}
+@media(max-width:640px){
+  #document-workspace{grid-template-rows:56px 36px minmax(0,1fr)}
+  .doc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px}
+  .doc-identity{flex:1;min-width:0}
+  .doc-identity>.text-link{display:none}
+  .doc-identity input{font-size:17px;line-height:1.5}
+  .doc-actions{gap:4px}
+  .doc-actions>#export-document{width:34px;min-width:34px;padding:0!important;font-size:0!important}
+  .doc-actions>#export-document::part(control){width:34px;min-width:34px;padding:5px}
+  .doc-actions>#export-document .wp-icon{font-size:20px}
+  .document-tabs{padding-inline:12px;gap:20px}
+  .mode-strip{min-height:40px;padding:3px 6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .mode-strip::-webkit-scrollbar{display:none}
+  .mode-strip .mode-switch,.mode-strip .view-switch{flex-shrink:0}
+  .editor-canvas{padding:12px 8px 24px}
+  .editor-paper{padding:24px 18px}
+  #exit-simple-writing{top:44px;right:10px;min-height:32px}
+  body.simple-writing .editor-canvas{padding:16px 16px 64px}
+  body.simple-writing .editor-paper,body.simple-writing #write-panel[data-edit-mode=markdown] .editor-paper{padding-top:36px}
+}
+@media(max-height:680px) and (min-width:641px){
+  #document-workspace{grid-template-rows:54px 34px minmax(0,1fr)}
+  .doc-head{padding-block:4px}
+  .doc-identity>.text-link{font-size:12px;line-height:1.3}
+  .doc-identity input{font-size:17px;line-height:1.25}
+  .mode-strip{min-height:38px;padding-block:2px}
+}
