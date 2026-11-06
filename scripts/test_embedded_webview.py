@@ -55,12 +55,13 @@ def click_text(text):
     click_element(element)
 def activate_text_with_keyboard(text):
     # WebKitGTK's pointer coordinates inside a scrolled cross-origin iframe can
-    # target the wrong control. Focus the actual button, assert focus, and send
-    # Enter through the native driver. No synthetic click or app handler runs.
+    # target the wrong control. Let native SendKeys perform its own keyboard
+    # focus step, then require actual demo activation. JavaScript focus alone
+    # does not establish native WebKitGTK iframe focus in this driver.
     element=execute('return Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes('+json.dumps(text)+'))')
     assert element,'Native keyboard target missing'
     identifier=element['element-6066-11e4-a52e-4f735466cecf']
-    assert execute("const b=arguments[0];if(b.disabled)return false;b.scrollIntoView({block:'center',behavior:'instant'});b.focus({preventScroll:true});return document.activeElement===b",[element]),'Native keyboard target cannot receive focus'
+    assert execute("const b=arguments[0];b.scrollIntoView({block:'center',behavior:'instant'});const r=b.getBoundingClientRect();return !b.disabled&&r.width>0&&r.height>0",[element]),'Native keyboard target is not available'
     call('POST',f'/session/{session}/element/{identifier}/value',{'text':'\ue007','value':['\ue007']})
 
 def install_failure_diagnostics():
