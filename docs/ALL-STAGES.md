@@ -2,6 +2,8 @@
 
 ## 桌面编辑器交付更新（2026-11-06）
 
+后续源码 `6e900d6` 的[桌面回归 42157555162](https://github.com/W-Boat/WorkProof/actions/runs/42157555162)已通过 126 项三浏览器测试、18 项引擎测试和 5 项动作合并测试。覆盖整窗 70% 编辑画布布局、精简模式及恢复、外部应用记录统一列表与分页、字体与链接编辑、图标说明和内嵌主题同步。[Windows 完整便携包 42157555155](https://github.com/W-Boat/WorkProof/actions/runs/42157555155)仍在构建，此段不代表本机旧版已更新。Linux 原生核验页演示按钮激活仍待新验收，`264588e` 增加布局就绪、原生键盘交互与有界失败诊断，由[完整回归 42158434821](https://github.com/W-Boat/WorkProof/actions/runs/42158434821)验证。
+
 Windows 应用源码 `0e3b3cb` 的 [完整便携包 42087118637](https://github.com/W-Boat/WorkProof/actions/runs/42087118637) 三任务成功。GitHub 产物 `13445035738` 外层 SHA256 为 `a4fc0750f5bb778d0baccd9140c417c3969d0564d7e09b5a75e2e490dc681366`，内层包 SHA256 为 `3b71f248b5cfc882dcb187658a06fa7075361c8c79639a690d762878df3b47f4`。本机已核对全部 2526 项文件摘要、Word/PPT 32/64 位 DLL 与 Wasm 来源，解压于 `E:/work/WorkProof-Delivery/WorkProof-PC-0e3b3cb`。桌面“WorkProof 新编辑器”入口及 Word/PPT 用户级注册已更新，实际工作台窗口启动并响应。真实宿主中的新版侧栏、主题与 DPI 仍待验收。
 
 该应用代码的 [三浏览器回归 42088521084](https://github.com/W-Boat/WorkProof/actions/runs/42088521084) 72 项通过，测试提交 `504d84d` 修正测试夹具的 DOM 名称遮蔽，应用代码与 `0e3b3cb` 一致。覆盖 Word/Markdown 切换、源码保存、Word 富文本真实往返、自动/手动折叠、减少动态效果与动作流程展示。Rust 编辑器 6 项及动作合并 5 项通过。内置编辑器正文和原始动作保存在本机，导出证书仅包含对应摘要与统计。详见[编辑器能力与格式限制](DESKTOP-EDITOR.md)。
