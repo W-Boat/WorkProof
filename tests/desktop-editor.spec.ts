@@ -7,7 +7,8 @@ async function desktop(page:Page){
   await page.route('**/desktop-status/**',route=>{
     const name=new URL(route.request().url()).pathname.split('/').at(-1)!;
     const type:Record<string,string>={'index.html':'text/html','word-worker.js':'application/javascript','components.js':'application/javascript','theme.css':'text/css','native-editor.css':'text/css','brand.png':'image/png'};
-    return type[name]?route.fulfill({contentType:type[name],body:fs.readFileSync('apps/desktop/ui/'+name)}):route.abort();
+    const headers=name==='index.html'?{'Content-Security-Policy':JSON.parse(fs.readFileSync('apps/desktop/src-tauri/tauri.conf.json','utf8')).app.security.csp}:{};
+    return type[name]?route.fulfill({contentType:type[name],headers,body:fs.readFileSync('apps/desktop/ui/'+name)}):route.abort();
   });
   await page.addInitScript(()=>{
     if(window!==window.top)return;
@@ -243,6 +244,7 @@ test('lossless Markdown tables tasks and embedded images remain editable and exp
   const text='# 可编辑 Markdown\n\n| 项目 | 状态 |\n| --- | --- |\n| 表格正文 | 完成 |\n\n- [ ] 待办事项\n- [x] 已完成事项\n\n![小图](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6yoAAAAAASUVORK5CYII=)';
   await page.locator('#markdown-file').setInputFiles({name:'无损编辑.md',mimeType:'text/markdown',buffer:Buffer.from(text)});
   const body=page.locator('#tiptap-editor .tiptap');await expect(body.locator('table')).toHaveCount(1);await expect(body.getByRole('checkbox')).toHaveCount(2);await expect(body.locator('img')).toHaveCount(1);
+  await expect.poll(()=>body.locator('img').evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await page.locator('#toggle-source').click();const source=page.locator('#markdown-source .cm-content');await expect(source).toBeVisible();await expect(source).toContainText('待办事项');
   await source.press('ControlOrMeta+End');await source.press('Enter');await source.pressSequentially('源码继续编辑');await page.locator('#toggle-source').click();await expect(body).toContainText('源码继续编辑');
   await page.evaluate(()=>{const w=window as any,invoke=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(command:string,args:any)=>{if(command==='editor_export')w.exportedMarkdown=args.markdown;return invoke(command,args);};});
