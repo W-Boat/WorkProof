@@ -34,3 +34,6 @@ Linux 验收使用固定 `tauri-driver 2.1.0` 与系统 WebKitWebDriver，实际
 [Windows 包 42345408789](https://github.com/W-Boat/WorkProof/actions/runs/42345408789) 三任务成功。产物 `13563975787` 已下载，核对全部 2531 个文件摘要、PE 架构及 Wasm 来源，解压在 `E:/work/WorkProof-Delivery/WorkProof-PC-d636014`。外层 SHA-256 为 `85dd5a64bb9be512fe7b5e16b76ed3bd8f73990f8b1460e5a3b510849403320b`，交付 ZIP 为 `661ed0337732a75c2d3b0234cbbffeaf6421c2a4c41b2bf4beac951fb7e97f4e`。
 
 该包保留当前文档字数缓存优化，四档实际存储与签名压力测试通过，详见 [实测记录](EDITOR-STRESS-RESULTS.md)。产品源码之后的提交仅调整测试及文档。截至本段记录时，三浏览器回归仍在运行；旧版 `c6610da` 进程仍在托盘，未更换快捷方式、Office 注册或启动交付候选。此前失败运行不能被本段描述为全量通过。最新回归通过并完成实际切换前，交付状态保持候选。
+
+
+后续测试提交 `0fa89ca2c24924f288903ef6da1e421dbda0d99e` 的 [桌面三浏览器回归 42346880115](https://github.com/W-Boat/WorkProof/actions/runs/42346880115) 已通过 165 项检查；[完整构建中的协议与网页任务](https://github.com/W-Boat/WorkProof/actions/runs/42346880106/job/128326777025) 已通过，含 110 项 Chromium 检查。与交付候选 `d636014` 的 `apps`、`crates`、`services` 产品源码无差异，后续差异仅为测试和文档。完整构建中的其余平台打包仍在运行；不能将两个成功任务描述为整个跨平台运行完成。本机切换仍需旧版后台进程退出。
