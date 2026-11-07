@@ -103,7 +103,10 @@ test('switching to Word cancels a pending source open and reopening uses the lat
   const delayed=await delayMarkdownRuntime(page);
   await page.locator('#toggle-source').click();await delayed.requestStarted;
   await expect(page.locator('#toggle-source')).toHaveAttribute('aria-busy','true');await expect(body).toBeVisible();
-  await page.locator('[data-mode=word]').click();await body.fill('加载期间更新后的正文');
+  await page.locator('[data-mode=word]').click();
+  await body.focus();await body.press('ControlOrMeta+a');await body.press('Backspace');
+  await expect(body).toHaveText('');await page.keyboard.insertText('加载期间更新后的正文');
+  await expect(body).toHaveText('加载期间更新后的正文');
   const loaded=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/desktop-status/markdown-source-runtime.js'));
   delayed.release();await loaded;
   await page.evaluate(async()=>{await import(new URL('markdown-source-runtime.js',document.baseURI).href);await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));});
