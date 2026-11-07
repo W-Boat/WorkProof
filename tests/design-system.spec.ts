@@ -6,7 +6,7 @@ test('shared institution controls, theme preference and mobile layout remain usa
   await expect(page.getByRole('heading',{name:'证据核验',exact:true})).toBeVisible();
   const primary=page.getByRole('button',{name:'开始本地核验'});
   await expect(primary).toHaveClass(/btn-primary/);
-  const colors=await primary.evaluate(element=>{const probe=document.createElement('span');probe.style.color='var(--blue)';document.body.append(probe);const expected=getComputedStyle(probe).color;probe.remove();return {background:getComputedStyle(element).backgroundColor,expected};});
+  const colors=await primary.evaluate(element=>{const probe=document.createElement('span');probe.style.color='var(--fluent-primary)';element.append(probe);const expected=getComputedStyle(probe).color;probe.remove();return {background:getComputedStyle(element).backgroundColor,expected};});
   expect(colors.background).toBe(colors.expected);
   expect(await page.locator('.rail-brand img').evaluate(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth>0)).toBe(true);
   await page.getByRole('button',{name:'先体验一份演示证据'}).click();
