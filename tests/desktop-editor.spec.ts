@@ -623,6 +623,7 @@ test('action character counts preserve Unicode and paragraph semantics through e
   expect(edited.filter((a:any)=>a.kind==='keyboard'&&a.detail?.key==='ArrowRight').at(-1)?.chars).toBe(7);
   expect(edited.filter((a:any)=>a.kind==='edit').at(-1)?.chars).toBe(6);
   await page.locator('.workspace-nav').getByRole('button',{name:'我的文档',exact:true}).click();await create(page);
+  await expect(page.getByRole('button',{name:'新建文档',exact:true})).toBeEnabled();await body.click();
   await body.press('ArrowRight');await page.locator('#save-document').click();
   const secondId=await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).id);
   const fresh=await page.evaluate(id=>(window as any).editorHarness.saves.filter((s:any)=>s.id===id).flatMap((s:any)=>s.actions),secondId);
