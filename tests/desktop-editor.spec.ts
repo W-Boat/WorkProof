@@ -609,19 +609,20 @@ test('wide dark editor keeps two compact command rows and unclipped navigation i
 
 test('action character counts preserve Unicode and paragraph semantics through edits and document changes',async({page})=>{
   await desktop(page);const body=await create(page);
-  await body.focus();await page.keyboard.insertText('甲😀');await body.press('Enter');await page.keyboard.insertText('乙𠮷');
-  await expect(body.locator('p')).toHaveCount(2);
+  await body.focus();await page.keyboard.insertText('甲😀');await expect(body.locator('p')).toHaveText(['甲😀']);
+  await body.press('Enter');await expect(body.locator('p')).toHaveCount(2);await page.keyboard.insertText('乙𠮷');
+  await expect(body.locator('p')).toHaveText(['甲😀','乙𠮷']);
   await body.press('ArrowLeft');await page.locator('#save-document').click();
   const first=await page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions));
   // Tiptap getText uses two newlines between paragraphs for command records;
   // existing text-delta records use one. Emoji count as code points in both.
   expect(first.filter((a:any)=>a.kind==='keyboard'&&a.detail?.key==='ArrowLeft').at(-1)?.chars).toBe(6);
   expect(first.filter((a:any)=>a.kind==='edit').at(-1)?.chars).toBe(5);
-  await body.press('End');await page.keyboard.insertText('丙');await body.press('ArrowRight');await page.locator('#save-document').click();
+  await body.press('End');await page.keyboard.insertText('丙');await expect(body.locator('p')).toHaveText(['甲😀','乙𠮷丙']);await body.press('ArrowRight');await page.locator('#save-document').click();
   const edited=await page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions));
   expect(edited.filter((a:any)=>a.kind==='keyboard'&&a.detail?.key==='ArrowRight').at(-1)?.chars).toBe(7);
   expect(edited.filter((a:any)=>a.kind==='edit').at(-1)?.chars).toBe(6);
-  await page.getByRole('button',{name:'我的文档',exact:true}).click();await create(page);
+  await page.locator('.workspace-nav').getByRole('button',{name:'我的文档',exact:true}).click();await create(page);
   await body.press('ArrowRight');await page.locator('#save-document').click();
   const secondId=await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).id);
   const fresh=await page.evaluate(id=>(window as any).editorHarness.saves.filter((s:any)=>s.id===id).flatMap((s:any)=>s.actions),secondId);
