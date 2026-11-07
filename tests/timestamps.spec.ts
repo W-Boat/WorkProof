@@ -38,6 +38,7 @@ test('explicit online request receives a real synthetic TSA response without tru
   await expect(panel.getByRole('status')).toContainText('尚未核验');expect(sent).toBe(1);await expect(panel.getByText('时间凭据与签名一致',{exact:true})).toHaveCount(0);
   await expect(panel.getByRole('button',{name:'保存当前请求'})).toBeVisible();await expect(panel.getByRole('button',{name:'保存当前响应'})).toBeVisible();
   await panel.getByLabel('你信任的 CA 证书（.pem）').setInputFiles(ca);await panel.getByRole('checkbox').check();await panel.getByRole('button',{name:'检查时间凭据',exact:true}).click();await expect(panel.getByText('时间凭据与签名一致',{exact:true})).toBeVisible();
+  await panel.getByLabel('HTTPS 时间服务地址').fill('http://tsa.example.test/sign');await panel.getByRole('button',{name:'生成请求并发送至此服务'}).click();await expect(panel.getByRole('alert')).toContainText('HTTPS');await expect(panel.getByText('时间凭据与签名一致',{exact:true})).toHaveCount(0);await expect(panel.getByRole('checkbox')).not.toBeChecked();expect(sent).toBe(1);
 });
 test('real OpenSSL timestamp is verified locally with explicit trust and honest scope',async({page})=>{
   const external:string[]=[];

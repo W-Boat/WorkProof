@@ -42,6 +42,7 @@ export function TimestampPanel({signature}:{signature:string}){
   function download(file:File){const url=URL.createObjectURL(file),anchor=document.createElement('a');anchor.href=url;anchor.download=file.name;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   async function applyOnline(){
     if(busy)return;
+    setResult(null);setTrusted(false);setNotice('');
     let address:string;try{address=timestampServiceUrl(service);}catch(failure){setError((failure as Error).message);return;}
     const current=++generation.current,controller=new AbortController();active.current=controller;
     setBusy(true);setResult(null);setTrusted(false);setError('');setNotice('');setFiles([null,null,files[2]]);
