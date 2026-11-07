@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'crates/proof/**'
+      - 'crates/engine/src/bin/workproof-receipt.rs'
+      - 'scripts/test_receipt_cli.cjs'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/proof-receipts.yml'
@@ -21,3 +23,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Receipt explicit trust, exact binding, time policy and existing protocol regressions
         run: cargo test --locked -p workproof-protocol
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build the actual one-shot issuer utility
+        run: cargo build --locked -p workproof-engine --bin workproof-receipt
+      - name: Exercise receipt issuance and independent verification with synthetic keys
+        run: node scripts/test_receipt_cli.cjs target/debug/workproof-receipt
