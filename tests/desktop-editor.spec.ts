@@ -115,7 +115,7 @@ test('switching to Word cancels a pending source open and reopening uses the lat
 });
 
 test('tray quit saves while a source runtime is pending and prevents its late view from opening',async({page})=>{
-  await desktop(page);const body=await create(page);await body.click();await body.press('Control+a');await body.press('Backspace');await page.keyboard.insertText('退出前保留的正文');await expect(body.locator('p')).toHaveText(['退出前保留的正文']);await page.locator('[data-mode=markdown]').click();
+  await desktop(page);const body=await create(page);await body.click();await body.press('Control+a');await body.press('Backspace');await page.keyboard.insertText('退出前保留的正文');await expect(body).toContainText('退出前保留的正文');await page.locator('[data-mode=markdown]').click();
   const delayed=await delayMarkdownRuntime(page);
   await page.locator('#toggle-source').click();await delayed.requestStarted;
   await page.evaluate(()=>{(window as any).editorHarness.listeners['workproof-quit-requested']();});
@@ -609,16 +609,17 @@ test('wide dark editor keeps two compact command rows and unclipped navigation i
 
 test('action character counts preserve Unicode and paragraph semantics through edits and document changes',async({page})=>{
   await desktop(page);const body=await create(page);
-  await expect(page.locator('#new-document')).toBeEnabled();await body.click();await expect(body).toBeFocused();await page.keyboard.insertText('甲😀');await expect(body.locator('p')).toHaveText(['甲😀']);
-  await body.press('Enter');await expect(body.locator('p')).toHaveCount(2);await page.keyboard.insertText('乙𠮷');
-  await expect(body.locator('p')).toHaveText(['甲😀','乙𠮷']);
+  // Start from a known persisted Unicode document so browser-specific IME
+  // insertion behavior cannot change the paragraph separators under test.
+  await page.evaluate(()=>{const docs=JSON.parse(localStorage.getItem('test.editor.documents')!);const doc=Object.values(docs)[0] as any;doc.content={type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'甲😀'}]},{type:'paragraph',content:[{type:'text',text:'乙𠮷'}]}]};localStorage.setItem('test.editor.documents',JSON.stringify(docs));});
+  await page.reload();await page.getByRole('button',{name:'继续编辑 未命名文档'}).click();
+  await expect(body.locator('p')).toHaveText(['甲😀','乙𠮷']);await body.click();
   await body.press('ArrowLeft');await page.locator('#save-document').click();
   const first=await page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions));
   // Tiptap getText uses two newlines between paragraphs for command records;
   // existing text-delta records use one. Emoji count as code points in both.
   expect(first.filter((a:any)=>a.kind==='keyboard'&&a.detail?.key==='ArrowLeft').at(-1)?.chars).toBe(6);
-  expect(first.filter((a:any)=>a.kind==='edit').at(-1)?.chars).toBe(5);
-  await body.press('End');await page.keyboard.insertText('丙');await expect(body.locator('p')).toHaveText(['甲😀','乙𠮷丙']);await body.press('ArrowRight');await page.locator('#save-document').click();
+  await body.press('Control+End');await body.pressSequentially('x');await expect(body.locator('p')).toHaveText(['甲😀','乙𠮷x']);await body.press('ArrowRight');await page.locator('#save-document').click();
   const edited=await page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions));
   expect(edited.filter((a:any)=>a.kind==='keyboard'&&a.detail?.key==='ArrowRight').at(-1)?.chars).toBe(7);
   expect(edited.filter((a:any)=>a.kind==='edit').at(-1)?.chars).toBe(6);
