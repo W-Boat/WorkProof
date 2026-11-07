@@ -59,7 +59,7 @@ async function desktop(page:Page){
   await page.goto('/desktop-status/index.html');
   await expect(page.getByRole('button',{name:'新建文档',exact:true})).toBeVisible();
 }
-async function create(page:Page){await page.getByRole('button',{name:'新建文档',exact:true}).click();await expect(page.getByRole('textbox',{name:'文档正文'})).toBeVisible();return page.getByRole('textbox',{name:'文档正文'});}
+async function create(page:Page){await page.getByRole('button',{name:'新建文档',exact:true}).click();await expect(page.getByRole('textbox',{name:'文档正文'})).toBeVisible();await expect(page.locator('#new-document')).toBeEnabled();return page.getByRole('textbox',{name:'文档正文'});}
 async function ensureRibbonOpen(page:Page){
   await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');
   // Selecting a tool tab explicitly expands its page even if automatic layout
@@ -115,7 +115,7 @@ test('switching to Word cancels a pending source open and reopening uses the lat
 });
 
 test('tray quit saves while a source runtime is pending and prevents its late view from opening',async({page})=>{
-  await desktop(page);const body=await create(page);await body.fill('退出前保留的正文');await page.locator('[data-mode=markdown]').click();
+  await desktop(page);const body=await create(page);await body.click();await body.press('Control+a');await body.press('Backspace');await page.keyboard.insertText('退出前保留的正文');await expect(body.locator('p')).toHaveText(['退出前保留的正文']);await page.locator('[data-mode=markdown]').click();
   const delayed=await delayMarkdownRuntime(page);
   await page.locator('#toggle-source').click();await delayed.requestStarted;
   await page.evaluate(()=>{(window as any).editorHarness.listeners['workproof-quit-requested']();});
@@ -609,7 +609,7 @@ test('wide dark editor keeps two compact command rows and unclipped navigation i
 
 test('action character counts preserve Unicode and paragraph semantics through edits and document changes',async({page})=>{
   await desktop(page);const body=await create(page);
-  await expect(page.getByRole('button',{name:'新建文档',exact:true})).toBeEnabled();await body.click();await expect(body).toBeFocused();await page.keyboard.insertText('甲😀');await expect(body.locator('p')).toHaveText(['甲😀']);
+  await expect(page.locator('#new-document')).toBeEnabled();await body.click();await expect(body).toBeFocused();await page.keyboard.insertText('甲😀');await expect(body.locator('p')).toHaveText(['甲😀']);
   await body.press('Enter');await expect(body.locator('p')).toHaveCount(2);await page.keyboard.insertText('乙𠮷');
   await expect(body.locator('p')).toHaveText(['甲😀','乙𠮷']);
   await body.press('ArrowLeft');await page.locator('#save-document').click();
@@ -623,7 +623,7 @@ test('action character counts preserve Unicode and paragraph semantics through e
   expect(edited.filter((a:any)=>a.kind==='keyboard'&&a.detail?.key==='ArrowRight').at(-1)?.chars).toBe(7);
   expect(edited.filter((a:any)=>a.kind==='edit').at(-1)?.chars).toBe(6);
   await page.locator('.workspace-nav').getByRole('button',{name:'我的文档',exact:true}).click();await create(page);
-  await expect(page.getByRole('button',{name:'新建文档',exact:true})).toBeEnabled();await body.click();
+  await expect(page.locator('#new-document')).toBeEnabled();await body.click();
   await body.press('ArrowRight');await page.locator('#save-document').click();
   const secondId=await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).id);
   const fresh=await page.evaluate(id=>(window as any).editorHarness.saves.filter((s:any)=>s.id===id).flatMap((s:any)=>s.actions),secondId);
