@@ -139,3 +139,9 @@ html[data-theme=dark] .behavior-report tr[data-review=true] .measurement-result,
 .wp-fluent :is(button,a,input,select,summary):focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .wp-fluent.wp-embedded .wp-frame{border:0;border-radius:0}
 @media(prefers-reduced-motion:reduce){.wp-fluent .btn{transition:none}}
+
+.wp-fluent{--surface:var(--surface-solid);--pill-bg:var(--surface-solid);--groove-bg:var(--input-bg)}
+.wp-fluent .btn-primary:hover{background:var(--fluent-primary-hover)}
+.wp-fluent .btn-primary:active{background:var(--fluent-primary-pressed)}
+.wp-fluent .nav-item{border-radius:4px;min-height:36px;box-shadow:none}
+.wp-fluent .nav-item:hover{background:color-mix(in srgb,var(--blue) 7%,var(--surface-solid))}
