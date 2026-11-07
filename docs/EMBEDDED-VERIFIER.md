@@ -25,3 +25,12 @@
 Linux 验收使用固定 `tauri-driver 2.1.0` 与系统 WebKitWebDriver，实际安装 DEB 后从工作台点击打开内嵌页，运行真实演示 Wasm，检查调用隔离、导航拒绝和窗口复用，并保存合成演示截图。驱动仅在 CI 安装，不进入用户安装包，不添加产品测试插件或 mock IPC。[首次实际验收 41498967934](https://github.com/W-Boat/WorkProof/actions/runs/41498967934) 已通过：测试脚本源码 `aadb613`，被安装应用来自 `7ee35ed` 的已成功 Linux 构建；两者版本分开记录，不能据此声称最新应用二进制已验收。该测试不覆盖系统文件选择、下载、打印或其他平台。方式依据 [Tauri 官方 WebDriver 说明](https://v2.tauri.app/develop/tests/webdriver/manual-setup/)。
 
 本轮新增实际文件输入和窄窗验收：独立工作流改用 `e4583b5` 的已成功 Linux 安装包（[构建任务](https://github.com/W-Boat/WorkProof/actions/runs/41505275832/job/125485707115)），将同包合成作品及证书下载为 CI 临时目录中的真实文件，通过 WebDriver 的文件输入命令选择，再运行 Wasm；同时检查改动字节拒绝、重新选择原文件、480 像素窗口宽度与 PageDown 滚动。没有在页面注入 File/DataTransfer 或测试专用 IPC。新增检查尚待本次 Actions；WebDriver 文件输入不等于覆盖操作系统原生选文件对话框，下载/打印及其他平台也仍需验收。文件输入命令依据 [W3C WebDriver](https://www.w3.org/TR/webdriver2/#element-send-keys)。
+
+
+## 图形报告与长文优化交付候选
+
+产品源码 `d636014cb581694f1ee435f337407e410238c0d1` 增加五项过程特征多边形图与参考横条，位于完整检验表之前。各轴相对对应规则阈值展示，1 倍为参考线，2 倍为绘图封顶；集中写入占比、速率和间隔等仍需满足后端联合样本条件。信息不足不画数值、不填成完整面积，不能以图形面积解读作者能力、原创率或 AI 使用概率。间隔波动为零时只在边界显示超出范围，不伪造有限测量值。
+
+[Windows 包 42345408789](https://github.com/W-Boat/WorkProof/actions/runs/42345408789) 三任务成功。产物 `13563975787` 已下载，核对全部 2531 个文件摘要、PE 架构及 Wasm 来源，解压在 `E:/work/WorkProof-Delivery/WorkProof-PC-d636014`。外层 SHA-256 为 `85dd5a64bb9be512fe7b5e16b76ed3bd8f73990f8b1460e5a3b510849403320b`，交付 ZIP 为 `661ed0337732a75c2d3b0234cbbffeaf6421c2a4c41b2bf4beac951fb7e97f4e`。
+
+该包保留当前文档字数缓存优化，四档实际存储与签名压力测试通过，详见 [实测记录](EDITOR-STRESS-RESULTS.md)。产品源码之后的提交仅调整测试及文档。截至本段记录时，三浏览器回归仍在运行；旧版 `c6610da` 进程仍在托盘，未更换快捷方式、Office 注册或启动交付候选。此前失败运行不能被本段描述为全量通过。最新回归通过并完成实际切换前，交付状态保持候选。
