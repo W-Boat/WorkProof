@@ -137,7 +137,7 @@ export default function Page(){
     </Panel>
     {result&&m&&r?<motion.div initial={reduced?false:{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:reduced?0:.18}} className="result">
       <div id="verification-result" ref={resultHeading} tabIndex={-1} role="status" className={`result-banner ${r.valid?'success':'failure'}`}><span>{r.valid?<ShieldCheck size={21}/>:<AlertTriangle size={21}/>}<strong>{r.valid?(partial?'部分证据核验通过':'证据核验通过'):'证据核验未通过'}</strong>{m.demo&&<Tag tone="neutral">演示数据</Tag>}</span><span>{r.valid?(behaviorReview?'文件与签名一致 · 编辑过程有待复核提醒':partial?'所选事件属于已签名记录集；完整链未核验':'文件、记录链与签名一致'):'请检查文件配对及证据完整性'}</span></div>
-      <div className="result-grid"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId} behaviorNote={behaviorNote} behaviorReview={!!behaviorReview}/><VerificationChecks proof={result.proof} report={r}/></div>
+      <div className="result-grid"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId} behaviorNote={behaviorNote} behaviorReview={!!behaviorReview}/><VerificationChecks proof={result.proof} report={r} behavior={result.behavior}/></div>
       <BehaviorPanel assessment={result.behavior} valid={r.valid} onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}/>
       <BehaviorReport assessment={result.behavior} valid={r.valid}/>
       {r.valid&&r.chain_valid&&<Timeline key={result.certificateId+String(proofFile?.lastModified)} records={records} signals={result.behavior?.signals} selectedSeq={focusedEventSeq} onSelect={setFocusedEventSeq}/>}

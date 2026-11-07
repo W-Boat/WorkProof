@@ -11,6 +11,10 @@ async function verifyBulk(page:import('@playwright/test').Page,certificate='beha
 test('real signed bulk insertion produces a readable warning and locates the original event',async({page},info)=>{
   await page.addInitScript(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text:string)=>{(window as any).copiedBehaviorShare=text;}}});});
   await verifyBulk(page);await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  const trust=page.getByRole('region',{name:'证据信任状态'});
+  await expect(trust).toContainText('官方客户端来源');await expect(trust).toContainText('未认证');
+  await expect(trust).toContainText('未独立验证');await expect(trust).toContainText('尚未完成真实场景校准');
+  await expect(trust).toContainText('heuristic-2026-11-06.1');
   const panel=page.getByRole('region',{name:'编辑过程提醒',exact:true});
   await expect(panel.getByText('短时间写入了大段文字',{exact:true})).toBeVisible();
   const sheet=page.getByRole('region',{name:'编辑过程检验单',exact:true});
@@ -52,6 +56,7 @@ test('an unmatched file cannot display trusted editing warnings or a clean behav
   await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles(fixture+'behavior-bulk.txt.wproof');
   await page.getByRole('button',{name:'开始本地核验',exact:true}).click();await expect(page.getByText('证据核验未通过',{exact:true})).toBeVisible();
   const panel=page.getByRole('region',{name:'编辑过程提醒',exact:true});
-  await expect(panel).toContainText('当前无法评估编辑过程');await expect(panel).not.toContainText('按当前规则暂未发现');
+  await expect(panel).toContainText('当前无法评估编辑过程');
+  await expect(page.getByRole('region',{name:'证据信任状态'})).toContainText('本次不作过程判断');await expect(panel).not.toContainText('按当前规则暂未发现');
   await expect(panel.locator('.behavior-signals')).toHaveCount(0);await expect(page.locator('.timeline-panel')).toHaveCount(0);
 });

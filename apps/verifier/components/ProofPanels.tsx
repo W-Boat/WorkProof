@@ -4,7 +4,7 @@ import {Fingerprint,ShieldCheck,AlertTriangle,Check,X,Info,Code2,ArrowDownToLine
 import {Button} from './button';
 import {Panel,Tag,TextInput} from './institution-ui';
 import {ActionBreakdown} from './ActionBreakdown';
-import {type Proof,type Report,type RecordEntry,time,shorten,labels} from '../lib/evidence';
+import {type Proof,type Report,type RecordEntry,type BehaviorAssessment,time,shorten,labels} from '../lib/evidence';
 
 export function CertificateCard({proof,report,certificateId,behaviorNote,behaviorReview=false}:{proof:Proof;report:Report;certificateId?:string;behaviorNote?:string;behaviorReview?:boolean}){
   const m=proof.manifest,partial=report.scope==='selective';
@@ -21,7 +21,7 @@ export function CertificateCard({proof,report,certificateId,behaviorNote,behavio
     <p className="certificate-disclaimer">{partial?'仅证明所选事件的归属，未核验完整记录链。':''}签名者身份未经认证。本记录不证明人类创作、原创性或持续劳动。</p>
   </article>;
 }
-export function VerificationChecks({proof,report:r}:{proof:Proof;report:Report}){
+export function VerificationChecks({proof,report:r,behavior}:{proof:Proof;report:Report;behavior?:BehaviorAssessment|null}){
   const partial=r.scope==='selective';
   const checks:[boolean|string|null,string,string,string][]=[
     [r.file_match,'文件匹配','这份作品与证书中记录的最终文件一致','作品与证书不匹配。请向提供者索取与这份证书对应的原始作品。'],
@@ -31,7 +31,13 @@ export function VerificationChecks({proof,report:r}:{proof:Proof;report:Report})
   if(!partial&&r.merkle_valid!==null)checks.push([r.merkle_valid,'记录集合一致','全部操作与签名中确认的记录一致','操作记录与签名不一致。请向提供者索取原始证书。']);
   return <Panel title="核验明细" className="checks-panel">
     {checks.map(([ok,title,desc,failure])=><div className="check-row" key={title}><span className={ok?'check-icon':'fail-icon'}>{ok?<Check size={15}/>:<X size={15}/>}</span><div><strong>{title}<Tag tone={ok?'ok':'danger'}>{ok?'通过':'失败'}</Tag></strong><p>{ok?desc:failure}</p></div></div>)}
-    <div className="check-boundary"><Info size={17}/><div><strong>可信程度需要分别判断</strong><p>签名身份未经认证<br/>证书内未提供外部时间凭据<br/>无法据此判断 AI 使用比例{partial&&<><br/>完整记录链未核验<br/>未披露区间的采集缺口未知</>}</p></div></div>
+    <section className="proof-assurance" aria-label="证据信任状态"><h3>这份证据能说明什么</h3><dl>
+      <div><dt>文件与签名</dt><dd><strong>{r.valid?(partial?'已披露部分一致':'核验一致'):'未通过核验'}</strong><p>{r.valid?'只说明本次检查的文件、记录和签名相互匹配。':'当前文件或证据未通过一致性检查，不能采信其过程结论。'}</p></dd></div>
+      <div><dt>官方客户端来源</dt><dd><strong>未认证</strong><p>本机自签名不能证明来自官方客户端；证书上的名称和图标不是来源认证。</p></dd></div>
+      <div><dt>采集过程真实性</dt><dd><strong>未独立验证</strong><p>记录由采集端提供。签名不能单独证明每项操作真实发生，也不能排除脚本模拟。</p></dd></div>
+      <div><dt>检测规则有效性</dt><dd><strong>{r.valid?'尚未完成真实场景校准':'本次不作过程判断'}</strong><p>{r.valid?'当前仅用启发式规则提示人工复核，未建立真实中英文场景的误报保证。':'完整性检查失败时，不以过程统计判断创作方式。'}</p>{r.valid&&behavior?.rule_version&&<p>本次规则：<code>{behavior.rule_version}</code></p>}</dd></div>
+    </dl></section>
+    <div className="check-boundary"><Info size={17}/><div><strong>身份与时间仍需单独判断</strong><p>签名身份未经认证<br/>证书内未提供外部时间凭据<br/>无法据此判断 AI 使用比例{partial&&<><br/>完整记录链未核验<br/>未披露区间的采集缺口未知</>}</p></div></div>
     <Dialog.Root><Dialog.Trigger asChild><Button variant="ghost"><Code2 size={15}/>查看原始核验详情</Button></Dialog.Trigger><Dialog.Portal>
       <Dialog.Overlay className="overlay wp-dialog-overlay"/>
       <Dialog.Content className="modal wp-dialog"><header className="modal-head"><div><Dialog.Title className="modal-title">原始核验详情</Dialog.Title><Dialog.Description className="modal-sub">核验算法结果与签名清单；身份与时间需独立判断。</Dialog.Description></div><Dialog.Close asChild><Button variant="ghost" aria-label="关闭详情"><X size={17}/></Button></Dialog.Close></header><div className="modal-body"><pre>{JSON.stringify({report:r,manifest:proof.manifest},null,2)}</pre></div></Dialog.Content>
