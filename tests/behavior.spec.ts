@@ -13,6 +13,11 @@ test('real signed bulk insertion produces a readable warning and locates the ori
   await verifyBulk(page);await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
   const panel=page.getByRole('region',{name:'编辑过程提醒',exact:true});
   await expect(panel.getByText('短时间写入了大段文字',{exact:true})).toBeVisible();
+  const sheet=page.getByRole('region',{name:'编辑过程检验单',exact:true});
+  await expect(sheet.getByRole('table')).toBeVisible();
+  expect(await sheet.locator('tbody tr').count()).toBeGreaterThan(25);
+  const bulk=sheet.getByRole('row').filter({has:page.getByRole('rowheader',{name:'单次最大新增',exact:true})});
+  await expect(bulk).toHaveAttribute('data-review','true');await expect(bulk).toContainText('3,000');await expect(bulk).toContainText('↑');
   await expect(panel).toContainText('粘贴、导入已有文稿');await expect(panel).toContainText('无法判定内容由人或 AI 创作');
   await expect(page.locator('#verification-result')).toContainText('编辑过程有待复核提醒');
   expect(await panel.evaluate(element=>!!(element.compareDocumentPosition(document.querySelector('.export-row')!)&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
@@ -30,6 +35,7 @@ test('selective records explain insufficient scope without a reassuring behavior
   await verifyBulk(page,'behavior-bulk.txt.selected.wproof');await expect(page.getByText('部分证据核验通过',{exact:true})).toBeVisible();
   const panel=page.getByRole('region',{name:'编辑过程提醒',exact:true});
   await expect(panel).toContainText('只看到了部分记录');
+  await expect(page.getByRole('region',{name:'编辑过程检验单'}).locator('tbody tr[data-review=true]')).toHaveCount(0);
   await expect(panel).not.toContainText('按当前规则暂未发现');await expect(page.getByRole('slider',{name:'浏览事件'})).toHaveCount(0);
 });
 

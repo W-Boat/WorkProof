@@ -47,7 +47,11 @@ pub struct BehaviorAssessment{
     pub thresholds:BTreeMap<String,u64>,
     pub limitations:Vec<String>,
     pub signals_truncated:bool,
+    pub measurements:BTreeMap<String,f64>,
+    pub rule_results:Vec<BehaviorRuleResult>,
 }
+#[derive(Debug,Serialize,Deserialize)]
+pub struct BehaviorRuleResult{pub code:String,pub status:String}
 impl BehaviorAssessment{
     pub fn unavailable()->Self{Self::empty("unavailable","full")}
     fn empty(status:&str,scope:&str)->Self{
@@ -71,7 +75,21 @@ impl BehaviorAssessment{
                 "大段插入可能来自粘贴、正常导入、输入法、语音输入、辅助工具或宿主批量采样；无法据此区分来源。".into(),
                 "速率按客户端上报的本地经过时间计算，受时间精度、采样和记录遗漏影响。".into(),
                 "只分析已签名的增删统计和命令计数，不读取正文；未发现提醒也不代表创作来源已获证明。".into(),
-            ],signals_truncated:false}
+            ],signals_truncated:false,measurements:BTreeMap::new(),rule_results:rule_results(status)}
+    }
+}
+fn rule_results(status:&str)->Vec<BehaviorRuleResult>{
+    ["bulk_insertion","bulk_dominated","mass_replacement","sustained_fast_input","regular_timing"].into_iter().map(|code|BehaviorRuleResult{code:code.into(),status:status.into()}).collect()
+}
+fn set_rule(assessment:&mut BehaviorAssessment,code:&str,status:&str){
+    if let Some(rule)=assessment.rule_results.iter_mut().find(|rule|rule.code==code){rule.status=status.into();}
+}
+fn measure(measurements:&mut BTreeMap<String,f64>,key:&str,value:u64){measurements.insert(key.into(),value as f64);}
+fn record_rate(measurements:&mut BTreeMap<String,f64>,prefix:&str,events:&[&Event],left:usize,right:usize,amount:u64,count:u64,duration:u64){
+    let speed=amount as f64*1000.0/duration as f64;
+    if measurements.get(&format!("{prefix}_chars_per_second")).is_some_and(|peak|*peak>=speed){return;}
+    for(key,value)in [("chars_per_second",speed),("window_ms",duration as f64),("edits",count as f64),("inserted",amount as f64),("first_seq",events[left].seq as f64),("last_seq",events[right].seq as f64)]{
+        measurements.insert(format!("{prefix}_{key}"),value);
     }
 }
 
@@ -92,21 +110,26 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
     if !verify_evidence(evidence,&manifest.artifact_hash,manifest.artifact_bytes).valid{return assessment;}
     if let Evidence::Selective(proof)=evidence{
         assessment.status="insufficient".into();assessment.summary.events=proof.disclosed.len() as u64;
+        assessment.rule_results=rule_results("insufficient");
         assessment.limitations.insert(0,"仅提供部分记录，无法评估整个创作过程或比较总量占比。".into());return assessment;
     }
     let Evidence::Full(proof)=evidence else{unreachable!()};
     assessment.summary.events=proof.records.len() as u64;
     if matches!(manifest.source.as_str(),"photoshop"|"blender"){
-        assessment.status="not_applicable".into();assessment.limitations.insert(0,"这份记录来自图像或三维软件，文字输入规则不适用。".into());return assessment;
+        assessment.status="not_applicable".into();assessment.rule_results=rule_results("not_applicable");assessment.limitations.insert(0,"这份记录来自图像或三维软件，文字输入规则不适用。".into());return assessment;
     }
     if !matches!(manifest.source.as_str(),"workproof-tiptap"|"word"|"wps"|"vscode"|"powerpoint"|"synthetic-demo"){
-        assessment.status="insufficient".into();assessment.limitations.insert(0,"尚未定义这个记录来源的文字统计语义，无法按当前输入规则评估。".into());return assessment;
+        assessment.status="insufficient".into();assessment.rule_results=rule_results("insufficient");assessment.limitations.insert(0,"尚未定义这个记录来源的文字统计语义，无法按当前输入规则评估。".into());return assessment;
     }
     assessment.summary.duration_ms=proof.records.last().map(|record|record.event.elapsed_ms).unwrap_or(0);
     for record in &proof.records{assessment.summary.paste_commands+=record.event.metrics.get("paste").copied().unwrap_or(0);}
     // Ignore save/start checkpoints, keyboard noise and undo/redo replay deltas.
     let edits:Vec<&Event>=proof.records.iter().map(|record|&record.event).filter(|event|event.kind=="edit"&&(event.inserted>0||event.deleted>0)).collect();
     assessment.summary.edits=edits.len() as u64;
+    assessment.rule_results=rule_results("insufficient");
+    if manifest.source!="workproof-tiptap"{set_rule(&mut assessment,"regular_timing","not_applicable");}
+    measure(&mut assessment.measurements,"edits",edits.len() as u64);
+    measure(&mut assessment.measurements,"duration_ms",assessment.summary.duration_ms);
     if edits.is_empty(){assessment.status="insufficient".into();return assessment;}
     let mut inserted=vec![0u64;edits.len()+1];let mut deleted=vec![0u64;edits.len()+1];
     let mut rate_inserted=vec![0u64;edits.len()+1];let mut rate_events=vec![0u64;edits.len()+1];
@@ -123,19 +146,28 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
     let mut hits=vec![];let mut replacement_hits=vec![];
     let mut bulk_left=0;let mut rate_left=0;
     let mut bulk_hits=vec![];let mut rate_hits=vec![];let mut truncated=false;
+    let mut peak_single_inserted=0;let mut peak_single_deleted=0;let mut peak_burst_inserted=0;
+    let mut peak_replacement=(0u64,0u64);let mut bulk_events=0;let mut burst_windows=0;let mut replacement_events=0;
+    let mut rate_windows=0;let mut eligible_windows=0;let mut qualified_windows=0;
     for(right,event)in edits.iter().enumerate(){
+        peak_single_inserted=peak_single_inserted.max(event.inserted);peak_single_deleted=peak_single_deleted.max(event.deleted);
+        if event.inserted.min(event.deleted)>peak_replacement.0.min(peak_replacement.1){peak_replacement=(event.inserted,event.deleted);}
         if right>0&&event.elapsed_ms-edits[right-1].elapsed_ms>2000{rate_left=right;}
         if event.inserted>=BULK{
+            bulk_events+=1;
             bulk_coverage[right]+=1;bulk_coverage[right+1]-=1;
             add_hit(&mut bulk_hits,Hit{code:"bulk_insertion",severity:"notice",left:right,right,details:details(&[("single_event_threshold",BULK as f64)])},&mut truncated);
         }
         while bulk_left<right&&event.elapsed_ms-edits[bulk_left].elapsed_ms>BURST_MS{bulk_left+=1;}
         let burst_inserted=inserted[right+1]-inserted[bulk_left];
+        peak_burst_inserted=peak_burst_inserted.max(burst_inserted);
         if right>bulk_left&&burst_inserted>=BULK{
+            burst_windows+=1;
             bulk_coverage[bulk_left]+=1;bulk_coverage[right+1]-=1;
             add_hit(&mut bulk_hits,Hit{code:"bulk_insertion",severity:"notice",left:bulk_left,right,details:details(&[("burst_window_ms",BURST_MS as f64)])},&mut truncated);
         }
         if event.inserted>=300&&event.deleted>=300{
+            replacement_events+=1;
             add_hit(&mut replacement_hits,Hit{code:"mass_replacement",severity:"notice",left:right,right,details:details(&[("inserted_threshold",300.0),("deleted_threshold",300.0)])},&mut truncated);
         }
         // Retain up to ten seconds of uninterrupted input. Keeping only the
@@ -144,6 +176,13 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
         while rate_left<right&&event.elapsed_ms-edits[rate_left].elapsed_ms>RATE_MAX_WINDOW_MS{rate_left+=1;}
         let duration=event.elapsed_ms-edits[rate_left].elapsed_ms;
         let count=rate_events[right+1]-rate_events[rate_left];let amount=rate_inserted[right+1]-rate_inserted[rate_left];
+        if duration>=RATE_WINDOW_MS{
+            rate_windows+=1;
+            if count>=5{
+                eligible_windows+=1;record_rate(&mut assessment.measurements,"peak_rate",&edits,rate_left,right,amount,count,duration);
+                if amount>=300{qualified_windows+=1;record_rate(&mut assessment.measurements,"peak_qualified_rate",&edits,rate_left,right,amount,count,duration);}
+            }
+        }
         if duration>=RATE_WINDOW_MS&&count>=5&&amount>=300&&amount*1000>=30*duration{
             add_hit(&mut rate_hits,Hit{code:"sustained_fast_input",severity:"warning",left:rate_left,right,details:details(&[("window_ms",duration as f64),("characters_per_second",amount as f64*1000.0/duration as f64)])},&mut truncated);
         }
@@ -151,23 +190,51 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
     let mut membership=0i64;
     for(index,event)in edits.iter().enumerate(){membership+=bulk_coverage[index];if membership>0{assessment.summary.bulk_inserted+=event.inserted;}}
     assessment.summary.bulk_share=if assessment.summary.inserted>0{assessment.summary.bulk_inserted as f64/assessment.summary.inserted as f64}else{0.0};
+    for(key,value)in [
+        ("peak_single_inserted",peak_single_inserted),("peak_single_deleted",peak_single_deleted),
+        ("peak_burst_inserted",peak_burst_inserted),("bulk_insert_events",bulk_events),
+        ("bulk_burst_windows",burst_windows),("mass_replacement_events",replacement_events),
+        ("peak_replacement_inserted",peak_replacement.0),("peak_replacement_deleted",peak_replacement.1),
+        ("peak_replacement_min",peak_replacement.0.min(peak_replacement.1)),
+        ("inserted",assessment.summary.inserted),("deleted",assessment.summary.deleted),
+        ("edit_span_ms",edits.last().unwrap().elapsed_ms-edits[0].elapsed_ms),
+        ("bulk_inserted",assessment.summary.bulk_inserted),("rate_windows_evaluated",rate_windows),
+        ("rate_eligible_windows",eligible_windows),("rate_qualified_windows",qualified_windows),
+    ]{measure(&mut assessment.measurements,key,value);}
+    if assessment.summary.inserted>0{assessment.measurements.insert("bulk_share".into(),assessment.summary.bulk_share);}
+    set_rule(&mut assessment,"bulk_insertion",if bulk_events>0||burst_windows>0{"triggered"}else{"within_reference"});
+    set_rule(&mut assessment,"bulk_dominated",if assessment.summary.inserted<2000{"insufficient"}else if assessment.summary.bulk_inserted*100>=assessment.summary.inserted*75{"triggered"}else{"within_reference"});
+    set_rule(&mut assessment,"mass_replacement",if replacement_events>0{"triggered"}else{"within_reference"});
+    set_rule(&mut assessment,"sustained_fast_input",if !rate_hits.is_empty(){"triggered"}else if qualified_windows==0{"insufficient"}else{"within_reference"});
     if assessment.summary.inserted>=2000&&assessment.summary.bulk_inserted*100>=assessment.summary.inserted*75{
         hits.push(Hit{code:"bulk_dominated",severity:"warning",left:0,right:edits.len()-1,details:details(&[("bulk_share",assessment.summary.bulk_share),("minimum_total_inserted",2000.0)])});
     }
     // Reserve priority for whole-process share, sustained windows and replacement.
     for hit in rate_hits.into_iter().chain(replacement_hits).chain(bulk_hits){add_hit(&mut hits,hit,&mut truncated);}
-    if manifest.source=="workproof-tiptap"{
+    {
         let positive:Vec<usize>=edits.iter().enumerate().filter(|(_,event)|event.inserted>0).map(|(index,_)|index).collect();
-        if positive.len()>=21{
+        measure(&mut assessment.measurements,"regular_events",positive.len() as u64);
+        let regular_inserted:u64=positive.iter().map(|&index|edits[index].inserted).sum();
+        measure(&mut assessment.measurements,"regular_inserted",regular_inserted);
+        if !positive.is_empty(){measure(&mut assessment.measurements,"regular_duration_ms",edits[*positive.last().unwrap()].elapsed_ms-edits[positive[0]].elapsed_ms);}
+        if positive.len()>=2{
             let first=positive[0];let last=*positive.last().unwrap();let span=edits[last].elapsed_ms-edits[first].elapsed_ms;
-            let mut count=0u64;let mut mean=0.0;let mut squares=0.0;let mut bounded=true;
+            let mut count=0u64;let mut mean=0.0;let mut squares=0.0;let mut bounded=true;let mut minimum=u64::MAX;let mut maximum=0;
             for pair in positive.windows(2){
                 let interval=edits[pair[1]].elapsed_ms-edits[pair[0]].elapsed_ms;
+                minimum=minimum.min(interval);maximum=maximum.max(interval);
                 bounded&=(50..=2000).contains(&interval);count+=1;
                 let delta=interval as f64-mean;mean+=delta/count as f64;squares+=delta*(interval as f64-mean);
             }
             let cv=if mean>0.0{(squares/count as f64).sqrt()/mean}else{f64::INFINITY};
-            if bounded&&span>=5000&&assessment.summary.inserted>=200&&cv<=0.05{
+            measure(&mut assessment.measurements,"interval_samples",count);
+            measure(&mut assessment.measurements,"min_interval_ms",minimum);measure(&mut assessment.measurements,"max_interval_ms",maximum);
+            assessment.measurements.insert("mean_interval_ms".into(),mean);assessment.measurements.insert("stddev_interval_ms".into(),(squares/count as f64).max(0.0).sqrt());
+            if cv.is_finite(){assessment.measurements.insert("interval_cv_percent".into(),cv*100.0);}
+            if manifest.source=="workproof-tiptap"&&positive.len()>=21&&span>=5000&&assessment.summary.inserted>=200{
+                set_rule(&mut assessment,"regular_timing",if bounded&&cv<=0.05{"triggered"}else{"within_reference"});
+            }
+            if manifest.source=="workproof-tiptap"&&positive.len()>=21&&bounded&&span>=5000&&assessment.summary.inserted>=200&&cv<=0.05{
                 add_hit(&mut hits,Hit{code:"regular_timing",severity:"notice",left:first,right:last,details:details(&[("interval_cv",cv),("interval_mean_ms",mean),("interval_samples",count as f64)])},&mut truncated);
             }
         }
@@ -182,6 +249,18 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
 #[cfg(test)]
 mod tests{
     use super::*;
+    #[test]fn measurements_exist_without_trigger_and_are_absent_for_hidden_history(){
+        let data=proof("word",&[(1000,10,0),(2500,12,0),(4000,8,2),(6000,11,0),(8000,9,0)]);
+        let measured=assess_behavior(&Evidence::Full(data.clone()));
+        assert_eq!(measured.measurements["peak_single_inserted"],12.0);
+        assert_eq!(measured.measurements["peak_single_deleted"],2.0);
+        assert!(measured.measurements.contains_key("mean_interval_ms"));
+        assert!(measured.signals.is_empty());
+        let hidden=create_disclosure(&data,&[]).unwrap();
+        assert!(assess_behavior(&Evidence::Selective(hidden)).measurements.is_empty());
+        let mut invalid=data;invalid.records[1].event.inserted+=1;
+        assert!(assess_behavior(&Evidence::Full(invalid)).measurements.is_empty());
+    }
     use crate::{tests::sample,genesis,event_hash,digest,sign,Record,create_disclosure};
     use ed25519_dalek::SigningKey;
     fn proof(source:&str,changes:&[(u64,u64,u64)])->crate::Proof{
