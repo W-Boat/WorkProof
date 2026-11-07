@@ -85,9 +85,9 @@ html[data-theme=dark] .certificate-behavior.needs-review{color:#ffc174;border-le
 .process-legend i{display:block;width:16px;height:4px;border-radius:1px;background:var(--blue)}
 .process-legend .legend-add{background:#168149}.process-legend .legend-delete{background:#c33b43}.process-legend .legend-rate,.process-legend .legend-notice{background:#ad6a13}
 .process-chart-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--input-bg);margin-bottom:12px}
-.process-chart{width:100%;height:auto;min-width:680px;display:block}
-.process-chart text{fill:var(--ink-muted);font:12px 'Segoe UI','Microsoft YaHei',sans-serif;font-variant-numeric:tabular-nums}
-.process-chart .chart-section-title{font-size:13px;font-weight:600;fill:var(--ink)}
+.process-chart{width:100%;height:auto;min-width:860px;display:block}
+.process-chart text{fill:var(--ink-muted);font:16px 'Segoe UI','Microsoft YaHei',sans-serif;font-variant-numeric:tabular-nums}
+.process-chart .chart-section-title{font-size:17px;font-weight:600;fill:var(--ink)}
 .process-grid-line{stroke:var(--line);stroke-width:1}
 .quantity-line{stroke:var(--blue);stroke-width:2;stroke-linejoin:round}
 .quantity-point{fill:var(--blue)}.insert-bar{fill:#168149}.delete-bar{fill:#c33b43}.rate-point{fill:#ad6a13}
