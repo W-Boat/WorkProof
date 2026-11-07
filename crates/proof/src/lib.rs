@@ -9,6 +9,7 @@ pub const MAX_EVENTS: usize = 100_000;
 pub mod merkle;
 pub mod evolution;
 pub mod behavior;
+pub mod receipt;
 pub use behavior::{assess_behavior,BehaviorAssessment};
 pub use merkle::{create_disclosure, verify_disclosure, Disclosure};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
