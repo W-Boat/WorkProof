@@ -26,6 +26,16 @@ const requestId=()=>crypto.randomUUID().replaceAll('-','');
 const errorText=e=>e instanceof Error?e.message:String(e);
 const time=ms=>new Date(ms).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 const fullText=doc=>doc.textBetween(0,doc.content.size,'\n');
+// A selection or keyboard event does not change ProseMirror's immutable doc.
+// Keep only the current document count; never cache historical document text.
+let characterSnapshot=null;
+function editorCharacters(){
+  const doc=editor.state.doc;
+  if(characterSnapshot?.owner===editor&&characterSnapshot.doc===doc)return characterSnapshot.count;
+  let count=0;for(const character of editor.getText())count++;
+  characterSnapshot={owner:editor,doc,count};return count;
+}
+
 function setEditable(value){const was=suppressed;suppressed=true;try{editor?.setEditable(value&&!closing,false);}finally{suppressed=was;}}
 function state(text,kind='pending'){$('save-state').textContent=text;$('save-state').dataset.state=kind;$('editor-status').textContent=text;}
 function changedText(before,after){
@@ -37,7 +47,7 @@ function changedText(before,after){
 function addAction(kind,extra={}){
   if(suppressed||!active||!editor||exporting)return;
   const selection=editor.state.selection;
-  const action={kind,elapsed_ms:Math.max(0,Date.now()-active.created),inserted:0,deleted:0,chars:Array.from(editor.getText()).length,steps:[],selection:{from:selection.from,to:selection.to},detail:null,metrics:{},...extra};
+  const action={kind,elapsed_ms:Math.max(0,Date.now()-active.created),inserted:0,deleted:0,chars:Object.hasOwn(extra,'chars')?extra.chars:editorCharacters(),steps:[],selection:{from:selection.from,to:selection.to},detail:null,metrics:{},...extra};
   if(pending.length>=1024){setEditable(false);ui.showMessage('待保存的操作过多，编辑已暂停。请点击保存，成功后可继续。','error');}
   pending.push(action);dirty=true;state('待保存');if(recentFrame===null)recentFrame=requestAnimationFrame(()=>{recentFrame=null;renderRecent();});scheduleSave();
 }
@@ -170,12 +180,12 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)flush().cat
 async function openDocument(doc){
   if(opening||exporting)return;opening=true;
   try{
-    await flush();await loadEditorRuntime();workspace.closeSource();workspace.rememberPagination();suppressed=true;editor?.destroy();active=doc;pending=[];inflight=null;dirty=false;intent=null;lastSelection='';
+    await flush();await loadEditorRuntime();workspace.closeSource();workspace.rememberPagination();suppressed=true;characterSnapshot=null;editor?.destroy();active=doc;pending=[];inflight=null;dirty=false;intent=null;lastSelection='';
     $('document-title').value=doc.title;
     const domEvents={keydown,copy:()=>{commandAction('copy');return false;},paste:()=>{commandAction('paste');return false;},cut:()=>{commandAction('cut');return false;},beforeinput:(_v,event)=>{addAction('beforeinput',{detail:{input_type:event.inputType}});if(event.inputType==='historyUndo')hint('undo');if(event.inputType==='historyRedo')hint('redo');return false;},input:(_v,event)=>{addAction('input',{detail:{input_type:event.inputType}});return false;},focus:()=>{addAction('focus');return false;},blur:()=>{addAction('blur');return false;}};
     for(const type of ['compositionstart','compositionupdate','compositionend','drop','dragstart','dragend'])domEvents[type]=(_v,event)=>{addAction(type,{detail:{data:typeof event.data==='string'?event.data.slice(0,2048):null}});return false;};
     editor=new editorRuntime.Editor({element:$('tiptap-editor'),extensions:editorRuntime.editorExtensions(true),content:doc.content,editorProps:{attributes:{'aria-label':'文档正文',role:'textbox','aria-multiline':'true',spellcheck:'true'},handleDOMEvents:domEvents},onTransaction:transaction,onSelectionUpdate:({editor:e})=>updateToolbar(e)});
-    restorePageLayout();workspace.applyMode();suppressed=false;workspace.changed();state('已保存到本机','saved');$('editor-word-count').textContent=`${Array.from(editor.getText()).length.toLocaleString()} 字符`;
+    restorePageLayout();workspace.applyMode();suppressed=false;workspace.changed();state('已保存到本机','saved');$('editor-word-count').textContent=`${editorCharacters().toLocaleString()} 字符`;
     $('certificate-result').hidden=true;$('certificate-empty').hidden=false;renderRecent();updateToolbar();ui.selectView('document');selectTab('write');
   }catch(error){reportError(error);}finally{suppressed=false;opening=false;}
 }
