@@ -1,5 +1,11 @@
 # Word/WPS 优先交付与服务器接入
 
+## 2026-11-07 在线功能区前缀兼容
+
+自有 `ribbon.xml` 直接以 `<customUI` 开始，不带 XML 声明、BOM 或前置空白。静态核对的 `wpsjs-rpc-sdk@1.1.31` 在 XHR 和 WebSocket 的在线检查路径中，都先检查原始响应前缀；此前合法的 XML 声明会导致该检查拒绝。固定 SDK 的摘要见 [审阅记录](licenses/wps-rpc-sdk-1.1.31-review.json)。Actions 的发布包检查现同时验证构建文件的原始字节前缀和 XML 回调配置。本次不引入或分发 SDK。
+
+官方接口职责见 [WPS 业务系统集成说明](https://open.wps.cn/documents/app-integration-dev/wps365/client/wpsoffice/wps-integration-mode/wps-addin-development/wps-addin-integration-business-system-development)。精确前缀限制来自固定版本源码审阅，不代表所有版本的稳定协议承诺。SDK 许可材料、首次安装入口和真实宿主验收仍需完成。
+
 ## 本轮交互修正（待 Actions 验证）
 
 暂停不等待已悬挂的宿主快照：先停止本机采样，再尝试保存队列；暂停前发起的快照即使在续录后返回，也按代际丢弃。无法取消宿主 API 本身，仍可能占用宿主资源。本机服务离线时仍保持暂停，明确显示部分操作尚未保存。请保持任务窗打开，恢复连接后点击继续记录；继续前先补传队列并标明暂停缺口，失败不会恢复采样。内存队列仍不跨面板关闭保存。

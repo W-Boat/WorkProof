@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="OnWorkProofLoad">
   <ribbon><tabs><tab id="workproofTab" label="WorkProof"><group id="workproofGroup" label="创作过程记录">
     <button id="workproofOpen" label="打开记录工作台" size="large" onAction="OnOpenWorkProof"/>

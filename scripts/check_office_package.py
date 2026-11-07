@@ -10,6 +10,10 @@ ns = {'o': 'http://schemas.microsoft.com/office/appforoffice/1.1'}
 assert manifest.find('o:Id', ns).text == '9ebd5d58-80c3-4868-8dd5-c3f3c53d7942'
 assert manifest.find('o:DefaultSettings/o:SourceLocation', ns).get('DefaultValue') == origin + '/office/index.html'
 assert manifest.find('o:Permissions', ns).text == 'ReadWriteDocument'
+# WPS SDK online verification checks the raw prefix before parsing XML.
+# XML declarations, BOMs and leading whitespace fail that compatibility check.
+ribbon_bytes = (root / 'wps/ribbon.xml').read_bytes()
+assert ribbon_bytes.startswith(b'<customUI'), 'WPS ribbon must start directly with <customUI'
 ribbon = ET.parse(root / 'wps/ribbon.xml').getroot()
 assert ribbon.get('onLoad') == 'OnWorkProofLoad'
 buttons = ribbon.findall('.//{http://schemas.microsoft.com/office/2009/07/customui}button')
