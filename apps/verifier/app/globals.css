@@ -115,3 +115,27 @@ html[data-theme=dark] .behavior-report tr[data-review=true] .measurement-result,
 @media(max-width:640px){.behavior-signals li{gap:10px}.behavior-signals strong{font-size:15px}.behavior-signals .btn{width:34px;min-width:34px;font-size:0;padding:8px}.behavior-layers{gap:10px 16px}.behavior-layers>span{width:100%}}
 @media(forced-colors:active){.behavior-intro.has-notices{border-color:CanvasText}.behavior-chart svg line,.behavior-chart svg path{stroke:CanvasText}}
 @media print{.wp-embedded .wp-content{padding:0}.wp-embedded .result-grid{display:block}}
+
+/* Official Fluent tokens are supplied by VerifierShell, shared with desktop. */
+.wp-fluent{font-family:'Segoe UI Variable Text','Segoe UI','Microsoft YaHei UI',sans-serif;background:var(--canvas);--edge:none;--edge-strong:none;--pill-inset:none;--e1:none;--e2:none;--e-accent:none;--e-accent-hover:none}
+.wp-fluent .wp-frame{border:1px solid var(--line);border-radius:8px;box-shadow:none;background:var(--surface-solid)}
+.wp-fluent .panel{border:1px solid var(--line);border-radius:6px;background:var(--surface-solid);box-shadow:none;background-image:none}
+.wp-fluent .panel-head{padding:18px 20px 12px}.wp-fluent .panel-body{padding:16px 20px 20px}
+.wp-fluent .section-label{font-size:16px;font-weight:600;letter-spacing:0}.wp-fluent .page-title{font-weight:600;letter-spacing:0}
+.wp-fluent .btn{border-radius:4px;min-height:34px;font-size:14px;font-weight:500;box-shadow:none;background-image:none;transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease}
+.wp-fluent .btn:hover,.wp-fluent .btn:active{transform:none;box-shadow:none}
+.wp-fluent .btn-primary{background:var(--fluent-primary);color:#fff;border-color:transparent}
+.wp-fluent .btn-secondary{background:var(--surface-solid);border:1px solid var(--line-strong)}
+.wp-fluent .btn-ghost{background:transparent;border-color:transparent}
+.wp-fluent .btn:disabled{opacity:.45;cursor:default}
+.wp-fluent .input-shell,.wp-fluent select{border-radius:4px;box-shadow:none;background:var(--input-bg);border:1px solid var(--line-strong)}
+.wp-fluent .input-shell:focus-within{border-bottom:2px solid var(--blue);box-shadow:none}
+.wp-fluent .upload{border:1px solid var(--line-strong);border-radius:6px;background:var(--input-bg);box-shadow:none;min-height:100px}
+.wp-fluent .upload:hover,.wp-fluent .upload.over{border-color:var(--blue);box-shadow:none;transform:none}
+.wp-fluent .behavior-report thead th{position:sticky;top:0;background:var(--surface-solid);z-index:1}
+.wp-fluent .behavior-report tbody tr:hover{background:color-mix(in srgb,var(--blue) 4%,var(--surface-solid))}
+.wp-fluent .behavior-report th,.wp-fluent .behavior-report td{padding:11px 16px}
+.wp-fluent .wp-rail,.wp-fluent .wp-topbar{box-shadow:none;background-image:none}
+.wp-fluent :is(button,a,input,select,summary):focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.wp-fluent.wp-embedded .wp-frame{border:0;border-radius:0}
+@media(prefers-reduced-motion:reduce){.wp-fluent .btn{transition:none}}

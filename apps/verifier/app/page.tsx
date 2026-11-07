@@ -139,6 +139,7 @@ export default function Page(){
       <div id="verification-result" ref={resultHeading} tabIndex={-1} role="status" className={`result-banner ${r.valid?'success':'failure'}`}><span>{r.valid?<ShieldCheck size={21}/>:<AlertTriangle size={21}/>}<strong>{r.valid?(partial?'部分证据核验通过':'证据核验通过'):'证据核验未通过'}</strong>{m.demo&&<Tag tone="neutral">演示数据</Tag>}</span><span>{r.valid?(behaviorReview?'文件与签名一致 · 编辑过程有待复核提醒':partial?'所选事件属于已签名记录集；完整链未核验':'文件、记录链与签名一致'):'请检查文件配对及证据完整性'}</span></div>
       <div className="result-grid"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId} behaviorNote={behaviorNote} behaviorReview={!!behaviorReview}/><VerificationChecks proof={result.proof} report={r}/></div>
       <BehaviorPanel assessment={result.behavior} valid={r.valid} onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}/>
+      <BehaviorReport assessment={result.behavior} valid={r.valid}/>
       {r.valid&&r.chain_valid&&<Timeline key={result.certificateId+String(proofFile?.lastModified)} records={records} signals={result.behavior?.signals} selectedSeq={focusedEventSeq} onSelect={setFocusedEventSeq}/>}
       {result.certificateMatch===false&&<p className="error-box" role="alert">证书指纹不一致：这不是发送者指定的证书。请向发送者确认，勿作为有效交付凭据。</p>}
       {result.certificateMatch===true&&<p className="caption">证书指纹一致：与发送者提供的证书相符。</p>}
@@ -147,7 +148,6 @@ export default function Page(){
       {r.valid&&<TimestampPanel key={result.certificateId} signature={result.proof.signature}/>}
       {r.valid&&!partial&&m.protocol==='workproof/3'&&<DisclosurePanel selection={selection} busy={disclosureBusy} error={disclosureError} onChange={setSelection} onExport={exportDisclosure}/>}
       {r.valid&&partial&&<DisclosedEvents records={records}/>}
-      <BehaviorReport assessment={result.behavior} valid={r.valid}/>
       {r.valid&&proofFile&&<EvolutionPanel key={result.certificateId+proofFile.name} proof={proofFile}/>}
     </motion.div>:<Panel className="empty-proof"><EmptyState icon={<Fingerprint size={28}/>} title={stage==='working'?'正在核验作品和证书…':demoBusy?'正在载入演示…':stage==='error'?'请按上方提示检查后重试':artifact&&proofFile?'文件已选好，可以开始核验':artifact?'下一步：选择配套证书':proofFile?'下一步：选择对应作品':'载入一份作品，开始核验。'} desc={stage==='working'?'请稍候；需要更换文件时，可以先取消核验。':demoBusy?'你也可以直接选择自己的作品和证书。':artifact&&proofFile?'点击“开始本地核验”，查看文件、签名和记录的检查结果。':artifact?'请选择提供者发来的 .wproof 文件。只有作品还不能核对创作记录。':proofFile?'请选择与这份证书一同收到的原始作品文件。':'你将看到文件匹配、记录完整性、签名与过程轨迹，也可以先体验标明来源的演示证据。'}/></Panel>}
     <EmbeddedCertificatePanel/>
