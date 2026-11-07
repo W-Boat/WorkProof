@@ -6,6 +6,8 @@
 
 官方接口职责见 [WPS 业务系统集成说明](https://open.wps.cn/documents/app-integration-dev/wps365/client/wpsoffice/wps-integration-mode/wps-addin-development/wps-addin-integration-business-system-development)。精确前缀限制来自固定版本源码审阅，不代表所有版本的稳定协议承诺。SDK 许可材料、首次安装入口和真实宿主验收仍需完成。
 
+源码 `a15c85974b41e338a99df064f0dcfb6e0616f40c` 的 [发布包 Actions 42347755785](https://github.com/W-Boat/WorkProof/actions/runs/42347755785) 已成功：8 项功能区模拟检查、14 项 Chromium 宿主模拟检查及实际构建包检查通过。Word 清单来源为测试用 `https://localhost:18443`，未部署生产服务器、未安装 WPS 官方 SDK，也未操作真实 WPS 客户端；此结果不能替代首次安装与真实宿主验收。
+
 ## 本轮交互修正（待 Actions 验证）
 
 暂停不等待已悬挂的宿主快照：先停止本机采样，再尝试保存队列；暂停前发起的快照即使在续录后返回，也按代际丢弃。无法取消宿主 API 本身，仍可能占用宿主资源。本机服务离线时仍保持暂停，明确显示部分操作尚未保存。请保持任务窗打开，恢复连接后点击继续记录；继续前先补传队列并标明暂停缺口，失败不会恢复采样。内存队列仍不跨面板关闭保存。
