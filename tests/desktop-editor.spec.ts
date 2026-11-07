@@ -609,7 +609,7 @@ test('wide dark editor keeps two compact command rows and unclipped navigation i
 
 test('action character counts preserve Unicode and paragraph semantics through edits and document changes',async({page})=>{
   await desktop(page);const body=await create(page);
-  await body.focus();await page.keyboard.insertText('甲😀');await expect(body.locator('p')).toHaveText(['甲😀']);
+  await expect(page.getByRole('button',{name:'新建文档',exact:true})).toBeEnabled();await body.click();await expect(body).toBeFocused();await page.keyboard.insertText('甲😀');await expect(body.locator('p')).toHaveText(['甲😀']);
   await body.press('Enter');await expect(body.locator('p')).toHaveCount(2);await page.keyboard.insertText('乙𠮷');
   await expect(body.locator('p')).toHaveText(['甲😀','乙𠮷']);
   await body.press('ArrowLeft');await page.locator('#save-document').click();
