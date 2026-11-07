@@ -2,7 +2,7 @@
 import {Panel} from './institution-ui';
 import {type BehaviorAssessment} from '../lib/evidence';
 
-type Row={name:string;value:number|null|undefined;unit:string;reference:string;code?:string;direction?:'up'|'down';status?:string};
+type Row={key?:string;name:string;value:number|null|undefined;unit:string;reference:string;code?:string;direction?:'up'|'down';status?:string};
 const names:Record<string,string>={bulk_insertion:'大段或短时集中写入',bulk_dominated:'集中写入占比',sustained_fast_input:'持续高速写入',regular_timing:'写入间隔过于接近',mass_replacement:'成段替换'};
 export function BehaviorReport({assessment,valid}:{assessment?:BehaviorAssessment|null;valid:boolean}){
   const available=!!(valid&&assessment&&assessment.status!=='unavailable'),full=available&&assessment.scope==='full'&&assessment.status!=='not_applicable'&&assessment.measurements!==undefined&&Object.keys(assessment.measurements).length>0;
@@ -55,7 +55,9 @@ export function BehaviorReport({assessment,valid}:{assessment?:BehaviorAssessmen
   function result(row:Row){
     if(row.value===undefined||row.value===null)return {text:'— 信息不足',flag:false};
     if(!row.code)return {text:'记录值',flag:false};
-    if(triggered.has(row.code)&&row.value!==0)return {text:`${row.direction==='down'?'↓':'↑'} 需复核`,flag:true};
+    if(['bulk_insert_events','bulk_burst_windows','rate_windows_evaluated','rate_qualified_windows','mass_replacement_events'].includes(row.key||'')&&row.value===0)return {text:'记录值',flag:false};
+    if(['peak_single_inserted','peak_burst_inserted'].includes(row.key||'')&&row.value<(thresholds.bulk_inserted??Infinity))return {text:'未达到该项阈值',flag:false};
+    if(triggered.has(row.code))return {text:`${row.direction==='down'?'↓':'↑'} 需复核`,flag:true};
     const status=assessment?.rule_results?.find(rule=>rule.code===row.code)?.status;
     if(status==='not_applicable')return {text:'— 此项不适用',flag:false};
     if(status!=='within_reference')return {text:'— 条件不足',flag:false};
