@@ -145,3 +145,14 @@ html[data-theme=dark] .behavior-report tr[data-review=true] .measurement-result,
 .wp-fluent .btn-primary:active{background:var(--fluent-primary-pressed)}
 .wp-fluent .nav-item{border-radius:4px;min-height:36px;box-shadow:none}
 .wp-fluent .nav-item:hover{background:color-mix(in srgb,var(--blue) 7%,var(--surface-solid))}
+
+.behavior-overview{display:grid;grid-template-columns:minmax(280px,1fr) minmax(300px,1.3fr);gap:28px;margin:24px 0 30px;padding:20px;border:1px solid var(--line);border-radius:6px}
+.behavior-overview h3{font-size:18px;margin:0 0 12px;font-weight:600}.behavior-overview p{font-size:14px;line-height:1.7;color:var(--ink-muted)}
+.behavior-radar svg{display:block;width:100%;max-width:420px;margin:auto;overflow:visible}.behavior-radar svg line,.behavior-radar .outer-ring{stroke:var(--line-strong);fill:none}.behavior-radar .reference-ring{stroke:var(--blue);stroke-dasharray:5 4;fill:color-mix(in srgb,var(--blue) 5%,transparent)}
+.behavior-radar text{fill:var(--ink);font-size:14px}.behavior-radar .measured-area{fill:color-mix(in srgb,var(--blue) 14%,transparent);stroke:var(--blue);stroke-width:2}.behavior-radar .observed-point{fill:var(--blue)}
+.behavior-range{margin:22px 0}.behavior-range>div:first-child{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:14px}.behavior-range strong{font-weight:500}.behavior-range span{color:var(--ink-muted)}
+.behavior-range-track{position:relative;height:10px;border-radius:3px;background:var(--input-bg);border:1px solid var(--line-strong)}.behavior-range-track .reference-zone{position:absolute;inset:0 50% 0 0;background:color-mix(in srgb,var(--blue) 15%,transparent)}.threshold-mark{position:absolute;left:50%;top:-4px;height:16px;border-left:2px dashed var(--ink-muted)}.behavior-range-track .range-marker{position:absolute;top:-4px;width:4px;height:16px;border-radius:2px;background:var(--blue);transform:translateX(-50%)}
+.behavior-range[data-review=true]>div>span{color:#b42332}.behavior-range[data-review=true] .range-marker,.behavior-radar .needs-review{background:#b42332;fill:#b42332}
+html[data-theme=dark] .behavior-range[data-review=true]>div>span{color:#ff9ba7}html[data-theme=dark] .behavior-range[data-review=true] .range-marker,html[data-theme=dark] .behavior-radar .needs-review{background:#ff9ba7;fill:#ff9ba7}
+@media(max-width:760px){.behavior-overview{grid-template-columns:minmax(0,1fr);padding:16px;gap:18px}}
+@media(forced-colors:active){.behavior-radar svg polygon,.behavior-radar svg line{stroke:CanvasText}.behavior-radar svg circle{fill:CanvasText}.behavior-range-track .range-marker{background:CanvasText}.threshold-mark{border-color:CanvasText}}

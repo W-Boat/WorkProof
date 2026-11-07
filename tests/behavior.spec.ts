@@ -15,6 +15,9 @@ test('real signed bulk insertion produces a readable warning and locates the ori
   await expect(panel.getByText('短时间写入了大段文字',{exact:true})).toBeVisible();
   const sheet=page.getByRole('region',{name:'编辑过程检验单',exact:true});
   await expect(sheet.getByRole('table')).toBeVisible();
+  await expect(sheet.getByRole('region',{name:'编辑过程图形概览'})).toBeVisible();
+  await expect(sheet.locator('.behavior-range')).toHaveCount(5);
+  await expect(sheet.locator('.behavior-range').first()).toContainText('需复核');
   expect(await page.evaluate(()=>Boolean(document.querySelector('.behavior-report')!.compareDocumentPosition(document.querySelector('.timeline-panel')!)&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   await expect(page.locator('.wp-stage')).not.toHaveClass(/wp-fluent/);
   expect(await sheet.locator('tbody tr').count()).toBeGreaterThan(25);
@@ -37,6 +40,8 @@ test('selective records explain insufficient scope without a reassuring behavior
   await verifyBulk(page,'behavior-bulk.txt.selected.wproof');await expect(page.getByText('部分证据核验通过',{exact:true})).toBeVisible();
   const panel=page.getByRole('region',{name:'编辑过程提醒',exact:true});
   await expect(panel).toContainText('只看到了部分记录');
+  await expect(page.locator('.behavior-range .range-marker')).toHaveCount(0);
+  await expect(page.locator('.behavior-radar .measured-area')).toHaveCount(0);
   await expect(page.getByRole('region',{name:'编辑过程检验单'}).locator('tbody tr[data-review=true]')).toHaveCount(0);
   await expect(panel).not.toContainText('按当前规则暂未发现');await expect(page.getByRole('slider',{name:'浏览事件'})).toHaveCount(0);
 });

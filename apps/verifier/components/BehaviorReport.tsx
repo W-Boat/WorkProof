@@ -1,4 +1,5 @@
 'use client';
+import {BehaviorOverview} from './BehaviorOverview';
 import {Panel} from './institution-ui';
 import {type BehaviorAssessment} from '../lib/evidence';
 
@@ -65,6 +66,7 @@ export function BehaviorReport({assessment,valid}:{assessment?:BehaviorAssessmen
   }
   return <Panel title="编辑过程检验单" className="behavior-report">
     <p>逐项列出实际测量值与参考条件。红色箭头表示对应的联合规则需要复核；信息不足显示“—”。这些参考条件是统计规则，不能据此认定创作者或 AI 使用情况。</p>
+    <BehaviorOverview assessment={assessment} full={!!full}/>
     <div className="behavior-table-scroll" role="region" aria-label="完整编辑过程检验单，可横向滚动" tabIndex={0}><table><caption>编辑过程统计与参考条件 · {assessment?.rule_version||'评估不可用'}</caption><thead><tr><th scope="col">项目</th><th scope="col">测量值</th><th scope="col">单位</th><th scope="col">参考条件</th><th scope="col">结果</th></tr></thead><tbody>{rows.map(row=>{const state=result(row);return <tr key={row.name} data-review={state.flag}><th scope="row">{row.name}</th><td>{row.value===null||row.value===undefined?'—':row.value.toLocaleString('zh-CN',{maximumFractionDigits:2})}</td><td>{row.unit}</td><td>{row.reference}</td><td className="measurement-result">{state.text}</td></tr>;})}</tbody></table></div>
     <div className="behavior-rule-results">{Object.entries(names).map(([code,name])=><p key={code}><strong>{name}</strong><span>{!full?'— 范围不足':triggered.has(code)?'↑ 规则已触发，需复核':assessment?.rule_results?.find(rule=>rule.code===code)?.status==='within_reference'?'未触发该项提醒':'— 样本或条件不足'}</span></p>)}</div>
   </Panel>;
