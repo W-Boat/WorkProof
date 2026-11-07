@@ -203,7 +203,8 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
     ]{measure(&mut assessment.measurements,key,value);}
     if assessment.summary.inserted>0{assessment.measurements.insert("bulk_share".into(),assessment.summary.bulk_share);}
     set_rule(&mut assessment,"bulk_insertion",if bulk_events>0||burst_windows>0{"triggered"}else{"within_reference"});
-    set_rule(&mut assessment,"bulk_dominated",if assessment.summary.inserted<2000{"insufficient"}else if assessment.summary.bulk_inserted*100>=assessment.summary.inserted*75{"triggered"}else{"within_reference"});
+    let dominated_status=if assessment.summary.inserted<2000{"insufficient"}else if assessment.summary.bulk_inserted*100>=assessment.summary.inserted*75{"triggered"}else{"within_reference"};
+    set_rule(&mut assessment,"bulk_dominated",dominated_status);
     set_rule(&mut assessment,"mass_replacement",if replacement_events>0{"triggered"}else{"within_reference"});
     set_rule(&mut assessment,"sustained_fast_input",if !rate_hits.is_empty(){"triggered"}else if qualified_windows==0{"insufficient"}else{"within_reference"});
     if assessment.summary.inserted>=2000&&assessment.summary.bulk_inserted*100>=assessment.summary.inserted*75{
