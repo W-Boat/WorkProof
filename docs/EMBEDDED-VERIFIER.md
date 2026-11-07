@@ -37,3 +37,10 @@ Linux 验收使用固定 `tauri-driver 2.1.0` 与系统 WebKitWebDriver，实际
 
 
 后续测试提交 `0fa89ca2c24924f288903ef6da1e421dbda0d99e` 的 [桌面三浏览器回归 42346880115](https://github.com/W-Boat/WorkProof/actions/runs/42346880115) 已通过 165 项检查；[完整构建中的协议与网页任务](https://github.com/W-Boat/WorkProof/actions/runs/42346880106/job/128326777025) 已通过，含 110 项 Chromium 检查。与交付候选 `d636014` 的 `apps`、`crates`、`services` 产品源码无差异，后续差异仅为测试和文档。完整构建中的其余平台打包仍在运行；不能将两个成功任务描述为整个跨平台运行完成。本机切换仍需旧版后台进程退出。
+
+
+## 本机切换完成
+
+用户确认从托盘退出后，切换前检查 WorkProof、Word、PowerPoint 均无运行实例，未强制终止程序。已注册新版 Word/PPT 原生加载项，并更新两个当前桌面入口及两个开始菜单入口到 `E:/work/WorkProof-Delivery/WorkProof-PC-d636014/workproof-desktop.exe`。新版实际进程 `10320` 启动，窗口标题为“WorkProof · 创作工作台”，`Responding=true`，本机记录服务 `127.0.0.1:43127` 监听归属该新版进程。重新读取快捷方式和 Word COM 注册路径确认均指向新版目录。
+
+这是包来源、文件校验、注册切换及实际启动确认；真实 Word/PPT 新侧栏、资源管理器拖入和本机长文输入体验仍需人工验收。未改变用户文档与原有记录数据，旧安装目录保留。本段为切换状态的最新记录，上方“尚未切换”段落保留当时事实。
