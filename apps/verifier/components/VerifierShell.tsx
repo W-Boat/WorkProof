@@ -53,7 +53,7 @@ export function VerifierShell({children}:{children:ReactNode}){
   }
   const fluent=dark?webDarkTheme:webLightTheme;
   const fluentStyle={'--canvas':fluent.colorNeutralBackground2,'--surface-solid':fluent.colorNeutralBackground1,'--input-bg':fluent.colorNeutralBackground1,'--ink':fluent.colorNeutralForeground1,'--ink-muted':fluent.colorNeutralForeground2,'--line':fluent.colorNeutralStroke2,'--line-strong':fluent.colorNeutralStroke1,'--blue':fluent.colorBrandForeground1,'--fluent-primary':fluent.colorBrandBackground,'--fluent-primary-hover':fluent.colorBrandBackgroundHover,'--fluent-primary-pressed':fluent.colorBrandBackgroundPressed} as CSSProperties;
-  return <div className={`wp-stage wp-fluent${embedded?' wp-embedded':''}`} style={fluentStyle}><div className="wp-frame">
+  return <div className={`wp-stage${embedded?' wp-fluent wp-embedded':''}`} style={embedded?fluentStyle:undefined}><div className="wp-frame">
     <aside className="rail m-rail wp-rail" aria-label="主导航">
       <a className="rail-brand" href="/" aria-label="WorkProof 首页"><span className="brand-mark"><img src="/icon.png" alt="" width="34" height="34"/></span><span className="brand-text"><span className="brand-name">WorkProof</span><span className="brand-sub">开源证人</span></span></a>
       <nav className="rail-nav"><div className="nav-group-title">创作证据</div><div className="nav-list"><a className="nav-item is-active m-pill" aria-current="page" href="#verify"><ShieldCheck className="nav-ico" size={18}/><span className="nav-label">证据核验</span></a><a className="nav-item" href="#principles"><Info className="nav-ico" size={18}/><span className="nav-label">核验说明</span></a></div></nav>

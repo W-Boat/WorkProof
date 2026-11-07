@@ -6,7 +6,7 @@ test('embedding query and self messages cannot hide standalone navigation',async
   await page.goto('/?embedded=1&parentOrigin=http%3A%2F%2F127.0.0.1%3A4173');
   await page.evaluate(value=>window.postMessage(value,window.location.origin),appearance);
   await expect(page.locator('.wp-rail')).toBeVisible();
-  await expect(page.locator('.wp-stage')).not.toHaveClass(/wp-embedded/);
+  await expect(page.locator('.wp-stage')).not.toHaveClass(/wp-embedded|wp-fluent/);
 });
 
 test('validated parent appearance integrates the embedded verifier without losing controls',async({page},testInfo)=>{
@@ -19,7 +19,9 @@ test('validated parent appearance integrates the embedded verifier without losin
     const iframe=document.querySelector('iframe')!;
     iframe.contentWindow!.postMessage(value,window.location.origin);
   },appearance);
-  await expect(verifier.locator('.wp-stage')).toHaveClass(/wp-embedded/);
+  await expect(verifier.locator('.wp-stage')).toHaveClass(/wp-fluent wp-embedded/);
+  const primary=verifier.getByRole('button',{name:'开始本地核验'});
+  expect(await primary.evaluate(element=>{const probe=document.createElement('span');probe.style.color='var(--fluent-primary)';element.append(probe);const expected=getComputedStyle(probe).color;probe.remove();return getComputedStyle(element).backgroundColor===expected;})).toBe(true);
   await expect(verifier.locator('html')).toHaveAttribute('data-theme','dark');
   await expect(verifier.locator('html')).toHaveAttribute('data-workproof-motion','reduced');
   await expect(verifier.locator('.wp-rail')).toBeHidden();
@@ -41,5 +43,5 @@ test('untrusted requested parent origin leaves the standalone shell visible',asy
   const verifier=page.frameLocator('iframe');
   await expect(verifier.locator('.wp-rail')).toBeVisible();
   await page.evaluate(value=>document.querySelector('iframe')!.contentWindow!.postMessage(value,window.location.origin),appearance);
-  await expect(verifier.locator('.wp-stage')).not.toHaveClass(/wp-embedded/);
+  await expect(verifier.locator('.wp-stage')).not.toHaveClass(/wp-embedded|wp-fluent/);
 });

@@ -16,7 +16,7 @@ test('real signed bulk insertion produces a readable warning and locates the ori
   const sheet=page.getByRole('region',{name:'编辑过程检验单',exact:true});
   await expect(sheet.getByRole('table')).toBeVisible();
   expect(await page.evaluate(()=>Boolean(document.querySelector('.behavior-report')!.compareDocumentPosition(document.querySelector('.timeline-panel')!)&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-  await expect(page.locator('.wp-stage')).toHaveClass(/wp-fluent/);
+  await expect(page.locator('.wp-stage')).not.toHaveClass(/wp-fluent/);
   expect(await sheet.locator('tbody tr').count()).toBeGreaterThan(25);
   const bulk=sheet.getByRole('row').filter({has:page.getByRole('rowheader',{name:'单次最大新增',exact:true})});
   await expect(bulk).toHaveAttribute('data-review','true');await expect(bulk).toContainText('3,000');await expect(bulk).toContainText('↑');
