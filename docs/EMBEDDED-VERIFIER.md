@@ -6,7 +6,7 @@
 
 检验单位于编辑过程提醒之后、轨迹可视化之前，独立页和内嵌页均使用该顺序。异常数值、上下箭头及信息不足说明保留。
 
-[Actions 42335149874](https://github.com/W-Boat/WorkProof/actions/runs/42335149874) 已通过 109 项 Chromium 检查，覆盖独立页面样式、可信父窗口的深浅色同步、内嵌 Fluent 主按钮颜色、伪造来源拒绝和检验单顺序。其截图及测试报告为 `verification-report` 产物 `13559346863`。这不代替操作系统级文件拖入、系统文件对话框或真实 Office 宿主验收。Windows 配套包由同源码 [42335138057](https://github.com/W-Boat/WorkProof/actions/runs/42335138057) 构建，本段记录时尚未完成本机切换。
+[Actions 42335149874](https://github.com/W-Boat/WorkProof/actions/runs/42335149874) 已通过 109 项 Chromium 检查，覆盖独立页面样式、可信父窗口的深浅色同步、内嵌 Fluent 主按钮颜色、伪造来源拒绝和检验单顺序。其截图及测试报告为 `verification-report` 产物 `13559346863`。这不代替操作系统级文件拖入、系统文件对话框或真实 Office 宿主验收。Windows 配套包由同源码 [42335138057](https://github.com/W-Boat/WorkProof/actions/runs/42335138057) 构建，三个任务全部通过。产物 `13558904504` 已下载并核对全部 2531 个文件摘要、PE 架构及 Wasm 来源，解压在 `E:/work/WorkProof-Delivery/WorkProof-PC-9f187b7`。外层 SHA-256 为 `473a8e144fffda17b88f2d47783eb6c8e95ab07db17a1bea9bfc77db9703067f`，交付 ZIP 为 `eb6797669051665bd59b81355ae0a7e18a0c43f8f63157b34f8bd4f08c3efffb`。本段记录时 Word 文档窗口和旧版 WorkProof 仍在运行，尚未改动注册、快捷方式或启动新版。
 
 以下保留较早阶段的原生窗口及权限验收记录。
 
