@@ -2,6 +2,33 @@ import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 import {execFileSync} from 'node:child_process';
 const fixture='test-timestamp-fixtures/';
+
+for(const invalid of ['html','oversized'])test(`online timestamp rejects ${invalid} response without a trusted result`,async({page})=>{
+  await page.route('https://tsa.example.test/sign',route=>route.fulfill({status:200,contentType:invalid==='html'?'text/html':'application/timestamp-reply',headers:{'Access-Control-Allow-Origin':'*'},body:invalid==='html'?'<html>login</html>':Buffer.alloc(128*1024+1)}));
+  await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  const panel=page.getByRole('region',{name:'检查外部时间凭据',exact:true});await panel.getByText('添加或检查时间凭据（可选）',{exact:true}).click();await panel.getByText('直接向时间服务申请',{exact:true}).click();await panel.getByLabel('HTTPS 时间服务地址').fill('https://tsa.example.test/sign');await panel.getByRole('button',{name:'生成请求并发送至此服务'}).click();
+  await expect(panel.getByRole('alert')).toContainText(invalid==='html'?'文件类型':'128 KB');await expect(panel.getByText('时间凭据与签名一致',{exact:true})).toHaveCount(0);await expect(panel.getByRole('button',{name:'保存当前响应'})).toHaveCount(0);
+});
+
+test('explicit online request receives a real synthetic TSA response without trusting it automatically',async({page},info)=>{
+  test.setTimeout(120000);
+  const query=info.outputPath('online.tsq'),response=info.outputPath('online.tsr'),ca=info.outputPath('online-ca.pem');let sent=0;
+  await page.route('https://tsa.example.test/sign',async route=>{
+    const request=route.request();
+    if(request.method()==='OPTIONS'){await route.fulfill({status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'POST','Access-Control-Allow-Headers':'content-type'}});return;}
+    sent++;expect(request.method()).toBe('POST');expect(request.headers()['content-type']).toBe('application/timestamp-query');expect(request.headers()['authorization']).toBeUndefined();expect(request.headers()['cookie']).toBeUndefined();expect(request.headers()['referer']).toBeUndefined();
+    const bytes=request.postDataBuffer()!;expect(bytes.length).toBeLessThan(8193);fs.writeFileSync(query,bytes);
+    execFileSync('python',['scripts/sign_browser_timestamp.py',query,response,ca],{timeout:90000});
+    await route.fulfill({status:200,contentType:'application/timestamp-reply',headers:{'Access-Control-Allow-Origin':'*'},body:fs.readFileSync(response)});
+  });
+  await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  const panel=page.getByRole('region',{name:'检查外部时间凭据',exact:true});await panel.getByText('添加或检查时间凭据（可选）',{exact:true}).click();await panel.getByText('直接向时间服务申请',{exact:true}).click();
+  await panel.getByLabel('HTTPS 时间服务地址').fill('http://tsa.example.test/sign');await panel.getByRole('button',{name:'生成请求并发送至此服务'}).click();await expect(panel.getByRole('alert')).toContainText('HTTPS');expect(sent).toBe(0);
+  await panel.getByLabel('HTTPS 时间服务地址').fill('https://tsa.example.test/sign');await panel.getByRole('button',{name:'生成请求并发送至此服务'}).click();
+  await expect(panel.getByRole('status')).toContainText('尚未核验');expect(sent).toBe(1);await expect(panel.getByText('时间凭据与签名一致',{exact:true})).toHaveCount(0);
+  await expect(panel.getByRole('button',{name:'保存当前请求'})).toBeVisible();await expect(panel.getByRole('button',{name:'保存当前响应'})).toBeVisible();
+  await panel.getByLabel('你信任的 CA 证书（.pem）').setInputFiles(ca);await panel.getByRole('checkbox').check();await panel.getByRole('button',{name:'检查时间凭据',exact:true}).click();await expect(panel.getByText('时间凭据与签名一致',{exact:true})).toBeVisible();
+});
 test('real OpenSSL timestamp is verified locally with explicit trust and honest scope',async({page})=>{
   const external:string[]=[];
   page.on('request',request=>{if(!request.url().startsWith('http://127.0.0.1:4173')&&!request.url().startsWith('blob:'))external.push(request.url());});

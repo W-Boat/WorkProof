@@ -5,10 +5,12 @@ import {Button} from './button';
 import {Upload} from './FileDrop';
 import type {TimestampResult} from '../lib/timestamps';
 import {createTimestampRequestInWorker,verifyTimestampInWorker} from '../lib/timestamp-client';
+import {sendTimestampRequest,timestampServiceUrl} from '../lib/timestamp-transport';
 export function TimestampPanel({signature}:{signature:string}){
   const [files,setFiles]=useState<(File|null)[]>([null,null,null]),[trusted,setTrusted]=useState(false),[busy,setBusy]=useState(false),[result,setResult]=useState<TimestampResult|null>(null),[error,setError]=useState('');
   const generation=useRef(0),active=useRef<AbortController|null>(null);
   const [notice,setNotice]=useState('');
+  const [service,setService]=useState('');
   useEffect(()=>()=>{generation.current++;active.current?.abort();},[]);
   function reset(){generation.current++;active.current?.abort();active.current=null;setResult(null);setError('');setNotice('');setTrusted(false);setBusy(false);}
   function cancel(){generation.current++;active.current?.abort();active.current=null;setBusy(false);setResult(null);setError('');setNotice('已取消。可以更换文件或重新检查。');}
@@ -37,12 +39,37 @@ export function TimestampPanel({signature}:{signature:string}){
     }catch(failure){if(current===generation.current)setError(failure instanceof Error&&failure.message.startsWith('时间')?failure.message:'时间凭据未能通过检查，请核对文件与信任来源。');}
     finally{if(current===generation.current){active.current=null;setBusy(false);}}
   }
+  function download(file:File){const url=URL.createObjectURL(file),anchor=document.createElement('a');anchor.href=url;anchor.download=file.name;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  async function applyOnline(){
+    if(busy)return;
+    let address:string;try{address=timestampServiceUrl(service);}catch(failure){setError((failure as Error).message);return;}
+    const current=++generation.current,controller=new AbortController();active.current=controller;
+    setBusy(true);setResult(null);setTrusted(false);setError('');setNotice('');setFiles([null,null,files[2]]);
+    const deadline=setTimeout(()=>controller.abort(),15000);
+    try{
+      const query=await createTimestampRequestInWorker(signature,controller.signal);
+      if(current!==generation.current)return;
+      const request=new File([query],'workproof-time-request.tsq',{type:'application/timestamp-query'});
+      setFiles([request,null,files[2]]);
+      const response=await sendTimestampRequest(address,query,controller.signal);
+      if(current!==generation.current)return;
+      setFiles([request,new File([response],'workproof-time-response.tsr',{type:'application/timestamp-reply'}),files[2]]);
+      setNotice('已收到时间服务响应，尚未核验。请保存请求与响应，选择并核对 CA 后继续检查。');
+    }catch(failure){if(current===generation.current)setError(controller.signal.aborted?'时间申请超过期限，已停止。':failure instanceof Error&&failure.message.startsWith('时间')?failure.message:'无法连接时间服务，请检查网络和跨域支持，或使用手工提交。');}
+    finally{clearTimeout(deadline);if(current===generation.current){active.current=null;setBusy(false);}}
+  }
   return <Panel title="检查外部时间凭据" className="timestamp-panel">
     <details><summary>添加或检查时间凭据（可选）</summary>
     <p>想证明这份签名在某个时间前已经存在，可以向独立时间服务申请凭据。已有请求和响应文件时，直接从第 3 步开始。作品和证书不会上传。</p>
     <p><strong>1. 生成请求文件</strong><br/>请求只含签名摘要和随机编号，不含作品内容。每次重新生成都会清除旧响应，请保留下载的原始请求。</p>
     <Button disabled={busy} onClick={generate}>生成并下载时间戳请求</Button>
-    <p><strong>2. 交给你选择的时间服务</strong><br/>按服务方的说明提交 .tsq 文件，保存返回的 .tsr 文件。页面不会自动发送请求；服务方可能要求注册或收费。</p>
+    <p><strong>2. 交给你选择的时间服务</strong><br/>按服务方的说明提交 .tsq 文件，保存返回的 .tsr 文件；也可以展开下方入口直接申请。</p>
+    <details><summary>直接向时间服务申请</summary>
+      <p>点击发送后，将向你填写的地址提交一份新请求，仅含签名摘要和随机编号。请先确认服务条款与费用；不会发送作品、证书文件、登录凭据或 Cookie。服务须允许浏览器跨域请求，暂不支持需要登录的接口。</p>
+      <label className="quiet-label">HTTPS 时间服务地址<input className="input-shell" type="url" value={service} disabled={busy} onChange={event=>setService(event.target.value)} placeholder="https://…" style={{width:'100%',minWidth:0}}/></label>
+      <Button disabled={busy||!service.trim()} onClick={applyOnline}>生成请求并发送至此服务</Button>
+    </details>
+    <div>{files[0]&&<Button variant="ghost" disabled={busy} onClick={()=>download(files[0]!)}>保存当前请求</Button>}{files[1]&&<Button variant="ghost" disabled={busy} onClick={()=>download(files[1]!)}>保存当前响应</Button>}</div>
     <p><strong>3. 选择文件并检查</strong><br/>加载请求、响应和从可信渠道独立取得的 CA 证书。下面的检查在浏览器内完成。</p>
     <div className="timestamp-files">{[
       {label:'原始时间戳请求（.tsq）',caption:'工具生成并保留的请求，最多 8 KB',accept:'.tsq'},
