@@ -1,5 +1,15 @@
 # 桌面内的核验页
 
+## 2026-11-07 样式范围与检验单顺序
+
+应用源码 `9f187b77105bda4525b17bc5e05e13e9a320e4b1` 将 Fluent 官方深浅色令牌限定在经过 `desktopAppearance` 校验的桌面内嵌页。独立网页保留原有管理端视觉样式；仅添加 `embedded=1`、页面自发消息或不受信任的父来源都不能启用 Fluent。主题样式只挂在 `.wp-stage.wp-fluent.wp-embedded` 上，不向独立网页注入 Fluent 自定义属性。现有共享 React 控件继续使用，未声称全部改写为 Fluent React 组件。
+
+检验单位于编辑过程提醒之后、轨迹可视化之前，独立页和内嵌页均使用该顺序。异常数值、上下箭头及信息不足说明保留。
+
+[Actions 42335149874](https://github.com/W-Boat/WorkProof/actions/runs/42335149874) 已通过 109 项 Chromium 检查，覆盖独立页面样式、可信父窗口的深浅色同步、内嵌 Fluent 主按钮颜色、伪造来源拒绝和检验单顺序。其截图及测试报告为 `verification-report` 产物 `13559346863`。这不代替操作系统级文件拖入、系统文件对话框或真实 Office 宿主验收。Windows 配套包由同源码 [42335138057](https://github.com/W-Boat/WorkProof/actions/runs/42335138057) 构建，本段记录时尚未完成本机切换。
+
+以下保留较早阶段的原生窗口及权限验收记录。
+
 桌面首页正在优先重做为统一的创作工作台，布局、交互及本次交付验收状态见[桌面工作台记录](DESKTOP-WORKBENCH.md)。首页重构保留这里的原生内嵌核验与权限隔离方案。
 
 最新全量流程对本次构建的 Linux 安装包启用结果引导检查：成功与不匹配结果的焦点、“查看核验结果”入口，以及清空后回到作品选择。检查由 `WORKPROOF_EXPECT_RESULT_FLOW=1` 显式启用；使用旧 e4583b5 包的独立里程碑流程不冒充覆盖这项新界面。验收 JSON 单独记录 `result_flow_checked` 和对应检查项，新版原生结果待 Actions。
