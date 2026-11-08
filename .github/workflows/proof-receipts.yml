@@ -28,5 +28,7 @@ jobs:
           node-version: '22'
       - name: Build the actual one-shot issuer utility
         run: cargo build --locked -p workproof-engine --bin workproof-receipt
+      - name: Generate the signed public fixture using the real protocol implementation
+        run: cargo run --locked -p workproof-protocol --example generate_fixture -- apps/verifier/public/demo
       - name: Exercise receipt issuance and independent verification with synthetic keys
         run: node scripts/test_receipt_cli.cjs target/debug/workproof-receipt
