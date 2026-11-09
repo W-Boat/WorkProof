@@ -26,6 +26,8 @@
 
 ### 独立密钥备份工具（新增，待 Actions）
 
+2026-11-10 后续复核：`becf042` 的 [42670573561](https://github.com/W-Boat/WorkProof/actions/runs/42670573561) 与 `81feffa3e7a8035ebc4e989ef4468a2abdfab8b6` 的 [42671014686](https://github.com/W-Boat/WorkProof/actions/runs/42671014686) 均已全部成功。后者实际检查恢复后的真实 Rust 签发、同一原公钥核验、篡改密文和链接目录拒绝。恢复后 HTTP 场景是 `f7bc6f0` 的 [42672452265](https://github.com/W-Boat/WorkProof/actions/runs/42672452265) 新增范围，仍待结果。
+
 新增恢复身份的 HTTP 集成场景：先在镜像内以临时口令备份并恢复合成密钥，再用恢复出的密钥启动独立应用，执行原有签发、独立核验及重启检查。测试秘密不进入公开日志或附件。本增量待 Actions，范围仅为签发身份，不包含数据库或完整部署恢复。
 
 验收进度：源码 `becf04222578e4621f6048774affff8eca4adb59` 的 [42670573561](https://github.com/W-Boat/WorkProof/actions/runs/42670573561) 已通过精确镜像的“Verify explicit external signing key backup and new-directory restore”步骤，包含实际加密恢复、错误口令/机构/公钥、不覆盖和权限检查；整轮任务仍需以最终状态为准。恢复后实际 Rust 签发是 `81feffa` 的新增范围，不能由此前步骤成功推断。
