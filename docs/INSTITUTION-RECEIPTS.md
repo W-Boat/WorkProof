@@ -24,6 +24,14 @@
 
 ## 服务准备范围
 
+### 独立密钥备份工具（新增，待 Actions）
+
+`receipt_keys.py` 是独立 Linux root 工具，依赖同版本 `backup_crypto.py` 和 Python cryptography。它不操作 Docker、数据库或现有部署，也不自动激活签发。生产使用前应先确认对应 Actions 的实际结果，不能使用早期不含该工具的交付包。
+
+管理员在排除其他特权写入者的维护窗口运行：`python3 receipt_keys.py backup --input /absolute/private-key-directory --output /absolute/root-private-backups/keys.enc --issuer institution-id`。输入目录必须为 UID/GID 10001、0700，含配对的 `seed.hex` 与 `public.hex`；私钥须为 UID/GID 10001、0600。输出父目录必须由当前 root 拥有且为 0700，输出文件必须尚不存在。口令由终端隐藏输入或标准输入读取，不通过命令参数传递。加密临时明文只在 root 私有临时目录内处理并清理，不保证对存储介质的安全擦除。
+
+恢复使用 `python3 receipt_keys.py restore --input /absolute/keys.enc --output /absolute/root-private-parent/new-key-directory --issuer institution-id --expected-public-key FULL_64_HEX_PUBLIC_KEY`。机构编号和完整公钥须来自独立可信记录。恢复目标必须是 root 私有父目录下尚不存在的新目录；认证失败或公钥不符时不创建目标。成功文件归属 10001、权限 0600，目录 0700；I/O 中断可能留下部分新目录，应检查现场，不可通过覆盖重试。此工具不恢复部署配置，不能替代部署恢复、密钥轮换或吊销流程。普通 WorkProof 备份仍不包含外部密钥。
+
 当前接口默认关闭；无需为查看工作台自动生成任何机构密钥。运行真实 JAR 的部署方需自行准备经过审核的 `workproof-receipt` 工具、独立机构 Ed25519 密钥及可信公钥发布渠道，再提供以下配置：
 
 - `WORKPROOF_RECEIPT_EXECUTABLE`：工具绝对路径，文件名为 `workproof-receipt` 或 `workproof-receipt.exe`。
