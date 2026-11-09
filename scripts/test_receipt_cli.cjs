@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {spawnSync}=require('node:child_process');
 const binary=path.resolve(process.argv[2]),temporary=fs.realpathSync(os.tmpdir()),directory=fs.mkdtempSync(path.join(temporary,'workproof-receipt-'));
-function call(args,ok=true){const result=spawnSync(binary,args,{encoding:'utf8',timeout:15000,env:{...process.env,WORKPROOF_DATA_DIR:directory}});assert(!result.error,'CLI must exit within deadline');if(ok)assert.equal(result.status,0,result.stderr);else assert.notEqual(result.status,0);return result;}
+function call(args,ok=true,input){const result=spawnSync(binary,args,{input,encoding:'utf8',timeout:15000,env:{...process.env,WORKPROOF_DATA_DIR:directory}});assert(!result.error,'CLI must exit within deadline');if(ok)assert.equal(result.status,0,result.stderr);else assert.notEqual(result.status,0);return result;}
 try{
   const proof=path.join(directory,'proof.wproof'),receipt=path.join(directory,'receipt.json'),privateFile=path.join(directory,'issuer-private.hex'),publicFile=path.join(directory,'issuer-public.hex'),wrongFile=path.join(directory,'wrong-public.hex');
   const seed=crypto.randomBytes(32),privateKey=crypto.createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),seed]),type:'pkcs8',format:'der'}),publicKey=crypto.createPublicKey(privateKey).export({format:'der',type:'spki'}).subarray(-32);
@@ -11,6 +11,11 @@ try{
   const created=JSON.parse(call(['issue',proof,receipt,'synthetic-test','60',privateFile]).stdout);assert.equal(created.receipt_created,true);assert.equal(created.client_origin_verified,false);assert.equal(created.artifact_checked,false);
   const bytes=fs.readFileSync(receipt),record=JSON.parse(bytes);assert.equal(record.payload.purpose,'server-received');assert.match(record.payload.receipt_id,/^[a-f0-9]{64}$/);assert.equal(record.payload.expires_at_ms-record.payload.received_at_ms,60000);
   const result=JSON.parse(call(['verify',proof,receipt,'synthetic-test','60',publicFile]).stdout);assert.equal(result.receipt_verified,true);for(const flag of ['artifact_checked','client_origin_verified','collection_verified','author_identity_verified','rule_calibration_verified'])assert.equal(result[flag],false);
+  const before=fs.readdirSync(directory).sort();
+  const streamed=call(['issue-stdin','synthetic-test','60',privateFile],true,original);
+  assert.deepEqual(fs.readdirSync(directory).sort(),before,'stdin issuance must not create proof, receipt or collector files');assert(Buffer.byteLength(streamed.stdout)<=16*1024);assert(!streamed.stdout.includes(seed.toString('hex')));assert(!streamed.stderr.includes(seed.toString('hex')));
+  const streamedFile=path.join(directory,'streamed.json');fs.writeFileSync(streamedFile,streamed.stdout);assert.equal(JSON.parse(call(['verify',proof,streamedFile,'synthetic-test','60',publicFile]).stdout).receipt_verified,true);
+  const rejected=call(['issue-stdin','synthetic-test','60',privateFile],false,Buffer.from('{}'));assert.equal(rejected.stdout,'');assert(!rejected.stderr.includes(seed.toString('hex')));
   call(['issue',proof,receipt,'synthetic-test','60',privateFile],false);assert(fs.readFileSync(receipt).equals(bytes),'existing output must never be replaced');
   call(['verify',proof,receipt,'synthetic-test','60',wrongFile],false);call(['verify',proof,receipt,'other-issuer','60',publicFile],false);call(['verify',proof,receipt,'synthetic-test','59',publicFile],false);
   fs.appendFileSync(proof,' ');call(['verify',proof,receipt,'synthetic-test','60',publicFile],false);fs.writeFileSync(proof,original);
