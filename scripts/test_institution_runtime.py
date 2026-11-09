@@ -9,6 +9,8 @@ import ssl
 import subprocess
 import sys
 import time
+import tempfile
+import atexit
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -33,16 +35,27 @@ catalog_migration = (root/'services/institution/scaffold-system/sql/V3__workproo
 for _ in range(2):
     subprocess.run(mysql, input=catalog_migration, text=True, capture_output=True, check=True)
 environment = dict(os.environ, JWT_SECRET=secrets.token_hex(32), WORKPROOF_VERIFIER_EXECUTABLE=str(root / 'target/release/workproof-inspector'), WORKPROOF_CATALOG_ENABLED='true')
+receipt_workspace=tempfile.TemporaryDirectory(prefix='workproof-http-receipt-ci-')
+atexit.register(receipt_workspace.cleanup)
+receipt_root=Path(receipt_workspace.name)
+issuer_keys=json.loads(subprocess.run(['node','-e',"const c=require('node:crypto'),k=c.generateKeyPairSync('ed25519');process.stdout.write(JSON.stringify({seed:k.privateKey.export({type:'pkcs8',format:'der'}).subarray(-32).toString('hex'),public:k.publicKey.export({type:'spki',format:'der'}).subarray(-32).toString('hex')}))"],check=True,capture_output=True,text=True).stdout)
+issuer_private=receipt_root/'private.hex';issuer_public=receipt_root/'public.hex'
+descriptor=os.open(issuer_private,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+with os.fdopen(descriptor,'w',encoding='ascii') as output:output.write(issuer_keys['seed'])
+issuer_public.write_text(issuer_keys['public'],encoding='ascii')
+receipt_binary=str(root/'target/release/workproof-receipt')
+environment.update(WORKPROOF_RECEIPT_EXECUTABLE=receipt_binary,WORKPROOF_RECEIPT_PRIVATE_KEY=str(issuer_private),WORKPROOF_RECEIPT_PUBLIC_KEY=str(issuer_public),WORKPROOF_RECEIPT_ISSUER_ID='ci-institution',WORKPROOF_RECEIPT_LIFETIME_SECONDS='60')
 if os.environ.get('WORKPROOF_TEST_REAL_AI')=='1':
     environment.update(WORKPROOF_AI_ENABLED='true',WORKPROOF_AI_PYTHON=sys.executable,WORKPROOF_AI_SCRIPT=str(root/'tools/ai-assessment/detector.py'),WORKPROOF_AI_MODELS=str(root/'.ci-institution-ai'))
 port = 18089
 base = f"http://127.0.0.1:{port}"
 
 
-def request(path, data=None, token=None):
+def request(path, data=None, token=None, extra_headers=None):
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer " + token
+    if extra_headers:headers.update(extra_headers)
     payload = data if isinstance(data, bytes) else json.dumps(data).encode() if data is not None else None
     req = urllib.request.Request(base + path, data=payload, headers=headers)
     try:
@@ -117,6 +130,31 @@ with log_path.open("wb") as log:
         limited_token = limited_login['data']['token']
         limited_me = json.loads(request('/api/auth/me', token=limited_token)[1])['data']
         assert '*' not in limited_me['permissions'], 'Ordinary roles must not receive superadmin permissions'
+        consent={'X-WorkProof-Receipt-Consent':'true'}
+        proof_bytes=(root/'apps/verifier/public/demo/essay.md.wproof').read_bytes()
+        assert request('/api/workproof/receipts/capabilities')[0]==401
+        assert request('/api/workproof/receipts',proof_bytes,extra_headers=consent)[0]==401
+        assert request('/api/workproof/receipts/capabilities',token=limited_token)[0]==403
+        assert request('/api/workproof/receipts',proof_bytes,limited_token,consent)[0]==403
+        assert request('/api/workproof/receipts',proof_bytes,token)[0]==400
+        receipt_status=json.loads(request('/api/workproof/receipts/capabilities',token=token)[1])['data']
+        assert receipt_status['configured'] is True and receipt_status['clientOriginVerified'] is False
+        receipt_code,receipt_body,_=request('/api/workproof/receipts',proof_bytes,token,consent)
+        assert receipt_code==200,receipt_body[:200]
+        receipt=json.loads(receipt_body)['data'];assert receipt['payload']['purpose']=='server-received'
+        assert receipt['payload']['issuer_id']=='ci-institution' and receipt['payload']['scope']=='full'
+        original=receipt_root/'submitted.wproof';returned=receipt_root/'returned.json'
+        original.write_bytes(proof_bytes);returned.write_text(json.dumps(receipt),encoding='utf-8')
+        verified=subprocess.run([receipt_binary,'verify',str(original),str(returned),'ci-institution','60',str(issuer_public)],capture_output=True,text=True,timeout=15)
+        assert verified.returncode==0,'HTTP-issued receipt failed independent Rust verification'
+        receipt_report=json.loads(verified.stdout);assert receipt_report['receipt_verified'] is True
+        for flag in ['artifact_checked','client_origin_verified','collection_verified','author_identity_verified','rule_calibration_verified']:assert receipt_report[flag] is False
+        assert request('/api/workproof/receipts',b'{}',token,consent)[0]!=200
+        assert request('/api/workproof/receipts',json.dumps(bad_proof).encode(),token,consent)[0]!=200
+        issuer_public.write_text('00'*32,encoding='ascii')
+        try:assert request('/api/workproof/receipts',proof_bytes,token,consent)[0]!=200,'Mismatched server public key must not produce a successful receipt'
+        finally:issuer_public.write_text(issuer_keys['public'],encoding='ascii')
+        print('PASS: real authenticated HTTP receipt issuance, no-consent and low-permission rejection, independent trusted-key verification and mismatched-key refusal')
         assert request('/api/workproof/certificates/capabilities', token=limited_token)[0] == 403
         assert request('/api/workproof/analysis/capabilities', token=limited_token)[0] == 403
         assert request('/api/workproof/certificates/inspect', proof, limited_token)[0] == 403
@@ -209,7 +247,7 @@ with log_path.open("wb") as log:
             process.wait()
         # CI fixture credentials/tokens do not enter retained logs.
         text = log_path.read_text(encoding="utf-8", errors="replace")
-        for value in (password, hashed, environment["JWT_SECRET"], locals().get("token", ""), locals().get("limited_password", ""), locals().get("limited_token", "")):
+        for value in (password, hashed, environment["JWT_SECRET"],issuer_keys['seed'], locals().get("token", ""), locals().get("limited_password", ""), locals().get("limited_token", "")):
             if value:
                 text = text.replace(value, "[REDACTED]")
         log_path.write_text(text, encoding="utf-8")
