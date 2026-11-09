@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- `test_institution_server.py` → `test_institution_receipt_server.verify_receipt_server` → 同一隔离项目的 one-off 只读应用、独立 tmpfs 合成密钥 → 实际 HTTP 签发 → 宿主真实 Rust 工具独立核验。通过专属项目名称、Compose service / one-off 标签和完整容器 ID 限定停止对象；不增加或修改默认配置/备份卷中的密钥。原应用前后均要求签发关闭。增量待 Actions，不扩大为生产密钥启用流程。
+
 - Actions 的同一 Rust release 构建 → `workproof-receipt` → 机构 Dockerfile root 所有 / `0555` 可执行文件与基线附件；归档附 `RECEIPTS.md`。`test_institution_receipt_image.py` 在精确镜像内、非 root 和断网条件下临时生成合成密钥，检查实际签发/核验及错公钥拒绝；`test_institution_server.py` 断言默认 HTTP 能力关闭。密钥不进入构建上下文或归档，带配置镜像 HTTP 启用仍未完成；本增量待 Actions。
 
 - `Dashboard` 权限按钮 → `CertificateReceiptDialog`（统一 FormDialog/FilePicker/Checkbox/downloadBlob）→ `receiptApi` 原始 Blob 和固定提交同意头 → 已有接收回执签发接口。下载回执与原始证书一起分享，接收者独立取得公钥后使用浏览器 Wasm 核验。更换文件或关闭清空状态，取消等待不表示撤销服务器签发；新增真实浏览器下载交给独立配置公钥的 Rust CLI 验收待 Actions。

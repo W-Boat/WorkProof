@@ -71,6 +71,10 @@ try:
     assert receipt_state['configured'] is False and receipt_state['clientOriginVerified'] is False
     assert request('/api/workproof/receipts/capabilities')[0]==401
     checks.append('Receipt binary distribution does not enable signing without explicit institution configuration')
+    from test_institution_receipt_server import verify_receipt_server
+    verify_receipt_server(compose, env, token, root, project)
+    assert json.loads(request('/api/workproof/receipts/capabilities',token=token)[1])['data']['configured'] is False
+    checks.append('Separate read-only image signs only with explicit synthetic tmpfs keys; independent host verification; default app remains disabled')
     rejected=login('admin123');assert rejected.get('code')!=200 and not (rejected.get('data') or {}).get('token')
     users=json.loads(request('/api/system/users?pageNum=1&pageSize=100',token=token)[1])['data']['rows']
     assert users and any(user['username']=='admin' for user in users)
