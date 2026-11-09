@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 python3
 COPY app.jar workproof-inspector workproof-receipt entrypoint.py manage.py backup_crypto.py snapshot_archive.py backup_collect.py restore_snapshot.py catalog_receipt.py catalog_prepare.py jobs_receipt.py jobs_prepare.py /opt/workproof/
 COPY sql/V1__init_schema.sql sql/V2__seed_data.sql sql/V3__workproof_certificate_catalog.sql sql/V4__workproof_certificate_jobs.sql /opt/workproof/sql/
 COPY ai_runtime.py /opt/workproof/
+COPY receipt_keys.py /opt/workproof/
 COPY ai-engines.json /opt/workproof-ai/engines.json
 RUN chmod 444 /opt/workproof-ai/engines.json
 RUN chmod 555 /opt/workproof/workproof-inspector /opt/workproof/workproof-receipt && chmod 444 /opt/workproof/app.jar /opt/workproof/*.py /opt/workproof/sql/*.sql
