@@ -143,7 +143,7 @@ jobs:
       - name: Verify authenticated byte encryption in the actual server image
         run: docker run --rm --network none -v "$PWD/scripts/test_backup_crypto.py:/test_backup_crypto.py:ro" --entrypoint python3 workproof-institution:local /test_backup_crypto.py
       - name: Verify explicit external signing key backup and new-directory restore
-        run: docker run --rm --user 0 --network none --env GITHUB_ACTIONS=true -v "$PWD/scripts/test_institution_receipt_keys.py:/acceptance.py:ro" --entrypoint python3 workproof-institution:local /acceptance.py
+        run: docker run --rm --user 0 --network none --env GITHUB_ACTIONS=true -v "$PWD/scripts/test_institution_receipt_keys.py:/acceptance.py:ro" -v "$PWD/apps/verifier/public/demo/essay.md.wproof:/fixture.wproof:ro" --entrypoint python3 workproof-institution:local /acceptance.py
       - name: Verify restricted encrypted snapshots without restoring data
         run: docker run --rm --user 0 --network none -v "$PWD/scripts/test_snapshot_archive.py:/test_snapshot_archive.py:ro" --entrypoint python3 workproof-institution:local /test_snapshot_archive.py
       - name: Authenticate and extract only to new private staging directories

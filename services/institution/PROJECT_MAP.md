@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- `test_institution_receipt_keys.py` 的实际加密恢复 → 镜像内 `workproof-receipt issue-stdin`（原密钥与恢复密钥）→ 同一独立保留公钥 `verify` → 回执编号不同、来源认证仍为 false；追加篡改密文和链接目录拒绝。仅断网原生工具，不等于部署恢复后 HTTP 验收，结果待 Actions。
+
 - `receipt_keys.py` → 有界私钥读取与 Ed25519 配对 → 原 `backup_crypto` 加密字节封装；恢复先认证并独立核对机构编号/公钥，再创建新目录并设置 10001/0600，默认不启用签发、不接入数据库。精确镜像内 `test_institution_receipt_keys.py` 检查实际加密和拒绝边界，结果待 Actions；普通备份仍不包含外部密钥。
 
 - 外部密钥专项追加 `0644` 权限退化 → 真实 Java 能力关闭与签发拒绝 → 恢复 `0600` → 完整 ID/归属核对后的单个测试容器重启 → 同一独立公钥核验重启前后两份不同编号回执。结果待 Actions；不覆盖备份恢复。
