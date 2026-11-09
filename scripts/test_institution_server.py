@@ -73,6 +73,7 @@ try:
     checks.append('Receipt binary distribution does not enable signing without explicit institution configuration')
     from test_institution_receipt_server import verify_receipt_server
     verify_receipt_server(compose, env, token, root, project)
+    verify_receipt_server(compose, env, token, root, project, external=True)
     assert json.loads(request('/api/workproof/receipts/capabilities',token=token)[1])['data']['configured'] is False
     checks.append('Separate read-only image signs only with explicit synthetic tmpfs keys; independent host verification; default app remains disabled')
     rejected=login('admin123');assert rejected.get('code')!=200 and not (rejected.get('data') or {}).get('token')

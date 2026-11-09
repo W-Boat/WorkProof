@@ -14,10 +14,12 @@ import urllib.error
 import urllib.request
 
 
-def verify_receipt_server(compose, environment, token, root, project):
+def verify_receipt_server(compose, environment, token, root, project, external=False):
     assert os.environ.get('GITHUB_ACTIONS') == 'true'
     assert re.fullmatch(r'workproof-server-ci-[0-9a-f]{12}', project)
-    name = project + '-receipt-probe'
+    name = project + ('-receipt-bind-probe' if external else '-receipt-probe')
+    external_keys = None
+    launch_compose, launch_environment = list(compose), dict(environment)
     origin = 'http://127.0.0.1:18082'
     bootstrap = '''import os,pathlib,stat
 from cryptography.hazmat.primitives import serialization as s
@@ -60,13 +62,33 @@ os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])
         return value
 
     try:
-        started = subprocess.run([*compose, 'run', '--detach', '--rm', '--no-deps', '--name', name,
+        if external:
+            external_keys = tempfile.TemporaryDirectory(prefix='workproof-ci-external-keys-')
+            key_root = pathlib.Path(external_keys.name)
+            # Node built-in crypto avoids downloading an extra key-generation package.
+            generated = subprocess.run(['node', '-e', "const c=require('node:crypto'),k=c.generateKeyPairSync('ed25519'),j=k.privateKey.export({format:'jwk'});process.stdout.write(JSON.stringify({seed:Buffer.from(j.d,'base64url').toString('hex'),public:Buffer.from(j.x,'base64url').toString('hex')}))"], capture_output=True, text=True, check=True, timeout=15)
+            material = json.loads(generated.stdout)
+            seed_path = key_root/'seed.hex'
+            descriptor = os.open(seed_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(descriptor, 'w') as stream: stream.write(material['seed'])
+            (key_root/'public.hex').write_text(material['public'])
+            del material, generated
+            subprocess.run(['sudo', 'chown', '10001:10001', str(seed_path), str(key_root)], check=True, capture_output=True, timeout=15)
+            launch_compose += ['-f', str(root/'deploy/institution/compose.receipts.yaml')]
+            launch_environment.update(WORKPROOF_RECEIPT_KEY_DIRECTORY=str(key_root), WORKPROOF_RECEIPT_ISSUER_ID='ci-image-http', WORKPROOF_RECEIPT_LIFETIME_SECONDS='60')
+            bootstrap = "import os;assert os.environ.get('GITHUB_ACTIONS')=='true';os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])"
+        started = subprocess.run([*launch_compose, 'run', '--detach', '--rm', '--no-deps', '--name', name,
             '--publish', '127.0.0.1:18082:8080', '--entrypoint', 'python3', '-e', 'GITHUB_ACTIONS=true',
-            'app', '-c', bootstrap], env=environment, capture_output=True, text=True, timeout=90)
+            'app', '-c', bootstrap], env=launch_environment, capture_output=True, text=True, timeout=90)
         assert started.returncode == 0, 'Could not launch isolated signing probe'
         info = probe_info()
         assert info and info['HostConfig']['ReadonlyRootfs'] is True
         assert '/tmp' in info['HostConfig']['Tmpfs'] and info['Config']['User'] == '10001:10001'
+        key_public = '/private/receipts/public.hex' if external else '/tmp/workproof-ci-receipt/public.hex'
+        if external:
+            mounts = [m for m in info['Mounts'] if m['Destination'] == '/private/receipts']
+            assert len(mounts) == 1 and mounts[0]['Type'] == 'bind' and mounts[0]['RW'] is False
+            assert pathlib.Path(mounts[0]['Source']).resolve() == key_root.resolve()
         deadline = time.monotonic() + 120
         while True:
             assert probe_info()['State']['Running'], 'Signing probe exited before readiness'
@@ -87,7 +109,7 @@ os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])
         receipt = json.loads(body)['data']
         assert receipt['payload']['issuer_id'] == 'ci-image-http'
         public = subprocess.run(['docker', 'exec', info['Id'], 'python3', '-c',
-            "import pathlib;print(pathlib.Path('/tmp/workproof-ci-receipt/public.hex').read_text())"], capture_output=True, text=True, timeout=15)
+            "import pathlib;print(pathlib.Path("+repr(key_public)+").read_text())"], capture_output=True, text=True, timeout=15)
         assert public.returncode == 0 and re.fullmatch(r'[0-9a-f]{64}\s*', public.stdout)
         with tempfile.TemporaryDirectory(prefix='workproof-image-http-') as directory:
             location = pathlib.Path(directory)
@@ -101,12 +123,21 @@ os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])
             assert report['receipt_verified'] is True and report['client_origin_verified'] is False
         assert request('/api/workproof/receipts', b'{}', consent=True)[0] != 200
         changed = subprocess.run(['docker', 'exec', info['Id'], 'python3', '-c',
-            "import pathlib;pathlib.Path('/tmp/workproof-ci-receipt/public.hex').write_text('00'*32)"], capture_output=True, timeout=15)
-        assert changed.returncode == 0
+            "import pathlib;pathlib.Path("+repr(key_public)+").write_text('00'*32)"], capture_output=True, timeout=15)
+        if external:
+            assert changed.returncode != 0, 'Container modified read-only external key mount'
+            subprocess.run(['sudo', 'tee', str(key_root/'public.hex')], input=b'00'*32, capture_output=True, check=True, timeout=15)
+        else:
+            assert changed.returncode == 0
         assert request('/api/workproof/receipts', proof, consent=True)[0] != 200, 'Image signed with a mismatched configured public key'
     finally:
         info = probe_info()
         if info:
             stopped = subprocess.run(['docker', 'stop', '--time', '20', info['Id']], capture_output=True, timeout=35)
             assert stopped.returncode == 0, 'Could not stop owned signing probe'
-    print('PASS: exact read-only nonroot image, opt-in HTTP signing, independent host verification, no-consent and key-mismatch refusal; test key existed only in isolated tmpfs')
+        if external_keys:
+            # Return only this newly created CI directory to the runner account;
+            # TemporaryDirectory removes it after the owned container is stopped.
+            subprocess.run(['sudo', 'chown', str(os.getuid())+':'+str(os.getgid()), external_keys.name], check=True, capture_output=True, timeout=15)
+            external_keys.cleanup()
+    print('PASS: exact read-only nonroot image, opt-in HTTP signing, independent host verification, no-consent and key-mismatch refusal; key scope: '+('external read-only Compose mount' if external else 'isolated tmpfs'))

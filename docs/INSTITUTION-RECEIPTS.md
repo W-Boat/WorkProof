@@ -40,6 +40,8 @@
 
 ### 显式 Compose 附加配置（新增，待 Actions）
 
+后续增加实际外部挂载验收：使用这份附加配置启动独立只读应用，以新建私有目录中的合成密钥检查 HTTP 签发、独立核验、容器修改文件拒绝和宿主更换公钥后的拒绝。该新增场景尚待 Actions，不代替生产密钥备份恢复验收。
+
 新增 `compose.receipts.yaml` 与包内 `compose.yaml` 配合使用。它要求明确设置 `WORKPROOF_RECEIPT_ISSUER_ID` 和 `WORKPROOF_RECEIPT_KEY_DIRECTORY`，后者必须是已存在的绝对路径目录，包含 `seed.hex` 和 `public.hex`。目录必须允许容器 UID 10001 读取，私钥仍须属于该账号且为 `0600`；不得因此开放目录或私钥给其他用户。配置不创建目录、不生成密钥，只将目录只读挂载到 `/private/receipts`。有效期可用 `WORKPROOF_RECEIPT_LIFETIME_SECONDS` 设置。
 
 在完成独立密钥备份与权限核对后，管理员可在专用部署目录显式使用 `docker compose -f compose.yaml -f compose.receipts.yaml config` 预检，再自行安排维护窗口启用。此附加文件不会由普通启动自动读取。当前新增验收只检查 Compose 配置解析，实际同路径只读外部密钥挂载与备份协调器兼容性尚待集成验证；不能据此称为点击即用的生产部署。

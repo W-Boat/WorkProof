@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- `verify_receipt_server(..., external=True)` → Node 内置 Ed25519 合成密钥 → 新建 CI 私有目录、私钥 UID 10001 / 0600 → 实际 `compose.receipts.yaml` → 只读 bind 身份核对 → HTTP 签发及独立宿主核验、写入拒绝与错配公钥拒绝。仅测试目录用 sudo 调整归属，先停止专属容器再还原目录归属清理；无生产密钥、默认配置或备份格式变更。结果待 Actions。
+
 - `compose.receipts.yaml` 作为显式附加配置 → 必填机构编号与外部已有密钥目录 → 只读 `/private/receipts` → 既有 Java/Rust 签发配置。`test_institution_receipt_compose.py` 只解析配置、不创建 Docker 对象，检查默认关闭及必填值/只读挂载；外部密钥备份、恢复和备份协调器集成未完成，不允许当作普通备份已覆盖。
 
 - `test_institution_server.py` → `test_institution_receipt_server.verify_receipt_server` → 同一隔离项目的 one-off 只读应用、独立 tmpfs 合成密钥 → 实际 HTTP 签发 → 宿主真实 Rust 工具独立核验。通过专属项目名称、Compose service / one-off 标签和完整容器 ID 限定停止对象；不增加或修改默认配置/备份卷中的密钥。原应用前后均要求签发关闭。增量待 Actions，不扩大为生产密钥启用流程。
