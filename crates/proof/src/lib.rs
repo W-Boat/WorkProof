@@ -260,6 +260,16 @@ pub fn verify_evolution_json(proof_json:&str,supplement_json:&str)->Result<Strin
 
 #[cfg(feature="wasm")]
 #[wasm_bindgen]
+pub fn verify_server_receipt(proof:&[u8],receipt:&[u8],issuer:&str,public_key:&str,now_ms:f64,max_lifetime_seconds:u32)->Result<String,JsValue>{
+    if !now_ms.is_finite()||now_ms<0.0||now_ms.fract()!=0.0||now_ms>9_007_199_254_740_991.0||max_lifetime_seconds==0||max_lifetime_seconds>2678400||public_key.len()!=64{return Err(JsValue::from_str("INVALID_RECEIPT_POLICY"));}
+    let bytes:[u8;32]=hex::decode(public_key).map_err(|_|JsValue::from_str("INVALID_TRUSTED_KEY"))?.try_into().map_err(|_|JsValue::from_str("INVALID_TRUSTED_KEY"))?;
+    let key=VerifyingKey::from_bytes(&bytes).map_err(|_|JsValue::from_str("INVALID_TRUSTED_KEY"))?;
+    let result=receipt::verify_receipt(proof,receipt,receipt::ReceiptPolicy{issuer_id:issuer,key:&key,now_ms:now_ms as u64,max_lifetime_ms:max_lifetime_seconds as u64*1000}).map_err(|e|JsValue::from_str(e))?;
+    serde_json::to_string(&result).map_err(|_|JsValue::from_str("INVALID_RECEIPT_REPORT"))
+}
+
+#[cfg(feature="wasm")]
+#[wasm_bindgen]
 pub struct FileHasher { hasher: blake3::Hasher, bytes: u64 }
 #[cfg(feature="wasm")]
 #[wasm_bindgen]

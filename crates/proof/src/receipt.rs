@@ -36,6 +36,7 @@ pub struct ReceiptPolicy<'a>{
 #[derive(Debug,Serialize)]
 pub struct ReceiptVerification{
     pub receipt_verified:bool,pub issuer_key_matched:bool,pub received_scope:String,
+    pub issuer_id:String,pub received_at_ms:u64,pub expires_at_ms:u64,
     pub artifact_checked:bool,pub client_origin_verified:bool,pub collection_verified:bool,
     pub author_identity_verified:bool,pub rule_calibration_verified:bool,
 }
@@ -86,7 +87,7 @@ pub fn verify_receipt(evidence:&[u8],receipt_json:&[u8],policy:ReceiptPolicy<'_>
     let manifest=inspection.manifest.ok_or("INVALID_EVIDENCE")?;
     if inspection.signature.as_deref()!=Some(p.proof_signature.as_str())||manifest.artifact_hash!=p.artifact_hash
         ||manifest.session_id!=p.session_id||inspection.scope!=p.scope||inspection.disclosed_events!=p.received_events{return Err("EVIDENCE_MISMATCH");}
-    Ok(ReceiptVerification{receipt_verified:true,issuer_key_matched:true,received_scope:p.scope.clone(),
+    Ok(ReceiptVerification{receipt_verified:true,issuer_key_matched:true,received_scope:p.scope.clone(),issuer_id:p.issuer_id.clone(),received_at_ms:p.received_at_ms,expires_at_ms:p.expires_at_ms,
         artifact_checked:false,client_origin_verified:false,collection_verified:false,
         author_identity_verified:false,rule_calibration_verified:false})
 }

@@ -6,6 +6,12 @@ self.onmessage = async ({data}) => {
     const {FileHasher,create_disclosure_json,verify_evolution_json,behavior_json}=await ready;
     const {artifact,proof}=data;
     if(proof.size>32*1024*1024)throw new Error('证据文件超过 32 MB 限制');
+    if(data.action==='receipt'){
+      if(!data.receipt||data.receipt.size>16*1024||typeof data.issuerId!=='string'||data.issuerId.length>128||typeof data.publicKey!=='string'||!/^[a-fA-F0-9]{64}$/.test(data.publicKey))throw new Error('回执或信任配置不符合限制');
+      if(typeof (await ready).verify_server_receipt!=='function')throw new Error('请重新加载包含回执核验引擎的完整站点');
+      const report=JSON.parse((await ready).verify_server_receipt(new Uint8Array(await proof.arrayBuffer()),new Uint8Array(await data.receipt.arrayBuffer()),data.issuerId,data.publicKey,data.nowMs,2678400));
+      self.postMessage({type:'receipt',report});return;
+    }
     const json=await proof.text();
     const parsed=JSON.parse(json);
     if(!['workproof/1','workproof/2','workproof/3'].includes(parsed.manifest?.protocol))throw new Error('不支持的证据协议版本');

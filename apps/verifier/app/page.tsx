@@ -11,6 +11,7 @@ import {BehaviorPanel} from '../components/BehaviorPanel';
 import {BehaviorReport} from '../components/BehaviorReport';
 import {CertificateCard,VerificationChecks,DisclosurePanel,DisclosedEvents} from '../components/ProofPanels';
 import {type Stage,type Result,download,escape,time,behaviorSummary} from '../lib/evidence';
+import {ReceiptPanel} from '../components/ReceiptPanel';
 import {TimestampPanel} from '../components/TimestampPanel';
 import {MetadataPanel} from '../components/MetadataPanel';
 import {EmbeddedCertificatePanel} from '../components/EmbeddedCertificatePanel';
@@ -145,6 +146,7 @@ export default function Page(){
       {result.certificateMatch===true&&<p className="caption">证书指纹一致：与发送者提供的证书相符。</p>}
       <div className="export-row"><span><LockKeyhole size={13}/>本次核验未上传作品或证书</span><div><Button disabled={!r.valid} onClick={exportImage} className="embedded-tool" aria-label="保存证书图片" title="保存证书图片"><ArrowDownToLine size={15}/><span className="action-label">保存证书图片</span></Button><Button disabled={!r.valid} onClick={()=>window.print()} className="embedded-tool" aria-label="打印 / PDF" title="打印 / PDF"><FileText size={15}/><span className="action-label">打印 / PDF</span></Button><Button variant="ghost" onClick={()=>{returnToUpload.current=true;invalidate();setArtifact(null);setProofFile(null);setExpectedId('');}} aria-label="清空重新核验" title="核验另一份作品" className="embedded-tool"><RotateCcw size={16}/><span className="action-label">核验另一份作品</span></Button></div></div>
       {r.valid&&<Panel title="分享可复核的签名证书" className="share-panel"><p>把签名证书和作品原文件发给对方，对方即可重新核验。证书图片方便展示，复核时仍需 .wproof 文件。</p><p>{partial?'此证书仅包含已披露的事件。':'此证书包含完整过程记录。如需减少公开内容，请先在下方导出部分证据，再载入核验后分享。'}</p><label className="field"><span className="field-label">证书指纹 · 用于识别证书是否被替换</span><code className="share-fingerprint" tabIndex={0}>{result.certificateId}</code></label><div className="share-actions"><Button variant="primary" onClick={shareCertificate}>分享签名证书</Button><Button className="embedded-tool" aria-label="下载签名证书" title="下载签名证书" onClick={()=>{if(proofFile)download(proofFile,proofFile.name);}}><ArrowDownToLine size={16}/><span className="action-label">下载签名证书</span></Button><Button className="embedded-tool" aria-label="复制指纹与核验说明" title="复制指纹与核验说明" onClick={copyFingerprint}><Fingerprint size={16}/><span className="action-label">复制指纹与核验说明</span></Button></div><p role="status">{shareMessage}</p><p className="caption">请经可信渠道发送指纹。当前不生成公网链接；本机地址无法供他人远程访问。签名可以查出内容改动，签名者身份仍未经认证。</p></Panel>}
+      {r.valid&&proofFile&&<ReceiptPanel key={result.certificateId+String(proofFile.lastModified)} proof={proofFile}/>}
       {r.valid&&<TimestampPanel key={result.certificateId} signature={result.proof.signature}/>}
       {r.valid&&!partial&&m.protocol==='workproof/3'&&<DisclosurePanel selection={selection} busy={disclosureBusy} error={disclosureError} onChange={setSelection} onExport={exportDisclosure}/>}
       {r.valid&&partial&&<DisclosedEvents records={records}/>}
