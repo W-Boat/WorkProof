@@ -163,7 +163,7 @@ jobs:
               if source.is_file():shutil.copy2(source,output/source.name)
           shutil.copy2('deploy/institution-ai/ai_runtime.py',output/'ai_runtime.py')
           shutil.copy2('tools/ai-assessment/engines.json',output/'ai-engines.json')
-          required_tools=['compose.yaml','backup_coordinator.py','backup_collect.py','backup_crypto.py',
+          required_tools=['compose.yaml','compose.receipts.yaml','receipt_keys.py','backup_coordinator.py','backup_collect.py','backup_crypto.py',
                           'snapshot_archive.py','restore_snapshot.py','restore_new.py','catalog_receipt.py','catalog_prepare.py','jobs_receipt.py','jobs_prepare.py','entrypoint.py','manage.py','ai_runtime.py','ai-engines.json']
           assert all((output/name).is_file() for name in required_tools),'Incomplete server control package'
           shutil.copy2('docs/INSTITUTION-SERVER.md',output/'README.md')
