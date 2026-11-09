@@ -231,7 +231,7 @@ with log_path.open("wb") as log:
         audit = subprocess.run(mysql, input="SELECT request_params FROM sys_oper_log WHERE module='证书核验';", text=True, capture_output=True, check=True).stdout
         audit_lines = [line.strip() for line in audit.splitlines() if line.strip() and line.strip() != 'request_params']
         assert audit_lines and all(line == '[]' for line in audit_lines), 'Certificate contents must not be copied into audit records'
-        subprocess.run(['node', str(root/'scripts/test_institution_inspection_ui.cjs')], env=dict(os.environ, WORKPROOF_TEST_ORIGIN=base, WORKPROOF_TEST_TOKEN=token), check=True)
+        subprocess.run(['node', str(root/'scripts/test_institution_inspection_ui.cjs')], env=dict(os.environ, WORKPROOF_TEST_ORIGIN=base, WORKPROOF_TEST_TOKEN=token, WORKPROOF_TEST_RECEIPT_PUBLIC_KEY=str(issuer_public)), check=True)
         subprocess.run(['node', str(root/'scripts/test_institution_ai_ui.cjs')], env=dict(os.environ, WORKPROOF_TEST_ORIGIN=base, WORKPROOF_TEST_TOKEN=token), check=True)
         subprocess.run(['node', str(root/'scripts/test_institution_jobs_ui.cjs')], env=dict(os.environ, WORKPROOF_TEST_ORIGIN=base, WORKPROOF_TEST_TOKEN=token), check=True)
         print('PASS: real Rust certificate inspection through authenticated Java, full/partial scope, tamper rejection, low-permission denial and content-free audit')

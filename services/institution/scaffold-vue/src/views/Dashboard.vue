@@ -20,6 +20,7 @@ import { EASE, firstTimeInSession, gsap, motionSkipped, trackGlow } from '@/comp
 import { hasPermission } from '@/directives/permission'
 import PermissionButton from '@/components/business/PermissionButton.vue'
 import CertificateInspectionDialog from '@/components/business/CertificateInspectionDialog.vue'
+import CertificateReceiptDialog from '@/components/business/CertificateReceiptDialog.vue'
 import AiAnalysisDialog from '@/components/business/AiAnalysisDialog.vue'
 
 /* ============================================================
@@ -34,6 +35,7 @@ const summary = ref<DashboardSummary | null>(null)
 const timeline = ref<OperTimeline | null>(null)
 const loading = ref(true)
 const certificateOpen = ref(false)
+const receiptOpen = ref(false)
 const analysisOpen = ref(false)
 
 const SCOPE_LABEL: Record<string, string> = {
@@ -174,9 +176,11 @@ onMounted(() => {
         <p class="page-desc">系统运行概况、登录脉搏与今日操作轨迹。</p>
       </div>
       <PermissionButton perm="workproof:certificate:inspect" @click="certificateOpen = true">检查一份证书</PermissionButton>
+      <PermissionButton perm="workproof:receipt:issue" @click="receiptOpen = true">签发接收回执</PermissionButton>
       <PermissionButton perm="workproof:analysis:run" @click="analysisOpen = true">AI 辅助分析</PermissionButton>
     </header>
     <CertificateInspectionDialog v-if="hasPermission('workproof:certificate:inspect')" :open="certificateOpen" @close="certificateOpen = false" />
+    <CertificateReceiptDialog v-if="hasPermission('workproof:receipt:issue')" :open="receiptOpen" @close="receiptOpen = false" />
     <AiAnalysisDialog v-if="hasPermission('workproof:analysis:run')" :open="analysisOpen" @close="analysisOpen = false" />
 
     <div ref="grid" class="bento-grid">

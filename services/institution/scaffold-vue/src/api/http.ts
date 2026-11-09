@@ -15,7 +15,7 @@ export interface HttpClient {
   get<T>(path: string, query?: QueryParams): Promise<T>
   post<T>(path: string, body?: unknown): Promise<T>
   /** 按原字节发送 JSON 文件，保留证书中的大整数与原始内容。 */
-  postRawJson<T>(path: string, body: Blob, signal?: AbortSignal): Promise<T>
+  postRawJson<T>(path: string, body: Blob, signal?: AbortSignal, headers?: Record<string, string>): Promise<T>
   postBinary<T>(path: string, body: Blob, signal?: AbortSignal): Promise<T>
   put<T>(path: string, body?: unknown): Promise<T>
   putBinary<T>(path: string, body: Blob, signal?: AbortSignal): Promise<T>
@@ -51,8 +51,8 @@ export function createHttpClient(options: HttpClientOptions = {}): HttpClient {
   const tokenProvider = options.tokenProvider ?? authSession.token
   const fetcher = options.fetcher ?? fetch
 
-  async function request<T>(method: string, path: string, body?: unknown, query?: QueryParams, rawBody?: Blob, signal?: AbortSignal, contentType='application/json'): Promise<T> {
-    const headers: Record<string, string> = { Accept: 'application/json' }
+  async function request<T>(method: string, path: string, body?: unknown, query?: QueryParams, rawBody?: Blob, signal?: AbortSignal, contentType='application/json', extraHeaders?: Record<string, string>): Promise<T> {
+    const headers: Record<string, string> = { ...extraHeaders, Accept: 'application/json' }
     const token = tokenProvider()
     if (token) headers.Authorization = `Bearer ${token}`
     const init: RequestInit = { method, headers }
@@ -91,7 +91,7 @@ export function createHttpClient(options: HttpClientOptions = {}): HttpClient {
   return {
     get: (path, query) => request('GET', path, undefined, query),
     post: (path, body) => request('POST', path, body),
-    postRawJson: (path, body, signal) => request('POST', path, undefined, undefined, body, signal),
+    postRawJson: (path, body, signal, headers) => request('POST', path, undefined, undefined, body, signal, 'application/json', headers),
     postBinary: (path, body, signal) => request('POST', path, undefined, undefined, body, signal, 'application/octet-stream'),
     put: (path, body) => request('PUT', path, body),
     putBinary: (path, body, signal) => request('PUT', path, undefined, undefined, body, signal, 'application/octet-stream'),

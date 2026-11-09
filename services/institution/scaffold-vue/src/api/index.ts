@@ -4,6 +4,7 @@ import { createSystemApi } from './system.ts'
 import { createPortalApi } from './portal.ts'
 import { createCertificateApi } from './certificates.ts'
 import { createAnalysisApi } from './analysis.ts'
+import { createReceiptApi } from './receipts.ts'
 
 export * from './http.ts'
 export * from './auth.ts'
@@ -11,9 +12,11 @@ export * from './session.ts'
 export * from './system.ts'
 export * from './portal.ts'
 export * from './certificates.ts'
+export * from './receipts.ts'
 
 export const authApi = createAuthApi(httpClient)
 export const systemApi = createSystemApi(httpClient)
 export const portalApi = createPortalApi(httpClient)
 export const certificateApi = createCertificateApi(httpClient)
 export const analysisApi = createAnalysisApi(httpClient)
+export const receiptApi = createReceiptApi(httpClient)
