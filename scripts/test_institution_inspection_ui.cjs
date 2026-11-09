@@ -55,6 +55,26 @@ const {chromium,expect}=require('@playwright/test');
     await receiptDialog.getByLabel('选择 .wproof 证书').setInputFiles(receiptFixture);
     await expect(receiptDialog.getByText('已收到接收回执',{exact:true})).toHaveCount(0);
     await expect(receiptSubmit).toBeDisabled();
+    // Server may have signed before cancellation; a late response must not restore
+    // a previous receipt into a freshly opened dialog.
+    let receiptReached,releaseReceipt,receiptRouteFinished;
+    const receiptReachedPromise=new Promise(resolve=>receiptReached=resolve);
+    const receiptGate=new Promise(resolve=>releaseReceipt=resolve);
+    const receiptRouteDone=new Promise(resolve=>receiptRouteFinished=resolve);
+    await page.route('**/api/workproof/receipts',async route=>{
+      try {const response=await route.fetch();assert.equal(response.status(),200);receiptReached();await receiptGate;await route.fulfill({response}).catch(()=>{});}
+      finally {receiptRouteFinished();}
+    },{times:1});
+    await receiptDialog.getByText('我同意将所选证书发送给机构服务器签发接收回执',{exact:true}).click();
+    await receiptSubmit.click();
+    try {
+      await Promise.race([receiptReachedPromise,new Promise((_,reject)=>setTimeout(()=>reject(new Error('Receipt request did not reach real server')),20000))]);
+      await receiptDialog.getByRole('button',{name:'关闭',exact:true}).click();
+      await page.getByRole('button',{name:'签发接收回执',exact:true}).click();
+    } finally {releaseReceipt();}
+    await receiptRouteDone;
+    await expect(receiptDialog.getByText('已收到接收回执',{exact:true})).toHaveCount(0);
+    await expect(receiptSubmit).toBeDisabled();
     await receiptDialog.getByRole('button',{name:'关闭',exact:true}).click();
     await page.setViewportSize({width:1280,height:900});
     await page.getByRole('button',{name:'检查一份证书',exact:true}).click();

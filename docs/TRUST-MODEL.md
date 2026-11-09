@@ -55,7 +55,11 @@ workproof-receipt verify original.wproof receipt.json institution-id 86400 /inde
 
 源码 `871454ce05851c5f8c9823146071d567676bea99` 的 [专项 42568508932](https://github.com/W-Boat/WorkProof/actions/runs/42568508932) 已成功：44 项协议检查、1 项文档测试以及真实工具的 stdin 签发/文件独立核验链路通过。真实进程检查还确认签发前后临时工作目录文件列表不变、错误输入不输出回执、stdout/stderr 不包含合成私钥值。本结果不扩大为 HTTP 端点、生产密钥权限、客户端来源证明或全部操作系统验收。
 
-### 机构接口增量（待 Actions）
+### 机构接口增量
+
+源码 `e4b65432a11aae836cc97d9a578860cc1a4fe672` 的 [机构服务专项 42569801198](https://github.com/W-Boat/WorkProof/actions/runs/42569801198) 已全部成功，包含实际 JAR 的 HTTP 签发、401/403/无同意拒绝、独立配置公钥核验和公私钥错配拒绝，以及原有镜像、备份和隔离数据库检查。生产密钥与正式镜像签发工具配置尚未完成。
+
+浏览器源码 `d5b567529b2bb3b85d06ffc3dc50a0e926733c24` 的 [Web 专项 42570496922](https://github.com/W-Boat/WorkProof/actions/runs/42570496922) 已成功，115 项浏览器检查包含真实 Rust CLI 签发 → 独立公钥同意 → 浏览器本地 Wasm 核验，以及错公钥、错机构和窄屏边界。机构端签发弹窗与下载链路是后续增量，需单独确认，不能由本次结果代替。
 
 新增 `GET /api/workproof/receipts/capabilities`（准备状态）与 `POST /api/workproof/receipts`（签发接收回执），均要求独立权限 `workproof:receipt:issue`。POST 接收原始证书 JSON 字节，要求 `X-WorkProof-Receipt-Consent: true`，返回统一 R 包装内的回执。沿用操作审计且关闭参数记录，不增加证书持久化或数据库表。权限尚未加入普通角色菜单分配和完整 HTTP 集成验收，不应宣称普通账号已可点击签发。
 
