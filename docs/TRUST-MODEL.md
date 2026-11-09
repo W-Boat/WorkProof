@@ -65,6 +65,8 @@ workproof-receipt verify original.wproof receipt.json institution-id 86400 /inde
 
 新增真实 HTTP 验收复用既有隔离 `workproof_ci`、JAR 和登录夹具，临时生成签发密钥，检查 401/403、未同意 400、管理员成功签发、无效证书和密钥错配拒绝；返回回执再由真实 Rust 工具按独立公钥核验。测试由 Actions 运行，尚待新结果，不以服务单元测试代替该链路，也不操作用户现有数据库。
 
+源码 `e4b65432a11aae836cc97d9a578860cc1a4fe672` 的 [机构任务 42569801198](https://github.com/W-Boat/WorkProof/actions/runs/42569801198/job/129004304490) 中，`Shared backend tests` 与 `Test the real bundled application, generated password and API boundaries` 两个步骤已成功，后者包含上述新增 HTTP 回执往返与拒绝检查。此记录只确认这些步骤，不表示其后的镜像/备份恢复或整个工作流均已完成，也不覆盖后续浏览器回执入口。
+
 ### 接收方本机核验入口（待 Actions）
 
 新增“检查机构接收回执”可选面板。作品与证书先通过原核验，用户再提供接收回执 JSON、独立取得的 64 位十六进制公钥文件及准确签发者标识，明确确认本次信任。页面不从回执自动接受公钥，也不自动将任何签发者称为官方。
