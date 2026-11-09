@@ -41,6 +41,7 @@
 - Rust 协议及真实 CLI 签发、独立核验已通过 [42569394681](https://github.com/W-Boat/WorkProof/actions/runs/42569394681)。
 - 真实机构 JAR/HTTP 的授权、提交同意、签发与独立公钥边界，以及原有镜像检查已通过 [42569801198](https://github.com/W-Boat/WorkProof/actions/runs/42569801198)。
 - 浏览器本地回执核验已通过 [42570496922](https://github.com/W-Boat/WorkProof/actions/runs/42570496922)，该任务包括 115 项浏览器检查。
-- 机构端签发弹窗、下载与取消等待是后续增量，以源码 `55b4a83` 的 [42571777366](https://github.com/W-Boat/WorkProof/actions/runs/42571777366) 实际结果为准，本文编写时仍在运行。
+- 机构端源码 `55b4a83` 的 [42571777366](https://github.com/W-Boat/WorkProof/actions/runs/42571777366) 已全部成功，包含实际页面签发、下载文件交给 Rust 独立核验、移动端布局、重新选择文件清空结果、取消后迟到响应隔离，以及原有镜像和备份检查。
+- 签发工具随镜像交付的源码 `8e6d153` 使用单独的 [42572744503](https://github.com/W-Boat/WorkProof/actions/runs/42572744503) 验收；上述成功不能代替本次新增镜像检查。
 
 这些证据使用隔离测试数据库和合成签发密钥，不代表已有官方生产签发机构或已完成所有平台的人工验收。
