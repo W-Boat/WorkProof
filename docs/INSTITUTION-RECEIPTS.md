@@ -26,6 +26,8 @@
 
 ### 独立密钥备份工具（新增，待 Actions）
 
+验收进度：源码 `becf04222578e4621f6048774affff8eca4adb59` 的 [42670573561](https://github.com/W-Boat/WorkProof/actions/runs/42670573561) 已通过精确镜像的“Verify explicit external signing key backup and new-directory restore”步骤，包含实际加密恢复、错误口令/机构/公钥、不覆盖和权限检查；整轮任务仍需以最终状态为准。恢复后实际 Rust 签发是 `81feffa` 的新增范围，不能由此前步骤成功推断。
+
 `receipt_keys.py` 是独立 Linux root 工具，依赖同版本 `backup_crypto.py` 和 Python cryptography。它不操作 Docker、数据库或现有部署，也不自动激活签发。生产使用前应先确认对应 Actions 的实际结果，不能使用早期不含该工具的交付包。
 
 管理员在排除其他特权写入者的维护窗口运行：`python3 receipt_keys.py backup --input /absolute/private-key-directory --output /absolute/root-private-backups/keys.enc --issuer institution-id`。输入目录必须为 UID/GID 10001、0700，含配对的 `seed.hex` 与 `public.hex`；私钥须为 UID/GID 10001、0600。输出父目录必须由当前 root 拥有且为 0700，输出文件必须尚不存在。口令由终端隐藏输入或标准输入读取，不通过命令参数传递。加密临时明文只在 root 私有临时目录内处理并清理，不保证对存储介质的安全擦除。
@@ -65,3 +67,5 @@
 这些证据使用隔离测试数据库和合成签发密钥，不代表已有官方生产签发机构或已完成所有平台的人工验收。
 
 完整镜像 HTTP 验收已通过：源码 `53a07ece07a79bbf4f991e1c5e8db6899674bf52` 的 [42573868092](https://github.com/W-Boat/WorkProof/actions/runs/42573868092) 三任务全部成功。在相同隔离项目中启动独立 one-off 应用，使用其私有 tmpfs 内的合成密钥显式配置签发，保持只读根文件系统和非 root 身份。实际签发后交给宿主 Rust 工具用独立公钥核验，并拒绝未登录、未同意、错误证书及公钥错配；测试后原应用仍不启用签发。该结果不代表已完成生产密钥管理。
+
+外部签发身份重启与权限退化已通过：源码 `6e1ba06377b6a033f2b3c3b9ed2c73c2958e0ca0` 的 [42670105336](https://github.com/W-Boat/WorkProof/actions/runs/42670105336) 全部成功。私钥放宽至 0644 时服务拒绝签发，恢复 0600 并重启后可继续签发，原公钥可核验重启前后不同编号的回执。此结论不扩大为密钥备份恢复或完整部署恢复。
