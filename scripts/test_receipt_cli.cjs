@@ -15,6 +15,8 @@ try{
   const streamed=call(['issue-stdin','synthetic-test','60',privateFile],true,original);
   assert.deepEqual(fs.readdirSync(directory).sort(),before,'stdin issuance must not create proof, receipt or collector files');assert(Buffer.byteLength(streamed.stdout)<=16*1024);assert(!streamed.stdout.includes(seed.toString('hex')));assert(!streamed.stderr.includes(seed.toString('hex')));
   const streamedFile=path.join(directory,'streamed.json');fs.writeFileSync(streamedFile,streamed.stdout);assert.equal(JSON.parse(call(['verify',proof,streamedFile,'synthetic-test','60',publicFile]).stdout).receipt_verified,true);
+  const confirmed=call(['issue-stdin','synthetic-test','60',privateFile,publicFile],true,original);assert.equal(JSON.parse(confirmed.stdout).payload.purpose,'server-received');
+  assert.equal(call(['issue-stdin','synthetic-test','60',privateFile,wrongFile],false,original).stdout,'','mismatched configured public key must not return a receipt');
   const rejected=call(['issue-stdin','synthetic-test','60',privateFile],false,Buffer.from('{}'));assert.equal(rejected.stdout,'');assert(!rejected.stderr.includes(seed.toString('hex')));
   call(['issue',proof,receipt,'synthetic-test','60',privateFile],false);assert(fs.readFileSync(receipt).equals(bytes),'existing output must never be replaced');
   call(['verify',proof,receipt,'synthetic-test','60',wrongFile],false);call(['verify',proof,receipt,'other-issuer','60',publicFile],false);call(['verify',proof,receipt,'synthetic-test','59',publicFile],false);

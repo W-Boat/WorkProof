@@ -18,7 +18,7 @@ fn lifetime(value:&std::ffi::OsStr)->Result<u64,Error>{
 fn main()->Result<(),Error>{
     let args:Vec<_>=std::env::args_os().collect();let mode=args.get(1).and_then(|v|v.to_str()).unwrap_or("");
     let stdio=mode=="issue-stdin";
-    if !(stdio&&args.len()==5||matches!(mode,"issue"|"verify")&&args.len()==7){return Err("Usage: workproof-receipt issue PROOF OUTPUT ISSUER_ID TTL_SECONDS ABSOLUTE_PRIVATE_SEED_HEX_FILE | issue-stdin ISSUER_ID TTL_SECONDS ABSOLUTE_PRIVATE_SEED_HEX_FILE < PROOF | verify PROOF RECEIPT ISSUER_ID MAX_LIFETIME_SECONDS ABSOLUTE_PUBLIC_KEY_HEX_FILE".into());}
+    if !(stdio&&matches!(args.len(),5|6)||matches!(mode,"issue"|"verify")&&args.len()==7){return Err("Usage: workproof-receipt issue PROOF OUTPUT ISSUER_ID TTL_SECONDS ABSOLUTE_PRIVATE_SEED_HEX_FILE | issue-stdin ISSUER_ID TTL_SECONDS ABSOLUTE_PRIVATE_SEED_HEX_FILE [ABSOLUTE_EXPECTED_PUBLIC_KEY_FILE] < PROOF | verify PROOF RECEIPT ISSUER_ID MAX_LIFETIME_SECONDS ABSOLUTE_PUBLIC_KEY_HEX_FILE".into());}
     let proof=if stdio{read_bounded(std::io::stdin().lock(),32*1024*1024)?}else{bounded(Path::new(&args[2]),32*1024*1024)?};
     let issuer=args[if stdio{2}else{4}].to_str().ok_or("INVALID_ISSUER")?;
     let lifetime=lifetime(&args[if stdio{3}else{5}])?;
@@ -28,6 +28,10 @@ fn main()->Result<(),Error>{
         let mut random=[0u8;32];use rand::RngCore;rand::thread_rng().fill_bytes(&mut random);
         let receipt=issue_receipt(&proof,ReceiptContext{issuer_id:issuer.into(),receipt_id:hex::encode(random),received_at_ms:now,expires_at_ms:now.checked_add(lifetime).ok_or("INVALID_SYSTEM_CLOCK")?},&signing)?;
         let bytes=serde_json::to_vec_pretty(&receipt)?;
+        if stdio&&args.len()==6{
+            let expected=VerifyingKey::from_bytes(&key(Path::new(&args[5]))?).map_err(|_|"INVALID_PUBLIC_KEY")?;
+            verify_receipt(&proof,&bytes,ReceiptPolicy{issuer_id:issuer,key:&expected,now_ms:now,max_lifetime_ms:lifetime})?;
+        }
         if stdio{let mut output=std::io::stdout().lock();output.write_all(&bytes)?;output.write_all(b"\n")?;}
         else{
             let mut output=fs::OpenOptions::new().write(true).create_new(true).open(&args[3])?;output.write_all(&bytes)?;output.sync_all()?;

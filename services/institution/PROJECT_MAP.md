@@ -1,5 +1,8 @@
 # 通用后台管理脚手架项目地图
 
+- `ReceiptIssuanceController` → 独立 `workproof:receipt:issue` 权限与提交同意 → `NativeReceiptIssuer` 配置/私钥权限检查 → 共用 `NativeToolRunner` → Rust `issue-stdin` 签发并核对配置公钥 → 有界回执 JSON。默认未配置关闭，不新增业务表，不保存原证书；机构正式镜像内工具分发、真实 HTTP 验收、回执索引和吊销仍待接入。
+- `NativeCertificateInspector` 改为复用同一进程调用实现，保留原有结果契约校验。调用器清理继承环境，限制每个工具实例两并发、32 MiB 输入、16 KiB 输出和 15 秒原生处理期限；上传读取仍依赖 HTTP 层期限设置。
+
 - `workproof-inspector` → 已核验证书动作合计 `actions` → 现有 `NativeCertificateInspector` JSON → `CertificateInspectionDialog` → 复用 `CertificateActions` / `BarChart`；合计仅在本次检查结果中展示，不改变摘要表或保存原始事件。新增 Rust 披露/篡改边界检查待 Actions。
 
 

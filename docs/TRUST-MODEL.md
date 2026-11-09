@@ -55,6 +55,14 @@ workproof-receipt verify original.wproof receipt.json institution-id 86400 /inde
 
 源码 `871454ce05851c5f8c9823146071d567676bea99` 的 [专项 42568508932](https://github.com/W-Boat/WorkProof/actions/runs/42568508932) 已成功：44 项协议检查、1 项文档测试以及真实工具的 stdin 签发/文件独立核验链路通过。真实进程检查还确认签发前后临时工作目录文件列表不变、错误输入不输出回执、stdout/stderr 不包含合成私钥值。本结果不扩大为 HTTP 端点、生产密钥权限、客户端来源证明或全部操作系统验收。
 
+### 机构接口增量（待 Actions）
+
+新增 `GET /api/workproof/receipts/capabilities`（准备状态）与 `POST /api/workproof/receipts`（签发接收回执），均要求独立权限 `workproof:receipt:issue`。POST 接收原始证书 JSON 字节，要求 `X-WorkProof-Receipt-Consent: true`，返回统一 R 包装内的回执。沿用操作审计且关闭参数记录，不增加证书持久化或数据库表。权限尚未加入普通角色菜单分配和完整 HTTP 集成验收，不应宣称普通账号已可点击签发。
+
+管理员配置 `workproof.receipt.executable`、`private-key`、`public-key`、`issuer-id`、`lifetime-seconds`（默认 86400）。工具及两个密钥均须独立绝对路径；私钥复用 PrivateJobSpool 的属主、非链接与 POSIX 0600/Windows 单服务主体 ACL 检查，拒绝不符合配置，不自动改权限。Rust 的 `issue-stdin` 可额外接收预期公钥文件，签发结果必须在该公钥下复验后才输出。服务端不接收客户端提供的命令、密钥路径或有效期。
+
+受限调用与原证书检查器共用 NativeToolRunner，实现每个工具实例两并发、输入/输出限制、15 秒原生调用期限、清理继承环境和退出终止子进程。HTTP 上传读取不在该原生期限内，仍需服务器/反向代理限制。工具必须由管理员从可信构建准备；名称检查不是可执行文件身份认证。当前正式机构镜像未自动分发/配置该工具，本机服务未启用签发，也未创建生产信任根。
+
 ## 规则有效性验收要求，尚未完成
 
 当前 `heuristic-2026-11-06.1` 是明确阈值的过程提醒，真实中英文课程作业尚未校准。正常粘贴、导入、语音、辅助输入、代码补全、宿主轮询及脚本模拟必须进入评估范围。大段写入本身不能被标记为 AI 创作。
