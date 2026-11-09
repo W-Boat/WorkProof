@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- 外部密钥专项追加 `0644` 权限退化 → 真实 Java 能力关闭与签发拒绝 → 恢复 `0600` → 完整 ID/归属核对后的单个测试容器重启 → 同一独立公钥核验重启前后两份不同编号回执。结果待 Actions；不覆盖备份恢复。
+
 - `verify_receipt_server(..., external=True)` → Node 内置 Ed25519 合成密钥 → 新建 CI 私有目录、私钥 UID 10001 / 0600 → 实际 `compose.receipts.yaml` → 只读 bind 身份核对 → HTTP 签发及独立宿主核验、写入拒绝与错配公钥拒绝。仅测试目录用 sudo 调整归属，先停止专属容器再还原目录归属清理；无生产密钥、默认配置或备份格式变更。结果待 Actions。
 
 - `compose.receipts.yaml` 作为显式附加配置 → 必填机构编号与外部已有密钥目录 → 只读 `/private/receipts` → 既有 Java/Rust 签发配置。`test_institution_receipt_compose.py` 只解析配置、不创建 Docker 对象，检查默认关闭及必填值/只读挂载；外部密钥备份、恢复和备份协调器集成未完成，不允许当作普通备份已覆盖。

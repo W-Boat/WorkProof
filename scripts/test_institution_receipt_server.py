@@ -18,6 +18,7 @@ def verify_receipt_server(compose, environment, token, root, project, external=F
     assert os.environ.get('GITHUB_ACTIONS') == 'true'
     assert re.fullmatch(r'workproof-server-ci-[0-9a-f]{12}', project)
     name = project + ('-receipt-bind-probe' if external else '-receipt-probe')
+    ttl = '600' if external else '60'
     external_keys = None
     launch_compose, launch_environment = list(compose), dict(environment)
     origin = 'http://127.0.0.1:18082'
@@ -75,7 +76,7 @@ os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])
             del material, generated
             subprocess.run(['sudo', 'chown', '10001:10001', str(seed_path), str(key_root)], check=True, capture_output=True, timeout=15)
             launch_compose += ['-f', str(root/'deploy/institution/compose.receipts.yaml')]
-            launch_environment.update(WORKPROOF_RECEIPT_KEY_DIRECTORY=str(key_root), WORKPROOF_RECEIPT_ISSUER_ID='ci-image-http', WORKPROOF_RECEIPT_LIFETIME_SECONDS='60')
+            launch_environment.update(WORKPROOF_RECEIPT_KEY_DIRECTORY=str(key_root), WORKPROOF_RECEIPT_ISSUER_ID='ci-image-http', WORKPROOF_RECEIPT_LIFETIME_SECONDS=ttl)
             bootstrap = "import os;assert os.environ.get('GITHUB_ACTIONS')=='true';os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])"
         started = subprocess.run([*launch_compose, 'run', '--detach', '--rm', '--no-deps', '--name', name,
             '--publish', '127.0.0.1:18082:8080', '--entrypoint', 'python3', '-e', 'GITHUB_ACTIONS=true',
@@ -117,10 +118,44 @@ os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])
             (location/'receipt.json').write_text(json.dumps(receipt), encoding='utf-8')
             (location/'public.hex').write_text(public.stdout)
             verified = subprocess.run([str(root/'target/release/workproof-receipt'), 'verify', str(location/'proof.wproof'),
-                str(location/'receipt.json'), 'ci-image-http', '60', str(location/'public.hex')], capture_output=True, text=True, timeout=15)
+                str(location/'receipt.json'), 'ci-image-http', ttl, str(location/'public.hex')], capture_output=True, text=True, timeout=15)
             assert verified.returncode == 0, 'Image HTTP receipt failed independent host verification'
             report = json.loads(verified.stdout)
             assert report['receipt_verified'] is True and report['client_origin_verified'] is False
+            if external:
+                # Exercise the existing Java permission boundary against the real
+                # external file, without allowing the app to repair permissions.
+                subprocess.run(['sudo', 'chmod', '644', str(key_root/'seed.hex')], check=True, capture_output=True, timeout=15)
+                try:
+                    state = json.loads(request('/api/workproof/receipts/capabilities')[1])['data']
+                    assert state['configured'] is False, 'Insecure external private key was accepted'
+                    assert request('/api/workproof/receipts', proof, consent=True)[0] != 200
+                finally:
+                    subprocess.run(['sudo', 'chmod', '600', str(key_root/'seed.hex')], check=True, capture_output=True, timeout=15)
+                # A normal process restart must retain the externally supplied
+                # identity rather than silently generating a replacement key.
+                owned = probe_info()
+                assert owned['Id'] == info['Id']
+                restarted = subprocess.run(['docker', 'restart', '--time', '20', owned['Id']], capture_output=True, timeout=50)
+                assert restarted.returncode == 0
+                deadline = time.monotonic() + 120
+                while True:
+                    try:
+                        if request('/api/health', authenticated=False)[0] == 200: break
+                    except (urllib.error.URLError, TimeoutError, ConnectionError): pass
+                    assert time.monotonic() < deadline, 'External-key app did not recover after restart'
+                    time.sleep(1)
+                assert probe_info()['Id'] == info['Id']
+                assert json.loads(request('/api/workproof/receipts/capabilities')[1])['data']['configured'] is True
+                second_status, second_body = request('/api/workproof/receipts', proof, consent=True)
+                assert second_status == 200
+                second = json.loads(second_body)['data']
+                assert second['payload']['receipt_id'] != receipt['payload']['receipt_id']
+                (location/'receipt-after-restart.json').write_text(json.dumps(second), encoding='utf-8')
+                for filename in ('receipt.json', 'receipt-after-restart.json'):
+                    checked = subprocess.run([str(root/'target/release/workproof-receipt'), 'verify', str(location/'proof.wproof'),
+                        str(location/filename), 'ci-image-http', ttl, str(location/'public.hex')], capture_output=True, timeout=15)
+                    assert checked.returncode == 0, 'External signing identity changed across restart'
         assert request('/api/workproof/receipts', b'{}', consent=True)[0] != 200
         changed = subprocess.run(['docker', 'exec', info['Id'], 'python3', '-c',
             "import pathlib;pathlib.Path("+repr(key_public)+").write_text('00'*32)"], capture_output=True, timeout=15)
