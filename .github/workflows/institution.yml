@@ -126,6 +126,7 @@ jobs:
           assert len(jars)==1,'Expected exactly one bootable JAR'
           shutil.copy2(jars[0],context/'app.jar')
           shutil.copy2(root/'target/release/workproof-inspector',context/'workproof-inspector')
+          shutil.copy2(root/'target/release/workproof-receipt',context/'workproof-receipt')
           (context/'sql').mkdir()
           for name in ['V1__init_schema.sql','V2__seed_data.sql','V3__workproof_certificate_catalog.sql','V4__workproof_certificate_jobs.sql']:
               shutil.copy2(root/'services/institution/scaffold-system/sql'/name,context/'sql'/name)
@@ -133,6 +134,8 @@ jobs:
         run: docker build --platform linux/amd64 --build-arg SOURCE_COMMIT=${{ github.sha }} --label org.opencontainers.image.revision=${{ github.sha }} -t workproof-institution:local .ci-institution-server
       - name: Exercise the real server image and isolated new database
         run: python scripts/test_institution_server.py
+      - name: Verify packaged receipt tool without network or production keys
+        run: docker run --rm --network none --env GITHUB_ACTIONS=true -v "$PWD/scripts/test_institution_receipt_image.py:/acceptance.py:ro" -v "$PWD/apps/verifier/public/demo/essay.md.wproof:/fixture.wproof:ro" --entrypoint python3 workproof-institution:local /acceptance.py
       - name: Check coordinator container and volume identity guards
         run: python scripts/test_backup_coordinator.py
       - name: Verify authenticated byte encryption in the actual server image
@@ -160,6 +163,7 @@ jobs:
                           'snapshot_archive.py','restore_snapshot.py','restore_new.py','catalog_receipt.py','catalog_prepare.py','jobs_receipt.py','jobs_prepare.py','entrypoint.py','manage.py','ai_runtime.py','ai-engines.json']
           assert all((output/name).is_file() for name in required_tools),'Incomplete server control package'
           shutil.copy2('docs/INSTITUTION-SERVER.md',output/'README.md')
+          shutil.copy2('docs/INSTITUTION-RECEIPTS.md',output/'RECEIPTS.md')
           shutil.copy2('LICENSE',output/'WORKPROOF-LICENSE.txt')
           shutil.copy2('services/institution/LICENSE',output/'SCAFFOLD-LICENSE.txt')
           shutil.copy2('docs/COMMERCIAL-LICENSE-AUDIT.md',output/'COMMERCIAL-LICENSE-AUDIT.md')
@@ -197,6 +201,8 @@ jobs:
             services/institution/scaffold-vue/dist/
             target/release/workproof-engine
             target/release/workproof-inspector
+            target/release/workproof-receipt
+            test-results/institution-receipt-*.png
             test-results/institution-certificate-inspection-*.png
             test-results/institution-certificate-catalog.png
             test-results/institution-certificate-batch-mobile.png
@@ -208,6 +214,7 @@ jobs:
           name: institution-runtime-diagnostics
           path: |
             institution-runtime.log
+            test-results/institution-receipt-*.png
             test-results/institution-jobs-*.png
             test-results/institution-ai-*.png
             institution-https.log

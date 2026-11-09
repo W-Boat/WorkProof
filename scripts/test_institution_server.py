@@ -67,6 +67,10 @@ try:
     for path in ['/api/auth/me','/api/system/users','/api/workproof/certificates/capabilities']:
         assert request(path)[0]==401
     token=login(password)['data']['token']
+    receipt_state=json.loads(request('/api/workproof/receipts/capabilities',token=token)[1])['data']
+    assert receipt_state['configured'] is False and receipt_state['clientOriginVerified'] is False
+    assert request('/api/workproof/receipts/capabilities')[0]==401
+    checks.append('Receipt binary distribution does not enable signing without explicit institution configuration')
     rejected=login('admin123');assert rejected.get('code')!=200 and not (rejected.get('data') or {}).get('token')
     users=json.loads(request('/api/system/users?pageNum=1&pageSize=100',token=token)[1])['data']['rows']
     assert users and any(user['username']=='admin' for user in users)
