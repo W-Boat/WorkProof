@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- `compose.receipts.yaml` 作为显式附加配置 → 必填机构编号与外部已有密钥目录 → 只读 `/private/receipts` → 既有 Java/Rust 签发配置。`test_institution_receipt_compose.py` 只解析配置、不创建 Docker 对象，检查默认关闭及必填值/只读挂载；外部密钥备份、恢复和备份协调器集成未完成，不允许当作普通备份已覆盖。
+
 - `test_institution_server.py` → `test_institution_receipt_server.verify_receipt_server` → 同一隔离项目的 one-off 只读应用、独立 tmpfs 合成密钥 → 实际 HTTP 签发 → 宿主真实 Rust 工具独立核验。通过专属项目名称、Compose service / one-off 标签和完整容器 ID 限定停止对象；不增加或修改默认配置/备份卷中的密钥。原应用前后均要求签发关闭。增量待 Actions，不扩大为生产密钥启用流程。
 
 - Actions 的同一 Rust release 构建 → `workproof-receipt` → 机构 Dockerfile root 所有 / `0555` 可执行文件与基线附件；归档附 `RECEIPTS.md`。`test_institution_receipt_image.py` 在精确镜像内、非 root 和断网条件下临时生成合成密钥，检查实际签发/核验及错公钥拒绝；`test_institution_server.py` 断言默认 HTTP 能力关闭。密钥不进入构建上下文或归档，带配置镜像 HTTP 启用仍未完成；本增量待 Actions。

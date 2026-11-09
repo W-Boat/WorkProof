@@ -1,0 +1,17 @@
+# Explicit opt-in only. Signing keys are external and are NOT in normal backups.
+# Use with the compose.yaml from the exact same verified package.
+services:
+  app:
+    environment:
+      WORKPROOF_RECEIPT_EXECUTABLE: /opt/workproof/workproof-receipt
+      WORKPROOF_RECEIPT_PRIVATE_KEY: /private/receipts/seed.hex
+      WORKPROOF_RECEIPT_PUBLIC_KEY: /private/receipts/public.hex
+      WORKPROOF_RECEIPT_ISSUER_ID: ${WORKPROOF_RECEIPT_ISSUER_ID:?Set the independently published institution issuer ID}
+      WORKPROOF_RECEIPT_LIFETIME_SECONDS: ${WORKPROOF_RECEIPT_LIFETIME_SECONDS:-86400}
+    volumes:
+      - type: bind
+        source: ${WORKPROOF_RECEIPT_KEY_DIRECTORY:?Set an absolute pre-existing private key directory}
+        target: /private/receipts
+        read_only: true
+        bind:
+          create_host_path: false

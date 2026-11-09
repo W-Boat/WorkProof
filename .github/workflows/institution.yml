@@ -134,6 +134,8 @@ jobs:
         run: docker build --platform linux/amd64 --build-arg SOURCE_COMMIT=${{ github.sha }} --label org.opencontainers.image.revision=${{ github.sha }} -t workproof-institution:local .ci-institution-server
       - name: Exercise the real server image and isolated new database
         run: python scripts/test_institution_server.py
+      - name: Resolve optional receipt Compose configuration without creating services
+        run: python scripts/test_institution_receipt_compose.py
       - name: Verify packaged receipt tool without network or production keys
         run: docker run --rm --network none --env GITHUB_ACTIONS=true -v "$PWD/scripts/test_institution_receipt_image.py:/acceptance.py:ro" -v "$PWD/apps/verifier/public/demo/essay.md.wproof:/fixture.wproof:ro" --entrypoint python3 workproof-institution:local /acceptance.py
       - name: Check coordinator container and volume identity guards

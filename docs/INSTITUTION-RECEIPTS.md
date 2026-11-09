@@ -38,6 +38,14 @@
 
 ## 验收证据
 
+### 显式 Compose 附加配置（新增，待 Actions）
+
+新增 `compose.receipts.yaml` 与包内 `compose.yaml` 配合使用。它要求明确设置 `WORKPROOF_RECEIPT_ISSUER_ID` 和 `WORKPROOF_RECEIPT_KEY_DIRECTORY`，后者必须是已存在的绝对路径目录，包含 `seed.hex` 和 `public.hex`。目录必须允许容器 UID 10001 读取，私钥仍须属于该账号且为 `0600`；不得因此开放目录或私钥给其他用户。配置不创建目录、不生成密钥，只将目录只读挂载到 `/private/receipts`。有效期可用 `WORKPROOF_RECEIPT_LIFETIME_SECONDS` 设置。
+
+在完成独立密钥备份与权限核对后，管理员可在专用部署目录显式使用 `docker compose -f compose.yaml -f compose.receipts.yaml config` 预检，再自行安排维护窗口启用。此附加文件不会由普通启动自动读取。当前新增验收只检查 Compose 配置解析，实际同路径只读外部密钥挂载与备份协调器兼容性尚待集成验证；不能据此称为点击即用的生产部署。
+
+**外部密钥不在普通 WorkProof 加密备份中。** 现有备份协调器有严格挂载身份检查，启用此附加挂载后可能拒绝备份；不要绕过检查。恢复默认不带此附加配置，也不会自动恢复签发身份。生产启用前必须完成外部密钥备份、恢复与协调器集成验证。勿把签发密钥放入原配置卷以试图让旧备份收录它，未知文件会被拒绝。
+
 - Rust 协议及真实 CLI 签发、独立核验已通过 [42569394681](https://github.com/W-Boat/WorkProof/actions/runs/42569394681)。
 - 真实机构 JAR/HTTP 的授权、提交同意、签发与独立公钥边界，以及原有镜像检查已通过 [42569801198](https://github.com/W-Boat/WorkProof/actions/runs/42569801198)。
 - 浏览器本地回执核验已通过 [42570496922](https://github.com/W-Boat/WorkProof/actions/runs/42570496922)，该任务包括 115 项浏览器检查。
