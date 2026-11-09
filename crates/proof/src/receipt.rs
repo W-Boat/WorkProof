@@ -111,6 +111,19 @@ pub fn verify_receipt(evidence:&[u8],receipt_json:&[u8],policy:ReceiptPolicy<'_>
         assert!(verify_receipt(&evidence,&json,ReceiptPolicy{max_lifetime_ms:999,..policy(&public,1500)}).is_err());
         let mut changed=receipt;changed.payload.received_at_ms=1100;assert!(verify_receipt(&evidence,&serde_json::to_vec(&changed).unwrap(),policy(&public,1500)).is_err());
     }
+    #[test]fn selective_receipt_cannot_claim_the_full_submission(){
+        let proof=crate::tests::sample();
+        let full=serde_json::to_vec(&proof).unwrap();
+        let selected=serde_json::to_vec(&crate::create_disclosure(&proof,&[0,2]).unwrap()).unwrap();
+        let key=SigningKey::from_bytes(&[42;32]);let public=key.verifying_key();
+        let full_receipt=serde_json::to_vec(&issue_receipt(&full,context(),&key).unwrap()).unwrap();
+        assert!(verify_receipt(&selected,&full_receipt,policy(&public,1500)).is_err());
+        let receipt=issue_receipt(&selected,context(),&key).unwrap();
+        assert_eq!(receipt.payload.scope,"selective");assert_eq!(receipt.payload.received_events,2);
+        let json=serde_json::to_vec(&receipt).unwrap();
+        assert!(verify_receipt(&selected,&json,policy(&public,1500)).unwrap().receipt_verified);
+        assert!(verify_receipt(&full,&json,policy(&public,1500)).is_err());
+    }
     #[test]fn exact_bytes_invalid_evidence_and_parser_boundaries(){
         let evidence=evidence();let key=SigningKey::from_bytes(&[42;32]);let public=key.verifying_key();let receipt=issue_receipt(&evidence,context(),&key).unwrap();let json=serde_json::to_vec(&receipt).unwrap();
         let mut formatted=evidence.clone();formatted.push(b' ');assert!(crate::inspect_certificate_json(&formatted).certificate_valid);assert!(verify_receipt(&formatted,&json,policy(&public,1500)).is_err());
