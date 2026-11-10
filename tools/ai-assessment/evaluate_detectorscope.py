@@ -11,6 +11,7 @@ import sys
 import time
 import evaluate as ev
 from evaluate_lrr import summary, grouped_summary
+from detector_statistics import choose_logit_threshold
 
 assert os.environ.get('GITHUB_ACTIONS') == 'true'
 root = pathlib.Path(__file__).resolve().parents[2]
@@ -78,11 +79,7 @@ def score(rows):
 
 calibration=score(partitions['calibration'])
 (args.output/'calibration-report.json').write_text(json.dumps(calibration,indent=2)+'\n')
-human=[r['score'] for r in calibration if r['status']=='completed' and r['truth']=='human']
-ai=[r for r in calibration if r['status']=='completed' and r['truth']=='ai']
-assert len(human)>=100 and len(ai)>=100 and (len(human)+len(ai))/len(calibration)>=.9,'INSUFFICIENT_CALIBRATION_COVERAGE'
-candidates=sorted({math.nextafter(v,math.inf) for v in human})
-threshold=next(v for v in candidates if math.isfinite(v) and sum(s>=v for s in human)/len(human)<=.05)
+threshold=choose_logit_threshold(calibration)
 policy={'direction':'higher','score_kind':'detectorscope_logit','threshold':threshold,'decision_rule':'threshold_gte',
         'language':args.language,'manifest_sha256':frozen['manifest_sha256'],'empirical_calibration_fp_budget':.05,
         'model_revision':'9baaff9e2d1cdb79cafa90cdb27811b847e69dae','dtype':'float16','head':'logreg','tau':.85,
