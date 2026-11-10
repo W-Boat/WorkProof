@@ -7,6 +7,7 @@ import sys
 import tempfile
 import subprocess
 import json
+import hashlib
 from unittest import mock
 sys.path.insert(0, '/opt/workproof')
 import receipt_keys as keys
@@ -65,6 +66,26 @@ with tempfile.TemporaryDirectory(prefix='workproof-key-acceptance-') as temporar
     assert not (root/'unbound-as-bound').exists()
     keys.restore(bound, root/'bound-restored', 'ci-keys', public, password, snapshot_digest)
     assert (root/'bound-restored/seed.hex').read_text() == seed
+    chosen = root/'chosen-deployment.enc'
+    chosen.write_bytes(b'Explicit synthetic backup bytes for association only.')
+    assert keys.deployment_digest(chosen) == hashlib.sha256(chosen.read_bytes()).hexdigest()
+    empty = root/'empty-deployment.enc';empty.write_bytes(b'')
+    reject(lambda: keys.deployment_digest(empty))
+    chosen_link = root/'chosen-link';chosen_link.symlink_to(chosen)
+    reject(lambda: keys.deployment_digest(chosen_link))
+    file_bound = root/'file-bound.enc'
+    command = [sys.executable, '/opt/workproof/receipt_keys.py', 'backup', '--input', str(original), '--output', str(file_bound),
+        '--issuer', 'ci-keys', '--deployment-backup', str(chosen)]
+    selected = subprocess.run(command, input=password+b'\n', capture_output=True, timeout=30)
+    assert selected.returncode == 0
+    mismatched = subprocess.run([sys.executable, '/opt/workproof/receipt_keys.py', 'restore', '--input', str(file_bound),
+        '--output', str(root/'file-mismatch'), '--issuer', 'ci-keys', '--expected-public-key', public,
+        '--deployment-backup', str(chosen), '--deployment-sha256', '00'*32], input=password+b'\n', capture_output=True, timeout=15)
+    assert mismatched.returncode != 0 and not (root/'file-mismatch').exists()
+    restored_file = subprocess.run([sys.executable, '/opt/workproof/receipt_keys.py', 'restore', '--input', str(file_bound),
+        '--output', str(root/'file-restored'), '--issuer', 'ci-keys', '--expected-public-key', public,
+        '--deployment-backup', str(chosen)], input=password+b'\n', capture_output=True, timeout=30)
+    assert restored_file.returncode == 0 and (root/'file-restored/seed.hex').read_text() == seed
     reject(lambda: keys.backup(original, encrypted, 'ci-keys', password))
     for issuer, expected, phrase in [('wrong', public, password), ('ci-keys', '00'*32, password), ('ci-keys', public, b'wrong-password-at-least-16')]:
         target = root/'rejected'

@@ -7,6 +7,7 @@ import re
 import stat
 import sys
 import tempfile
+import hashlib
 import backup_crypto as crypto
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -60,6 +61,30 @@ def digest(value):
     if not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{64}', value):
         raise ValueError('Expected full lowercase SHA-256')
     return value
+
+
+def deployment_digest(path):
+    """Hash explicit backup bytes, without authenticating, extracting or running them."""
+    parent, name = crypto._parent(path)
+    try:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+    finally:
+        os.close(parent)
+    with os.fdopen(fd, 'rb') as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or not 0 < before.st_size <= crypto.HARD_MAX_BYTES + crypto.HEADER.size + crypto.TAG_BYTES:
+            raise ValueError('Invalid deployment backup file')
+        remaining, hashed = before.st_size, hashlib.sha256()
+        while remaining:
+            block = stream.read(min(1024 * 1024, remaining))
+            if not block: raise ValueError('Deployment backup changed')
+            hashed.update(block)
+            remaining -= len(block)
+        after = os.fstat(stream.fileno())
+        signature = lambda info: (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns, info.st_nlink)
+        if stream.read(1) or signature(before) != signature(after):
+            raise ValueError('Deployment backup changed')
+        return hashed.hexdigest()
 
 
 def backup(key_directory, output, issuer, password, deployment_sha256=None):
@@ -146,9 +171,10 @@ def main():
     parser.add_argument('--issuer', required=True)
     parser.add_argument('--expected-public-key')
     parser.add_argument('--deployment-sha256')
+    parser.add_argument('--deployment-backup')
     args = parser.parse_args()
     if args.operation == 'create':
-        if args.input or args.expected_public_key or args.deployment_sha256:
+        if args.input or args.expected_public_key or args.deployment_sha256 or args.deployment_backup:
             raise ValueError('Create does not accept an existing input or expected key')
         print(json.dumps(create(args.output, args.issuer)))
         return
@@ -156,9 +182,15 @@ def main():
         raise ValueError('Backup/restore requires input')
     if args.operation == 'restore' and not args.expected_public_key:
         raise ValueError('Restore requires independent public key')
+    selected_digest = args.deployment_sha256
+    if args.deployment_backup:
+        actual_digest = deployment_digest(args.deployment_backup)
+        if selected_digest is not None and digest(selected_digest) != actual_digest:
+            raise ValueError('Selected deployment file did not match expected digest')
+        selected_digest = actual_digest
     password = crypto._stdin_password()
-    if args.operation == 'backup': backup(args.input, args.output, args.issuer, password, args.deployment_sha256)
-    else: restore(args.input, args.output, args.issuer, args.expected_public_key, password, args.deployment_sha256)
+    if args.operation == 'backup': backup(args.input, args.output, args.issuer, password, selected_digest)
+    else: restore(args.input, args.output, args.issuer, args.expected_public_key, password, selected_digest)
     print('Completed; signing was not activated.')
 
 
