@@ -83,36 +83,60 @@ def restore(source, target, issuer, expected_public, password):
         validated = identity(value['issuer_id'], value['seed'], value['public_key'])
         if issuer != validated['issuer_id'] or expected_public != validated['public_key']:
             raise ValueError('Independent issuer/public key did not match')
-        parent, name = crypto._parent(target, private=True)
-        fd = None
-        try:
-            os.mkdir(name, mode=0o700, dir_fd=parent)  # Existing paths always fail.
-            fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
-            for filename, content in [('seed.hex', validated['seed']), ('public.hex', validated['public_key'])]:
-                output = os.open(filename, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600, dir_fd=fd)
-                with os.fdopen(output, 'w') as stream:
-                    os.fchmod(stream.fileno(), 0o600)
-                    stream.write(content)
-                    stream.flush()
-                    os.fchown(stream.fileno(), 10001, 10001)
-                    os.fsync(stream.fileno())
-            os.fchown(fd, 10001, 10001)
-            os.fsync(fd)
-            os.fsync(parent)
-        finally:
-            if fd is not None: os.close(fd)
-            os.close(parent)
+        publish_new(target, validated)
     # I/O failure retains a partial NEW directory; never deletes or overwrites it.
+
+
+def publish_new(target, validated):
+    parent, name = crypto._parent(target, private=True)
+    fd = None
+    try:
+        os.mkdir(name, mode=0o700, dir_fd=parent)  # Existing paths always fail.
+        fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+        for filename, content in [('seed.hex', validated['seed']), ('public.hex', validated['public_key'])]:
+            output = os.open(filename, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600, dir_fd=fd)
+            with os.fdopen(output, 'w') as stream:
+                os.fchmod(stream.fileno(), 0o600)
+                stream.write(content)
+                stream.flush()
+                os.fchown(stream.fileno(), 10001, 10001)
+                os.fsync(stream.fileno())
+        os.fchown(fd, 10001, 10001)
+        os.fsync(fd)
+        os.fsync(parent)
+    finally:
+        if fd is not None: os.close(fd)
+        os.close(parent)
+
+
+def create(target, issuer):
+    require_root()
+    # Validate before touching the filesystem; OS randomness is used only for an
+    # explicitly requested new identity, never on ordinary application startup.
+    if not isinstance(issuer, str) or not re.fullmatch(r'[A-Za-z0-9._:-]{1,128}', issuer):
+        raise ValueError('Invalid issuer')
+    signing = Ed25519PrivateKey.generate()
+    seed = signing.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()).hex()
+    public = signing.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex()
+    publish_new(target, identity(issuer, seed, public))
+    return {'issuer_id': issuer, 'public_key': public, 'signing_activated': False}
 
 
 def main():
     parser = argparse.ArgumentParser(description='Explicit encrypted external receipt-key backup/restore; never activates signing')
-    parser.add_argument('operation', choices=['backup', 'restore'])
-    parser.add_argument('--input', required=True)
+    parser.add_argument('operation', choices=['create', 'backup', 'restore'])
+    parser.add_argument('--input')
     parser.add_argument('--output', required=True)
     parser.add_argument('--issuer', required=True)
     parser.add_argument('--expected-public-key')
     args = parser.parse_args()
+    if args.operation == 'create':
+        if args.input or args.expected_public_key:
+            raise ValueError('Create does not accept an existing input or expected key')
+        print(json.dumps(create(args.output, args.issuer)))
+        return
+    if not args.input:
+        raise ValueError('Backup/restore requires input')
     if args.operation == 'restore' and not args.expected_public_key:
         raise ValueError('Restore requires independent public key')
     password = crypto._stdin_password()

@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- 显式 `receipt_keys.create` → Ed25519 OS 随机密钥 → 与 restore 共用 `publish_new` 全新目录写入 → UID/GID 10001、目录 0700/文件 0600 → 仅返回可发布公钥信息与 signing_activated=false。普通启动不调用；真实 CLI 和保密/不覆盖检查待 Actions。
+
 - `receipt_keys.restore` 写入 → fchown → fsync → 两文件完成后目录 fchown；专项在创建第二文件前注入 I/O 异常，核对不完整目录仍 root/0700 且重试拒绝覆盖。不是主机断电恢复证明，新增结果待 Actions。
 
 - 恢复密钥 HTTP 夹具修正：新目录中的公钥和私钥均设为 UID/GID 10001 / 0600，再由实际容器服务 UID 预检两文件可读及私钥权限。42672452265 的失败说明不可读公钥会使签发关闭；本修复待 Actions，不改 Java 权限边界。

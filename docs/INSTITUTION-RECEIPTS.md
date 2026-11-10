@@ -24,6 +24,12 @@
 
 ## 服务准备范围
 
+### 明确创建一套新机构密钥（新增，待 Actions）
+
+管理员可在 Linux root 环境使用 `python3 receipt_keys.py create --output /absolute/root-private-parent/new-key-directory --issuer institution-id`。父目录须 root 所有、0700；目标须尚不存在。命令以系统随机数生成一套 Ed25519 密钥，目录和文件分别为服务 UID/GID 10001 的 0700、0600，绝不覆盖已有身份。成功只打印机构编号、公钥和 `signing_activated: false`，不需要口令，不启动服务。
+
+公钥应通过机构可信渠道发布并独立保留，再使用独立加密备份命令保存私钥。创建身份不等于启用签发，更不等于认证官方客户端；不要在普通应用启动时运行此命令。I/O 失败会保留部分新目录，应先检查现场，不可覆盖重试。本增量待 Actions，旧交付包未包含 create 命令。
+
 ### 独立密钥备份工具（新增，待 Actions）
 
 最新验收：修复公钥夹具归属的 `d59db8a` 已通过 [42744129941](https://github.com/W-Boat/WorkProof/actions/runs/42744129941) 全部任务。加入写入中断检查的 `05978c82bde88d6703a12925dae0753f07167655` 已通过 [42744314279](https://github.com/W-Boat/WorkProof/actions/runs/42744314279) 全部任务，包含精确镜像内密钥加密恢复、以恢复出的密钥进行真实 HTTP 签发及独立核验、重启身份保持，以及不完整新目录保留/重试不覆盖。下文早期待验收和失败记录保留作历史，以本次精确范围为准；完整部署恢复、普通备份与外部密钥协调仍未完成。

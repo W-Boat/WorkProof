@@ -36,6 +36,24 @@ with tempfile.TemporaryDirectory(prefix='workproof-key-acceptance-') as temporar
         try: call()
         except Exception: return
         raise AssertionError('Unsafe key operation was accepted')
+    created = root/'explicit-created'
+    generated = subprocess.run([sys.executable, '/opt/workproof/receipt_keys.py', 'create', '--output', str(created), '--issuer', 'ci-create'],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15)
+    assert generated.returncode == 0, 'Explicit creation unexpectedly needs a password or failed'
+    notice = json.loads(generated.stdout)
+    assert set(notice) == {'issuer_id', 'public_key', 'signing_activated'}
+    assert notice['issuer_id'] == 'ci-create' and notice['signing_activated'] is False
+    created_seed = (created/'seed.hex').read_text()
+    assert created_seed not in generated.stdout + generated.stderr
+    assert notice['public_key'] == (created/'public.hex').read_text()
+    keys.identity('ci-create', created_seed, notice['public_key'])
+    for p in (created, created/'seed.hex', created/'public.hex'):
+        assert p.stat().st_uid == p.stat().st_gid == 10001
+        assert stat.S_IMODE(p.stat().st_mode) == (0o700 if p.is_dir() else 0o600)
+    reject(lambda: keys.create(created, 'ci-create'))
+    assert (created/'seed.hex').read_text() == created_seed
+    reject(lambda: keys.create(root/'invalid-issuer', 'contains spaces'))
+    assert not (root/'invalid-issuer').exists()
     reject(lambda: keys.backup(original, encrypted, 'ci-keys', password))
     for issuer, expected, phrase in [('wrong', public, password), ('ci-keys', '00'*32, password), ('ci-keys', public, b'wrong-password-at-least-16')]:
         target = root/'rejected'
