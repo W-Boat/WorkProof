@@ -34,9 +34,11 @@ jobs:
         if: success()
         run: python -m pip freeze > detectorscope-environment.txt
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: experimental-detectorscope-synthetic-validation
           path: |
+            detectorscope-conversion-results.json
             detectorscope-synthetic-results.json
             detectorscope-environment.txt
-          if-no-files-found: error
+          if-no-files-found: warn
