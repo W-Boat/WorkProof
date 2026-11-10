@@ -24,6 +24,8 @@
 
 ## 服务准备范围
 
+新增部署恢复后的组合验收（待 Actions）：基础数据库与私有卷恢复完成、原账号登录后，默认签发须保持关闭，再通过独立临时密钥的加密备份/恢复和明确只读挂载，检查恢复项目内固定镜像的 HTTP 签发。检查后默认应用仍关闭签发、源项目仍停止。此场景的测试身份在部署恢复后独立生成，不能据此宣称原源签发密钥已与数据库快照关联或已恢复生产身份。
+
 ### 明确创建一套新机构密钥（新增，待 Actions）
 
 管理员可在 Linux root 环境使用 `python3 receipt_keys.py create --output /absolute/root-private-parent/new-key-directory --issuer institution-id`。父目录须 root 所有、0700；目标须尚不存在。命令以系统随机数生成一套 Ed25519 密钥，目录和文件分别为服务 UID/GID 10001 的 0700、0600，绝不覆盖已有身份。成功只打印机构编号、公钥和 `signing_activated: false`，不需要口令，不启动服务。

@@ -158,7 +158,7 @@ try:
         image_id=subprocess.check_output(['docker','image','inspect','workproof-institution:local','--format','{{.Id}}'],text=True).strip()
         restored=subprocess.run(['sudo','env','GITHUB_ACTIONS=true','python3',str(root/'scripts/test_restore_new.py'),
             '--input',destination,'--expected-image',image_id,'--expected-commit',os.environ['GITHUB_SHA'],
-            '--source-project',project,'--password-stdin'],input=backup_password+b'\n',capture_output=True,timeout=900)
+            '--source-project',project,'--password-stdin','--receipt-identity'],input=backup_password+b'\n',capture_output=True,timeout=900)
         assert backup_password not in restored.stdout+restored.stderr
         restore_phase=re.search(rb'RESTORE_PHASE=([a-z-]{1,40}); RESTORE_TEST_PHASE=([a-z-]{1,40})',restored.stderr)
         restore_stage='/'.join(part.decode() for part in restore_phase.groups()) if restore_phase else 'unknown'

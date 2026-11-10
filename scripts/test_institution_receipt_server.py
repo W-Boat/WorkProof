@@ -14,15 +14,17 @@ import urllib.error
 import urllib.request
 
 
-def verify_receipt_server(compose, environment, token, root, project, external=False):
+def verify_receipt_server(compose, environment, token, root, project, external=False, port=18082, expected_image=None):
     assert os.environ.get('GITHUB_ACTIONS') == 'true'
-    assert re.fullmatch(r'workproof-server-ci-[0-9a-f]{12}', project)
+    assert re.fullmatch(r'workproof-(?:server|restore)-ci-[0-9a-f]{12}', project)
+    assert port in (18082, 18083)
+    if expected_image is not None: assert re.fullmatch(r'sha256:[0-9a-f]{64}', expected_image)
     name = project + ('-receipt-bind-probe' if external else '-receipt-probe')
     ttl = '600' if external else '60'
     external_keys = None
     restored_keys = None
     launch_compose, launch_environment = list(compose), dict(environment)
-    origin = 'http://127.0.0.1:18082'
+    origin = f'http://127.0.0.1:{port}'
     bootstrap = '''import os,pathlib,stat
 from cryptography.hazmat.primitives import serialization as s
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -61,6 +63,7 @@ os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])
         assert value['Config']['Labels'].get('com.docker.compose.service') == 'app'
         assert str(value['Config']['Labels'].get('com.docker.compose.oneoff')).lower() == 'true'
         assert re.fullmatch(r'[0-9a-f]{64}', value['Id'])
+        if expected_image is not None: assert value['Image'] == expected_image
         return value
 
     try:
@@ -96,7 +99,7 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
             recovered = subprocess.run(['docker', 'run', '--rm', '--user', '0', '--network', 'none', '--read-only',
                 '--tmpfs', '/tmp:rw,nosuid,nodev,mode=1777', '--interactive', '--mount',
                 'type=bind,src='+str(key_root)+',dst=/source,readonly', '--entrypoint', 'python3',
-                'workproof-institution:local', '-c', recovery],
+                expected_image or 'workproof-institution:local', '-c', recovery],
                 input=json.dumps({'password':secrets.token_hex(24),'public':public_probe.stdout.strip()}),
                 capture_output=True, text=True, timeout=60)
             assert recovered.returncode == 0, 'Image key backup/restore failed before HTTP activation'
@@ -113,7 +116,7 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
             launch_environment.update(WORKPROOF_RECEIPT_KEY_DIRECTORY=str(key_root), WORKPROOF_RECEIPT_ISSUER_ID='ci-image-http', WORKPROOF_RECEIPT_LIFETIME_SECONDS=ttl)
             bootstrap = "import os;assert os.environ.get('GITHUB_ACTIONS')=='true';os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])"
         started = subprocess.run([*launch_compose, 'run', '--detach', '--rm', '--no-deps', '--name', name,
-            '--publish', '127.0.0.1:18082:8080', '--entrypoint', 'python3', '-e', 'GITHUB_ACTIONS=true',
+            '--publish', f'127.0.0.1:{port}:8080', '--entrypoint', 'python3', '-e', 'GITHUB_ACTIONS=true',
             'app', '-c', bootstrap], env=launch_environment, capture_output=True, text=True, timeout=90)
         assert started.returncode == 0, 'Could not launch isolated signing probe'
         info = probe_info()

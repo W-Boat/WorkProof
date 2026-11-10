@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- 基础 `test_restore_new --receipt-identity` → 实际数据库/私有卷恢复与原账号登录 → 默认签发关闭 → 固定镜像 ID 下合成密钥独立加密恢复 → 同恢复项目的 one-off HTTP 签发 → 默认仍关闭、源仍停止。只在基础恢复专项显式启用，不增加普通恢复启动行为；未证明原源签发身份与数据库快照关联，待 Actions。
+
 - 显式 `receipt_keys.create` → Ed25519 OS 随机密钥 → 与 restore 共用 `publish_new` 全新目录写入 → UID/GID 10001、目录 0700/文件 0600 → 仅返回可发布公钥信息与 signing_activated=false。普通启动不调用；真实 CLI 和保密/不覆盖检查待 Actions。
 
 - `receipt_keys.restore` 写入 → fchown → fsync → 两文件完成后目录 fchown；专项在创建第二文件前注入 I/O 异常，核对不完整目录仍 root/0700 且重试拒绝覆盖。不是主机断电恢复证明，新增结果待 Actions。

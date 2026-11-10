@@ -29,7 +29,7 @@ TEST_PHASES = {'preflight', 'guard-checks', 'restore', 'ready-stopped', 'databas
                'row-comparison', 'login', 'private-readback', 'refusal-existing-project',
                'refusal-wrong-passphrase', 'refusal-existing-volume', 'source-check', 'cleanup', 'completed',
                'jobs-ready', 'jobs-submit', 'jobs-complete', 'jobs-running-recovery', 'ai-disabled',
-               'ai-reactivation', 'ai-reactivated-start', 'ai-reactivated-inference'}
+               'ai-reactivation', 'ai-reactivated-start', 'ai-reactivated-inference', 'receipt-identity'}
 RESTORE_PHASES = {'preflight', 'authenticate', 'create-owned-volumes', 'install-private-volumes',
                   'start-new-database', 'import-new-database', 'verify-restored-database'}
 
@@ -107,6 +107,7 @@ def main():
         parser.add_argument('--' + option, required=True)
     parser.add_argument('--password-stdin', action='store_true', required=True)
     parser.add_argument('--jobs-fixture')
+    parser.add_argument('--receipt-identity', action='store_true')
     parser.add_argument('--ai-base-image')
     parser.add_argument('--ai-model-volume')
     parser.add_argument('--ai-engine',choices=('mpu-en-v3','mpu-zh-v3','desklib-en-v1.01'))
@@ -249,6 +250,19 @@ for role in a.ROOTS:
             result = json.loads(request(base, '/api/auth/login', {'username': 'admin', 'password': account['password'],
                 'captchaUuid': captcha['uuid'], 'captcha': captcha['code']})[1])
             assert (result.get('data') or {}).get('token'), 'Restored original credentials did not log in'
+            if args.receipt_identity:
+                TEST_PHASE = 'receipt-identity'
+                from test_institution_receipt_server import verify_receipt_server
+                repository = pathlib.Path(__file__).resolve().parent.parent
+                restored_token = result['data']['token']
+                before = json.loads(request(base, '/api/workproof/receipts/capabilities', token=restored_token)[1])['data']
+                assert before['configured'] is False, 'Deployment restore unexpectedly activated a signing identity'
+                verify_receipt_server(compose, dict(os.environ), restored_token, repository, project,
+                    external=True, port=18083, expected_image=args.expected_image)
+                after = json.loads(request(base, '/api/workproof/receipts/capabilities', token=restored_token)[1])['data']
+                assert after['configured'] is False, 'Explicit identity probe modified default restored app'
+                assert not restore.inspect(source_apps[0])['State']['Running']
+                TEST_PHASE = 'login'
             if (state / 'stage/app_config/ai.json').exists():
                 TEST_PHASE = 'ai-disabled'
                 status, payload = request(base, '/api/workproof/analysis/capabilities', token=result['data']['token'])
