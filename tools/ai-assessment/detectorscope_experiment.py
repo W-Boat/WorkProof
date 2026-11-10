@@ -16,7 +16,9 @@ inventory = json.loads((root/'docs/research/detectorscope-model-inventory-202611
 
 if len(sys.argv) > 1 and sys.argv[1] == '--infer':
     os.environ.update(HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', HF_HUB_DISABLE_TELEMETRY='1')
-    resource.setrlimit(resource.RLIMIT_AS, (16*1024**3, 16*1024**3))
+    # Mapped float32 checkpoint shards coexist with converted float16 tensors.
+    # Virtual mappings are not physical residency; the parent separately watches RSS.
+    resource.setrlimit(resource.RLIMIT_AS, (32*1024**3, 32*1024**3))
     import torch
     from detectorscope import AuditableDetector
     torch.set_num_threads(2)
@@ -61,11 +63,31 @@ for item in inventory['files']:
         for chunk in iter(lambda:stream.read(1024*1024), b''): hashed.update(chunk)
     assert hashed.hexdigest() == (item['lfs']['oid'] if item['lfs'] else item['git_oid']), 'Fixed model payload digest mismatch'
 environment = dict(os.environ, HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', HF_HUB_DISABLE_TELEMETRY='1')
-child = subprocess.run([sys.executable, __file__, '--infer', str(model_path)], env=environment, capture_output=True, text=True, timeout=240)
+child = subprocess.Popen([sys.executable, __file__, '--infer', str(model_path)], env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+deadline, observed_rss = time.monotonic()+240, 0
+try:
+    while True:
+        try:
+            stdout, stderr = child.communicate(timeout=0.5)
+            break
+        except subprocess.TimeoutExpired:
+            status = pathlib.Path(f'/proc/{child.pid}/status')
+            if status.exists():
+                values = [int(line.split()[1])*1024 for line in status.read_text().splitlines() if line.startswith('VmRSS:')]
+                if values: observed_rss = max(observed_rss, values[0])
+            if observed_rss > 10*1024**3: raise RuntimeError('Synthetic probe exceeded 10 GiB observed RSS budget')
+            if time.monotonic() > deadline: raise RuntimeError('Synthetic probe exceeded 240 second budget')
+finally:
+    if child.poll() is None:
+        child.kill()
+        child.communicate(timeout=15)
+assert len(stdout)+len(stderr) <= 1024*1024, 'Probe output exceeds report budget'
 if child.returncode:
-    print(child.stderr[-4000:], file=sys.stderr)  # Synthetic-only input, no user documents or credentials.
+    print(stderr[-4000:], file=sys.stderr)  # Synthetic-only input, no user documents or credentials.
     raise RuntimeError('Fixed-model synthetic inference failed')
-report = json.loads(child.stdout)
+report = json.loads(stdout)
+assert report['peak_rss_kib']*1024 <= 10*1024**3, 'Final reported RSS exceeds resource budget'
+report['parent_observed_peak_rss_bytes'] = observed_rss
 report.update(model_revision=inventory['revision'], verified_files=len(inventory['files']), source_commit='52ecc87775154b35d4550911de22faad4fc68f40',
               scope='two synthetic resource probes; float16 differs from original float32; no Chinese/English accuracy conclusion')
 (root/'detectorscope-synthetic-results.json').write_text(json.dumps(report,indent=2)+'\n')
