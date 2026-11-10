@@ -1,0 +1,44 @@
+{
+  "retrieved_at_utc": "2026-11-10T17:00:03.404400+00:00",
+  "code_revision": "52ecc87775154b35d4550911de22faad4fc68f40",
+  "model_revision": "9baaff9e2d1cdb79cafa90cdb27811b847e69dae",
+  "scope": "Primary-source archive only; not complete distribution or training-data clearance. Live terms pages are retrieval snapshots, not immutable upstream revisions.",
+  "sources": [
+    {
+      "file": "code-LICENSE.txt",
+      "source_url": "https://raw.githubusercontent.com/google-deepmind/detectorscope/52ecc87775154b35d4550911de22faad4fc68f40/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "file": "model-README.md",
+      "source_url": "https://huggingface.co/liamdugan/detector-scope/raw/9baaff9e2d1cdb79cafa90cdb27811b847e69dae/README.md",
+      "bytes": 6222,
+      "sha256": "e59d4987e5b09f1231267b29a57ebf4af577b57fa01cc2c401a3b8b41223eec5"
+    },
+    {
+      "file": "model-NOTICE.txt",
+      "source_url": "https://huggingface.co/liamdugan/detector-scope/raw/9baaff9e2d1cdb79cafa90cdb27811b847e69dae/NOTICE",
+      "bytes": 98,
+      "sha256": "587bc86563cb40490af8e14e7c9dec88e34ddf80078f939b7770072f6b43df2f"
+    },
+    {
+      "file": "gemma-terms.html",
+      "source_url": "https://ai.google.dev/gemma/terms",
+      "bytes": 144388,
+      "sha256": "003adc8f1d9a4b3cc0de0a5676a3183d7fa45b5a9213719a94f136b7e8b11b71"
+    },
+    {
+      "file": "gemma-prohibited-use.html",
+      "source_url": "https://ai.google.dev/gemma/prohibited_use_policy",
+      "bytes": 135421,
+      "sha256": "829e7da0ea47009471cd0c29a8b204a8c2c59672df83214fd3948d766d703113"
+    }
+  ],
+  "unarchived_sources": [
+    {
+      "url": "https://creativecommons.org/licenses/by/4.0/legalcode.txt",
+      "reason": "HTTP 403; no text archived and no substitute text presented as upstream."
+    }
+  ]
+}

@@ -1,5 +1,22 @@
 # WorkProof 商业使用许可核验
 
+## 2026-11-11 增量：DetectorScope 必须分层核验
+
+DetectorScope 目前只用于独立的 Actions 实验，没有进入默认桌面守护进程、Windows 安装器或机构服务镜像。实际模型使用和后续分发仍须满足各层条款。代码能商用，不代表整个权重包可以按同一许可交付。
+
+| 层次 | 本次核验依据 | 商用及交付条件 |
+|---|---|---|
+| 检测代码 | google-deepmind/detectorscope 固定提交 `52ecc87775154b35d4550911de22faad4fc68f40` 的 Apache-2.0 LICENSE | 可按条件商用；分发保留许可、适用声明并标记修改，不提供 Google 商标或官方背书授权 |
+| `extractor/` 中的 Gemma-2-2b | 模型卡固定 revision `9baaff9e2d1cdb79cafa90cdb27811b847e69dae` 明确指向 Gemma Terms of Use，模型包另有 NOTICE | 不能按 Apache 或 MIT 覆盖。须核对 Gemma 使用限制、向后续用户传递的条款、许可副本与适用 NOTICE；托管 API 也在其 Distribution 定义内 |
+| 稀疏自编码器（SAE） | 同一模型卡声明源自 Gemma Scope（CC-BY-4.0） | 按模型卡所述来源继续核验；商业使用须履行署名、许可链接、修改说明等条件，不推定已核清原始训练数据或所有底层权利 |
+| 分类头和特征描述 | 同一固定模型卡明确声明 CC-BY-4.0 | 可按条件商用；保留适当署名及来源，不暗示作者认可 WorkProof，不施加与该许可冲突的额外限制 |
+
+官方来源：[代码许可](https://github.com/google-deepmind/detectorscope/blob/52ecc87775154b35d4550911de22faad4fc68f40/LICENSE)、[固定模型卡](https://huggingface.co/liamdugan/detector-scope/blob/9baaff9e2d1cdb79cafa90cdb27811b847e69dae/README.md)、[Gemma 条款](https://ai.google.dev/gemma/terms)、[禁止用途政策](https://ai.google.dev/gemma/prohibited_use_policy)、[CC-BY-4.0 说明及法律文本入口](https://creativecommons.org/licenses/by/4.0/)。Gemma 页面标明最后修改于 2026-04-01；本地保留的是核验时网页快照，不保证以后条款不变。
+
+五份上游原文及逐文件 SHA-256 见 [来源归档](licenses/detectorscope-20261111/sources.json)。CC 法律文本直接下载返回 HTTP 403，已在清单中单独记录，未用其他文本冒充完整许可归档；官网摘要页也不能代替法律文本。尚未逐项核清原始 Gemma Scope 版本及其完整通知、训练数据权利、最终模型包通知与实际商业部署条款。因此本次结论为“存在有条件商用路线，整包分发审查未完成”。
+
+Actions 中产生的 float16 骨干是从已校验原始权重转换的实验派生文件，不改变上述条款，也没有随报告产物发布。未来若分发，应将原始 revision、转换方法、修改标记、作者署名与适用许可一并交付。权重可公开下载、运行通过、误报评估通过，都不能替代许可核验；许可允许使用也不能证明检测准确。
+
 2026-11-03 实验性 LRR 增量：固定 `Qwen/Qwen3-0.6B-Base` revision `da87bfb608c14b7cf20ba1ce41287e8de496c0cd` 的 [LICENSE 原文及模型卡](licenses/qwen3-0.6b-base/source.json)已从官方固定版本归档，字节与模型清单摘要相符。许可证原文为 Apache-2.0，允许在遵守保留许可、适用通知、修改标记及其余条件下进行商业使用；这不是整个产品、所有训练数据、底层组件或商标的额外授权。该模型目前仅在独立实验中使用，不进入默认守护进程和机构镜像。LRR依据论文公式独立实现，没有复制缺少可核验源码许可的 DetectLLM 仓库代码；检测方法的准确率与完整权利状态仍分别评估。本增量不改变下文其他包的缺失原文、WPS条款冲突或整体分发约束。
 
 实际CPU归档已验证35包/188许可原文，tokenizers0.23.3 wheel缺许可仍单列。已核PyPI发行源码的Apache原文作为版本级补充；源码发布tag与sdist的Cargo/pyproject不同，不能据此推定整个wheel血缘或二进制依赖授权已完整。requirements固定tokenizers0.23.3避免补充材料与版本漂移。
