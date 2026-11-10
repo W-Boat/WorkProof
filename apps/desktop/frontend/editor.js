@@ -2,6 +2,8 @@ import {initializeWritingWorkspace} from './writing-workspace.js';
 import {groupActions} from './action-flow.mjs';
 import {externalRecords,sourceLabel,groupExternalDocuments,displayTime} from './external-records.js';
 import {icon} from './icons.js';
+import {draftTemplates} from './draft-templates.js';
+import {initializeWorkspaceTools} from './workspace-tools.js';
 
 const $=id=>document.getElementById(id);
 const ipc=(command,args)=>window.__TAURI__.core.invoke(command,args);
@@ -13,7 +15,7 @@ async function loadEditorRuntime(){
   try{editorRuntime=await runtimeLoading;return editorRuntime;}
   catch(error){runtimeLoading=null;throw error;}
 }
-const labels={edit:'修改文字',format:'调整格式或结构',undo:'撤销修改',redo:'重做修改',copy:'复制命令',paste:'粘贴命令',cut:'剪切命令',backspace:'退格命令',delete_forward:'向后删除命令',space:'空格键',enter:'回车键',cursor:'移动光标',selection:'调整选区',focus:'回到编辑',blur:'离开编辑',transaction:'编辑器事务',keyboard:'键盘操作',input:'完成输入',beforeinput:'准备输入',compositionstart:'开始输入法合成',compositionupdate:'输入法合成',compositionend:'完成输入法合成',drop:'放入内容',dragstart:'开始拖动',dragend:'结束拖动',import:'导入 Word',layout:'切换页面布局'};
+const labels={edit:'修改文字',format:'调整格式或结构',undo:'撤销修改',redo:'重做修改',copy:'复制命令',paste:'粘贴命令',cut:'剪切命令',backspace:'退格命令',delete_forward:'向后删除命令',space:'空格键',enter:'回车键',cursor:'移动光标',selection:'调整选区',focus:'回到编辑',blur:'离开编辑',transaction:'编辑器事务',keyboard:'键盘操作',input:'完成输入',beforeinput:'准备输入',compositionstart:'开始输入法合成',compositionupdate:'输入法合成',compositionend:'完成输入法合成',drop:'放入内容',dragstart:'开始拖动',dragend:'结束拖动',import:'导入内容',layout:'切换页面布局'};
 let editor=null,active=null,documents=[],pending=[],inflight=null,dirty=false,saving=null,saveTimer,maxSaveTimer,refreshTimer;
 let externalDocuments=[],libraryLoadError='';
 let suppressed=false,opening=false,exporting=false,intent=null,lastSelection='',selectionAt=0,historyToken=0;
@@ -74,6 +76,7 @@ function keydown(_view,event){
 function transaction({transaction:tr,editor:instance}){
   if(suppressed)return;
   const detail={doc_changed:tr.docChanged,selection_set:tr.selectionSet,stored_marks_set:tr.storedMarksSet,meta_keys:Object.keys(tr.meta||{}).slice(0,64)};
+  if(tr.getMeta('workproofTemplate'))Object.assign(detail,{source:'builtin-template',template_id:tr.getMeta('workproofTemplate')});
   if(!tr.docChanged){addAction(tr.selectionSet?'selection':'transaction',{detail,selection:{from:tr.selection.from,to:tr.selection.to}});if(tr.storedMarksSet)updateToolbar(instance);return;}
   const delta=changedText(fullText(tr.before),fullText(tr.doc));
   let kind=intent&&performance.now()-intent.at<600?intent.kind:delta.inserted||delta.deleted?'edit':'format';intent=null;
@@ -189,19 +192,32 @@ async function openDocument(doc){
     $('certificate-result').hidden=true;$('certificate-empty').hidden=false;renderRecent();updateToolbar();ui.selectView('document');selectTab('write');
   }catch(error){reportError(error);}finally{suppressed=false;opening=false;}
 }
-async function createDocument(){
+async function createDocument(templateId='blank'){
   if(opening||creating||exporting||closing)return;
   creating=true;
   const buttons=[$('new-document'),$('first-document')];buttons.forEach(b=>b.disabled=true);
-  try{await flush();const doc=await ipc('editor_create',{title:'未命名文档',started:new Date().toISOString()});await openDocument(doc);$('document-title').focus();$('document-title').select();await loadLibrary();}
+  try{
+    const template=draftTemplates.find(item=>item.id===templateId);
+    await flush();const doc=await ipc('editor_create',{title:template?.title||'未命名文档',started:new Date().toISOString()});await openDocument(doc);
+    if(active?.id!==doc.id)throw new Error('新文档尚未打开，请从我的文档重试。');
+    if(template){hint('import');editor.view.dispatch(editor.state.tr.replaceWith(0,editor.state.doc.content.size,editor.schema.nodeFromJSON(template.content).content).setMeta('workproofTemplate',template.id));await flush();}
+    $('document-title').focus();$('document-title').select();await loadLibrary();
+  }
   catch(error){ui.showMessage(errorText(error),'error');}finally{creating=false;buttons.forEach(b=>b.disabled=false);}
 }
 function element(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
+const librarySort=element('select');librarySort.id='library-sort';librarySort.setAttribute('aria-label','文档排序');
+for(const [value,label] of [['recent','最近修改'],['title','按名称排序']]){const option=element('option','',label);option.value=value;librarySort.append(option);}
+try{librarySort.value=localStorage.getItem('workproof.library-sort')==='title'?'title':'recent';}catch{}
+$('import-word').before(librarySort);
+const librarySummary=element('p','library-summary');librarySummary.id='library-summary';librarySummary.setAttribute('role','status');$('document-list').before(librarySummary);
+librarySort.addEventListener('change',()=>{try{localStorage.setItem('workproof.library-sort',librarySort.value);}catch{}renderLibrary();});
+const titleOrder=new Intl.Collator('zh-CN',{numeric:true,sensitivity:'base'});
 function renderLibrary(){
   const query=($('document-search').value||'').trim().toLocaleLowerCase();$('document-list').replaceChildren();
   const selectedSource=$('library-source-filter')?.value||'all';
   const entries=documents.map(doc=>({type:'editor',doc,source:'editor',time:Number(doc.modified)})).concat(groupExternalDocuments(externalDocuments));
-  entries.sort((a,b)=>(b.time??0)-(a.time??0));
+  entries.sort((a,b)=>librarySort.value==='title'?titleOrder.compare(a.doc.title,b.doc.title):((b.time??0)-(a.time??0))||titleOrder.compare(a.doc.title,b.doc.title));
   const filtered=entries.filter(entry=>(selectedSource==='all'||selectedSource===entry.source)&&`${entry.doc.title} ${sourceLabel(entry.source)} ${entry.source}`.toLocaleLowerCase().includes(query));
   for(const entry of filtered){
     const {doc}=entry,row=element('div','document-row');row.setAttribute('role','listitem');row.dataset.documentKey=`${entry.type}:${doc.id}`;row.dataset.source=entry.source;
@@ -214,6 +230,7 @@ function renderLibrary(){
     row.append(icon('document_text'),label,open);$('document-list').append(row);
   }
   $('library-empty').hidden=entries.length>0;
+  librarySummary.textContent=query||selectedSource!=='all'?`找到 ${filtered.length} 份，共 ${entries.length} 份文档`:`${entries.length} 份文档 · 正文与记录保存在本机`;
   $('library-error').textContent=libraryLoadError||(!filtered.length&&entries.length?'没有找到符合条件的文档。':'');
 }
 let listing=false,libraryRefreshPending=false,lastLibraryRefresh=0,catalogRefreshTimer=null,lastCatalogStamp='',lastSessionCount=null;
@@ -416,5 +433,29 @@ $('markdown-file').addEventListener('change',async event=>{
     const parsed=editor.schema.nodeFromJSON(editor.markdown.parse(text));hint('import');editor.view.dispatch(editor.state.tr.replaceWith(0,editor.state.doc.content.size,parsed.content).setDocAttribute('markdownSource',text));await flush();
     document.querySelector('[data-mode=markdown]').click();ui.showMessage('Markdown 已导入，从现在开始记录。');await loadLibrary();
   }catch(error){ui.showMessage(errorText(error),'error');}finally{importing=false;$('import-markdown').disabled=false;}
+});
+const workspaceTools=initializeWorkspaceTools({
+  getEditor:()=>editor,canOpen:()=>!closing&&!opening&&!exporting&&!creating,
+  onError:error=>ui.showMessage(errorText(error),'error'),
+  commands:()=>{
+    const current=Boolean(active&&document.body.dataset.view==='document'),writing=current&&$('tab-write').getAttribute('aria-selected')==='true';
+    const navigate=async view=>{await flush();ui.selectView(view,true);};
+    return [
+      {id:'new',title:'新建空白文档',description:'自动保存正文与编辑过程',icon:'document',shortcut:'Ctrl+N',run:()=>createDocument()},
+      ...draftTemplates.map(template=>({id:'template:'+template.id,title:'新建'+template.title,description:template.description,icon:'document_text',run:()=>createDocument(template.id)})),
+      {id:'import-word',title:'导入 Word 文档',description:'打开 .docx，从导入后开始记录',icon:'arrow_upload',run:()=>$('import-word').click()},
+      {id:'import-markdown',title:'导入 Markdown 或文本',description:'打开 .md、.markdown 或 .txt',icon:'code',run:()=>$('import-markdown').click()},
+      {id:'save',title:'保存当前文档',description:'将正文与待保存动作写入本机',icon:'save',enabled:current,run:()=>flush()},
+      {id:'find',title:'查找和替换',icon:'search',enabled:writing,run:()=>{if(workspace.closeSource())workspace.openFind();}},
+      {id:'focus',title:'切换专注写作',description:'收起辅助面板，留出更多正文空间',icon:'full_screen_maximize',enabled:writing,run:()=>(document.body.classList.contains('simple-writing')?$('exit-simple-writing'):$('focus-writing')).click()},
+      {id:'statistics',title:'查看文档统计',description:'字符、汉字、英文词和段落',icon:'text_bullet_list_ltr',enabled:current,run:()=>workspaceTools.showStatistics()},
+      {id:'process',title:'查看编辑过程',description:'回看版本与动作流程',icon:'play',enabled:current,run:()=>$('tab-process').click()},
+      {id:'export',title:'导出作品与证书',description:'使用当前选择的文件格式',icon:'arrow_download',enabled:current,run:()=>$('export-document').click()},
+      {id:'library',title:'返回我的文档',icon:'document',run:()=>navigate('library')},
+      {id:'verify',title:'核验作品与证书',icon:'checkmark',run:()=>navigate('verification')},
+      {id:'connections',title:'连接 Word 等外部应用',icon:'plug_connected',run:()=>navigate('connections')},
+      ...[...documents].sort((a,b)=>Number(b.modified)-Number(a.modified)).slice(0,8).map(doc=>({id:'resume:'+doc.id,title:'继续编辑 '+doc.title,description:'本机文档',icon:'document_text',run:async()=>{await flush();await openDocument(await ipc('editor_load',{id:doc.id}));}})),
+    ];
+  },
 });
 await loadLibrary();

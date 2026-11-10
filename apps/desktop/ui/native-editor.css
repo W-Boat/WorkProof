@@ -342,3 +342,36 @@ body.simple-writing .writing-chrome{padding:0;min-height:0;gap:0}
 @media(max-width:1100px){.doc-head{gap:10px}.doc-actions>#save-state{display:none}.doc-head>.doc-identity{max-width:none}.doc-actions>#export-document{font-size:0;width:30px;min-width:30px;padding:0}.doc-actions>#export-document::part(control){width:30px;min-width:30px;padding:5px}.doc-head>.document-tabs{gap:12px}}
 @media(max-width:760px){.doc-head{flex-wrap:nowrap;gap:7px;padding-inline:8px}.doc-head>.doc-identity{min-width:70px}.doc-head>.document-tabs{gap:9px}.doc-head>.mode-switch{gap:0}.doc-head>.mode-switch fluent-button{padding-inline:3px}.doc-head>.mode-switch fluent-button::part(control){padding-inline:4px}.doc-actions select{display:none}.writing-chrome{gap:5px;padding-inline:7px}.writing-chrome>.ribbon-tabs{gap:8px;padding-right:6px}.writing-chrome>.mode-strip{padding-left:4px}.mode-strip>.view-switch{gap:0}.writing-chrome fluent-button.icon-button,.writing-chrome fluent-button.icon-button::part(control){width:28px;min-width:28px;height:30px;min-height:30px;padding:4px}.doc-identity>.text-link{display:none}}
 @media(max-width:540px){#document-workspace{grid-template-rows:44px minmax(0,1fr)}.doc-head>.document-tabs{gap:7px}.doc-head>.document-tabs>button{font-size:12px}.doc-head>.mode-switch fluent-button{font-size:11px}.doc-head>.mode-switch fluent-button::part(control){padding-inline:3px}.mode-name{display:none}.mode-short{display:inline}.doc-head>.doc-identity{min-width:45px}.doc-identity input{font-size:14px;padding-inline:2px}.doc-actions>#save-document{display:none}.doc-head{gap:5px}.writing-chrome>.ribbon-tabs{gap:6px}.ribbon-tabs button{font-size:12px}.writing-chrome>.mode-strip{max-width:120px;overflow-x:auto;scrollbar-width:none}.writing-chrome>.mode-strip::-webkit-scrollbar{display:none}.feedback{top:auto;bottom:38px;right:10px;max-width:calc(100vw - 20px)}body.simple-writing #document-workspace{grid-template-rows:0 minmax(0,1fr)}}
+/* Workspace commands stay in the title bar; writing retains its two-row chrome. */
+.workspace-command-trigger{flex:none;min-width:32px;--control-height:28px}
+.library-summary{font-size:14px;margin:0 0 12px;color:var(--muted)}
+.library-toolbar{flex-wrap:wrap}
+.writing-statistics-button{border:0;background:transparent;color:var(--muted);padding:0 8px;min-height:24px;border-radius:4px;font-size:13px}
+.writing-statistics-button:hover{color:var(--text);background:var(--hover)}
+body:not([data-view=document]) .writing-statistics-button{display:none}
+.workspace-command-dialog,.workspace-statistics{color:var(--text);background:var(--content);border:1px solid var(--stroke);border-radius:8px;padding:20px;box-shadow:0 8px 28px #0003;max-height:calc(100dvh - 40px);overflow:auto}
+.workspace-command-dialog{width:min(620px,calc(100vw - 32px));margin:min(10dvh,80px) auto}
+.workspace-statistics{width:min(440px,calc(100vw - 32px));margin:auto}
+.workspace-command-dialog::backdrop,.workspace-statistics::backdrop{background:#0004}
+.workspace-command-dialog[open],.workspace-statistics[open]{animation:workspace-dialog-enter 160ms var(--ease)}
+.workspace-command-dialog h2,.workspace-statistics h2{font-size:20px;margin:0 0 16px}
+.command-search{width:100%;padding:10px 12px;background:var(--shell);color:var(--text);border:1px solid var(--stroke);border-bottom:2px solid var(--accent);border-radius:4px;outline-offset:2px;font-size:16px}
+.command-results{list-style:none;padding:0;margin:12px -6px 0;max-height:min(52dvh,440px);overflow:auto}
+.command-results li+li{margin-top:2px}
+.command-option{display:flex;align-items:center;gap:12px;width:100%;padding:10px;border:0;border-radius:4px;background:transparent;text-align:left;color:var(--text)}
+.command-option:hover,.command-option:focus-visible{background:var(--hover)}
+.command-option .wp-icon{flex:none;color:var(--accent)}
+.command-copy{display:grid;gap:2px;min-width:0;flex:1}
+.command-copy strong{font-size:15px;font-weight:500;overflow-wrap:anywhere}
+.command-description{font-size:13px;color:var(--muted)}
+.command-option kbd{font:12px 'Segoe UI',sans-serif;color:var(--muted);flex:none}
+.command-help,.command-empty,.statistics-note{font-size:13px;color:var(--muted);margin-top:12px}
+.command-empty{padding:16px 0}
+.statistics-values{display:grid;margin:0}
+.statistics-values>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--stroke)}
+.statistics-values dt{font-size:15px;color:var(--muted)}
+.statistics-values dd{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;margin:0}
+.workspace-statistics fluent-button{display:block;margin-top:20px;margin-left:auto;width:max-content}
+@keyframes workspace-dialog-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.workspace-command-dialog[open],.workspace-statistics[open]{animation:none}}
+:root[data-reduce-motion=true] .workspace-command-dialog[open],:root[data-reduce-motion=true] .workspace-statistics[open]{animation:none}

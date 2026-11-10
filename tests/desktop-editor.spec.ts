@@ -630,3 +630,51 @@ test('action character counts preserve Unicode and paragraph semantics through e
   const fresh=await page.evaluate(id=>(window as any).editorHarness.saves.filter((s:any)=>s.id===id).flatMap((s:any)=>s.actions),secondId);
   expect(fresh.filter((a:any)=>a.kind==='keyboard'&&a.detail?.key==='ArrowRight').at(-1)?.chars).toBe(0);
 });
+test('workspace commands create a recorded template and remain keyboard accessible',async({page})=>{
+  await desktop(page);
+  await page.keyboard.press('Control+k');
+  const palette=page.getByRole('dialog',{name:'快捷命令',exact:true});
+  await expect(palette).toBeVisible();
+  const search=palette.getByRole('searchbox',{name:'搜索功能或文档'});
+  await search.fill('找不到的命令xyz');await expect(palette.getByText('没有找到。试试“新建”“查找”或文档名称。')).toBeVisible();
+  await search.fill('会议记录');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
+  await expect(palette).not.toBeVisible();await expect(page.getByRole('textbox',{name:'文档标题'})).toHaveValue('会议记录');
+  await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('讨论要点');
+  await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions).some((a:any)=>a.kind==='import'&&a.detail?.source==='builtin-template'&&a.detail?.template_id==='meeting'))).toBe(true);
+  await page.keyboard.press('Control+k');await search.fill('返回我的文档');await page.keyboard.press('Enter');
+  await expect(page.locator('body')).toHaveAttribute('data-view','library');
+  await page.keyboard.press('Control+k');await search.fill('继续编辑 会议记录');await page.keyboard.press('Enter');
+  await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('讨论要点');
+});
+
+test('document statistics count Unicode characters and return focus without changing content',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('中文 hello world 😀');
+  await page.getByRole('button',{name:'查看文档统计',exact:true}).click();
+  const stats=page.getByRole('dialog',{name:'文档统计',exact:true});await expect(stats).toBeVisible();
+  for(const [label,count] of [['字符（含空白）','16'],['非空白字符','13'],['汉字','2'],['英文词','2'],['文字段落（含标题）','1']]){
+    await expect(stats.locator('dl > div').filter({has:page.getByText(label,{exact:true})}).locator('dd')).toHaveText(count);
+  }
+  await page.keyboard.press('Escape');await expect(stats).not.toBeVisible();
+  await expect(page.getByRole('button',{name:'查看文档统计',exact:true})).toBeFocused();await expect(body).toHaveText('中文 hello world 😀');
+});
+
+test('library sorting persists and source search reports the matching count',async({page})=>{
+  await desktop(page);await create(page);await page.getByRole('textbox',{name:'文档标题'}).fill('Alpha 2');await page.locator('#back-library').click();
+  await create(page);await page.getByRole('textbox',{name:'文档标题'}).fill('Beta 1');await page.locator('#back-library').click();
+  await page.getByRole('combobox',{name:'文档排序'}).selectOption('title');
+  await expect(page.locator('#document-list .document-row strong')).toHaveText(['Alpha 2','Beta 1']);
+  await page.reload();await expect(page.getByRole('combobox',{name:'文档排序'})).toHaveValue('title');
+  await page.getByRole('textbox',{name:'搜索文档',exact:true}).fill('Beta');
+  await expect(page.locator('#library-summary')).toHaveText('找到 1 份，共 2 份文档');
+  await expect(page.locator('#document-list .document-row strong')).toHaveText(['Beta 1']);
+});
+
+test('a save failure prevents a template from replacing the current document',async({page})=>{
+  await desktop(page);const body=await create(page);
+  await page.evaluate(()=>{const w=window as any,invoke=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(command:string,args:any)=>command==='editor_save'?Promise.reject(new Error('磁盘不可写')):invoke(command,args);});
+  await body.fill('必须保留的未保存内容');await page.keyboard.press('Control+k');
+  await page.getByRole('searchbox',{name:'搜索功能或文档'}).fill('新建阅读笔记');await page.keyboard.press('Enter');
+  await expect(body).toHaveText('必须保留的未保存内容');
+  await expect.poll(()=>page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('test.editor.documents')||'{}')).length)).toBe(1);
+  await expect(page.locator('#save-state')).toHaveAttribute('data-state','error');
+});
