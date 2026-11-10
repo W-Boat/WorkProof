@@ -34,12 +34,14 @@ def prior_hashes():
     return hashes, receipts
 
 
-def partition(human_hash):
+def partition(human_hash, namespace='workproof-calibration-v1'):
     # Every occurrence of an original human text has the same assignment.
-    return PARTITIONS[int(ev.digest(('workproof-calibration-v1\0' + human_hash).encode())[-1], 16) % 2]
+    ev.require(isinstance(namespace, str) and re.fullmatch(r'[a-z0-9-]{1,96}', namespace), 'INVALID_SELECTION_NAMESPACE')
+    return PARTITIONS[int(ev.digest((namespace+'\0' + human_hash).encode())[-1], 16) % 2]
 
 
-def select_rows(stream, excluded, quota=8):
+def select_rows(stream, excluded, quota=8, namespace='workproof-calibration-v1'):
+    partition('0'*64, namespace)  # Reject an invalid recipe even when the input is empty.
     ev.require(type(quota) is int and 1 <= quota <= 16, 'INVALID_CALIBRATION_QUOTA')
     ev.require(all(isinstance(h, str) and ev.SHA.fullmatch(h) for h in excluded), 'INVALID_PRIOR_HASH')
     buckets, banned_groups, counts = {}, set(), collections.Counter()
@@ -64,7 +66,7 @@ def select_rows(stream, excluded, quota=8):
         if hh == ah or not all(0 < len(t.encode()) <= 32768 for t in (human, ai)):
             counts['invalid_length_or_identical_pairs'] += 1
             continue
-        key = (partition(hh), language, generator, domain)
+        key = (partition(hh, namespace), language, generator, domain)
         rank = ev.digest('\0'.join((*key, hh, ah)).encode())
         bucket = buckets.setdefault(key, [])
         ev.require(len(buckets) <= 96, 'CALIBRATION_DOMAIN_LIMIT')

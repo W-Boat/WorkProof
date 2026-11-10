@@ -7,6 +7,25 @@ import calibration_data as data
 
 
 class CalibrationSelectionTests(unittest.TestCase):
+    def test_independent_namespace_preserves_grouping_and_exclusions(self):
+        rows = self.fixtures()
+        old, _, _ = self.select(rows)
+        exposed = set.union(*self.hashes(old).values())
+        namespace = 'workproof-detectorscope-calibration-v1'
+        def select(values):
+            return data.select_rows(io.StringIO(json.dumps(values)), exposed, 2, namespace)[0]
+        fresh = select(rows)
+        self.assertEqual(self.hashes(fresh), self.hashes(select(list(reversed(rows)))))
+        self.assertFalse(exposed & set.union(*self.hashes(fresh).values()))
+        self.assertFalse(self.hashes(fresh)['calibration'] & self.hashes(fresh)['heldout'])
+        for part, subset in fresh.items():
+            for row in subset:
+                if row['truth'] == 'human':
+                    self.assertEqual(data.partition(data.ev.digest(row['text'].encode()), namespace), part)
+        for invalid in ('', 'has spaces', 'x\0y', None):
+            with self.assertRaisesRegex(ValueError, 'NAMESPACE'):
+                data.select_rows(io.StringIO('[]'), set(), 2, invalid)
+
     def fixtures(self):
         rows = []
         for language in ('english', 'chinese'):
