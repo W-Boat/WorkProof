@@ -26,6 +26,8 @@
 
 ### 独立密钥备份工具（新增，待 Actions）
 
+最新验收：修复公钥夹具归属的 `d59db8a` 已通过 [42744129941](https://github.com/W-Boat/WorkProof/actions/runs/42744129941) 全部任务。加入写入中断检查的 `05978c82bde88d6703a12925dae0753f07167655` 已通过 [42744314279](https://github.com/W-Boat/WorkProof/actions/runs/42744314279) 全部任务，包含精确镜像内密钥加密恢复、以恢复出的密钥进行真实 HTTP 签发及独立核验、重启身份保持，以及不完整新目录保留/重试不覆盖。下文早期待验收和失败记录保留作历史，以本次精确范围为准；完整部署恢复、普通备份与外部密钥协调仍未完成。
+
 2026-11-10 后续复核：`becf042` 的 [42670573561](https://github.com/W-Boat/WorkProof/actions/runs/42670573561) 与 `81feffa3e7a8035ebc4e989ef4468a2abdfab8b6` 的 [42671014686](https://github.com/W-Boat/WorkProof/actions/runs/42671014686) 均已全部成功。后者实际检查恢复后的真实 Rust 签发、同一原公钥核验、篡改密文和链接目录拒绝。恢复后 HTTP 场景是 `f7bc6f0` 的 [42672452265](https://github.com/W-Boat/WorkProof/actions/runs/42672452265) 新增范围，仍待结果。
 
 新增恢复身份的 HTTP 集成场景：先在镜像内以临时口令备份并恢复合成密钥，再用恢复出的密钥启动独立应用，执行原有签发、独立核验及重启检查。测试秘密不进入公开日志或附件。本增量待 Actions，范围仅为签发身份，不包含数据库或完整部署恢复。
