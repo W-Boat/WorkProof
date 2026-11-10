@@ -1,0 +1,29 @@
+name: Freeze independent DetectorScope bilingual data
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tools/ai-assessment/prepare_detectorscope_data.py', '.github/workflows/detectorscope-data.yml']
+permissions:
+  contents: read
+jobs:
+  selection-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check exclusion and grouping refusal boundaries
+        run: |
+          python tools/ai-assessment/test_observed_samples.py
+          python tools/ai-assessment/test_calibration_data.py
+      - name: Verify source bytes and freeze all partitions before inference
+        run: python tools/ai-assessment/prepare_detectorscope_data.py --output "$RUNNER_TEMP/workproof-detectorscope-evaluation-inputs"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: detectorscope-frozen-selection-no-text
+          path: detectorscope-data-selection.json
+          if-no-files-found: error
