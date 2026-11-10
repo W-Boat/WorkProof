@@ -72,9 +72,11 @@ try:
             break
         except subprocess.TimeoutExpired:
             status = pathlib.Path(f'/proc/{child.pid}/status')
-            if status.exists():
+            try:
                 values = [int(line.split()[1])*1024 for line in status.read_text().splitlines() if line.startswith('VmRSS:')]
                 if values: observed_rss = max(observed_rss, values[0])
+            except (FileNotFoundError, ProcessLookupError):
+                pass  # Child may finish between communicate timeout and /proc read.
             if observed_rss > 10*1024**3: raise RuntimeError('Synthetic probe exceeded 10 GiB observed RSS budget')
             if time.monotonic() > deadline: raise RuntimeError('Synthetic probe exceeded 240 second budget')
 finally:
