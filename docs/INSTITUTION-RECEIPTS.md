@@ -30,6 +30,8 @@
 
 ### 明确创建一套新机构密钥（新增，待 Actions）
 
+源码 `452114e65346e682b291567fc4f9d48a14f38104` 的 [42746441860](https://github.com/W-Boat/WorkProof/actions/runs/42746441860) 已全部成功，包含真实 create CLI、仅公钥输出、私有文件权限、既有目标拒绝和原有备份/恢复检查。后续摘要关联及恢复部署增量须分别验收，不能从本轮成功推断。
+
 管理员可在 Linux root 环境使用 `python3 receipt_keys.py create --output /absolute/root-private-parent/new-key-directory --issuer institution-id`。父目录须 root 所有、0700；目标须尚不存在。命令以系统随机数生成一套 Ed25519 密钥，目录和文件分别为服务 UID/GID 10001 的 0700、0600，绝不覆盖已有身份。成功只打印机构编号、公钥和 `signing_activated: false`，不需要口令，不启动服务。
 
 公钥应通过机构可信渠道发布并独立保留，再使用独立加密备份命令保存私钥。创建身份不等于启用签发，更不等于认证官方客户端；不要在普通应用启动时运行此命令。I/O 失败会保留部分新目录，应先检查现场，不可覆盖重试。本增量待 Actions，旧交付包未包含 create 命令。
