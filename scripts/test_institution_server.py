@@ -98,7 +98,7 @@ try:
     repeated=run('run','--rm','-T','initialize',ok=False)
     assert repeated.returncode!=0 and 'Already initialized or an earlier attempt' in repeated.stderr
     assert json.loads(run('run','--rm','-T','account').stdout.strip())==account
-    run('restart','app');healthy();assert login(password)['data']['token']
+    run('restart','app');healthy();token=login(password)['data']['token'];assert token
     assert json.loads(run('run','--rm','-T','account').stdout.strip())==account
     checks.append('Repeated preparation/import rejected; credentials and database retained across app restart')
     # Capture fixture secrets without placing them in argv or diagnostic output.
@@ -137,7 +137,19 @@ try:
     assert re.fullmatch(r'/tmp/workproof-server-backup-ci\.[A-Za-z0-9]{8}',private_backup)
     backup_password=secrets.token_urlsafe(32).encode()
     backup_env=['sudo','env','COMPOSE_PROJECT_NAME='+project]
+    image_id=subprocess.check_output(['docker','image','inspect','workproof-institution:local','--format','{{.Id}}'],text=True).strip()
     try:
+        # Explicit source identity is established BEFORE the deployment snapshot.
+        # The key never crosses captured stdout; only its public notice does.
+        source_created=subprocess.run(['docker','run','--rm','--user','0','--network','none','--read-only',
+            '--tmpfs','/tmp:rw,nosuid,nodev,mode=1777','--mount','type=bind,src='+private_backup+',dst=/fixture',
+            '--entrypoint','python3',image_id,'/opt/workproof/receipt_keys.py','create',
+            '--output','/fixture/source-keys','--issuer','ci-image-http'],capture_output=True,text=True,timeout=20)
+        assert source_created.returncode==0, 'Could not create explicit source signing fixture'
+        source_public=json.loads(source_created.stdout)['public_key']
+        source_identity=verify_receipt_server(compose,env,token,root,project,external=True,expected_image=image_id,
+            provided_keys=private_backup+'/source-keys',expected_public=source_public)
+        assert source_identity['public_key']==source_public
         destination=private_backup+'/deployment.wproofbackup'
         backed=subprocess.run([*backup_env,'python3',str(context/'backup_coordinator.py'),'--password-stdin','--output',destination],input=backup_password+b'\n',capture_output=True,timeout=240)
         stage_match=re.search(rb'BACKUP_STAGE=([a-z-]{1,40})',backed.stderr)
@@ -149,21 +161,39 @@ try:
         assert verified.returncode==0, 'Encrypted coordinator output did not authenticate and verify'
         inventory=json.loads(verified.stdout)
         assert {'database.sql','app_config/application.json','initial_account/account.json','mysql_root_secret/password','mysql_app_secret/password'}<=set(inventory['paths'])
+        assert not any(path.endswith(('seed.hex','public.hex','source-keys.enc')) for path in inventory['paths']), 'Deployment snapshot unexpectedly included external signing keys'
         assert subprocess.check_output(['docker','inspect','--format','{{.State.Running}}',identifier],text=True).strip()=='false'
         repeated=subprocess.run([*backup_env,'python3',str(context/'backup_coordinator.py'),'--password-stdin','--output',destination],input=backup_password+b'\n',capture_output=True,timeout=30)
         assert repeated.returncode!=0, 'Backup coordinator overwrote an existing snapshot'
         listing=subprocess.check_output(['sudo','find',private_backup,'-mindepth','1','-maxdepth','1','-printf','%f\\n'],text=True).splitlines()
-        assert listing==['deployment.wproofbackup'], 'Private staging plaintext remained after backup'
+        assert sorted(listing)==['deployment.wproofbackup','source-keys'], 'Unexpected private staging data remained after backup'
         checks.append('Actual stopped host coordinator publishes authenticated encrypted snapshot, preserves existing output, cleans staging and keeps app stopped; no deployment restore claim')
-        image_id=subprocess.check_output(['docker','image','inspect','workproof-institution:local','--format','{{.Id}}'],text=True).strip()
+        # Independent retained public key and old receipt are outside the encrypted
+        # key package. The source key backup is bound to the actual snapshot bytes.
+        save_identity="""import json,os,pathlib,sys
+import receipt_keys as k
+v=json.loads(sys.stdin.read());p=pathlib.Path('/fixture')
+k.backup(p/'source-keys',p/'source-keys.enc','ci-image-http',bytes.fromhex(v['password_hex']),
+ k.deployment_digest(p/'deployment.wproofbackup'),v['identity']['public_key'])
+fd=os.open(p/'source-identity.json',os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+with os.fdopen(fd,'w') as f:json.dump(v['identity'],f)
+"""
+        source_saved=subprocess.run(['docker','run','--rm','--user','0','--network','none','--read-only',
+            '--tmpfs','/tmp:rw,nosuid,nodev,mode=1777','--interactive','--mount',
+            'type=bind,src='+private_backup+',dst=/fixture','--entrypoint','python3',image_id,'-c',save_identity],
+            input=json.dumps({'password_hex':backup_password.hex(),'identity':source_identity}).encode(),
+            capture_output=True,timeout=60)
+        assert source_saved.returncode==0, 'Could not bind source identity backup to deployment snapshot'
         restored=subprocess.run(['sudo','env','GITHUB_ACTIONS=true','python3',str(root/'scripts/test_restore_new.py'),
             '--input',destination,'--expected-image',image_id,'--expected-commit',os.environ['GITHUB_SHA'],
-            '--source-project',project,'--password-stdin','--receipt-identity'],input=backup_password+b'\n',capture_output=True,timeout=900)
+            '--source-project',project,'--password-stdin','--receipt-identity','--source-receipt-fixture',private_backup],
+            input=backup_password+b'\n',capture_output=True,timeout=900)
         assert backup_password not in restored.stdout+restored.stderr
         restore_phase=re.search(rb'RESTORE_PHASE=([a-z-]{1,40}); RESTORE_TEST_PHASE=([a-z-]{1,40})',restored.stderr)
         restore_stage='/'.join(part.decode() for part in restore_phase.groups()) if restore_phase else 'unknown'
         assert restored.returncode==0, 'Actual new-project restore acceptance failed at stage: '+restore_stage
         checks.append('Actual new-project restore: authenticated SQL/private volumes, stopped ready state, explicit startup and original login, every-row comparison, collision and wrong-password refusal, source unchanged')
+        checks.append('Pre-snapshot source HTTP receipt and restored HTTP receipt verify under independently retained original public key; encrypted key backup bound to snapshot; explicit activation only, no atomic joint-backup claim')
         catalog=subprocess.run(['sudo','env','GITHUB_ACTIONS=true','COMPOSE_PROJECT_NAME='+project,
             'python3',str(root/'scripts/test_catalog_server.py'),'--project',project,
             '--backup',private_backup+'/before-catalog.enc','--expected-image',image_id,

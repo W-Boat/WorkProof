@@ -108,10 +108,13 @@ def main():
     parser.add_argument('--password-stdin', action='store_true', required=True)
     parser.add_argument('--jobs-fixture')
     parser.add_argument('--receipt-identity', action='store_true')
+    parser.add_argument('--source-receipt-fixture')
     parser.add_argument('--ai-base-image')
     parser.add_argument('--ai-model-volume')
     parser.add_argument('--ai-engine',choices=('mpu-en-v3','mpu-zh-v3','desklib-en-v1.01'))
     args = parser.parse_args()
+    if args.source_receipt_fixture:
+        assert args.receipt_identity and re.fullmatch(r'/tmp/workproof-server-backup-ci\.[A-Za-z0-9]{8}',args.source_receipt_fixture)
     ai_options=(args.ai_base_image,args.ai_model_volume,args.ai_engine)
     assert all(ai_options) or not any(ai_options), 'AI reactivation options must be explicit together'
     if all(ai_options):
@@ -259,8 +262,30 @@ for role in a.ROOTS:
                 assert before['configured'] is False, 'Deployment restore unexpectedly activated a signing identity'
                 with open(args.input, 'rb') as snapshot_file:
                     snapshot_digest = hashlib.file_digest(snapshot_file, 'sha256').hexdigest()
+                supplied={}
+                if args.source_receipt_fixture:
+                    fixture=pathlib.Path(args.source_receipt_fixture)
+                    retained=restore._read_private_json(fixture/'source-identity.json')
+                    assert set(retained)=={'public_key','receipt'} and re.fullmatch(r'[0-9a-f]{64}',retained['public_key'])
+                    recover_source="""import json,pathlib,sys
+import receipt_keys as k
+v=json.loads(sys.stdin.read())
+assert k.deployment_digest('/snapshot')==v['snapshot_digest']
+k.restore('/fixture/source-keys.enc','/fixture/restored-source-keys','ci-image-http',v['public_key'],
+ bytes.fromhex(v['password_hex']),v['snapshot_digest'])
+"""
+                    recovered=subprocess.run(['docker','run','--rm','--network','none','--user','0','--read-only',
+                        '--tmpfs','/tmp:rw,nosuid,nodev,mode=1777','--interactive','--mount',
+                        'type=bind,src='+str(fixture)+',dst=/fixture','--mount',
+                        'type=bind,src='+str(pathlib.Path(args.input).resolve())+',dst=/snapshot,readonly',
+                        '--entrypoint','python3',args.expected_image,'-c',recover_source],
+                        input=json.dumps({'snapshot_digest':snapshot_digest,'public_key':retained['public_key'],
+                            'password_hex':password.hex()}).encode(),capture_output=True,timeout=60)
+                    assert recovered.returncode==0, 'Original source signing key recovery did not complete'
+                    supplied=dict(provided_keys=str(fixture/'restored-source-keys'),expected_public=retained['public_key'],
+                        previous_receipt=retained['receipt'])
                 verify_receipt_server(compose, dict(os.environ), restored_token, repository, project,
-                    external=True, port=18083, expected_image=args.expected_image, deployment_sha256=snapshot_digest)
+                    external=True, port=18083, expected_image=args.expected_image, deployment_sha256=snapshot_digest,**supplied)
                 after = json.loads(request(base, '/api/workproof/receipts/capabilities', token=restored_token)[1])['data']
                 assert after['configured'] is False, 'Explicit identity probe modified default restored app'
                 assert not restore.inspect(source_apps[0])['State']['Running']

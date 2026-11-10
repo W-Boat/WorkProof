@@ -1,7 +1,9 @@
 """Isolated Actions probe of opt-in signing in the exact delivered server image.
 
-The extra app shares only the disposable CI database/cache. Its synthetic signing
-key lives in its own /tmp tmpfs, never in configuration/backup volumes or artifacts.
+The extra app shares only the disposable CI database/cache. Synthetic signing keys
+use a private tmpfs or an explicit read-only external directory. Source-continuity
+fixtures retain encrypted keys separately; no key is put in deployment volumes or
+public artifacts.
 """
 import json
 import os
@@ -14,13 +16,18 @@ import urllib.error
 import urllib.request
 
 
-def verify_receipt_server(compose, environment, token, root, project, external=False, port=18082, expected_image=None, deployment_sha256=None):
+def verify_receipt_server(compose, environment, token, root, project, external=False, port=18082, expected_image=None, deployment_sha256=None, provided_keys=None, expected_public=None, previous_receipt=None):
     assert os.environ.get('GITHUB_ACTIONS') == 'true'
     assert re.fullmatch(r'workproof-(?:server|restore)-ci-[0-9a-f]{12}', project)
     assert port in (18082, 18083)
     if expected_image is not None: assert re.fullmatch(r'sha256:[0-9a-f]{64}', expected_image)
     name = project + ('-receipt-bind-probe' if external else '-receipt-probe')
-    ttl = '600' if external else '60'
+    ttl = '3600' if provided_keys is not None else ('600' if external else '60')
+    if provided_keys is not None:
+        assert external and pathlib.Path(provided_keys).is_absolute()
+        assert re.fullmatch(r'[0-9a-f]{64}', expected_public or '')
+    else:
+        assert expected_public is None and previous_receipt is None
     external_keys = None
     restored_keys = None
     launch_compose, launch_environment = list(compose), dict(environment)
@@ -68,21 +75,24 @@ os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])
 
     try:
         if external:
-            external_keys = tempfile.TemporaryDirectory(prefix='workproof-ci-external-keys-')
-            key_root = pathlib.Path(external_keys.name)
-            # Node built-in crypto avoids downloading an extra key-generation package.
-            generated = subprocess.run(['node', '-e', "const c=require('node:crypto'),k=c.generateKeyPairSync('ed25519'),j=k.privateKey.export({format:'jwk'});process.stdout.write(JSON.stringify({seed:Buffer.from(j.d,'base64url').toString('hex'),public:Buffer.from(j.x,'base64url').toString('hex')}))"], capture_output=True, text=True, check=True, timeout=15)
-            material = json.loads(generated.stdout)
-            seed_path = key_root/'seed.hex'
-            descriptor = os.open(seed_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            with os.fdopen(descriptor, 'w') as stream: stream.write(material['seed'])
-            (key_root/'public.hex').write_text(material['public'])
-            del material, generated
-            subprocess.run(['sudo', 'chown', '10001:10001', str(seed_path), str(key_root)], check=True, capture_output=True, timeout=15)
-            # Round-trip with the exact image's backup module before the HTTP
-            # app starts. Only synthetic test key bytes cross captured stdout;
-            # they are never logged, placed in argv or saved as artifacts.
-            recovery = '''import json,pathlib,sys,tempfile
+            if provided_keys is not None:
+                key_root = pathlib.Path(provided_keys)
+            else:
+                external_keys = tempfile.TemporaryDirectory(prefix='workproof-ci-external-keys-')
+                key_root = pathlib.Path(external_keys.name)
+                # Node built-in crypto avoids downloading an extra key-generation package.
+                generated = subprocess.run(['node', '-e', "const c=require('node:crypto'),k=c.generateKeyPairSync('ed25519'),j=k.privateKey.export({format:'jwk'});process.stdout.write(JSON.stringify({seed:Buffer.from(j.d,'base64url').toString('hex'),public:Buffer.from(j.x,'base64url').toString('hex')}))"], capture_output=True, text=True, check=True, timeout=15)
+                material = json.loads(generated.stdout)
+                seed_path = key_root/'seed.hex'
+                descriptor = os.open(seed_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                with os.fdopen(descriptor, 'w') as stream: stream.write(material['seed'])
+                (key_root/'public.hex').write_text(material['public'])
+                del material, generated
+                subprocess.run(['sudo', 'chown', '10001:10001', str(seed_path), str(key_root)], check=True, capture_output=True, timeout=15)
+                # Round-trip with the exact image's backup module before the HTTP
+                # app starts. Only synthetic test key bytes cross captured stdout;
+                # they are never logged, placed in argv or saved as artifacts.
+                recovery = '''import json,pathlib,sys,tempfile
 import receipt_keys as k
 v=json.loads(sys.stdin.read())
 with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
@@ -91,27 +101,27 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
  k.restore(p/'keys.enc',p/'restored','ci-image-http',v['public'],v['password'].encode(),v.get('deployment_sha256'))
  print(json.dumps({'seed':(p/'restored/seed.hex').read_text(),'public':(p/'restored/public.hex').read_text()}))
 '''
-            retained_public = (key_root/'public.hex')
-            # The source directory belongs to the service UID, so read its public
-            # key through the same root-only helper rather than relaxing access.
-            public_probe = subprocess.run(['sudo', 'cat', str(retained_public)], capture_output=True, text=True, check=True, timeout=15)
-            import secrets
-            recovered = subprocess.run(['docker', 'run', '--rm', '--user', '0', '--network', 'none', '--read-only',
-                '--tmpfs', '/tmp:rw,nosuid,nodev,mode=1777', '--interactive', '--mount',
-                'type=bind,src='+str(key_root)+',dst=/source,readonly', '--entrypoint', 'python3',
-                expected_image or 'workproof-institution:local', '-c', recovery],
-                input=json.dumps({'password':secrets.token_hex(24),'public':public_probe.stdout.strip(),'deployment_sha256':deployment_sha256}),
-                capture_output=True, text=True, timeout=60)
-            assert recovered.returncode == 0, 'Image key backup/restore failed before HTTP activation'
-            restored_material = json.loads(recovered.stdout)
-            assert restored_material['public'] == public_probe.stdout.strip()
-            restored_keys = tempfile.TemporaryDirectory(prefix='workproof-ci-restored-keys-')
-            key_root = pathlib.Path(restored_keys.name)
-            for filename, content in [('seed.hex',restored_material['seed']),('public.hex',restored_material['public'])]:
-                descriptor = os.open(key_root/filename, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-                with os.fdopen(descriptor, 'w') as stream: stream.write(content)
-            del restored_material, recovered
-            subprocess.run(['sudo', 'chown', '10001:10001', str(key_root/'seed.hex'), str(key_root/'public.hex'), str(key_root)], check=True, capture_output=True, timeout=15)
+                retained_public = (key_root/'public.hex')
+                # The source directory belongs to the service UID, so read its public
+                # key through the same root-only helper rather than relaxing access.
+                public_probe = subprocess.run(['sudo', 'cat', str(retained_public)], capture_output=True, text=True, check=True, timeout=15)
+                import secrets
+                recovered = subprocess.run(['docker', 'run', '--rm', '--user', '0', '--network', 'none', '--read-only',
+                    '--tmpfs', '/tmp:rw,nosuid,nodev,mode=1777', '--interactive', '--mount',
+                    'type=bind,src='+str(key_root)+',dst=/source,readonly', '--entrypoint', 'python3',
+                    expected_image or 'workproof-institution:local', '-c', recovery],
+                    input=json.dumps({'password':secrets.token_hex(24),'public':public_probe.stdout.strip(),'deployment_sha256':deployment_sha256}),
+                    capture_output=True, text=True, timeout=60)
+                assert recovered.returncode == 0, 'Image key backup/restore failed before HTTP activation'
+                restored_material = json.loads(recovered.stdout)
+                assert restored_material['public'] == public_probe.stdout.strip()
+                restored_keys = tempfile.TemporaryDirectory(prefix='workproof-ci-restored-keys-')
+                key_root = pathlib.Path(restored_keys.name)
+                for filename, content in [('seed.hex',restored_material['seed']),('public.hex',restored_material['public'])]:
+                    descriptor = os.open(key_root/filename, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                    with os.fdopen(descriptor, 'w') as stream: stream.write(content)
+                del restored_material, recovered
+                subprocess.run(['sudo', 'chown', '10001:10001', str(key_root/'seed.hex'), str(key_root/'public.hex'), str(key_root)], check=True, capture_output=True, timeout=15)
             launch_compose += ['-f', str(root/'deploy/institution/compose.receipts.yaml')]
             launch_environment.update(WORKPROOF_RECEIPT_KEY_DIRECTORY=str(key_root), WORKPROOF_RECEIPT_ISSUER_ID='ci-image-http', WORKPROOF_RECEIPT_LIFETIME_SECONDS=ttl)
             bootstrap = "import os;assert os.environ.get('GITHUB_ACTIONS')=='true';os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])"
@@ -153,6 +163,8 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
         public = subprocess.run(['docker', 'exec', info['Id'], 'python3', '-c',
             "import pathlib;print(pathlib.Path("+repr(key_public)+").read_text())"], capture_output=True, text=True, timeout=15)
         assert public.returncode == 0 and re.fullmatch(r'[0-9a-f]{64}\s*', public.stdout)
+        if provided_keys is not None:
+            assert public.stdout.strip() == expected_public, 'Explicit signing identity did not match independent source public key'
         with tempfile.TemporaryDirectory(prefix='workproof-image-http-') as directory:
             location = pathlib.Path(directory)
             (location/'proof.wproof').write_bytes(proof)
@@ -163,6 +175,14 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
             assert verified.returncode == 0, 'Image HTTP receipt failed independent host verification'
             report = json.loads(verified.stdout)
             assert report['receipt_verified'] is True and report['client_origin_verified'] is False
+            if previous_receipt is not None:
+                assert len(json.dumps(previous_receipt).encode()) <= 16 * 1024
+                assert previous_receipt['payload']['receipt_id'] != receipt['payload']['receipt_id']
+                (location/'source-receipt.json').write_text(json.dumps(previous_receipt), encoding='utf-8')
+                checked = subprocess.run([str(root/'target/release/workproof-receipt'), 'verify', str(location/'proof.wproof'),
+                    str(location/'source-receipt.json'), 'ci-image-http', ttl, str(location/'public.hex')],
+                    capture_output=True, timeout=15)
+                assert checked.returncode == 0, 'Pre-backup source receipt failed against restored signing identity'
             if external:
                 # Exercise the existing Java permission boundary against the real
                 # external file, without allowing the app to repair permissions.
@@ -202,10 +222,12 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
             "import pathlib;pathlib.Path("+repr(key_public)+").write_text('00'*32)"], capture_output=True, timeout=15)
         if external:
             assert changed.returncode != 0, 'Container modified read-only external key mount'
-            subprocess.run(['sudo', 'tee', str(key_root/'public.hex')], input=b'00'*32, capture_output=True, check=True, timeout=15)
+            if provided_keys is None:
+                subprocess.run(['sudo', 'tee', str(key_root/'public.hex')], input=b'00'*32, capture_output=True, check=True, timeout=15)
         else:
             assert changed.returncode == 0
-        assert request('/api/workproof/receipts', proof, consent=True)[0] != 200, 'Image signed with a mismatched configured public key'
+        if provided_keys is None:
+            assert request('/api/workproof/receipts', proof, consent=True)[0] != 200, 'Image signed with a mismatched configured public key'
     finally:
         info = probe_info()
         if info:
@@ -217,4 +239,6 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
             # TemporaryDirectory removes it after the owned container is stopped.
             subprocess.run(['sudo', 'chown', str(os.getuid())+':'+str(os.getgid()), temporary_keys.name], check=True, capture_output=True, timeout=15)
             temporary_keys.cleanup()
-    print('PASS: exact read-only nonroot image, opt-in HTTP signing, independent host verification, no-consent and key-mismatch refusal; key scope: '+('external read-only Compose mount' if external else 'isolated tmpfs'))
+    print('PASS: read-only nonroot image, opt-in HTTP signing, independent host verification, no-consent refusal; identity scope: '+
+          ('explicit retained source key' if provided_keys is not None else 'isolated synthetic key with mismatch refusal'))
+    return {'public_key':public.stdout.strip(), 'receipt':receipt}
