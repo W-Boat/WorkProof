@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 
 
-def verify_receipt_server(compose, environment, token, root, project, external=False, port=18082, expected_image=None):
+def verify_receipt_server(compose, environment, token, root, project, external=False, port=18082, expected_image=None, deployment_sha256=None):
     assert os.environ.get('GITHUB_ACTIONS') == 'true'
     assert re.fullmatch(r'workproof-(?:server|restore)-ci-[0-9a-f]{12}', project)
     assert port in (18082, 18083)
@@ -87,8 +87,8 @@ import receipt_keys as k
 v=json.loads(sys.stdin.read())
 with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
  p=pathlib.Path(d)
- k.backup('/source',p/'keys.enc','ci-image-http',v['password'].encode())
- k.restore(p/'keys.enc',p/'restored','ci-image-http',v['public'],v['password'].encode())
+ k.backup('/source',p/'keys.enc','ci-image-http',v['password'].encode(),v.get('deployment_sha256'))
+ k.restore(p/'keys.enc',p/'restored','ci-image-http',v['public'],v['password'].encode(),v.get('deployment_sha256'))
  print(json.dumps({'seed':(p/'restored/seed.hex').read_text(),'public':(p/'restored/public.hex').read_text()}))
 '''
             retained_public = (key_root/'public.hex')
@@ -100,7 +100,7 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
                 '--tmpfs', '/tmp:rw,nosuid,nodev,mode=1777', '--interactive', '--mount',
                 'type=bind,src='+str(key_root)+',dst=/source,readonly', '--entrypoint', 'python3',
                 expected_image or 'workproof-institution:local', '-c', recovery],
-                input=json.dumps({'password':secrets.token_hex(24),'public':public_probe.stdout.strip()}),
+                input=json.dumps({'password':secrets.token_hex(24),'public':public_probe.stdout.strip(),'deployment_sha256':deployment_sha256}),
                 capture_output=True, text=True, timeout=60)
             assert recovered.returncode == 0, 'Image key backup/restore failed before HTTP activation'
             restored_material = json.loads(recovered.stdout)

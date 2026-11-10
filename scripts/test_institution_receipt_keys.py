@@ -54,6 +54,17 @@ with tempfile.TemporaryDirectory(prefix='workproof-key-acceptance-') as temporar
     assert (created/'seed.hex').read_text() == created_seed
     reject(lambda: keys.create(root/'invalid-issuer', 'contains spaces'))
     assert not (root/'invalid-issuer').exists()
+    bound = root/'bound.enc'
+    snapshot_digest = 'ab' * 32  # Synthetic independently retained snapshot identifier.
+    keys.backup(original, bound, 'ci-keys', password, snapshot_digest)
+    for supplied in (None, 'cd' * 32, 'not-a-digest'):
+        target = root/'wrong-deployment'
+        reject(lambda: keys.restore(bound, target, 'ci-keys', public, password, supplied))
+        assert not target.exists()
+    reject(lambda: keys.restore(encrypted, root/'unbound-as-bound', 'ci-keys', public, password, snapshot_digest))
+    assert not (root/'unbound-as-bound').exists()
+    keys.restore(bound, root/'bound-restored', 'ci-keys', public, password, snapshot_digest)
+    assert (root/'bound-restored/seed.hex').read_text() == seed
     reject(lambda: keys.backup(original, encrypted, 'ci-keys', password))
     for issuer, expected, phrase in [('wrong', public, password), ('ci-keys', '00'*32, password), ('ci-keys', public, b'wrong-password-at-least-16')]:
         target = root/'rejected'

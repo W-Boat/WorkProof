@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- `receipt_keys` 可选部署 SHA-256 → v2 认证加密载荷 → 恢复时必需独立相同摘要；原 v1 不能冒充有摘要关联。`test_restore_new` 计算本次实际输入备份 SHA-256，传入恢复密钥 HTTP 专项；拒绝缺失/错配/无效摘要的边界检查待 Actions。该关系是管理员配套声明，不是源密钥实际使用或原子快照证明。
+
 - 基础 `test_restore_new --receipt-identity` → 实际数据库/私有卷恢复与原账号登录 → 默认签发关闭 → 固定镜像 ID 下合成密钥独立加密恢复 → 同恢复项目的 one-off HTTP 签发 → 默认仍关闭、源仍停止。只在基础恢复专项显式启用，不增加普通恢复启动行为；未证明原源签发身份与数据库快照关联，待 Actions。
 
 - 显式 `receipt_keys.create` → Ed25519 OS 随机密钥 → 与 restore 共用 `publish_new` 全新目录写入 → UID/GID 10001、目录 0700/文件 0600 → 仅返回可发布公钥信息与 signing_activated=false。普通启动不调用；真实 CLI 和保密/不覆盖检查待 Actions。

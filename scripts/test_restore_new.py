@@ -257,8 +257,10 @@ for role in a.ROOTS:
                 restored_token = result['data']['token']
                 before = json.loads(request(base, '/api/workproof/receipts/capabilities', token=restored_token)[1])['data']
                 assert before['configured'] is False, 'Deployment restore unexpectedly activated a signing identity'
+                with open(args.input, 'rb') as snapshot_file:
+                    snapshot_digest = hashlib.file_digest(snapshot_file, 'sha256').hexdigest()
                 verify_receipt_server(compose, dict(os.environ), restored_token, repository, project,
-                    external=True, port=18083, expected_image=args.expected_image)
+                    external=True, port=18083, expected_image=args.expected_image, deployment_sha256=snapshot_digest)
                 after = json.loads(request(base, '/api/workproof/receipts/capabilities', token=restored_token)[1])['data']
                 assert after['configured'] is False, 'Explicit identity probe modified default restored app'
                 assert not restore.inspect(source_apps[0])['State']['Running']

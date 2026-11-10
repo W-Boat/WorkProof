@@ -56,13 +56,22 @@ def read_key(descriptor, name, private):
         return value
 
 
-def backup(key_directory, output, issuer, password):
+def digest(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{64}', value):
+        raise ValueError('Expected full lowercase SHA-256')
+    return value
+
+
+def backup(key_directory, output, issuer, password, deployment_sha256=None):
     require_root()
+    if deployment_sha256 is not None: digest(deployment_sha256)
     fd = directory(key_directory)
     try:
         value = identity(issuer, read_key(fd, 'seed.hex', True), read_key(fd, 'public.hex', False))
     finally:
         os.close(fd)
+    if deployment_sha256 is not None:
+        value.update(format='workproof-receipt-key-backup/2', deployment_sha256=deployment_sha256)
     with tempfile.TemporaryDirectory(prefix='workproof-key-backup-') as temporary:
         source = pathlib.Path(temporary)/'payload.json'
         descriptor = os.open(source, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -71,14 +80,21 @@ def backup(key_directory, output, issuer, password):
         crypto.encrypt_file(source, output, password, 4096)
 
 
-def restore(source, target, issuer, expected_public, password):
+def restore(source, target, issuer, expected_public, password, expected_deployment_sha256=None):
     require_root()
+    if expected_deployment_sha256 is not None: digest(expected_deployment_sha256)
     # Authenticate and validate completely before creating the destination.
     with tempfile.TemporaryDirectory(prefix='workproof-key-restore-') as temporary:
         payload = pathlib.Path(temporary)/'payload.json'
         crypto.decrypt_file(source, payload, password, 4096)
         value = json.loads(payload.read_text())
-        if set(value) != {'format', 'issuer_id', 'seed', 'public_key'} or value['format'] != 'workproof-receipt-key-backup/1':
+        base_fields = {'format', 'issuer_id', 'seed', 'public_key'}
+        if value.get('format') == 'workproof-receipt-key-backup/2':
+            if set(value) != base_fields | {'deployment_sha256'} or expected_deployment_sha256 is None:
+                raise ValueError('Bound backup requires independent deployment digest')
+            if digest(value['deployment_sha256']) != expected_deployment_sha256:
+                raise ValueError('Deployment backup did not match')
+        elif set(value) != base_fields or value['format'] != 'workproof-receipt-key-backup/1' or expected_deployment_sha256 is not None:
             raise ValueError('Unsupported key backup')
         validated = identity(value['issuer_id'], value['seed'], value['public_key'])
         if issuer != validated['issuer_id'] or expected_public != validated['public_key']:
@@ -129,9 +145,10 @@ def main():
     parser.add_argument('--output', required=True)
     parser.add_argument('--issuer', required=True)
     parser.add_argument('--expected-public-key')
+    parser.add_argument('--deployment-sha256')
     args = parser.parse_args()
     if args.operation == 'create':
-        if args.input or args.expected_public_key:
+        if args.input or args.expected_public_key or args.deployment_sha256:
             raise ValueError('Create does not accept an existing input or expected key')
         print(json.dumps(create(args.output, args.issuer)))
         return
@@ -140,8 +157,8 @@ def main():
     if args.operation == 'restore' and not args.expected_public_key:
         raise ValueError('Restore requires independent public key')
     password = crypto._stdin_password()
-    if args.operation == 'backup': backup(args.input, args.output, args.issuer, password)
-    else: restore(args.input, args.output, args.issuer, args.expected_public_key, password)
+    if args.operation == 'backup': backup(args.input, args.output, args.issuer, password, args.deployment_sha256)
+    else: restore(args.input, args.output, args.issuer, args.expected_public_key, password, args.deployment_sha256)
     print('Completed; signing was not activated.')
 
 
