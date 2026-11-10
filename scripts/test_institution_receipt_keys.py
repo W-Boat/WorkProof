@@ -7,6 +7,7 @@ import sys
 import tempfile
 import subprocess
 import json
+from unittest import mock
 sys.path.insert(0, '/opt/workproof')
 import receipt_keys as keys
 from cryptography.hazmat.primitives import serialization as s
@@ -73,6 +74,25 @@ with tempfile.TemporaryDirectory(prefix='workproof-key-acceptance-') as temporar
     linked.symlink_to(original, target_is_directory=True)
     reject(lambda: keys.backup(linked, root/'linked.enc', 'ci-keys', password))
     assert not (root/'linked.enc').exists()
+    # Fail after writing the first private file but before creating its public
+    # partner. Retain the partial root-owned directory, so it cannot be used by
+    # the service or silently overwritten on a retry.
+    partial = root/'partial'
+    real_open = os.open
+    def interrupt_public(path, flags, *args, **kwargs):
+        if path == 'public.hex' and flags & os.O_CREAT:
+            raise OSError('Synthetic disk failure before public key creation')
+        return real_open(path, flags, *args, **kwargs)
+    with mock.patch.object(keys.os, 'open', side_effect=interrupt_public):
+        reject(lambda: keys.restore(encrypted, partial, 'ci-keys', public, password))
+    assert partial.is_dir() and partial.stat().st_uid == 0
+    assert stat.S_IMODE(partial.stat().st_mode) == 0o700
+    assert (partial/'seed.hex').read_text() == seed
+    assert not (partial/'public.hex').exists()
+    before = (partial/'seed.hex').read_bytes()
+    reject(lambda: keys.restore(encrypted, partial, 'ci-keys', public, password))
+    assert (partial/'seed.hex').read_bytes() == before
+    assert (original/'seed.hex').read_text() == seed
     os.chmod(original/'seed.hex', 0o644)
     reject(lambda: keys.backup(original, root/'unsafe.enc', 'ci-keys', password))
     assert not (root/'unsafe.enc').exists()
