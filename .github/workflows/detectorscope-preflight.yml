@@ -1,0 +1,28 @@
+name: DetectorScope pinned source and model preflight
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - tools/ai-assessment/detectorscope_preflight.py
+      - docs/research/detectorscope-model-inventory-20261110.json
+      - .github/workflows/detectorscope-preflight.yml
+permissions:
+  contents: read
+jobs:
+  metadata-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify pinned source contract and small model files without weights
+        run: python tools/ai-assessment/detectorscope_preflight.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: detectorscope-metadata-preflight
+          path: detectorscope-preflight.json
+          if-no-files-found: error
