@@ -10,6 +10,8 @@ on:
       - tools/ai-assessment/test_observed_samples.py
       - tools/ai-assessment/detector_statistics.py
       - tools/ai-assessment/test_detector_statistics.py
+      - tools/ai-assessment/audit_detectorscope.py
+      - tools/ai-assessment/test_audit_detectorscope.py
       - docs/research/detectorscope-prior-sample-index.json
       - docs/research/detectorscope-model-inventory-20261110.json
       - .github/workflows/detectorscope-preflight.yml
@@ -33,6 +35,7 @@ jobs:
           python tools/ai-assessment/test_calibration_data.py
           python tools/ai-assessment/test_observed_samples.py
           python tools/ai-assessment/test_detector_statistics.py
+          python tools/ai-assessment/test_audit_detectorscope.py
           python tools/ai-assessment/observed_samples.py
       - uses: actions/upload-artifact@v4
         with:
