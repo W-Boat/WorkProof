@@ -16,6 +16,7 @@ on:
       - tools/ai-assessment/test_audit_detectorscope_run.py
       - docs/research/detectorscope-prior-sample-index.json
       - docs/research/detectorscope-model-inventory-20261110.json
+      - docs/evidence/detectorscope-883ad40/detectorscope-conversion-results.json
       - .github/workflows/detectorscope-preflight.yml
 permissions:
   contents: read

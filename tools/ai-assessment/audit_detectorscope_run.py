@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 import zipfile
 import evaluate as ev
-from audit_detectorscope import audit
+from audit_detectorscope import audit, audit_conversion
 
 REPOSITORY='W-Boat/WorkProof'
 def api(route):
@@ -53,6 +53,8 @@ def main():
     assert listed['total_count']<=100
     root=pathlib.Path(__file__).resolve().parents[2]
     frozen=ev.strict_json((root/'docs/evidence/detectorscope-selection-70beaf5/selection-receipt.json').read_bytes())
+    reference=ev.strict_json((root/'docs/evidence/detectorscope-883ad40/detectorscope-conversion-results.json').read_bytes())
+    inventory=ev.strict_json((root/'docs/research/detectorscope-model-inventory-20261110.json').read_bytes())
     results={}
     for language in ('en','zh'):
         matches=[a for a in listed['artifacts'] if a['name']=='detectorscope-independent-'+language]
@@ -69,11 +71,12 @@ def main():
             assert selection['manifest_sha256']==frozen['manifest_sha256']
             assert selection['prior_index_sha256']==frozen['prior_index_sha256']
             conversion=member('detectorscope-conversion-results.json')
+            conversion_audit=audit_conversion(ev.strict_json(conversion),reference,inventory)
             prefix='detectorscope-evaluation-'+language+'/'
             result=audit(frozen,language,ev.strict_json(member(prefix+'calibration-report.json')),
                 ev.strict_json(member(prefix+'frozen-policy.json')),ev.strict_json(member(prefix+'heldout-report.json')),
                 hashlib.sha256(conversion).hexdigest())
-            results[language]=dict(result,artifact_id=meta['id'],artifact_digest=meta['digest'])
+            results[language]=dict(result,artifact_id=meta['id'],artifact_digest=meta['digest'],conversion_audit=conversion_audit)
     report={'evaluation_run':int(run_id),'evaluation_source_commit':run['head_sha'],'auditor_source_commit':os.environ['GITHUB_SHA'],
             'languages':results,'scope':'artifact integrity and statistical consistency only; no identity, label truth or production certification'}
     (root/'detectorscope-independent-audit.json').write_text(json.dumps(report,indent=2)+'\n')

@@ -1,5 +1,6 @@
 """Independent structural/statistical audit; does not prove model truth or score provenance."""
 import math
+import re
 from detector_statistics import choose_logit_threshold
 from evaluate_lrr import summary, grouped_summary
 
@@ -7,6 +8,41 @@ REVISION='9baaff9e2d1cdb79cafa90cdb27811b847e69dae'
 
 def require(value,code):
     if not value: raise ValueError(code)
+
+def audit_conversion(report,reference,inventory):
+    """Check continuity with the previously verified derivative; no weights are loaded."""
+    require(report.get('model_revision')==REVISION and reference.get('model_revision')==REVISION and
+            inventory.get('revision')==REVISION,'CONVERSION_REVISION')
+    require(report.get('production_enabled') is False and report.get('inference_completed') is False,
+            'CONVERSION_SCOPE')
+    names={f'extractor/model-{i:05d}-of-00003.safetensors' for i in (1,2,3)}
+    names.update(('extractor/config.json','extractor/model.safetensors.index.json'))
+    def indexed(rows):
+        require(isinstance(rows,list) and len(rows)==5 and all(isinstance(r,dict) for r in rows),
+                'CONVERSION_FILES')
+        require(all(isinstance(r.get('path'),str) for r in rows),'CONVERSION_PATH')
+        result={r['path']:r for r in rows}
+        require(set(result)==names,'CONVERSION_PATHS')
+        return result
+    actual=indexed(report.get('derived_files'));expected=indexed(reference.get('derived_files'))
+    originals={r['path']:r for r in inventory['files']}
+    for path,item in actual.items():
+        for field in ('source_sha256','derived_sha256'):
+            value=item.get(field)
+            require(isinstance(value,str) and re.fullmatch(r'[0-9a-f]{64}',value) and
+                    value==expected[path].get(field),'CONVERSION_DIGEST')
+        if not path.endswith('.safetensors'): continue
+        require(item['source_sha256']==originals[path]['lfs']['oid'],'CONVERSION_SOURCE')
+        for field in ('derived_size','tensor_bytes'):
+            value=item.get(field)
+            require(type(value) is int and value>0 and value==expected[path].get(field),'CONVERSION_SIZE')
+        require(item.get('all_values_verified') is True and
+                item.get('conversion')=='float32-to-float16, round-to-nearest torch.to','CONVERSION_METHOD')
+        peak=item.get('peak_rss_kib');observed=item.get('parent_observed_peak_rss_bytes')
+        require(type(peak) is int and 0<peak<=10*1024**2 and type(observed) is int and
+                0<=observed<=10*1024**3,'CONVERSION_MEMORY')
+    return {'verified_reference_matched':True,'derived_files':5,
+            'weights_recomputed_by_auditor':False,'production_enabled':False}
 
 def check_rows(rows,manifest):
     require(isinstance(rows,list) and len(rows)==len(manifest),'REPORT_SAMPLE_COUNT')

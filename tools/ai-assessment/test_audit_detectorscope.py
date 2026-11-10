@@ -1,4 +1,6 @@
 import copy
+import json
+import pathlib
 import unittest
 import audit_detectorscope as audit
 
@@ -38,5 +40,44 @@ class AuditTests(unittest.TestCase):
     def test_unsupported_cannot_hide_a_scored_value_or_in_range_input(self):
         args=list(fixture());args[4]['samples'][0].update(status='unsupported',reason='TOKEN_BUDGET_8_TO_512_NO_TRUNCATION')
         with self.assertRaises(ValueError):audit.audit(*args)
+
+class ConversionAuditTests(unittest.TestCase):
+    def setUp(self):
+        root=pathlib.Path(__file__).resolve().parents[2]
+        self.reference=json.loads((root/'docs/evidence/detectorscope-883ad40/detectorscope-conversion-results.json').read_bytes())
+        self.inventory=json.loads((root/'docs/research/detectorscope-model-inventory-20261110.json').read_bytes())
+
+    def test_previously_value_verified_derivative_matches(self):
+        report=copy.deepcopy(self.reference)
+        report['derived_files'].reverse()  # File order and machine-specific RSS need not match.
+        for row in report['derived_files']:
+            if row['path'].endswith('.safetensors'):row['peak_rss_kib']=7000000
+        self.assertTrue(audit.audit_conversion(report,self.reference,self.inventory)['verified_reference_matched'])
+
+    def test_changed_missing_duplicated_or_extra_derivatives_are_rejected(self):
+        for mutation in ('missing','duplicate','extra','source','derived','size','tensor_bytes','revision',
+                         'method','unverified','memory','observed_memory','production','inference','boolean_size'):
+            report=copy.deepcopy(self.reference);row=report['derived_files'][0]
+            if mutation=='missing':report['derived_files'].pop()
+            elif mutation=='duplicate':report['derived_files'][1]=copy.deepcopy(row)
+            elif mutation=='extra':report['derived_files'].append(copy.deepcopy(row))
+            elif mutation in ('source','derived'):row[mutation+'_sha256']='0'*64
+            elif mutation=='size':row['derived_size']+=1
+            elif mutation=='tensor_bytes':row['tensor_bytes']+=2
+            elif mutation=='revision':report['model_revision']='0'*40
+            elif mutation=='method':row['conversion']='unverified conversion'
+            elif mutation=='unverified':row['all_values_verified']=False
+            elif mutation=='memory':row['peak_rss_kib']=10*1024**2+1
+            elif mutation=='observed_memory':row['parent_observed_peak_rss_bytes']=10*1024**3+1
+            elif mutation=='production':report['production_enabled']=True
+            elif mutation=='inference':report['inference_completed']=True
+            elif mutation=='boolean_size':row['derived_size']=True
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):
+                audit.audit_conversion(report,self.reference,self.inventory)
+
+    def test_reference_cannot_override_original_weight_inventory(self):
+        reference=copy.deepcopy(self.reference)
+        reference['derived_files'][0]['source_sha256']='f'*64
+        with self.assertRaises(ValueError):audit.audit_conversion(reference,reference,self.inventory)
 
 if __name__=='__main__':unittest.main()
