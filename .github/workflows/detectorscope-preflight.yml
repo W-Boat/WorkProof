@@ -6,6 +6,9 @@ on:
       - tools/ai-assessment/detectorscope_preflight.py
       - tools/ai-assessment/calibration_data.py
       - tools/ai-assessment/test_calibration_data.py
+      - tools/ai-assessment/observed_samples.py
+      - tools/ai-assessment/test_observed_samples.py
+      - docs/research/detectorscope-prior-sample-index.json
       - docs/research/detectorscope-model-inventory-20261110.json
       - .github/workflows/detectorscope-preflight.yml
 permissions:
@@ -24,7 +27,10 @@ jobs:
       - name: Verify pinned source contract and small model files without weights
         run: python tools/ai-assessment/detectorscope_preflight.py
       - name: Verify independent selection namespaces without models or datasets
-        run: python tools/ai-assessment/test_calibration_data.py
+        run: |
+          python tools/ai-assessment/test_calibration_data.py
+          python tools/ai-assessment/test_observed_samples.py
+          python tools/ai-assessment/observed_samples.py
       - uses: actions/upload-artifact@v4
         with:
           name: detectorscope-metadata-preflight

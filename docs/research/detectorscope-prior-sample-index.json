@@ -1,0 +1,71 @@
+{
+  "protocol": "workproof-observed-sample-index/1",
+  "scope": "known first benchmark, classifier calibration/heldout and LRR calibration/heldout; not universal training-contamination exclusion",
+  "reports": [
+    {
+      "path": "docs/evidence/ai-benchmark-50b4463/desklib-en-v1.01-report.json",
+      "sha256": "4445f906db9bc73c3068821c2a9a9565745614e85f1b1725f695734589941981",
+      "samples": 192
+    },
+    {
+      "path": "docs/evidence/ai-benchmark-50b4463/mpu-en-v3-report.json",
+      "sha256": "61a8e47942758729e34c2dd53210d47f9f1e8a2f80d2aef68d62124bff386611",
+      "samples": 192
+    },
+    {
+      "path": "docs/evidence/ai-benchmark-50b4463/mpu-zh-v3-report.json",
+      "sha256": "f7b9df044db79ec9a3e208e5ec726918f1c9a4af15df782dc6faa5f5b535f16e",
+      "samples": 192
+    },
+    {
+      "path": "docs/evidence/ai-calibration-ef1a41d/mpu-en-v3/calibration-report.json",
+      "sha256": "97ccae70ffeca450a5f7aba49775f98c891cad9053300245ae08006be7d11a9d",
+      "samples": 384
+    },
+    {
+      "path": "docs/evidence/ai-calibration-ef1a41d/mpu-en-v3/heldout-report.json",
+      "sha256": "a5c1c20ad46f4d89566739f0d16dea60553a723a505eedcaaadbb18ddbcd4b55",
+      "samples": 384
+    },
+    {
+      "path": "docs/evidence/ai-calibration-ef1a41d/mpu-zh-v3/calibration-report.json",
+      "sha256": "88bada08feaddcb3ea8e9f0a340e117d7c47bf43cb252ed9d5b25c38f8b97961",
+      "samples": 384
+    },
+    {
+      "path": "docs/evidence/ai-calibration-ef1a41d/mpu-zh-v3/heldout-report.json",
+      "sha256": "6cda85fb7562151580e3be83231e28c2a0cbc0f1c21bc13fcc8215e8170c7bef",
+      "samples": 384
+    },
+    {
+      "path": "docs/evidence/ai-calibration-ef1a41d/desklib-en-v1.01/calibration-report.json",
+      "sha256": "8ef1897e6ea348e2fc2eaf74beac045286418561c48b2df1abbdb991d1d8b3e5",
+      "samples": 384
+    },
+    {
+      "path": "docs/evidence/ai-calibration-ef1a41d/desklib-en-v1.01/heldout-report.json",
+      "sha256": "7220cc411938bbcee617a58357e8c789a6abe2e00152cf8a72d5ef355acf6e54",
+      "samples": 384
+    },
+    {
+      "path": "docs/evidence/lrr-independent-414f654-en/calibration-report.json",
+      "sha256": "50fc7167161262d4028cf4bbf3dfe688a56275eb6eb960e97f96cc14ac206ea8",
+      "samples": 384
+    },
+    {
+      "path": "docs/evidence/lrr-independent-414f654-en/heldout-report.json",
+      "sha256": "b10a04ad23ec4a33745295f0ae53a2b25d7a04a6996fda35c6ce8a32f47c5667",
+      "samples": 384
+    },
+    {
+      "path": "docs/evidence/lrr-independent-414f654-zh/calibration-report.json",
+      "sha256": "53ed0f49de44d18a820c717fd51100f8ef19310a4807e794f8826b889d65c8dc",
+      "samples": 384
+    },
+    {
+      "path": "docs/evidence/lrr-independent-414f654-zh/heldout-report.json",
+      "sha256": "28231ef53e5cde027d4fee7afc8000d6b0205ddcbf50236846d41d3d8d705932",
+      "samples": 384
+    }
+  ]
+}
