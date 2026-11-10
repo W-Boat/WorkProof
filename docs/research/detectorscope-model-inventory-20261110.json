@@ -1,0 +1,475 @@
+{
+  "model": "liamdugan/detector-scope",
+  "revision": "9baaff9e2d1cdb79cafa90cdb27811b847e69dae",
+  "metadata_only": true,
+  "pages": 2,
+  "complete_pagination": true,
+  "files": [
+    {
+      "path": ".gitattributes",
+      "size": 1631,
+      "git_oid": "47aaef7ff484d33a33ac6d70817394909d5ce239",
+      "lfs": null
+    },
+    {
+      "path": "NOTICE",
+      "size": 98,
+      "git_oid": "cd1297974c463093a28ed3c684d79e189a31e64f",
+      "lfs": null
+    },
+    {
+      "path": "README.md",
+      "size": 6222,
+      "git_oid": "dae529986fa35e638c047523b3ebe6f751b3a1f9",
+      "lfs": null
+    },
+    {
+      "path": "config.json",
+      "size": 173,
+      "git_oid": "05bccf4db359d50097f0412aa6cc59ebea0c2b3d",
+      "lfs": null
+    },
+    {
+      "path": "extractor/config.json",
+      "size": 1446,
+      "git_oid": "85b1a52dce0227c00e48b1182bcd0aa5e8bfd228",
+      "lfs": null
+    },
+    {
+      "path": "extractor/generation_config.json",
+      "size": 168,
+      "git_oid": "5709c06e2bdac11061a66b9e7355dc6a695c4210",
+      "lfs": null
+    },
+    {
+      "path": "extractor/model-00001-of-00003.safetensors",
+      "size": 4992576136,
+      "git_oid": "10806d855f7ee17c266e650d11780a1fb9b00233",
+      "lfs": {
+        "oid": "1425aa066ec77e3eb79aac14a5bdea3ebcec46aa5c96cd40608c5c1fd70d193d",
+        "size": 4992576136,
+        "pointerSize": 135
+      }
+    },
+    {
+      "path": "extractor/model-00002-of-00003.safetensors",
+      "size": 4983443424,
+      "git_oid": "d88dda33d049566f57330f4f6fa5b6c3d6959d58",
+      "lfs": {
+        "oid": "96c111d3dcdbde9271595e463b5d9f7fc4810ad8b79e736309c0a1833e6c0d35",
+        "size": 4983443424,
+        "pointerSize": 135
+      }
+    },
+    {
+      "path": "extractor/model-00003-of-00003.safetensors",
+      "size": 481381384,
+      "git_oid": "e159d57f248208cda69710c0923ee2812af24230",
+      "lfs": {
+        "oid": "4e08abc64d1767fdacd2c94da7f2ec4b8c65b25b19a53e87d19dc432901b5f02",
+        "size": 481381384,
+        "pointerSize": 134
+      }
+    },
+    {
+      "path": "extractor/model.safetensors.index.json",
+      "size": 24260,
+      "git_oid": "1a43cf85acaf7118313f1e614592fecf186d1fd9",
+      "lfs": null
+    },
+    {
+      "path": "extractor/special_tokens_map.json",
+      "size": 636,
+      "git_oid": "8d6368f7e735fbe4781bf6e956b7c6ad0586df80",
+      "lfs": null
+    },
+    {
+      "path": "extractor/tokenizer.json",
+      "size": 34362972,
+      "git_oid": "bda55fd2796bc3a106b77e25610a354c8a69b338",
+      "lfs": {
+        "oid": "e6ce83119bb404f7f0a6e621b76759d476357dcd01241a90f9ca136ae2b3c11c",
+        "size": 34362972,
+        "pointerSize": 133
+      }
+    },
+    {
+      "path": "extractor/tokenizer.model",
+      "size": 4241003,
+      "git_oid": "796efe9ab515c15e146ce7588e6d7b9b8134dbf8",
+      "lfs": {
+        "oid": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2",
+        "size": 4241003,
+        "pointerSize": 132
+      }
+    },
+    {
+      "path": "extractor/tokenizer_config.json",
+      "size": 46409,
+      "git_oid": "3ade6be57196932063a48c1329fbf9c2e7e154d1",
+      "lfs": null
+    },
+    {
+      "path": "features.jsonl",
+      "size": 53470618,
+      "git_oid": "9c837bb55c1e66bd9b6b2e390300e3757cc5183c",
+      "lfs": {
+        "oid": "713b0a28fc7dbc2a174f31ab6dc49fb3b14da7efaa5e2fac8a3f920d5d4785aa",
+        "size": 53470618,
+        "pointerSize": 133
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.00.safetensors",
+      "size": 262388,
+      "git_oid": "06c4bbc346eea692b465625d1d0c948240c67f29",
+      "lfs": {
+        "oid": "2ac3162e15ece7b648588698a584f39990ed804219af3317f3007c0a20974942",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.05.safetensors",
+      "size": 262388,
+      "git_oid": "c4cf3833abbf2866c512164bab84380523b30f41",
+      "lfs": {
+        "oid": "da278e64139f8282992f27dab7e9c9f4aa0495f6584cdd0d581b869181cc3585",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.10.safetensors",
+      "size": 262388,
+      "git_oid": "6385597e9b21ecc595333d2dd9eb6d01008630f3",
+      "lfs": {
+        "oid": "f4379905caf09da91630bb6c6cf01bf3bad27ddde0e96c349ea8cd0e093ad4a7",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.15.safetensors",
+      "size": 262388,
+      "git_oid": "1f00320bffe2091eab84651019a0ab1b5dd6c418",
+      "lfs": {
+        "oid": "4ba4365a55967d2125b5868b41d9cfe2cb2c96e4290165b775385abedc321d38",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.20.safetensors",
+      "size": 262388,
+      "git_oid": "78d1143b11c7ec05b3ddf8a8c4c43a04aa393110",
+      "lfs": {
+        "oid": "1dd85e66e380e82b0963f13aafc7322c9c71c8d8fdcfde9a03c2b88042661e28",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.25.safetensors",
+      "size": 262388,
+      "git_oid": "53e8641fa6c5808ee72da7a5af525291b866c3a4",
+      "lfs": {
+        "oid": "59950efac0af025cc7777f8fab58589d1e1ab18e55c6601d8f1afc89059b58b0",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.30.safetensors",
+      "size": 262388,
+      "git_oid": "53fa1fab550003c1d1bf43d71af572fc238faabf",
+      "lfs": {
+        "oid": "f41a65c932388170102cc7e3c63adc06ff0436563d8994475b8b86d607a06384",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.35.safetensors",
+      "size": 262388,
+      "git_oid": "9d31a3664090b1cf53fd75f2c5e15d1a2b94946e",
+      "lfs": {
+        "oid": "3bf510f0a0d9a5f2407dbeb88807cfc77d79892ec20126b71f33d3df5c173493",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.40.safetensors",
+      "size": 262388,
+      "git_oid": "9810b681ed0aadc018cc20556a79af06188e55db",
+      "lfs": {
+        "oid": "3ca87fec2e26fdf1ebc3c0b7028da386f61a8a6acd6f6874bb8932071c68fdb5",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.45.safetensors",
+      "size": 262388,
+      "git_oid": "53e14386f356313c65f545a6db28647d15cba7d1",
+      "lfs": {
+        "oid": "5d625148de1b3fb7752c7dcab816b559db9a4b1554a3f53c147f9e1f778e769b",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.50.safetensors",
+      "size": 262388,
+      "git_oid": "ad69b180033f7c08590b8cc3c35dc01f21a10d70",
+      "lfs": {
+        "oid": "260a0ca47e8dce6d7a0030d60cb035cd84b9f2d6542ea23ded3e0c22f9c123d6",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.55.safetensors",
+      "size": 262388,
+      "git_oid": "33276836bbec055cb2c1a716e42e1f29ba42f58f",
+      "lfs": {
+        "oid": "9dd22df1d4dc5c8933917cc67e69332a1be5807a8c807625c5faaf5904dcdae3",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.60.safetensors",
+      "size": 262388,
+      "git_oid": "afc3f4bac9329530d555b02747cac29431e1ed80",
+      "lfs": {
+        "oid": "142c6b5b2d6590e0a2ea11fc399984575cc39a414c6aa10767afd745af85a367",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.65.safetensors",
+      "size": 262388,
+      "git_oid": "fdb863cc750f93a215bfbc0a77e3fa89dcebe09d",
+      "lfs": {
+        "oid": "463cee066a24eed05c1f16d80ed67b5807740e5dcd99aec21f73c8b9f96d8478",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.70.safetensors",
+      "size": 262388,
+      "git_oid": "46f086369f45f6f321e0e42338a40ce7feb2da11",
+      "lfs": {
+        "oid": "794397ae395ebbce9f16274b5b92c6794981d0ccb11b3384905b8a81e6125200",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.75.safetensors",
+      "size": 262388,
+      "git_oid": "1209027b00dce5b5e7c5a878e04b7d8d7261ffdd",
+      "lfs": {
+        "oid": "c89eba97b25b574f412cb1b8390f2df8bf6deb3575e533dca6993c7191f91d2c",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.80.safetensors",
+      "size": 262388,
+      "git_oid": "6a88c7caa3324e9080d2217d28dd5664a09a3d47",
+      "lfs": {
+        "oid": "2c1e965a216f86096936e1307607b29bf9025c925456acf8bcad7d41e1268b58",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.85.safetensors",
+      "size": 262388,
+      "git_oid": "bd1fea8284250495d86493318dc75b0a917e6441",
+      "lfs": {
+        "oid": "8a19128c6a79c5e1e0548c5ab376f60d337991a0b408ed4006ce2ecfb4676cc4",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.90.safetensors",
+      "size": 262388,
+      "git_oid": "14b4271feba523d5e5484425177de07bd9ec5cb8",
+      "lfs": {
+        "oid": "39af5955ff43cd28697c9cb772cde3e2d97e5d2caa8d248b6235d3548c40b399",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/logreg_tau0.95.safetensors",
+      "size": 262388,
+      "git_oid": "99dc43acdf0f9aaa2ad9b769889bd957b4eca88a",
+      "lfs": {
+        "oid": "14c64571f298af4ab9a6d68f6092232c6dd5092436f89fa4634bb8c6bc1a61fa",
+        "size": 262388,
+        "pointerSize": 131
+      }
+    },
+    {
+      "path": "heads/xgboost_tau0.00.json",
+      "size": 984408,
+      "git_oid": "ea0be751d030c03e0451aa21c392fedff512953c",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.05.json",
+      "size": 991825,
+      "git_oid": "34df54e9dfbc8fadb3e26a23422593ddfe3a43bd",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.10.json",
+      "size": 976642,
+      "git_oid": "cba3f3617e3471c6a08499410cd22c948451f82c",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.15.json",
+      "size": 978878,
+      "git_oid": "9cf3d91ad883e3fc196f4d602ef86dec91a15830",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.20.json",
+      "size": 987833,
+      "git_oid": "cbce9792b0af9b94f6144e829a6eb009e4b420c3",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.25.json",
+      "size": 990361,
+      "git_oid": "d971f22ecd52265fc68975949119d48101d4c05f",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.30.json",
+      "size": 968501,
+      "git_oid": "f517c9d3464322a7c4f4819f9ddc7f2af118999e",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.35.json",
+      "size": 985180,
+      "git_oid": "54848dbe75d1bad41c9c86e49ad8246355e2f5a5",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.40.json",
+      "size": 978659,
+      "git_oid": "e6a3b4faf1bc56222b6a4868475ed88ebb77e0c5",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.45.json",
+      "size": 998613,
+      "git_oid": "7117ce0dcfd5880149bfdfb773fe44cc8b0510ba",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.50.json",
+      "size": 991245,
+      "git_oid": "6ed2b96179ef5f59ff6ef5bbb7d9cf8ff6239fbf",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.55.json",
+      "size": 974228,
+      "git_oid": "9d1521b2993a6195770a18d7990d1c65f68acb1d",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.60.json",
+      "size": 986573,
+      "git_oid": "616223553645816d12810e5a67b8971e06ade93e",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.65.json",
+      "size": 982744,
+      "git_oid": "2f4a8cc78f1e2e00efd486965758c10b382f9539",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.70.json",
+      "size": 970200,
+      "git_oid": "6d06555a19478f9620915818e06e86500f745440",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.75.json",
+      "size": 996361,
+      "git_oid": "7cf616ef1b5c758e33b6bead552d18862066c224",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.80.json",
+      "size": 1026062,
+      "git_oid": "53ddd117bf55486e2edea0ecc0cff69d5ae80aa4",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.85.json",
+      "size": 1018275,
+      "git_oid": "14ae817cdf84a657d1074ff38a6e806378556646",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.90.json",
+      "size": 1023243,
+      "git_oid": "8e76169e61f3d5165fbb54022f46ad6ea1043fec",
+      "lfs": null
+    },
+    {
+      "path": "heads/xgboost_tau0.95.json",
+      "size": 75712,
+      "git_oid": "b69d1d878a7934baf94507737e3e053d16ea98a8",
+      "lfs": null
+    },
+    {
+      "path": "model.safetensors",
+      "size": 1208522464,
+      "git_oid": "9792283d6245da74594a20a442f1210dc2c9313a",
+      "lfs": {
+        "oid": "2e8ae474410517753497b2600a88a523dd50ad9c703da7248b049064ba173d2b",
+        "size": 1208522464,
+        "pointerSize": 135
+      }
+    }
+  ],
+  "small_files": {
+    "NOTICE": {
+      "sha256": "587bc86563cb40490af8e14e7c9dec88e34ddf80078f939b7770072f6b43df2f",
+      "text": "Gemma is provided under and subject to the Gemma Terms of Use found at\nai.google.dev/gemma/terms.\n"
+    },
+    "README.md": {
+      "sha256": "e59d4987e5b09f1231267b29a57ebf4af577b57fa01cc2c401a3b8b41223eec5"
+    },
+    "config.json": {
+      "sha256": "0c2b653e74feacec4edfe5a861fb3aa6fb01cecfec86116c5621a1c71a887b5a",
+      "text": "{\n  \"base_model\": null,\n  \"head\": \"logreg\",\n  \"hook_points\": [\n    \"model.layers.8\",\n    \"model.layers.14\",\n    \"model.layers.18\",\n    \"model.layers.23\"\n  ],\n  \"tau\": 0.85\n}"
+    },
+    "extractor/config.json": {
+      "sha256": "3aecd9e4d0b1daf9da7e1f52e895a6bb8ad537b77444f609ede14e376336f8d7",
+      "text": "{\n  \"architectures\": [\n    \"Gemma2ForCausalLM\"\n  ],\n  \"attention_bias\": false,\n  \"attention_dropout\": 0.0,\n  \"attn_logit_softcapping\": 50.0,\n  \"bos_token_id\": 2,\n  \"cache_implementation\": \"hybrid\",\n  \"dtype\": \"float32\",\n  \"eos_token_id\": 1,\n  \"final_logit_softcapping\": 30.0,\n  \"head_dim\": 256,\n  \"hidden_act\": \"gelu_pytorch_tanh\",\n  \"hidden_activation\": \"gelu_pytorch_tanh\",\n  \"hidden_size\": 2304,\n  \"initializer_range\": 0.02,\n  \"intermediate_size\": 9216,\n  \"layer_types\": [\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\",\n    \"sliding_attention\",\n    \"full_attention\"\n  ],\n  \"max_position_embeddings\": 8192,\n  \"model_type\": \"gemma2\",\n  \"num_attention_heads\": 8,\n  \"num_hidden_layers\": 26,\n  \"num_key_value_heads\": 4,\n  \"pad_token_id\": 0,\n  \"query_pre_attn_scalar\": 256,\n  \"rms_norm_eps\": 1e-06,\n  \"rope_theta\": 10000.0,\n  \"sliding_window\": 4096,\n  \"transformers_version\": \"4.57.6\",\n  \"use_cache\": true,\n  \"vocab_size\": 256000\n}\n"
+    },
+    "extractor/model.safetensors.index.json": {
+      "sha256": "b43d22840c3a033a4bbc9cb9a2877f37be63dd0af618ad82a28f231484cf3926",
+      "text": "{\n  \"metadata\": {\n    \"total_parameters\": 2614341888,\n    \"total_size\": 10457367552\n  },\n  \"weight_map\": {\n    \"model.embed_tokens.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.input_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.mlp.down_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.mlp.gate_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.mlp.up_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.post_attention_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.post_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.pre_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.self_attn.k_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.self_attn.o_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.self_attn.q_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.0.self_attn.v_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.input_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.mlp.down_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.mlp.gate_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.mlp.up_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.post_attention_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.post_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.pre_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.self_attn.k_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.self_attn.o_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.self_attn.q_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.1.self_attn.v_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.10.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.10.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.10.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.10.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.10.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.10.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.10.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.10.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.10.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.10.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.10.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.11.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.12.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.13.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.14.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.15.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.16.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.17.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.18.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.19.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.2.input_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.2.mlp.down_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.2.mlp.gate_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.2.mlp.up_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.2.post_attention_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.2.post_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.2.pre_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.2.self_attn.k_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.2.self_attn.o_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.2.self_attn.q_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.2.self_attn.v_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.20.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.20.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.20.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.20.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.20.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.20.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.20.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.20.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.20.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.20.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.20.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.21.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.22.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.23.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.24.input_layernorm.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.24.mlp.down_proj.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.24.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.24.mlp.up_proj.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.24.post_attention_layernorm.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.24.post_feedforward_layernorm.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.24.pre_feedforward_layernorm.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.24.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.24.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.24.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.24.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.25.input_layernorm.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.25.mlp.down_proj.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.25.mlp.gate_proj.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.25.mlp.up_proj.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.25.post_attention_layernorm.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.25.post_feedforward_layernorm.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.25.pre_feedforward_layernorm.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.25.self_attn.k_proj.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.25.self_attn.o_proj.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.25.self_attn.q_proj.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.25.self_attn.v_proj.weight\": \"model-00003-of-00003.safetensors\",\n    \"model.layers.3.input_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.3.mlp.down_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.3.mlp.gate_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.3.mlp.up_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.3.post_attention_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.3.post_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.3.pre_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.3.self_attn.k_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.3.self_attn.o_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.3.self_attn.q_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.3.self_attn.v_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.input_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.mlp.down_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.mlp.gate_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.mlp.up_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.post_attention_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.post_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.pre_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.self_attn.k_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.self_attn.o_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.self_attn.q_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.4.self_attn.v_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.input_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.mlp.down_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.mlp.gate_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.mlp.up_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.post_attention_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.post_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.pre_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.self_attn.k_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.self_attn.o_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.self_attn.q_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.5.self_attn.v_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.input_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.mlp.down_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.mlp.gate_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.mlp.up_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.post_attention_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.post_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.pre_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.self_attn.k_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.self_attn.o_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.self_attn.q_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.6.self_attn.v_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.input_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.mlp.down_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.mlp.gate_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.mlp.up_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.post_attention_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.post_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.pre_feedforward_layernorm.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.self_attn.k_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.self_attn.o_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.self_attn.q_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.7.self_attn.v_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.8.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.8.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.8.mlp.gate_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.8.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.8.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.8.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.8.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.8.self_attn.k_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.8.self_attn.o_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.8.self_attn.q_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.8.self_attn.v_proj.weight\": \"model-00001-of-00003.safetensors\",\n    \"model.layers.9.input_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.9.mlp.down_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.9.mlp.gate_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.9.mlp.up_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.9.post_attention_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.9.post_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.9.pre_feedforward_layernorm.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.9.self_attn.k_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.9.self_attn.o_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.9.self_attn.q_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.layers.9.self_attn.v_proj.weight\": \"model-00002-of-00003.safetensors\",\n    \"model.norm.weight\": \"model-00003-of-00003.safetensors\"\n  }\n}\n"
+    }
+  },
+  "status": "Metadata and small-file hashes only; LFS payloads not downloaded or independently verified; no inference or commercial clearance"
+}
