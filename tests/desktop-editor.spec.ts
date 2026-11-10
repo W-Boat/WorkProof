@@ -639,7 +639,7 @@ test('workspace commands create a recorded template and remain keyboard accessib
   const search=palette.getByRole('searchbox',{name:'搜索功能或文档'});
   await search.fill('找不到的命令xyz');await expect(palette.getByText('没有找到。试试“新建”“查找”或文档名称。')).toBeVisible();
   await search.fill('会议记录');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
-  await expect(palette).not.toBeVisible();await expect(page.getByRole('textbox',{name:'文档标题'})).toHaveValue('会议记录');
+  await expect(palette).not.toBeVisible();await expect(page.getByRole('textbox',{name:'文档名称'})).toHaveValue('会议记录');
   await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('讨论要点');
   await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions).some((a:any)=>a.kind==='import'&&a.detail?.source==='builtin-template'&&a.detail?.template_id==='meeting'))).toBe(true);
   await page.keyboard.press('Control+k');await search.fill('返回我的文档');await page.keyboard.press('Enter');
@@ -650,7 +650,8 @@ test('workspace commands create a recorded template and remain keyboard accessib
 
 test('document statistics count Unicode characters and return focus without changing content',async({page},info)=>{
   await page.addInitScript(()=>localStorage.setItem('workproof.appearance','dark'));
-  await desktop(page);const body=await create(page);await body.fill('中文 hello world 😀');
+  await desktop(page);const body=await create(page);await body.click();await page.keyboard.insertText('中文 hello world 😀');
+  await expect(body).toHaveText('中文 hello world 😀');
   await page.getByRole('button',{name:'查看文档统计',exact:true}).click();
   const stats=page.getByRole('dialog',{name:'文档统计',exact:true});await expect(stats).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
@@ -663,8 +664,8 @@ test('document statistics count Unicode characters and return focus without chan
 });
 
 test('library sorting persists and source search reports the matching count',async({page})=>{
-  await desktop(page);await create(page);await page.getByRole('textbox',{name:'文档标题'}).fill('Alpha 2');await page.locator('#back-library').click();
-  await create(page);await page.getByRole('textbox',{name:'文档标题'}).fill('Beta 1');await page.locator('#back-library').click();
+  await desktop(page);await create(page);await page.getByRole('textbox',{name:'文档名称'}).fill('Alpha 2');await page.locator('#back-library').click();
+  await create(page);await page.getByRole('textbox',{name:'文档名称'}).fill('Beta 1');await page.locator('#back-library').click();
   await page.getByRole('combobox',{name:'文档排序'}).selectOption('title');
   await expect(page.locator('#document-list .document-row strong')).toHaveText(['Alpha 2','Beta 1']);
   await page.reload();await expect(page.getByRole('combobox',{name:'文档排序'})).toHaveValue('title');

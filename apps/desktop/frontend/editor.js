@@ -436,6 +436,7 @@ $('markdown-file').addEventListener('change',async event=>{
 });
 const workspaceTools=initializeWorkspaceTools({
   getEditor:()=>editor,canOpen:()=>!closing&&!opening&&!exporting&&!creating,
+  onShortcut:event=>{if(document.body.dataset.view==='document')addAction('keyboard',{detail:{source:'workspace-command',key:event.key,code:event.code,ctrl:event.ctrlKey,meta:event.metaKey,shift:event.shiftKey,alt:event.altKey,repeat:event.repeat,composing:false}});},
   onError:error=>ui.showMessage(errorText(error),'error'),
   commands:()=>{
     const current=Boolean(active&&document.body.dataset.view==='document'),writing=current&&$('tab-write').getAttribute('aria-selected')==='true';

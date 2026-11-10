@@ -2,7 +2,7 @@ import {icon} from './icons.js';
 const $=id=>document.getElementById(id);
 const node=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;};
 
-export function initializeWorkspaceTools({commands,canOpen,onError,getEditor}){
+export function initializeWorkspaceTools({commands,canOpen,onError,getEditor,onShortcut}){
   const trigger=node('fluent-button','workspace-command-trigger');trigger.id='workspace-commands';
   trigger.setAttribute('appearance','subtle');trigger.setAttribute('aria-label','快捷命令（Ctrl+K）');
   trigger.setAttribute('data-icon','search');trigger.textContent='快捷命令';
@@ -51,11 +51,11 @@ export function initializeWorkspaceTools({commands,canOpen,onError,getEditor}){
   });
   document.addEventListener('keydown',event=>{
     if(event.isComposing||event.defaultPrevented||!canOpen())return;
-    if((event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==='k'){event.preventDefault();dialog.open?close():open();}
+    if((event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==='k'){event.preventDefault();event.stopPropagation();onShortcut?.(event);dialog.open?close():open();}
     if((event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==='n'&&!document.querySelector('dialog[open]')){
-      event.preventDefault();run('new');
+      event.preventDefault();event.stopPropagation();onShortcut?.(event);run('new');
     }
-  });
+  },{capture:true});
 
   const stats=node('dialog','workspace-statistics');stats.id='document-statistics';stats.setAttribute('aria-labelledby','statistics-title');
   const statsTitle=node('h2','','文档统计');statsTitle.id='statistics-title';const values=node('dl','statistics-values');
