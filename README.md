@@ -12,12 +12,20 @@
 
 编译与完整自动化测试在本仓库 Actions 完成；本机运行 Actions 的预构建产物进行验收，不在本地构建。机构后台运行入口及启停脚本见 [本地运行](docs/LOCAL-RUNTIME.md)。
 
-成功运行后下载两个产物：
+先在成功的 [GitHub Actions](https://github.com/W-Boat/WorkProof/actions) 任务中选择需要的产物。下载通常需要登录 GitHub；开发包尚未进行商业代码签名。
+
+- **只想安装 Windows 桌面版**：选择 `workproof-windows-x64`，解压后运行其中 `bundle/nsis` 下的安装程序。安装后从开始菜单打开 WorkProof；无需安装 Node 或 Rust。优先使用安装器，以便保留同一构建的内嵌网页与安装资源。
+- **需要 Word / PowerPoint 原生加载项**：选择原生 Office 工作流的 `workproof-native-word-windows-dev` 完整包，按包内说明安装匹配架构的插件。普通桌面窗口打开不等于 Office 插件已注册；WPS 的安装和许可限制见[Office 说明](docs/OFFICE-SERVER.md)。
+- **使用 VS Code 或独立核验站点**：同时领取 `workproof-web-and-extension`，它包含静态核验站点、VS Code `.vsix`、文档和依赖锁文件。
+
+下面是 VS Code 配对与独立核验流程；使用桌面内置编辑器时，可直接从应用创建文档，不必先安装 VS Code 插件。
+
+相关产物内容：
 
 - `workproof-windows-x64`：Windows 托盘程序与命令行核验器。
 - `workproof-web-and-extension`：静态核验站点、VS Code `.vsix`、文档与依赖锁文件。
 
-1. 解压 Windows 产物，启动 `workproof-desktop.exe`。系统需有 WebView2 Runtime。该原型未进行商业代码签名。
+1. 安装并启动 Windows 桌面版。系统需有 WebView2 Runtime；使用便携开发包时，应保持包内资源目录完整，不要只复制一个 EXE。
 2. VS Code → Extensions → Install from VSIX，安装产物中的扩展。
 3. 命令面板运行 **WorkProof: 配对本地引擎**。令牌保存在 VS Code SecretStorage，不出现在证书中。
 4. 打开本地文件，运行 **WorkProof: 记录当前文件**，明确同意后才开始采集。
