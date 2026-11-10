@@ -177,7 +177,7 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
             assert report['receipt_verified'] is True and report['client_origin_verified'] is False
             if external and provided_keys is None and project.startswith('workproof-server-ci-'):
                 from test_institution_receipt_permissions import verify_receipt_permissions
-                limited=verify_receipt_permissions(origin,token,proof,project)
+                limited=verify_receipt_permissions(origin,token,proof,project,root,location/'public.hex',ttl)
                 (location/'ordinary-role-receipt.json').write_text(json.dumps(limited),encoding='utf-8')
                 checked=subprocess.run([str(root/'target/release/workproof-receipt'),'verify',str(location/'proof.wproof'),
                     str(location/'ordinary-role-receipt.json'),'ci-image-http',ttl,str(location/'public.hex')],

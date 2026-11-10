@@ -3,11 +3,12 @@ import json
 import os
 import re
 import secrets
+import subprocess
 import urllib.error
 import urllib.request
 
 
-def verify_receipt_permissions(origin, admin_token, proof, project):
+def verify_receipt_permissions(origin, admin_token, proof, project, root, public_key_path, ttl):
     assert os.environ.get('GITHUB_ACTIONS') == 'true'
     assert re.fullmatch(r'workproof-server-ci-[0-9a-f]{12}', project)
     assert origin == 'http://127.0.0.1:18082'
@@ -62,8 +63,16 @@ def verify_receipt_permissions(origin, admin_token, proof, project):
         permissions=success('/api/auth/me',token)['permissions']
         assert permission not in permissions and '*' not in permissions
 
+    def check_ui(token, allowed):
+        ui=subprocess.run(['node',str(root/'scripts/test_institution_receipt_role_ui.cjs')],
+            input=json.dumps({'origin':origin,'token':token,'project':project,'allowed':allowed,
+                'publicKeyPath':str(public_key_path),'ttl':ttl}).encode(),capture_output=True,timeout=90,cwd=root)
+        phase=re.search(rb'RECEIPT_ROLE_UI_PHASE=([a-z-]{1,40})',ui.stderr)
+        assert ui.returncode==0,'Ordinary-role UI failed: '+(phase.group(1).decode() if phase else 'unknown')
+
     initial=login()
     denied(initial)
+    check_ui(initial,False)
     success('/api/auth/logout',initial,data={})
     success('/api/system/roles/'+str(role),admin_token,{'menuIds':[dashboard,menu]},method='PUT')
     granted=login()
@@ -75,6 +84,7 @@ def verify_receipt_permissions(origin, admin_token, proof, project):
     assert request('/api/workproof/receipts',granted,proof)[0]==400,'Consent must remain mandatory for ordinary roles'
     receipt=success('/api/workproof/receipts',granted,proof,consent=True)
     assert receipt['payload']['purpose']=='server-received'
+    check_ui(granted,True)
     assert request('/api/system/menus',granted,{'name':'must-not-create'})[0]==403,'Signing role could escalate permissions'
     # Backend resolves permissions from current DB state on each request. Verify
     # revocation against the previously authorized token, then also a fresh login.
@@ -82,6 +92,7 @@ def verify_receipt_permissions(origin, admin_token, proof, project):
     denied(granted)
     success('/api/auth/logout',granted,data={})
     revoked=login();denied(revoked)
+    check_ui(revoked,False)
     success('/api/auth/logout',revoked,data={})
     # Delete only the exact newly created fixture IDs using the same public APIs.
     success('/api/system/users/'+str(user),admin_token,method='DELETE')
