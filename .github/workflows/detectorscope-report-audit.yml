@@ -21,7 +21,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Check auditor refusal boundaries
-        run: python tools/ai-assessment/test_audit_detectorscope.py
+        run: |
+          python tools/ai-assessment/test_audit_detectorscope.py
+          python tools/ai-assessment/test_audit_detectorscope_run.py
       - name: Verify completed run provenance, artifact digests and report arithmetic
         env:
           GITHUB_TOKEN: ${{ github.token }}

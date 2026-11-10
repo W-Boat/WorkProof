@@ -37,15 +37,18 @@ def artifact_bytes(identifier,expected_size,expected_digest):
     assert 'sha256:'+hashlib.sha256(raw).hexdigest()==expected_digest
     return raw
 
-def main():
-    assert os.environ.get('GITHUB_ACTIONS')=='true'
-    run_id=os.environ['WORKPROOF_EVALUATION_RUN'];assert re.fullmatch(r'[1-9][0-9]{0,19}',run_id)
-    run=api('actions/runs/'+run_id)
+def validate_run(run):
     assert run['repository']['full_name']==REPOSITORY and run['head_repository']['full_name']==REPOSITORY
     assert run['name']=='Independent DetectorScope bilingual calibration and heldout evaluation'
     assert run['event'] in ('push','workflow_dispatch') and run['head_branch']=='codex/workproof-mvp'
     assert run['status']=='completed' and run['conclusion']=='success','EVALUATION_NOT_COMPLETED_SUCCESSFULLY'
     assert re.fullmatch(r'[0-9a-f]{40}',run['head_sha'])
+
+def main():
+    assert os.environ.get('GITHUB_ACTIONS')=='true'
+    run_id=os.environ['WORKPROOF_EVALUATION_RUN'];assert re.fullmatch(r'[1-9][0-9]{0,19}',run_id)
+    run=api('actions/runs/'+run_id)
+    validate_run(run)
     listed=api('actions/runs/'+run_id+'/artifacts?per_page=100')
     assert listed['total_count']<=100
     root=pathlib.Path(__file__).resolve().parents[2]
