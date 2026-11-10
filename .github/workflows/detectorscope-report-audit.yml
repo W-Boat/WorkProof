@@ -1,0 +1,34 @@
+name: Audit completed DetectorScope independent reports
+on:
+  workflow_dispatch:
+    inputs:
+      evaluation_run:
+        description: Completed independent calibration run ID
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check auditor refusal boundaries
+        run: python tools/ai-assessment/test_audit_detectorscope.py
+      - name: Verify completed run provenance, artifact digests and report arithmetic
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          WORKPROOF_EVALUATION_RUN: ${{ inputs.evaluation_run }}
+        run: python tools/ai-assessment/audit_detectorscope_run.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: detectorscope-independent-report-audit
+          path: detectorscope-independent-audit.json
+          if-no-files-found: error
