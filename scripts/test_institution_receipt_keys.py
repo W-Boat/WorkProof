@@ -78,6 +78,22 @@ with tempfile.TemporaryDirectory(prefix='workproof-key-acceptance-') as temporar
         '--issuer', 'ci-keys', '--deployment-backup', str(chosen)]
     selected = subprocess.run(command, input=password+b'\n', capture_output=True, timeout=30)
     assert selected.returncode == 0
+    # A backup must never silently ignore an explicitly supplied independent key.
+    checked_backup = root/'identity-checked.enc'
+    checked = subprocess.run([sys.executable, '/opt/workproof/receipt_keys.py', 'backup', '--input', str(original),
+        '--output', str(checked_backup), '--issuer', 'ci-keys', '--expected-public-key', public,
+        '--deployment-backup', str(chosen)], input=password+b'\n', capture_output=True, timeout=30)
+    assert checked.returncode == 0 and seed.encode() not in checked.stdout+checked.stderr
+    keys.restore(checked_backup, root/'identity-checked-restored', 'ci-keys', public, password, keys.deployment_digest(chosen))
+    assert (root/'identity-checked-restored/seed.hex').read_text() == seed
+    for wrong_public in ('00'*32, 'malformed', 'AB'*32):
+        output = root/'must-not-publish-wrong-identity.enc'
+        refused = subprocess.run([sys.executable, '/opt/workproof/receipt_keys.py', 'backup', '--input', str(original),
+            '--output', str(output), '--issuer', 'ci-keys', '--expected-public-key', wrong_public],
+            input=password+b'\n', capture_output=True, timeout=15)
+        assert refused.returncode != 0 and not output.exists()
+        assert seed.encode() not in refused.stdout+refused.stderr
+    assert (original/'seed.hex').read_text() == seed
     mismatched = subprocess.run([sys.executable, '/opt/workproof/receipt_keys.py', 'restore', '--input', str(file_bound),
         '--output', str(root/'file-mismatch'), '--issuer', 'ci-keys', '--expected-public-key', public,
         '--deployment-backup', str(chosen), '--deployment-sha256', '00'*32], input=password+b'\n', capture_output=True, timeout=15)

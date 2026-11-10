@@ -87,7 +87,7 @@ def deployment_digest(path):
         return hashed.hexdigest()
 
 
-def backup(key_directory, output, issuer, password, deployment_sha256=None):
+def backup(key_directory, output, issuer, password, deployment_sha256=None, expected_public=None):
     require_root()
     if deployment_sha256 is not None: digest(deployment_sha256)
     fd = directory(key_directory)
@@ -95,6 +95,9 @@ def backup(key_directory, output, issuer, password, deployment_sha256=None):
         value = identity(issuer, read_key(fd, 'seed.hex', True), read_key(fd, 'public.hex', False))
     finally:
         os.close(fd)
+    if expected_public is not None and (not isinstance(expected_public, str) or
+            not re.fullmatch(r'[0-9a-f]{64}', expected_public) or expected_public != value['public_key']):
+        raise ValueError('Independent public key did not match backup identity')
     if deployment_sha256 is not None:
         value.update(format='workproof-receipt-key-backup/2', deployment_sha256=deployment_sha256)
     with tempfile.TemporaryDirectory(prefix='workproof-key-backup-') as temporary:
@@ -169,7 +172,7 @@ def main():
     parser.add_argument('--input')
     parser.add_argument('--output', required=True)
     parser.add_argument('--issuer', required=True)
-    parser.add_argument('--expected-public-key')
+    parser.add_argument('--expected-public-key', help='Independent full lowercase public key; required for restore, optional identity check for backup')
     parser.add_argument('--deployment-sha256')
     parser.add_argument('--deployment-backup')
     args = parser.parse_args()
@@ -189,7 +192,7 @@ def main():
             raise ValueError('Selected deployment file did not match expected digest')
         selected_digest = actual_digest
     password = crypto._stdin_password()
-    if args.operation == 'backup': backup(args.input, args.output, args.issuer, password, selected_digest)
+    if args.operation == 'backup': backup(args.input, args.output, args.issuer, password, selected_digest, args.expected_public_key)
     else: restore(args.input, args.output, args.issuer, args.expected_public_key, password, selected_digest)
     print('Completed; signing was not activated.')
 
