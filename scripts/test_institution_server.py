@@ -76,6 +76,7 @@ try:
     verify_receipt_server(compose, env, token, root, project, external=True)
     assert json.loads(request('/api/workproof/receipts/capabilities',token=token)[1])['data']['configured'] is False
     checks.append('Separate read-only image signs only with explicit synthetic tmpfs keys; independent host verification; default app remains disabled')
+    checks.append('Existing menu/role APIs grant ordinary-role receipt access without wildcard or system permissions; consent and independent signature verification; existing and fresh tokens denied after revocation')
     rejected=login('admin123');assert rejected.get('code')!=200 and not (rejected.get('data') or {}).get('token')
     users=json.loads(request('/api/system/users?pageNum=1&pageSize=100',token=token)[1])['data']['rows']
     assert users and any(user['username']=='admin' for user in users)

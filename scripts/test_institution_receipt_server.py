@@ -175,6 +175,14 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
             assert verified.returncode == 0, 'Image HTTP receipt failed independent host verification'
             report = json.loads(verified.stdout)
             assert report['receipt_verified'] is True and report['client_origin_verified'] is False
+            if external and provided_keys is None and project.startswith('workproof-server-ci-'):
+                from test_institution_receipt_permissions import verify_receipt_permissions
+                limited=verify_receipt_permissions(origin,token,proof,project)
+                (location/'ordinary-role-receipt.json').write_text(json.dumps(limited),encoding='utf-8')
+                checked=subprocess.run([str(root/'target/release/workproof-receipt'),'verify',str(location/'proof.wproof'),
+                    str(location/'ordinary-role-receipt.json'),'ci-image-http',ttl,str(location/'public.hex')],
+                    capture_output=True,timeout=15)
+                assert checked.returncode==0,'Ordinary-role receipt failed independent original-byte and trusted-key verification'
             if previous_receipt is not None:
                 assert len(json.dumps(previous_receipt).encode()) <= 16 * 1024
                 assert previous_receipt['payload']['receipt_id'] != receipt['payload']['receipt_id']
