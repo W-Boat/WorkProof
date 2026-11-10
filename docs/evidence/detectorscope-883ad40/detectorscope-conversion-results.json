@@ -1,0 +1,50 @@
+{
+  "model_revision": "9baaff9e2d1cdb79cafa90cdb27811b847e69dae",
+  "derived_files": [
+    {
+      "path": "extractor/model-00001-of-00003.safetensors",
+      "source_sha256": "1425aa066ec77e3eb79aac14a5bdea3ebcec46aa5c96cd40608c5c1fd70d193d",
+      "derived_sha256": "0890773f950e973b44a2e5c3cf89fcb238e3320398d8b14e9e72e98ebca673da",
+      "derived_size": 2496293512,
+      "tensor_bytes": 2496282624,
+      "conversion": "float32-to-float16, round-to-nearest torch.to",
+      "all_values_verified": true,
+      "peak_rss_kib": 7859536,
+      "parent_observed_peak_rss_bytes": 7497973760
+    },
+    {
+      "path": "extractor/model-00002-of-00003.safetensors",
+      "source_sha256": "96c111d3dcdbde9271595e463b5d9f7fc4810ad8b79e736309c0a1833e6c0d35",
+      "derived_sha256": "c1d9e633707fb7e5e8dd17fecf2e6b7036c6f9ec14ddc5083f172d0dbcecff76",
+      "derived_size": 2491731864,
+      "tensor_bytes": 2491711488,
+      "conversion": "float32-to-float16, round-to-nearest torch.to",
+      "all_values_verified": true,
+      "peak_rss_kib": 7662712,
+      "parent_observed_peak_rss_bytes": 7483002880
+    },
+    {
+      "path": "extractor/model-00003-of-00003.safetensors",
+      "source_sha256": "4e08abc64d1767fdacd2c94da7f2ec4b8c65b25b19a53e87d19dc432901b5f02",
+      "derived_sha256": "f3037972bdf2f784d3842334662aa125f239eaa45d645542d719ead6557c5da8",
+      "derived_size": 240691712,
+      "tensor_bytes": 240689664,
+      "conversion": "float32-to-float16, round-to-nearest torch.to",
+      "all_values_verified": true,
+      "peak_rss_kib": 1615224,
+      "parent_observed_peak_rss_bytes": 999833600
+    },
+    {
+      "path": "extractor/config.json",
+      "source_sha256": "3aecd9e4d0b1daf9da7e1f52e895a6bb8ad537b77444f609ede14e376336f8d7",
+      "derived_sha256": "22ca84a1071454dbeeae0fb303c93e005ae91e9a75121c38c813434f75de80c6"
+    },
+    {
+      "path": "extractor/model.safetensors.index.json",
+      "source_sha256": "b43d22840c3a033a4bbc9cb9a2877f37be63dd0af618ad82a28f231484cf3926",
+      "derived_sha256": "bffb1c664a3b7bab9e019d00cb5af8438dd204ccc7ea9d9af41a22ca0cc215ca"
+    }
+  ],
+  "inference_completed": false,
+  "production_enabled": false
+}
