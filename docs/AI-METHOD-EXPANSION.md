@@ -1,5 +1,7 @@
 # 增加不同的 AI 辅助判断方法
 
+DetectorScope 真实资源实验尚未通过：首轮虚拟映射预算不足，后续 [a189d82 / 42749992600](https://github.com/W-Boat/WorkProof/actions/runs/42749992600) 在加载阶段超过 10 GiB 观测 RSS 预算并终止，未完成双语推理。接下来需优化并复核加载路径，再做新的独立效果评估；不加入正式支持列表。
+
 DetectorScope 已固定模型版本并核对完整分页元数据，见[准备记录](research/DETECTORSCOPE-PREFLIGHT.md)。官方完整文件清单约 11.78 GB，本机未下载权重或执行模型；LFS 哈希仍只是上游声明，实际载荷、许可、资源和误报验收未完成，未接入生产。
 
 2026 候选二次核查见[来源记录](research/DETECTORS-2026-SECOND-REVIEW.md)：NTS、PAWN++、SpecDetect 与 DetectZoo 分别记录方法类别、发表/首次公开年、资源和代码/模型许可边界；本轮未接入生产引擎或下载模型，不能将聚合工具收录数量当作已支持方法数量。
