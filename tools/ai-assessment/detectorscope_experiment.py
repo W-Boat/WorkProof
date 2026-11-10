@@ -14,6 +14,33 @@ assert os.environ.get('GITHUB_ACTIONS') == 'true'
 root = pathlib.Path(__file__).resolve().parents[2]
 inventory = json.loads((root/'docs/research/detectorscope-model-inventory-20261110.json').read_text())
 
+def bounded_probe(arguments, environment):
+    child = subprocess.Popen(arguments, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    deadline, observed_rss = time.monotonic()+240, 0
+    try:
+        while True:
+            try:
+                stdout, stderr = child.communicate(timeout=0.5)
+                break
+            except subprocess.TimeoutExpired:
+                try:
+                    values = [int(line.split()[1])*1024 for line in pathlib.Path(f'/proc/{child.pid}/status').read_text().splitlines() if line.startswith('VmRSS:')]
+                    if values: observed_rss = max(observed_rss, values[0])
+                except (FileNotFoundError, ProcessLookupError): pass
+                if observed_rss > 10*1024**3: raise RuntimeError('Probe exceeded 10 GiB observed RSS budget')
+                if time.monotonic() > deadline: raise RuntimeError('Probe exceeded 240 second budget')
+    finally:
+        if child.poll() is None:
+            child.kill(); child.communicate(timeout=15)
+    assert len(stdout)+len(stderr) <= 1024*1024, 'Probe output exceeds report budget'
+    if child.returncode:
+        print(stderr[-4000:], file=sys.stderr)
+        raise RuntimeError('Bounded research child failed')
+    result = json.loads(stdout)
+    assert result['peak_rss_kib']*1024 <= 10*1024**3
+    result['parent_observed_peak_rss_bytes'] = observed_rss
+    return result
+
 if len(sys.argv) > 1 and sys.argv[1] == '--infer':
     os.environ.update(HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', HF_HUB_DISABLE_TELEMETRY='1')
     # Mapped float32 checkpoint shards coexist with converted float16 tensors.
@@ -48,7 +75,7 @@ temporary = pathlib.Path(os.environ['RUNNER_TEMP'])
 memory = int(next(line.split()[1] for line in pathlib.Path('/proc/meminfo').read_text().splitlines() if line.startswith('MemAvailable:')))*1024
 free = shutil.disk_usage(temporary).free
 assert memory >= 12*1024**3, 'At least 12 GiB available RAM required before model download'
-assert free >= 16*1024**3, 'At least 16 GiB free disk required before model download'
+assert free >= 22*1024**3, 'At least 22 GiB free disk required for original and derived shards'
 model_path = temporary/'workproof-detectorscope-fixed-model'
 assert not model_path.exists(), 'Fresh isolated model directory required'
 from huggingface_hub import snapshot_download
@@ -63,33 +90,30 @@ for item in inventory['files']:
         for chunk in iter(lambda:stream.read(1024*1024), b''): hashed.update(chunk)
     assert hashed.hexdigest() == (item['lfs']['oid'] if item['lfs'] else item['git_oid']), 'Fixed model payload digest mismatch'
 environment = dict(os.environ, HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', HF_HUB_DISABLE_TELEMETRY='1')
-child = subprocess.Popen([sys.executable, __file__, '--infer', str(model_path)], env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-deadline, observed_rss = time.monotonic()+240, 0
-try:
-    while True:
-        try:
-            stdout, stderr = child.communicate(timeout=0.5)
-            break
-        except subprocess.TimeoutExpired:
-            status = pathlib.Path(f'/proc/{child.pid}/status')
-            try:
-                values = [int(line.split()[1])*1024 for line in status.read_text().splitlines() if line.startswith('VmRSS:')]
-                if values: observed_rss = max(observed_rss, values[0])
-            except (FileNotFoundError, ProcessLookupError):
-                pass  # Child may finish between communicate timeout and /proc read.
-            if observed_rss > 10*1024**3: raise RuntimeError('Synthetic probe exceeded 10 GiB observed RSS budget')
-            if time.monotonic() > deadline: raise RuntimeError('Synthetic probe exceeded 240 second budget')
-finally:
-    if child.poll() is None:
-        child.kill()
-        child.communicate(timeout=15)
-assert len(stdout)+len(stderr) <= 1024*1024, 'Probe output exceeds report budget'
-if child.returncode:
-    print(stderr[-4000:], file=sys.stderr)  # Synthetic-only input, no user documents or credentials.
-    raise RuntimeError('Fixed-model synthetic inference failed')
-report = json.loads(stdout)
-assert report['peak_rss_kib']*1024 <= 10*1024**3, 'Final reported RSS exceeds resource budget'
-report['parent_observed_peak_rss_bytes'] = observed_rss
+derived_path = temporary/'workproof-detectorscope-float16-derivative'
+derived_path.mkdir()  # No reuse or overwrite of previous experiments.
+shards = [f for f in inventory['files'] if f['path'].startswith('extractor/model-') and f['path'].endswith('.safetensors')]
+assert len(shards) == 3
+modified = {f['path'] for f in shards} | {'extractor/config.json','extractor/model.safetensors.index.json'}
+for item in inventory['files']:
+    target = derived_path/item['path']; target.parent.mkdir(parents=True, exist_ok=True)
+    if item['path'] not in modified: os.link(model_path/item['path'], target)
+conversions = []
+for item in shards:
+    converted = bounded_probe([sys.executable, str(root/'tools/ai-assessment/detectorscope_convert.py'),
+        str(model_path/item['path']), str(derived_path/item['path'])], environment)
+    assert converted['source_sha256'] == item['lfs']['oid']
+    conversions.append(dict(path=item['path'], **converted))
+config = json.loads((model_path/'extractor/config.json').read_text());config['dtype'] = 'float16';config['torch_dtype'] = 'float16'
+(derived_path/'extractor/config.json').write_text(json.dumps(config))
+index = json.loads((model_path/'extractor/model.safetensors.index.json').read_text())
+index['metadata']['total_size'] = sum(c['tensor_bytes'] for c in conversions)
+(derived_path/'extractor/model.safetensors.index.json').write_text(json.dumps(index))
+for filename in ['extractor/config.json','extractor/model.safetensors.index.json']:
+    conversions.append({'path':filename,'source_sha256':hashlib.sha256((model_path/filename).read_bytes()).hexdigest(),
+                        'derived_sha256':hashlib.sha256((derived_path/filename).read_bytes()).hexdigest()})
+report = bounded_probe([sys.executable, __file__, '--infer', str(derived_path)], environment)
+report['derived_files'] = conversions
 report.update(model_revision=inventory['revision'], verified_files=len(inventory['files']), source_commit='52ecc87775154b35d4550911de22faad4fc68f40',
               scope='two synthetic resource probes; float16 differs from original float32; no Chinese/English accuracy conclusion')
 (root/'detectorscope-synthetic-results.json').write_text(json.dumps(report,indent=2)+'\n')

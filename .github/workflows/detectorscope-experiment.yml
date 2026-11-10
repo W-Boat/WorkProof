@@ -2,7 +2,7 @@ name: Experimental DetectorScope fixed-model resource probe
 on:
   workflow_dispatch:
   push:
-    paths: ['tools/ai-assessment/detectorscope_experiment.py', '.github/workflows/detectorscope-experiment.yml']
+    paths: ['tools/ai-assessment/detectorscope_experiment.py', 'tools/ai-assessment/detectorscope_convert.py', '.github/workflows/detectorscope-experiment.yml']
 permissions:
   contents: read
 jobs:
