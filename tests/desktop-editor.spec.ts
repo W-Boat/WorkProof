@@ -630,11 +630,12 @@ test('action character counts preserve Unicode and paragraph semantics through e
   const fresh=await page.evaluate(id=>(window as any).editorHarness.saves.filter((s:any)=>s.id===id).flatMap((s:any)=>s.actions),secondId);
   expect(fresh.filter((a:any)=>a.kind==='keyboard'&&a.detail?.key==='ArrowRight').at(-1)?.chars).toBe(0);
 });
-test('workspace commands create a recorded template and remain keyboard accessible',async({page})=>{
+test('workspace commands create a recorded template and remain keyboard accessible',async({page},info)=>{
   await desktop(page);
   await page.keyboard.press('Control+k');
   const palette=page.getByRole('dialog',{name:'快捷命令',exact:true});
   await expect(palette).toBeVisible();
+  await page.screenshot({path:info.outputPath('workspace-command-center-light.png')});
   const search=palette.getByRole('searchbox',{name:'搜索功能或文档'});
   await search.fill('找不到的命令xyz');await expect(palette.getByText('没有找到。试试“新建”“查找”或文档名称。')).toBeVisible();
   await search.fill('会议记录');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
@@ -647,10 +648,13 @@ test('workspace commands create a recorded template and remain keyboard accessib
   await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('讨论要点');
 });
 
-test('document statistics count Unicode characters and return focus without changing content',async({page})=>{
+test('document statistics count Unicode characters and return focus without changing content',async({page},info)=>{
+  await page.addInitScript(()=>localStorage.setItem('workproof.appearance','dark'));
   await desktop(page);const body=await create(page);await body.fill('中文 hello world 😀');
   await page.getByRole('button',{name:'查看文档统计',exact:true}).click();
   const stats=page.getByRole('dialog',{name:'文档统计',exact:true});await expect(stats).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await page.screenshot({path:info.outputPath('workspace-statistics-dark.png')});
   for(const [label,count] of [['字符（含空白）','16'],['非空白字符','13'],['汉字','2'],['英文词','2'],['文字段落（含标题）','1']]){
     await expect(stats.locator('dl > div').filter({has:page.getByText(label,{exact:true})}).locator('dd')).toHaveText(count);
   }
