@@ -1,0 +1,42 @@
+name: Experimental DetectorScope fixed-model resource probe
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tools/ai-assessment/detectorscope_experiment.py', '.github/workflows/detectorscope-experiment.yml']
+permissions:
+  contents: read
+jobs:
+  synthetic-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: google-deepmind/detectorscope
+          ref: 52ecc87775154b35d4550911de22faad4fc68f40
+          path: .detectorscope-source
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated CPU research dependencies
+        run: |
+          python -m pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install transformers==5.22.1 tokenizers==0.23.3 huggingface-hub==2.4.0 safetensors==0.8.0 setuptools==80.9.0
+          python -m pip install --no-deps --no-build-isolation ./.detectorscope-source
+          python -m pip check
+      - name: Verify all fixed weights and run bounded synthetic bilingual inference
+        run: python tools/ai-assessment/detectorscope_experiment.py
+      - name: Record exact research environment
+        if: success()
+        run: python -m pip freeze > detectorscope-environment.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: experimental-detectorscope-synthetic-validation
+          path: |
+            detectorscope-synthetic-results.json
+            detectorscope-environment.txt
+          if-no-files-found: error
