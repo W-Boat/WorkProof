@@ -1,0 +1,19 @@
+{
+  "scope": "Linux amd64 V1/V2 new deployment plus explicit V3 catalog and V4 jobs preparation and restore; modules initially disabled and separately enabled after backup; AI disabled; no production or user database touched",
+  "checks": [
+    "Explicit new deployment; random credentials; no implicit app initialization",
+    "Receipt binary distribution does not enable signing without explicit institution configuration",
+    "Separate read-only image signs only with explicit synthetic tmpfs keys; independent host verification; default app remains disabled",
+    "Real Vue/Office resources, protected API, random login and default-password refusal",
+    "Actual inspector accepts signed proof and rejects tampering; nonroot Java; private database/cache ports",
+    "Repeated preparation/import rejected; credentials and database retained across app restart",
+    "Generated passwords and JWT absent from ordinary service logs",
+    "Native MySQL dump/import preserves every row including NULL, UTF-8 and binary; app remains stopped",
+    "Actual stopped host coordinator publishes authenticated encrypted snapshot, preserves existing output, cleans staging and keeps app stopped; no deployment restore claim",
+    "Actual new-project restore: authenticated SQL/private volumes, stopped ready state, explicit startup and original login, every-row comparison, collision and wrong-password refusal, source unchanged",
+    "Pre-snapshot source HTTP receipt and restored HTTP receipt verify under independently retained original public key; encrypted key backup bound to snapshot; explicit activation only, no atomic joint-backup claim",
+    "Explicit V3 preparation after authenticated backup, enabled catalog API and enabled new-project restore; no automatic migration or ordinary grants",
+    "Explicit V4 preparation, real native job lifecycle and retained draft restart, proof/tmp backup, new-project restore and explicit restored draft submission; no automatic submission of temporary files",
+    "Nonempty database refused before schema import; original table and row preserved"
+  ]
+}

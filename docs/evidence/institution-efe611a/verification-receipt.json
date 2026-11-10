@@ -1,0 +1,18 @@
+{
+  "artifact_id": 13785294992,
+  "build_run": "42862853571",
+  "source_commit": "efe611a723b7e251bf05a9d62575e2ea00a22060",
+  "artifact_bytes": 223370319,
+  "artifact_sha256": "441c5f229b3f725422b0cf40eb6e7fc2d43e43a14e00e881746753539004fbdb",
+  "manifest_files_verified": 29,
+  "exact_zip_file_set_verified": true,
+  "image_config_digest_source_platform_and_nonroot_verified": true,
+  "image_id": "sha256:fa3430b3ca1968d18fd173704933fcd08ed824101c16440880bcc0e2f3528270",
+  "server_checks": 14,
+  "local_image_loaded_or_executed": false,
+  "evidence_members": {
+    "BUILD-INFO.json": "62b0aba2a901cbe979ef12bd0c5aab35deb9a783082edb637a6a308a20a65f9c",
+    "server-results.json": "c2e68f11a11f010ed9d89a39df1c073c8e93407f734c4a4752ff8ee392a8f3e5",
+    "SHA256SUMS.txt": "e835ec91b7ae9f1c99df62366d5db13fad746ba697b3c4b32996f1574b2aaa99"
+  }
+}

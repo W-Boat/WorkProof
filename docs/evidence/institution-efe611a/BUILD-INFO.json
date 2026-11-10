@@ -1,0 +1,45 @@
+{
+  "schema": "workproof.server-package.v1",
+  "source_commit": "efe611a723b7e251bf05a9d62575e2ea00a22060",
+  "build_run": "42862853571",
+  "image_id": "sha256:fa3430b3ca1968d18fd173704933fcd08ed824101c16440880bcc0e2f3528270",
+  "platform": "linux/amd64",
+  "control_tools": [
+    "compose.yaml",
+    "compose.receipts.yaml",
+    "receipt_keys.py",
+    "backup_coordinator.py",
+    "backup_collect.py",
+    "backup_crypto.py",
+    "snapshot_archive.py",
+    "restore_snapshot.py",
+    "restore_new.py",
+    "catalog_receipt.py",
+    "catalog_prepare.py",
+    "jobs_receipt.py",
+    "jobs_prepare.py",
+    "entrypoint.py",
+    "manage.py",
+    "ai_runtime.py",
+    "ai-engines.json"
+  ],
+  "runtime_dependencies": {
+    "database": {
+      "reference": "mysql:8.4.13",
+      "image_id": "sha256:0f1a0ccadda3a1734d1db557e203ec58621d56fa248525016e85fe4f631311ec",
+      "repository_digests": [
+        "mysql@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902"
+      ],
+      "bundled": false
+    },
+    "cache": {
+      "reference": "valkey/valkey:8.0",
+      "image_id": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+      "repository_digests": [
+        "valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f"
+      ],
+      "bundled": false
+    }
+  },
+  "scope": "V1/V2 new deployment; explicit V3 catalog and V4 jobs preparation and restore; catalog/jobs disabled until separately prepared; AI disabled; no deployment secrets included; database/cache images must be prepared separately"
+}
