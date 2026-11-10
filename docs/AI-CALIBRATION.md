@@ -1,5 +1,7 @@
 # 分开校准与保留集评估
 
+DetectorScope 新取样已通过 [42752004347](https://github.com/W-Boat/WorkProof/actions/runs/42752004347)，完整选择记录及 artifact 摘要见[冻结证据](evidence/detectorscope-selection-70beaf5/acceptance.md)。新增独立评分工作流（待 Actions）在中英文两任务中重建同一清单、核对原始及 float16 派生权重，再按 8–512 token 明确拒绝超限输入。校准每类须至少 100 条已评分且总覆盖至少 90%，否则不生成阈值；以校准人工误报预算 5% 选定 logit 阈值并独占落盘后才评分留出集。普通工作台仍不启用该引擎，部分报告不是已验证效果结论。
+
 DetectorScope 独立真实取样流程已提交（待 Actions）：在核验完整 DetectRL-X 固定文件后，使用 `workproof-detectorscope-calibration-v1` 命名空间，排除 13 份既有报告中的所有输入及命中的原人工文本分组，每语言/分区固定 384 份样本（人工、AI 各 192）。96 个分层单元不足时拒绝，不根据模型分数或 token 长度挑样。原文只保存在 runner 私有临时目录，附件仅包含 ID、标签、来源类别和摘要；本轮不加载模型或评分。正式效果评估必须核对该冻结清单，不允许改选困难样本或悄悄截断超限文本。
 
 新方法的已观察样本排除底座（新增，待 Actions）：`observed_samples.py` 使用[固定索引](research/detectorscope-prior-sample-index.json)核对 13 份既有报告的原始文件摘要及 4,416 条记录数量，收录首轮基准、三个分类器的校准/留出报告和 LRR 中英文校准/留出报告。所有状态的有效输入摘要均排除，不依据分数筛选。文件缺失、变更、数量不符或摘要无效时拒绝继续；索引不包含原文。此处只建立排除集合，尚未选择或冻结新的真实样本，也不能证明没有语义重复、同源关联或训练集污染。

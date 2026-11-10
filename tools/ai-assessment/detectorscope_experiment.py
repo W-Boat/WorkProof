@@ -116,6 +116,9 @@ for filename in ['extractor/config.json','extractor/model.safetensors.index.json
                         'derived_sha256':hashlib.sha256((derived_path/filename).read_bytes()).hexdigest()})
 (root/'detectorscope-conversion-results.json').write_text(json.dumps({'model_revision':inventory['revision'],
     'derived_files':conversions,'inference_completed':False,'production_enabled':False},indent=2)+'\n')
+if '--prepare-only' in sys.argv:
+    print('Verified original and derived weights prepared; no accuracy conclusion.')
+    sys.exit(0)
 report = bounded_probe([sys.executable, __file__, '--infer', str(derived_path)], environment)
 report['derived_files'] = conversions
 report.update(model_revision=inventory['revision'], verified_files=len(inventory['files']), source_commit='52ecc87775154b35d4550911de22faad4fc68f40',

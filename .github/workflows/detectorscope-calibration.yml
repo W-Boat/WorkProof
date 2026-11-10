@@ -1,0 +1,49 @@
+name: Independent DetectorScope bilingual calibration and heldout evaluation
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/detectorscope-calibration.yml']
+permissions:
+  contents: read
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [en, zh]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: google-deepmind/detectorscope
+          ref: 52ecc87775154b35d4550911de22faad4fc68f40
+          path: .detectorscope-source
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare isolated CPU runtime
+        run: |
+          python -m pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install transformers==5.22.1 tokenizers==0.23.3 huggingface-hub==2.4.0 safetensors==0.8.0 setuptools==80.9.0
+          python -m pip install --no-deps --no-build-isolation ./.detectorscope-source
+          python -m pip check
+      - name: Reconstruct frozen data without score-based selection
+        run: python tools/ai-assessment/prepare_detectorscope_data.py --output "$RUNNER_TEMP/workproof-detectorscope-inputs"
+      - name: Verify original and derived model bytes
+        run: python tools/ai-assessment/detectorscope_experiment.py --prepare-only
+      - name: Calibrate then evaluate untouched language partition
+        run: python tools/ai-assessment/evaluate_detectorscope.py --inputs "$RUNNER_TEMP/workproof-detectorscope-inputs" --model-dir "$RUNNER_TEMP/workproof-detectorscope-float16-derivative" --output "detectorscope-evaluation-${{ matrix.language }}" --language "${{ matrix.language }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: detectorscope-independent-${{ matrix.language }}
+          path: |
+            detectorscope-evaluation-${{ matrix.language }}/*.json
+            detectorscope-data-selection.json
+            detectorscope-conversion-results.json
+          if-no-files-found: warn
