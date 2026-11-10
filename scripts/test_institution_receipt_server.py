@@ -108,7 +108,7 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
                 descriptor = os.open(key_root/filename, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
                 with os.fdopen(descriptor, 'w') as stream: stream.write(content)
             del restored_material, recovered
-            subprocess.run(['sudo', 'chown', '10001:10001', str(key_root/'seed.hex'), str(key_root)], check=True, capture_output=True, timeout=15)
+            subprocess.run(['sudo', 'chown', '10001:10001', str(key_root/'seed.hex'), str(key_root/'public.hex'), str(key_root)], check=True, capture_output=True, timeout=15)
             launch_compose += ['-f', str(root/'deploy/institution/compose.receipts.yaml')]
             launch_environment.update(WORKPROOF_RECEIPT_KEY_DIRECTORY=str(key_root), WORKPROOF_RECEIPT_ISSUER_ID='ci-image-http', WORKPROOF_RECEIPT_LIFETIME_SECONDS=ttl)
             bootstrap = "import os;assert os.environ.get('GITHUB_ACTIONS')=='true';os.execv('/usr/bin/python3',['python3','/opt/workproof/entrypoint.py'])"
@@ -124,6 +124,10 @@ with tempfile.TemporaryDirectory(prefix='ci-key-recovery-') as d:
             mounts = [m for m in info['Mounts'] if m['Destination'] == '/private/receipts']
             assert len(mounts) == 1 and mounts[0]['Type'] == 'bind' and mounts[0]['RW'] is False
             assert pathlib.Path(mounts[0]['Source']).resolve() == key_root.resolve()
+            readable = subprocess.run(['docker', 'exec', info['Id'], 'python3', '-c',
+                "import os,pathlib,stat;assert os.getuid()==10001;p=pathlib.Path('/private/receipts');assert all(os.access(p/n,os.R_OK) for n in ('seed.hex','public.hex'));s=(p/'seed.hex').stat();assert s.st_uid==10001 and s.st_gid==10001 and stat.S_IMODE(s.st_mode)==0o600"],
+                capture_output=True, timeout=15)
+            assert readable.returncode == 0, 'Service identity cannot read the restored key pair with required private permissions'
         deadline = time.monotonic() + 120
         while True:
             assert probe_info()['State']['Running'], 'Signing probe exited before readiness'

@@ -1,5 +1,7 @@
 # 通用后台管理脚手架项目地图
 
+- 恢复密钥 HTTP 夹具修正：新目录中的公钥和私钥均设为 UID/GID 10001 / 0600，再由实际容器服务 UID 预检两文件可读及私钥权限。42672452265 的失败说明不可读公钥会使签发关闭；本修复待 Actions，不改 Java 权限边界。
+
 - 外部签发专项：合成密钥源目录 → 精确镜像 `receipt_keys.backup/restore`（私有 tmpfs）→ 捕获结果、独立保留公钥一致 → 新私有宿主目录 → `compose.receipts.yaml` 只读挂载 → 原 HTTP/重启/权限拒绝验收。恢复密码与密钥不进入命令参数或普通输出，临时目录在所属应用停止后清理；仅签发身份恢复，整部署恢复仍待验证。
 
 - `test_institution_receipt_keys.py` 的实际加密恢复 → 镜像内 `workproof-receipt issue-stdin`（原密钥与恢复密钥）→ 同一独立保留公钥 `verify` → 回执编号不同、来源认证仍为 false；追加篡改密文和链接目录拒绝。仅断网原生工具，不等于部署恢复后 HTTP 验收，结果待 Actions。
