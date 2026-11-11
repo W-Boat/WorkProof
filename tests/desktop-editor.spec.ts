@@ -876,6 +876,7 @@ test('folding the toolbar hides its tabs and commands while keeping a header exp
   await expect.poll(()=>page.locator('#editor-tools').evaluate(node=>node.getBoundingClientRect().height)).toBeLessThan(2);
   await expect(page.locator('.doc-actions #toggle-ribbon')).toBeVisible();
   await page.locator('#toggle-ribbon').click();await expect(page.locator('#toolbar-home')).toBeVisible();await expect(page.getByRole('button',{name:'加粗',exact:true})).toBeVisible();
+  await page.locator('#toggle-ribbon').click();await page.getByRole('textbox',{name:'文档正文'}).press('ControlOrMeta+f');await expect(page.locator('#find-text')).toBeFocused();await expect(page.locator('#find-panel')).toBeVisible();
 });
 
 test('preparing the recording service dims and blocks the home page until ready',async({page})=>{

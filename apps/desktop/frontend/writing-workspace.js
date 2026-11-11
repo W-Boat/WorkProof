@@ -213,5 +213,5 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
     if(sourceError)throw sourceError;
     const text=losslessMarkdown();if(text===null)throw new Error('文档含有 Markdown 无法保留的格式，请移除相关格式后再保存。');
     return source?.state.doc.toString()??text;
-  },openFind(replace=false){ $('find-panel').hidden=false;$(replace?'replace-text':'find-text').focus();},closeSource};
+  },openFind(replace=false){ document.dispatchEvent(new CustomEvent('workproof:ribbon-selected'));$('find-panel').hidden=false;$(replace?'replace-text':'find-text').focus();},closeSource};
 }
