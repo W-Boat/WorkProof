@@ -6,6 +6,7 @@ Only a verified encrypted candidate is published; private scratch is removed on 
 """
 import argparse
 import contextlib
+import ctypes
 import fcntl
 import getpass
 import json
@@ -37,7 +38,7 @@ def run(args, **kwargs):
         return subprocess.run(args,check=True,stderr=subprocess.PIPE if diagnostic else subprocess.DEVNULL,**kwargs)
     except subprocess.CalledProcessError as error:
         if diagnostic:
-            match=re.search(rb'COLLECTOR_STAGE=(preflight|inventory|encrypt|verify)\b',(error.stderr or b'')[-65536:])
+            match=re.search(rb'COLLECTOR_STAGE=(preflight|inventory|encrypt|verify|receipt-key)\b',(error.stderr or b'')[-65536:])
             if match:
                 global PHASE
                 PHASE='collector-'+match.group(1).decode('ascii')
@@ -110,17 +111,46 @@ def owned_stage(parent):
             for kind,handler in previous.items():signal.signal(kind,handler)
 
 
-def backup(output, password):
+def publish_backup(encrypted, output, paired):
+    if paired:
+        if {item.name for item in encrypted.iterdir()} != {'deployment.wproofbackup', 'receipt-key.wproofbackup'}:
+            raise CoordinatorError('Incomplete backup pair')
+        for file in encrypted.iterdir():
+            info = file.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o600 or not info.st_size:
+                raise CoordinatorError('Invalid encrypted backup pair member')
+        descriptor = os.open(encrypted, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        rename = ctypes.CDLL(None, use_errno=True).renameat2
+        rename.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint)
+        rename.restype = ctypes.c_int
+        # Publish both files at once, with the same no-overwrite guarantee as link.
+        if rename(-100, os.fsencode(encrypted), -100, os.fsencode(output), 1) != 0:  # AT_FDCWD, RENAME_NOREPLACE
+            error = ctypes.get_errno()
+            raise OSError(error, os.strerror(error), output)
+    else:
+        os.link(encrypted / 'candidate', output, follow_symlinks=False)
+    descriptor = os.open(output.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def backup(output, password, receipt=None):
     def terminate(signum, frame):
         raise CoordinatorError('Backup cancelled')
     previous = {kind:signal.signal(kind,terminate) for kind in (signal.SIGTERM,signal.SIGINT)}
     try:
-        return _backup(output, password)
+        return _backup(output, password, receipt)
     finally:
         for kind,handler in previous.items():signal.signal(kind,handler)
 
 
-def _backup(output, password):
+def _backup(output, password, receipt=None):
     global PHASE
     PHASE = 'preflight'
     if not isinstance(password,bytes) or not 16 <= len(password) <= 1024 or any(x in password for x in (b'\n',b'\r',b'\0')):
@@ -135,6 +165,16 @@ def _backup(output, password):
     info = output.parent.stat()
     if info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o700 or output.exists() or output.is_symlink():
         raise CoordinatorError('Use a new output in a root-owned 0700 directory')
+    if receipt is not None:
+        key_directory, issuer, public_key = receipt
+        key_directory = pathlib.Path(key_directory).absolute()
+        if any(path.is_symlink() for path in (key_directory, *key_directory.parents)) or ',' in str(key_directory):
+            raise CoordinatorError('Invalid receipt key directory path')
+        key_info = key_directory.stat()
+        if (not stat.S_ISDIR(key_info.st_mode) or key_info.st_uid != 10001 or key_info.st_gid != 10001 or
+                stat.S_IMODE(key_info.st_mode) != 0o700 or
+                not re.fullmatch(r'[A-Za-z0-9._:-]{1,128}', issuer) or not re.fullmatch(r'[0-9a-f]{64}', public_key)):
+            raise CoordinatorError('Invalid receipt key directory, issuer or independent public key')
     compose = ['docker', 'compose', '--file', str(pathlib.Path(__file__).with_name('compose.yaml'))]
     def service(name):
         value = run(compose + ['ps', '--all', '--quiet', name], capture_output=True).stdout.decode().strip()
@@ -195,8 +235,13 @@ def _backup(output, password):
                 command += ['--mount', f'type=volume,src={name},dst=/source/{role},readonly']
             command += ['--mount', f'type=bind,src={sql},dst=/source/database.sql,readonly',
                         '--mount', f'type=bind,src={stage},dst=/stage',
-                        '--mount', f'type=bind,src={encrypted},dst=/output',
-                        image, '/opt/workproof/backup_collect.py', 'collect', commit, image]
+                        '--mount', f'type=bind,src={encrypted},dst=/output']
+            if receipt is not None:
+                command += ['--mount', f'type=bind,src={key_directory},dst=/receipt-keys,readonly',
+                            '--tmpfs', '/tmp:rw,nosuid,nodev,noexec,mode=1777,size=1048576']
+            command += [image, '/opt/workproof/backup_collect.py', 'collect', commit, image]
+            if receipt is not None:
+                command += [issuer, public_key]
             # Creation never executes the helper. Cancellation before this returns
             # cannot leave a process writing into scratch; no start was submitted.
             created = run(command, capture_output=True).stdout.decode().strip()
@@ -218,12 +263,7 @@ def _backup(output, password):
                     current_db['State']['StartedAt'] != database['State']['StartedAt']):
                 raise CoordinatorError('Service identity changed during backup')
             PHASE = 'publish'
-            os.link(encrypted / 'candidate', output, follow_symlinks=False)
-            fd = os.open(output.parent, os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+            publish_backup(encrypted, output, receipt is not None)
     finally:
         os.close(lock)
 
@@ -232,7 +272,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True)
     parser.add_argument('--password-stdin',action='store_true',help='Read one passphrase line from standard input; never pass it in arguments')
+    parser.add_argument('--receipt-key-directory', help='Pair the deployment snapshot with this external receipt identity')
+    parser.add_argument('--receipt-issuer')
+    parser.add_argument('--receipt-public-key', help='Independent lowercase Ed25519 public key')
     args = parser.parse_args()
+    receipt = (args.receipt_key_directory, args.receipt_issuer, args.receipt_public_key)
+    if any(receipt) and not all(receipt):
+        parser.error('Paired backup requires the receipt key directory, issuer and independent public key')
     if args.password_stdin:
         raw=sys.stdin.buffer.read(1026)
         if not raw.endswith(b'\n'):raise CoordinatorError('One passphrase line required')
@@ -242,8 +288,8 @@ def main():
         password = getpass.getpass('Backup passphrase (16–1024 UTF-8 bytes): ').encode('utf-8')
     if not 16 <= len(password) <= 1024 or any(x in password for x in (b'\n', b'\r', b'\0')):
         raise CoordinatorError('Invalid passphrase')
-    backup(args.output, password)
-    print('Encrypted backup completed. Application remains stopped; restore is not implemented.')
+    backup(args.output, password, receipt if all(receipt) else None)
+    print('Encrypted backup completed. Application remains stopped.')
 
 
 if __name__ == '__main__':

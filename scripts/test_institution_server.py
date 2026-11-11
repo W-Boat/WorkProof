@@ -169,24 +169,39 @@ try:
         listing=subprocess.check_output(['sudo','find',private_backup,'-mindepth','1','-maxdepth','1','-printf','%f\\n'],text=True).splitlines()
         assert sorted(listing)==['deployment.wproofbackup','source-keys'], 'Unexpected private staging data remained after backup'
         checks.append('Actual stopped host coordinator publishes authenticated encrypted snapshot, preserves existing output, cleans staging and keeps app stopped; no deployment restore claim')
-        # Independent retained public key and old receipt are outside the encrypted
-        # key package. The source key backup is bound to the actual snapshot bytes.
+        pair=private_backup+'/paired'
+        pair_command=[*backup_env,'python3',str(context/'backup_coordinator.py'),'--password-stdin',
+            '--output',pair,'--receipt-key-directory',private_backup+'/source-keys','--receipt-issuer','ci-image-http']
+        wrong_public=('1' if source_public[0]=='0' else '0')+source_public[1:]
+        rejected_pair=subprocess.run([*pair_command,'--receipt-public-key',wrong_public],
+            input=backup_password+b'\n',capture_output=True,timeout=240)
+        assert rejected_pair.returncode!=0 and b'BACKUP_STAGE=collector-receipt-key' in rejected_pair.stderr
+        assert subprocess.run(['sudo','test','-e',pair]).returncode!=0, 'A failed key backup exposed a partial pair'
+        paired=subprocess.run([*pair_command,'--receipt-public-key',source_public],
+            input=backup_password+b'\n',capture_output=True,timeout=240)
+        stage_match=re.search(rb'BACKUP_STAGE=([a-z-]{1,40})',paired.stderr)
+        stage=stage_match.group(1).decode() if stage_match else 'unknown'
+        assert paired.returncode==0, 'Paired backup failed at stage: '+stage
+        assert backup_password not in paired.stdout+paired.stderr+rejected_pair.stdout+rejected_pair.stderr
+        pair_listing=subprocess.check_output(['sudo','find',pair,'-mindepth','1','-maxdepth','1','-printf','%f\\n'],text=True).splitlines()
+        assert sorted(pair_listing)==['deployment.wproofbackup','receipt-key.wproofbackup']
+        listing=subprocess.check_output(['sudo','find',private_backup,'-mindepth','1','-maxdepth','1','-printf','%f\\n'],text=True).splitlines()
+        assert sorted(listing)==['deployment.wproofbackup','paired','source-keys']
+        checks.append('Paired backup rejects a wrong public key without publishing either file and publishes both encrypted files together after verification')
+        # The public key and prior receipt come from a separate source observation.
         save_identity="""import json,os,pathlib,sys
-import receipt_keys as k
-v=json.loads(sys.stdin.read());p=pathlib.Path('/fixture')
-k.backup(p/'source-keys',p/'source-keys.enc','ci-image-http',bytes.fromhex(v['password_hex']),
- k.deployment_digest(p/'deployment.wproofbackup'),v['identity']['public_key'])
+p=pathlib.Path('/fixture')
 fd=os.open(p/'source-identity.json',os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
-with os.fdopen(fd,'w') as f:json.dump(v['identity'],f)
+with os.fdopen(fd,'w') as f:json.dump(json.loads(sys.stdin.read()),f)
 """
         source_saved=subprocess.run(['docker','run','--rm','--user','0','--network','none','--read-only',
             '--tmpfs','/tmp:rw,nosuid,nodev,mode=1777','--interactive','--mount',
             'type=bind,src='+private_backup+',dst=/fixture','--entrypoint','python3',image_id,'-c',save_identity],
-            input=json.dumps({'password_hex':backup_password.hex(),'identity':source_identity}).encode(),
+            input=json.dumps(source_identity).encode(),
             capture_output=True,timeout=60)
-        assert source_saved.returncode==0, 'Could not bind source identity backup to deployment snapshot'
+        assert source_saved.returncode==0, 'Could not retain the independent source identity fixture'
         restored=subprocess.run(['sudo','env','GITHUB_ACTIONS=true','python3',str(root/'scripts/test_restore_new.py'),
-            '--input',destination,'--expected-image',image_id,'--expected-commit',os.environ['GITHUB_SHA'],
+            '--input',pair+'/deployment.wproofbackup','--expected-image',image_id,'--expected-commit',os.environ['GITHUB_SHA'],
             '--source-project',project,'--password-stdin','--receipt-identity','--source-receipt-fixture',private_backup],
             input=backup_password+b'\n',capture_output=True,timeout=900)
         assert backup_password not in restored.stdout+restored.stderr
@@ -194,7 +209,7 @@ with os.fdopen(fd,'w') as f:json.dump(v['identity'],f)
         restore_stage='/'.join(part.decode() for part in restore_phase.groups()) if restore_phase else 'unknown'
         assert restored.returncode==0, 'Actual new-project restore acceptance failed at stage: '+restore_stage
         checks.append('Actual new-project restore: authenticated SQL/private volumes, stopped ready state, explicit startup and original login, every-row comparison, collision and wrong-password refusal, source unchanged')
-        checks.append('Pre-snapshot source HTTP receipt and restored HTTP receipt verify under independently retained original public key; encrypted key backup bound to snapshot; explicit activation only, no atomic joint-backup claim')
+        checks.append('Paired deployment and identity restore: original and restored HTTP receipts verify under the independently retained original public key; explicit activation only')
         catalog=subprocess.run(['sudo','env','GITHUB_ACTIONS=true','COMPOSE_PROJECT_NAME='+project,
             'python3',str(root/'scripts/test_catalog_server.py'),'--project',project,
             '--backup',private_backup+'/before-catalog.enc','--expected-image',image_id,

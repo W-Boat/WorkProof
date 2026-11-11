@@ -7,6 +7,7 @@ import pathlib
 import sys
 
 import backup_crypto
+import receipt_keys
 import snapshot_archive as archive
 
 PHASE='preflight'
@@ -99,19 +100,30 @@ def collect(source, stage):
 
 def main():
     global PHASE
-    operation, commit, image = sys.argv[1:]
+    operation, commit, image, *receipt = sys.argv[1:]
+    if operation != 'collect' or len(receipt) not in (0, 2):
+        raise ValueError('Invalid collection options')
     password = backup_crypto._stdin_password()
+    output = pathlib.Path('/output')
+    candidate = output / ('deployment.wproofbackup' if receipt else 'candidate')
     lock = os.open('/source/app_config/.setup.lock', os.O_RDONLY | os.O_NOFOLLOW)
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         PHASE='inventory'
         collect('/source', '/stage')
         PHASE='encrypt'
-        archive.create_encrypted_snapshot('/stage', '/output/candidate', password,
+        archive.create_encrypted_snapshot('/stage', candidate, password,
             source_commit=commit, image_id=image,
             backup_time=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
         PHASE='verify'
-        archive.verify_encrypted_snapshot('/output/candidate', password, work_dir='/output')
+        archive.verify_encrypted_snapshot(candidate, password, work_dir=output)
+        if receipt:
+            issuer, public_key = receipt
+            PHASE='receipt-key'
+            digest = receipt_keys.deployment_digest(candidate)
+            key_backup = output / 'receipt-key.wproofbackup'
+            receipt_keys.backup('/receipt-keys', key_backup, issuer, password, digest, public_key)
+            receipt_keys._read_backup_identity(key_backup, issuer, public_key, password, digest)
     finally:
         os.close(lock)
 

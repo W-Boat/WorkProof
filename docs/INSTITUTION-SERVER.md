@@ -53,6 +53,18 @@ Actions 验收使用随机独立项目，在已有备份删除前运行完整恢
 
 `9c26c6a` 新增 Linux Docker 主机端 `backup_coordinator.py` 与镜像内 `backup_collect.py`。仅供拥有部署管理员权限的 Linux root 在排除其他写入者的维护窗口使用；源为同一 Compose 项目的已有应用/数据库和专用配置卷，目标必须是 root 所有、0700 私有目录中的新文件。镜像须有完整源码标签，协调器记录并复查应用、数据库、镜像、卷及重启状态，停止应用后执行原生 SQL 导出并保留停止状态。工具不自动重启应用、不恢复现有或新数据库，也不恢复缓存。
 
+机构启用外部签发身份后，可以在同一次维护窗口内生成配套备份。目标为 root 所有且权限为 0700 的父目录下尚未创建的新目录。指定独立保存的机构编号和完整公钥，启动后输入同一备份口令。该选项需要包含配套备份功能的服务镜像，以及支持 `renameat2(RENAME_NOREPLACE)` 的 Linux 主机和目标文件系统。
+
+```bash
+sudo python3 backup_coordinator.py --output /srv/workproof-backups/backup-pair \
+  --receipt-key-directory /srv/workproof-identity \
+  --receipt-issuer institution-id --receipt-public-key FULL_64_HEX_PUBLIC_KEY
+```
+
+成功时，`backup-pair` 同时出现 `deployment.wproofbackup` 和 `receipt-key.wproofbackup`。协调器在停服期间验证部署快照、签发身份与密钥包，并核对部署快照摘要绑定。发布前失败时，目标目录保持缺失。维护窗口内应暂停外部签发和其他有权限的写入，并保持所选签发身份稳定。
+
+恢复部署时将目录中的 `deployment.wproofbackup` 交给原恢复流程。另用 `receipt_keys.py restore` 指定密钥包，并通过 `--deployment-backup` 传入同一目录中的部署快照。恢复完成后再显式配置签发服务。密钥恢复参数和挂载方式见[接收回执说明](INSTITUTION-RECEIPTS.md)。
+
 只复制受限归档认可的文件，保留身份/权限并复查源清单，核对应用与数据库秘密一致；私有暂存交给固定镜像内的加密及认证工具，认证后才独占发布，拒绝覆盖。口令从终端或显式 `--password-stdin` 的一行 UTF-8 输入读取，不从参数或环境变量取得。管理员、Docker daemon 或有权修改部署的其他进程仍可绕过维护锁；工具不能隔离并发特权写入。故障信息要求保持应用停止并检查现场，不能盲目删除状态或重新初始化。
 
 新增隔离 CI 使用临时 Compose 项目实际调用协调器，再在镜像内认证输出、核对受限路径、拒绝覆盖、检查暂存清理和停止状态。源码尚待本次实际验收；数据库导出/采集/发布失败注入和完整新部署恢复仍未完成。本增量暂不作为生产备份操作指南，下文“编排待实现”是此前状态，以本段范围为准。没有在用户本机运行 Docker、构建或修改数据库。

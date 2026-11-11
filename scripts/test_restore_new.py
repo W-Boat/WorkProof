@@ -271,13 +271,14 @@ for role in a.ROOTS:
 import receipt_keys as k
 v=json.loads(sys.stdin.read())
 assert k.deployment_digest('/snapshot')==v['snapshot_digest']
-k.restore('/fixture/source-keys.enc','/fixture/restored-source-keys','ci-image-http',v['public_key'],
+k.restore('/key-backup','/fixture/restored-source-keys','ci-image-http',v['public_key'],
  bytes.fromhex(v['password_hex']),v['snapshot_digest'])
 """
                     recovered=subprocess.run(['docker','run','--rm','--network','none','--user','0','--read-only',
                         '--tmpfs','/tmp:rw,nosuid,nodev,mode=1777','--interactive','--mount',
                         'type=bind,src='+str(fixture)+',dst=/fixture','--mount',
                         'type=bind,src='+str(pathlib.Path(args.input).resolve())+',dst=/snapshot,readonly',
+                        '--mount','type=bind,src='+str(pathlib.Path(args.input).resolve().with_name('receipt-key.wproofbackup'))+',dst=/key-backup,readonly',
                         '--entrypoint','python3',args.expected_image,'-c',recover_source],
                         input=json.dumps({'snapshot_digest':snapshot_digest,'public_key':retained['public_key'],
                             'password_hex':password.hex()}).encode(),capture_output=True,timeout=60)

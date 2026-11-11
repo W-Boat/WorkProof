@@ -136,6 +136,22 @@ class FakeDocker:
 
 @unittest.skipUnless(os.name == 'posix' and os.geteuid() == 0, 'Run in Actions with sudo python3')
 class BackupFailures(unittest.TestCase):
+    def test_pair_publication_refuses_an_existing_empty_directory(self):
+        with tempfile.TemporaryDirectory(prefix='workproof-pair-publication-') as temporary:
+            parent = pathlib.Path(temporary)
+            candidate = parent / 'candidate'
+            target = parent / 'target'
+            candidate.mkdir(mode=0o700)
+            target.mkdir(mode=0o700)
+            for name in ('deployment.wproofbackup', 'receipt-key.wproofbackup'):
+                member = candidate / name
+                member.write_bytes(b'synthetic encrypted member')
+                member.chmod(0o600)
+            with self.assertRaises(FileExistsError):
+                coordinator.publish_backup(candidate, target, paired=True)
+            self.assertEqual(list(target.iterdir()), [])
+            self.assertEqual(len(list(candidate.iterdir())), 2)
+
     def exercise(self, failure):
         with tempfile.TemporaryDirectory(prefix='workproof-failure-test-') as temporary:
             base = pathlib.Path(temporary)

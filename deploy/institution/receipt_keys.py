@@ -108,7 +108,7 @@ def backup(key_directory, output, issuer, password, deployment_sha256=None, expe
         crypto.encrypt_file(source, output, password, 4096)
 
 
-def restore(source, target, issuer, expected_public, password, expected_deployment_sha256=None):
+def _read_backup_identity(source, issuer, expected_public, password, expected_deployment_sha256):
     require_root()
     if expected_deployment_sha256 is not None: digest(expected_deployment_sha256)
     # Authenticate and validate completely before creating the destination.
@@ -127,7 +127,12 @@ def restore(source, target, issuer, expected_public, password, expected_deployme
         validated = identity(value['issuer_id'], value['seed'], value['public_key'])
         if issuer != validated['issuer_id'] or expected_public != validated['public_key']:
             raise ValueError('Independent issuer/public key did not match')
-        publish_new(target, validated)
+        return validated
+
+
+def restore(source, target, issuer, expected_public, password, expected_deployment_sha256=None):
+    validated = _read_backup_identity(source, issuer, expected_public, password, expected_deployment_sha256)
+    publish_new(target, validated)
     # I/O failure retains a partial NEW directory; never deletes or overwrites it.
 
 
