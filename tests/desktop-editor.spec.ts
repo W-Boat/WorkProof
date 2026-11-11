@@ -25,6 +25,12 @@ async function desktop(page:Page){
       if(command==='engine_status')return {ready:true,sessions:0,events:0,...(w.editorHarness.engineStatus||{})};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
       if(command==='editor_list')return Object.values(docs);
+      if(command==='library_states')return JSON.parse(localStorage.getItem('library.states')||'{}');
+      if(command==='library_set_state'){
+        const states=JSON.parse(localStorage.getItem('library.states')||'{}');
+        for(const id of args.ids)states[args.kind+':'+id]=args.state;
+        localStorage.setItem('library.states',JSON.stringify(states));return {state:args.state};
+      }
       if(command==='external_documents_list')return w.editorHarness.externalDocuments||[];
       if(command==='external_document_load'){
         const document=w.editorHarness.externalDocuments?.find((item:any)=>item.id===args.id);if(!document)throw new Error('记录不存在');
@@ -776,4 +782,22 @@ test('a save failure prevents a template from replacing the current document',as
   await expect(body).toHaveText('必须保留的未保存内容');
   await expect.poll(()=>page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('test.editor.documents')||'{}')).length)).toBe(1);
   await expect(page.locator('#save-state')).toHaveAttribute('data-state','error');
+});
+
+test('archive trash and restore retain the saved document across a reload',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('归档和回收站都保留这段正文');
+  await page.locator('#back-library').click();
+  await page.getByRole('button',{name:'归档 未命名文档',exact:true}).click();
+  await expect(page.getByRole('button',{name:'继续编辑 未命名文档',exact:true})).toHaveCount(0);
+  await page.locator('#library-state-filter').selectOption('archived');
+  await expect(page.getByRole('button',{name:'继续编辑 未命名文档',exact:true})).toBeVisible();
+  await page.reload();await page.locator('#library-state-filter').selectOption('archived');
+  await page.getByRole('button',{name:'恢复到我的文档 未命名文档',exact:true}).click();
+  await page.locator('#library-state-filter').selectOption('active');
+  await page.getByRole('button',{name:'移入回收站（保留原文件） 未命名文档',exact:true}).click();
+  await page.locator('#library-state-filter').selectOption('trash');
+  await page.getByRole('button',{name:'恢复到我的文档 未命名文档',exact:true}).click();
+  await page.locator('#library-state-filter').selectOption('active');
+  await page.getByRole('button',{name:'继续编辑 未命名文档',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('归档和回收站都保留这段正文');
 });
