@@ -73,7 +73,7 @@ test('validated parent appearance integrates the embedded verifier without losin
   }
   await primary.click();
   await expect(verifier.locator('#verification-result')).toContainText('编辑过程有待复核提醒');
-  const sheet=verifier.getByRole('region',{name:'编辑过程检验单'});
+  const sheet=verifier.getByRole('region',{name:'编辑过程检验单',exact:true});
   await sheet.getByRole('button',{name:'需复核',exact:true}).click();
   await expect(sheet.getByRole('row').filter({has:verifier.getByRole('rowheader',{name:'单次最大新增',exact:true})})).toContainText('↑');
   await sheet.scrollIntoViewIfNeeded();
