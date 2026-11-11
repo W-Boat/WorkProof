@@ -191,14 +191,25 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
       button.addEventListener('click',()=>editor.chain().focus().setTextSelection(pos+1).scrollIntoView().run());return button;
     }));$('outline-empty').hidden=headings.length>0;
   }
-  $('find-close').addEventListener('click',()=>{$('find-panel').hidden=true;getEditor()?.commands.setSearchTerm('');});
+  function closeFind(restoreFocus=false){
+    if($('find-panel').hidden)return;
+    $('find-panel').hidden=true;
+    getEditor()?.commands.setSearchTerm('');
+    if(restoreFocus)getEditor()?.commands.focus();
+  }
+  $('find-close').addEventListener('click',()=>closeFind(true));
+  $('find-panel').addEventListener('keydown',event=>{
+    if(event.isComposing)return;
+    if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeFind(true);}
+    if(event.key==='Enter'&&event.target===$('find-text')){event.preventDefault();nextMatch(event.shiftKey);}
+  });
   $('find-text').addEventListener('input',()=>{getEditor()?.commands.setSearchTerm($('find-text').value);setTimeout(updateFindCount,100);});
   $('replace-text').addEventListener('input',()=>getEditor()?.commands.setReplaceTerm($('replace-text').value));
   function updateFindCount(){const count=getEditor()?.storage.findAndReplace?.results?.length||0;$('find-count').textContent=`${count} 处`;}
   function nextMatch(backward){const editor=getEditor();editor?.commands[backward?'goToPreviousResult':'goToNextResult']();updateFindCount();}
   $('find-next').addEventListener('click',()=>nextMatch(false));$('find-previous').addEventListener('click',()=>nextMatch(true));
   for(const [id,command] of [['replace-one','replace'],['replace-all','replaceAll']])$(id).addEventListener('click',()=>{hint('format');getEditor()?.commands[command]();updateFindCount();});
-  return {outline,applyMode,setDocumentKind,rememberPagination,setClosing,changed(){outline();if(pendingSource&&pendingSource.editor!==getEditor())cancelPendingSource();if(source&&sourceId!==getActive()?.id)closeSource();},validate(){if(sourceError)throw sourceError;},markdownText(){
+  return {outline,applyMode,setDocumentKind,rememberPagination,setClosing,closeFind,changed(){outline();if(pendingSource&&pendingSource.editor!==getEditor())cancelPendingSource();if(source&&sourceId!==getActive()?.id)closeSource();},validate(){if(sourceError)throw sourceError;},markdownText(){
     if(sourceError)throw sourceError;
     const text=losslessMarkdown();if(text===null)throw new Error('文档含有 Markdown 无法完整保留的格式，请选择 Word 或网页作品导出。');
     return source?.state.doc.toString()??text;

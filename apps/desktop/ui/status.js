@@ -24,7 +24,7 @@ window.workproofTrayListeners=Promise.all([
   window.__TAURI__?.event?.listen('workproof-close-requested',()=>performWindowAction('close')),
   window.__TAURI__?.event?.listen('workproof-quit-requested',()=>performWindowAction('quit')),
   window.__TAURI__?.event?.listen('workproof-tray-view',event=>{
-    if(['library','verification','connections','settings'].includes(event.payload))selectView(event.payload,true);
+    if(['library','verification','connections','settings'].includes(event.payload))void requestView(event.payload);
   }),
 ]);
 for(const button of document.querySelectorAll('[data-window]'))button.addEventListener('click',()=>performWindowAction(button.dataset.window));
@@ -108,11 +108,23 @@ function selectView(view,focus=false){
   updateConnectionBadges();
   window.dispatchEvent(new CustomEvent('workproof-view',{detail:view}));
 }
-window.workproofUI={selectView,showMessage};
-document.querySelector('.brand').addEventListener('click',event=>{event.preventDefault();selectView('library',true);});
-for(const button of document.querySelectorAll('.workspace-nav [data-view]'))button.addEventListener('click',()=>selectView(button.dataset.view,true));
+let navigationRequest=0;
+async function requestView(view){
+  const request=++navigationRequest;
+  try{
+    if(view!==document.body.dataset.view&&await window.workproofUI.beforeNavigate?.()===false)return false;
+    if(request!==navigationRequest)return false;
+    selectView(view,true);
+    drawerOpen=false;renderNavigation();
+    return true;
+  }catch(error){if(request===navigationRequest)showMessage(errorText(error),'error');return false;}
+}
+window.workproofUI={selectView,requestView,showMessage};
+document.querySelector('.brand').addEventListener('click',event=>{event.preventDefault();void requestView('library');});
+for(const button of document.querySelectorAll('.workspace-nav [data-view]'))button.addEventListener('click',()=>void requestView(button.dataset.view));
 for(const button of document.querySelectorAll('[data-tool]'))button.addEventListener('click',()=>{
-  const select=document.getElementById('creation-tool');select.value=button.dataset.tool;select.dispatchEvent(new Event('change'));selectView('connections',true);
+  if(launching)return;
+  const select=document.getElementById('creation-tool');select.value=button.dataset.tool;select.dispatchEvent(new Event('change'));void requestView('connections');
 });
 const connectionCards=new Map();
 const adapterName=source=>({word:'Word',powerpoint:'PowerPoint',wps:'WPS',photoshop:'Photoshop'}[source]||source);
@@ -204,17 +216,40 @@ function sendVerifierAppearance(){
     frame.contentWindow?.postMessage({type:'workproof:appearance',theme:document.documentElement.dataset.theme,reduceMotion:document.documentElement.dataset.reduceMotion==='true'||matchMedia('(prefers-reduced-motion: reduce)').matches},url.origin);
   }catch{}
 }
-document.getElementById('verifier-frame').addEventListener('load',sendVerifierAppearance);
+const verifierFrame=document.getElementById('verifier-frame'),verifyButton=document.getElementById('verify');
+const verifierIntro=document.getElementById('verification-intro'),verifierControls=document.getElementById('verifier-controls');
+const verifierFeedback=document.getElementById('verification-load-status');
+let verifierLoadTimer=null;
+function resetVerifier(message=''){
+  clearTimeout(verifierLoadTimer);verifierLoadTimer=null;
+  verifierFrame.hidden=true;verifierFrame.removeAttribute('src');
+  verifierControls.hidden=true;verifierIntro.hidden=false;verifyButton.disabled=false;
+  verifierFeedback.textContent=message;
+}
+verifierFrame.addEventListener('load',sendVerifierAppearance);
 window.addEventListener('message',event=>{
-  const frame=document.getElementById('verifier-frame');if(event.source!==frame.contentWindow||event.data?.type!=='workproof:verifier-ready'||!frame.getAttribute('src'))return;
-  try{if(event.origin===new URL(frame.src).origin)sendVerifierAppearance();}catch{}
+  if(event.source!==verifierFrame.contentWindow||event.data?.type!=='workproof:verifier-ready'||!verifierFrame.getAttribute('src'))return;
+  if(event.origin!==new URL(verifierFrame.src).origin)return;
+  sendVerifierAppearance();
+  if(verifierLoadTimer===null)return;
+  clearTimeout(verifierLoadTimer);verifierLoadTimer=null;
+  verifierControls.hidden=false;verifierIntro.hidden=true;verifyButton.disabled=false;
+  verifierFeedback.textContent='';
+  if(document.body.dataset.view==='verification')document.getElementById('verifier-heading').focus({preventScroll:true});
 });
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',sendVerifierAppearance);
-document.getElementById('verify').addEventListener('click',async()=>{
-  const button=document.getElementById('verify');button.disabled=true;
-  try{const raw=await window.__TAURI__.core.invoke('verifier_url'),url=new URL(raw);if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port||url.username||url.password)throw new Error('核验地址无效，请更新完整安装包。');url.searchParams.set('embedded','1');url.searchParams.set('parentOrigin',window.location.origin);const frame=document.getElementById('verifier-frame');frame.src=url.href;frame.hidden=false;document.getElementById('verification-intro').hidden=true;}
-  catch(error){showMessage(errorText(error),'error');}finally{button.disabled=false;}
+verifyButton.addEventListener('click',async()=>{
+  if(verifyButton.disabled)return;
+  verifyButton.disabled=true;verifierFeedback.textContent='正在打开本机核验页…';
+  try{
+    const url=new URL(await window.__TAURI__.core.invoke('verifier_url'));
+    if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port||url.username||url.password)throw new Error('核验地址无效，请更新完整安装包。');
+    url.searchParams.set('embedded','1');url.searchParams.set('parentOrigin',window.location.origin);
+    verifierLoadTimer=setTimeout(()=>resetVerifier('内嵌核验页未能打开。请重试，或在浏览器中打开。'),15000);
+    verifierFrame.src=url.href;verifierFrame.hidden=false;
+  }catch(error){resetVerifier(errorText(error));}
 });
+document.getElementById('close-verifier').addEventListener('click',()=>{resetVerifier();verifyButton.focus();});
 
 const navPreference=document.getElementById('navigation-mode'),motionPreference=document.getElementById('reduce-motion');
 const narrowNavigation=matchMedia('(max-width:640px)');
@@ -235,7 +270,6 @@ narrowNavigation.addEventListener('change',()=>{drawerOpen=narrowNavigation.matc
 document.getElementById('collapse-nav').addEventListener('click',()=>{if(narrowNavigation.matches){drawerOpen=!drawerOpen;navigationMode=drawerOpen?'open':'closed';}else navigationMode=document.body.classList.contains('compact-nav')?'open':'closed';saveNavigation();});
 document.getElementById('nav-dismiss').addEventListener('click',dismissNavigation);
 document.addEventListener('keydown',event=>{if(event.key==='Escape')dismissNavigation();});
-document.querySelectorAll('.workspace-nav [data-view]').forEach(button=>button.addEventListener('click',()=>{if(narrowNavigation.matches){drawerOpen=false;renderNavigation();}}));
 navPreference.addEventListener('change',()=>{navigationMode=navPreference.value;drawerOpen=narrowNavigation.matches&&navigationMode==='open';saveNavigation();});
 drawerOpen=narrowNavigation.matches&&navigationMode==='open';renderNavigation();
 window.addEventListener('workproof-view',renderNavigation);

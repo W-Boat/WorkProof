@@ -462,6 +462,44 @@ test('embedded verification receives desktop appearance when theme and motion ch
   const child=page.frameLocator('#verifier-frame').locator('html');await expect(child).toHaveAttribute('data-theme','light');
   await page.getByRole('button',{name:'设置',exact:true}).click();await page.locator('fluent-radio[value=dark]').click();
   await expect(child).toHaveAttribute('data-theme','dark');await page.locator('#reduce-motion').click();await expect(child).toHaveAttribute('data-motion','true');
+  await expect(page.locator('#verification')).toBeHidden();
+  await page.getByRole('button',{name:'文件核验',exact:true}).click();
+  await page.getByRole('button',{name:'关闭本次核验'}).click();
+  await expect(page.locator('#verifier-frame')).toBeHidden();
+  await expect(page.locator('#verify')).toBeFocused();
+});
+
+test('desktop rail leaves an unsaved editor open on a failed save and supports retry',async({page})=>{
+  await desktop(page);
+  const body=await create(page);
+  await page.locator('#document-title').fill('跨页保存测试');
+  await body.fill('切换页面前保存这段文字。');
+  await page.evaluate(()=>{(window as any).editorHarness.failNext=true;});
+  const settings=page.getByRole('button',{name:'设置',exact:true});
+  await settings.click();
+  await expect(page.locator('#message')).toContainText('磁盘暂时无法写入');
+  await expect(body).toBeVisible();
+  await expect(page.locator('#save-state')).toContainText('未保存');
+  await settings.click();
+  await expect(page.locator('#settings-page')).toBeVisible();
+  await expect(page.locator('#workspace-title')).toBeFocused();
+  await page.getByRole('button',{name:'我的文档',exact:true}).click();
+  await page.getByRole('button',{name:'继续编辑 跨页保存测试'}).click();
+  await expect(body).toHaveText('切换页面前保存这段文字。');
+});
+
+test('cancelling Markdown export keeps the source editor open and editable',async({page})=>{
+  await desktop(page);await create(page,'markdown');
+  await page.locator('#toggle-source').click();
+  const source=page.locator('#markdown-source .cm-content');
+  await expect(source).toBeVisible();
+  await source.fill('# 保留源码');
+  await page.locator('#export-format').selectOption('markdown');
+  await page.locator('#export-document').click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.exports)).toBe(1);
+  await expect(source).toBeEditable();
+  await expect(source).toContainText('# 保留源码');
+  await expect(page.locator('#tab-write')).toHaveAttribute('aria-selected','true');
 });
 
 test('My Documents combines external sessions with internal documents and paginates their read-only history',async({page})=>{
