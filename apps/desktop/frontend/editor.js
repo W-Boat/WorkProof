@@ -17,7 +17,8 @@ async function loadEditorRuntime(){
 }
 const labels={edit:'修改文字',format:'调整格式或结构',undo:'撤销修改',redo:'重做修改',copy:'复制命令',paste:'粘贴命令',cut:'剪切命令',backspace:'退格命令',delete_forward:'向后删除命令',space:'空格键',enter:'回车键',cursor:'移动光标',selection:'调整选区',focus:'回到编辑',blur:'离开编辑',transaction:'编辑器事务',keyboard:'键盘操作',input:'完成输入',beforeinput:'准备输入',compositionstart:'开始输入法合成',compositionupdate:'输入法合成',compositionend:'完成输入法合成',drop:'放入内容',dragstart:'开始拖动',dragend:'结束拖动',import:'导入内容',layout:'切换页面布局'};
 let editor=null,active=null,documents=[],pending=[],inflight=null,dirty=false,saving=null,saveTimer,maxSaveTimer,refreshTimer;
-let externalDocuments=[],libraryLoadError='';
+let externalDocuments=[],libraryLoadError='',libraryStates={};
+$('library-state-filter').addEventListener('change',renderLibrary);
 let suppressed=false,opening=false,exporting=false,intent=null,lastSelection='',selectionAt=0,historyToken=0,selectedVersion=null;
 let recentFrame=null;
 let linkContext=null;
@@ -248,7 +249,8 @@ function renderLibrary(){
   const selectedSource=$('library-source-filter')?.value||'all';
   const entries=documents.map(doc=>({type:'editor',doc,source:'editor',time:Number(doc.modified)})).concat(groupExternalDocuments(externalDocuments));
   entries.sort((a,b)=>librarySort.value==='title'?titleOrder.compare(a.doc.title,b.doc.title):((b.time??0)-(a.time??0))||titleOrder.compare(a.doc.title,b.doc.title));
-  const filtered=entries.filter(entry=>(selectedSource==='all'||selectedSource===entry.source)&&`${entry.doc.title} ${sourceLabel(entry.source)} ${entry.source}`.toLocaleLowerCase().includes(query));
+  const selectedState=$('library-state-filter').value;
+  const filtered=entries.filter(entry=>(libraryStates[entry.type+':'+entry.doc.id]||'active')===selectedState).filter(entry=>(selectedSource==='all'||selectedSource===entry.source)&&`${entry.doc.title} ${sourceLabel(entry.source)} ${entry.source}`.toLocaleLowerCase().includes(query));
   for(const entry of filtered){
     const {doc}=entry,row=element('div','document-row');row.setAttribute('role','listitem');row.dataset.documentKey=`${entry.type}:${doc.id}`;row.dataset.source=entry.source;
     const label=element('div'),description=entry.type==='editor'?`${doc.revision+1} 个保存版本`:`${entry.sessions.length} 次记录 · ${entry.sessions.reduce((sum,session)=>sum+Number(session.event_count),0).toLocaleString()} 条记录${doc.demo?' · 演示记录':''}`;
@@ -258,7 +260,37 @@ function renderLibrary(){
       if(entry.type==='external')await externalLibrary.open(doc,entry.sessions);else{await flush();await openDocument(await ipc('editor_load',{id:doc.id}));}
     }catch(error){ui.showMessage(errorText(error),'error');}finally{openingLibraryEntry=false;open.disabled=false;}});
     if(row.dataset.documentKey===focusKey)restoreFocus=open;
-    row.append(icon('document_text'),label,open);rows.append(row);
+    const actions=element('div','library-row-actions');actions.append(open);
+    if(entry.type==='external'&&/\.(docx|md|markdown|txt)$/i.test(doc.title)){
+      const copy=element('fluent-button','','编辑副本');copy.setAttribute('aria-label','在内置编辑器打开副本 '+doc.title);copy.dataset.icon='document_text';
+      copy.addEventListener('click',async()=>{
+        if(importing||opening||closing||creating||openingLibraryEntry)return;
+        copy.disabled=true;
+        try{
+          const result=await ipc('external_document_read',{id:doc.id});
+          if(!result||!Array.isArray(result.bytes)||typeof result.name!=='string')throw new Error('原文件未能读取。');
+          const target=/\.docx$/i.test(result.name)?$('word-file'):$('markdown-file');
+          const transfer=new DataTransfer();transfer.items.add(new File([new Uint8Array(result.bytes)],result.name));
+          target.files=transfer.files;target.dispatchEvent(new Event('change',{bubbles:true}));
+        }catch(error){ui.showMessage(errorText(error),'error');}finally{copy.disabled=false;}
+      });actions.append(copy);
+    }
+
+    for(const [state,title,glyph] of (selectedState==='active'?[['archived','归档','folder'],['trash','移入回收站（保留原文件）','dismiss']]:[['active','恢复到我的文档','arrow_left']])){
+      const manage=element('fluent-button','',title);manage.dataset.icon=glyph;manage.setAttribute('aria-label',title+' '+doc.title);manage.title=title;
+      manage.addEventListener('click',async()=>{
+        manage.disabled=true;
+        try{
+          await flush();
+          const ids=entry.type==='external'?entry.sessions.map(session=>session.id):[doc.id];
+          await ipc('library_set_state',{kind:entry.type,ids,state});
+          for(const id of ids)libraryStates[entry.type+':'+id]=state;
+          renderLibrary();
+          ui.showMessage(state==='trash'?'已移入回收站。原文件仍保存在原位置。':state==='archived'?'文档已归档。':'文档已恢复。');
+        }catch(error){ui.showMessage(errorText(error),'error');}finally{manage.disabled=false;}
+      });actions.append(manage);
+    }
+    row.append(icon('document_text'),label,actions);rows.append(row);
   }
   list.replaceChildren(rows);
   if(focusKey&&document.body.dataset.view==='library')(restoreFocus??$('document-search')).focus({preventScroll:true});
@@ -269,10 +301,11 @@ function renderLibrary(){
 let listing=false,libraryRefreshPending=false,lastLibraryRefresh=0,catalogRefreshTimer=null,lastCatalogStamp='',lastSessionCount=null;
 async function loadLibrary(){
   if(listing){libraryRefreshPending=true;return;}listing=true;
-  const results=await Promise.allSettled([ipc('editor_list'),ipc('external_documents_list')]);
+  const results=await Promise.allSettled([ipc('editor_list'),ipc('external_documents_list'),ipc('library_states')]);
   try{
     libraryLoadError='';
     for(const [index,result] of results.entries()){
+      if(index===2){if(result.status==='fulfilled'&&result.value&&typeof result.value==='object'&&!Array.isArray(result.value))libraryStates=result.value;continue;}
       if(result.status==='fulfilled'&&Array.isArray(result.value)){if(index===0)documents=result.value;else externalDocuments=result.value;}
       else libraryLoadError+=(index===0?'内置文档':'外部应用文档')+'暂未读取，请点击刷新重试。';
     }

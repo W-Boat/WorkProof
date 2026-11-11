@@ -82,3 +82,42 @@ mod embedded_tests{
         for path in ["app.exe","file.docx.lnk","script.js","script.ps1","script.bat","site.url","file"]{assert!(!opens_as_document(Path::new(path)));}
     }
 }
+
+#[tauri::command]
+pub async fn library_states(window:WebviewWindow)->Result<Value,String>{
+    let root=root(&window)?;
+    tauri::async_runtime::spawn_blocking(move||workproof_engine::library_state::list(&root)).await.map_err(|_|"无法读取文档状态。")?
+}
+#[tauri::command]
+pub async fn library_set_state(window:WebviewWindow,kind:String,ids:Vec<String>,state:String)->Result<Value,String>{
+    let root=root(&window)?;
+    tauri::async_runtime::spawn_blocking(move||workproof_engine::library_state::set(&root,&kind,&ids,&state)).await.map_err(|_|"无法更新文档状态。")?
+}
+
+#[tauri::command]
+pub async fn external_document_read(window:WebviewWindow,id:String)->Result<Value,String>{
+    let root=root(&window)?;
+    tauri::async_runtime::spawn_blocking(move||{
+        use std::io::Read;
+        let document=catalog::load(&root,&id,None,1)?.document;
+        let path=PathBuf::from(document.local_path.ok_or("请先定位原文件。")?);
+        if !path.is_absolute(){return Err("原文件位置无效。".into());}
+        let path=path.canonicalize().map_err(|_|"原文件已移动，请重新定位。")?;
+        let extension=path.extension().and_then(|value|value.to_str()).unwrap_or("").to_ascii_lowercase();
+        let limit=match extension.as_str(){
+            "docx"=>8*1024*1024,
+            "md"|"markdown"|"txt"=>512*1024,
+            _=>return Err("此文件请使用原应用打开。".into()),
+        };
+        let file=std::fs::File::open(&path).map_err(|_|"无法读取原文件，请检查文件权限。")?;
+        let before=file.metadata().map_err(|_|"无法读取文件信息。")?;
+        if !before.is_file()||before.len()>limit{return Err("文件超过导入范围。".into());}
+        let mut bytes=Vec::new();
+        file.take(limit+1).read_to_end(&mut bytes).map_err(|_|"原文件读取失败。")?;
+        let after=path.metadata().map_err(|_|"原文件在读取期间发生变化。")?;
+        if bytes.len() as u64>limit||before.len()!=bytes.len() as u64||before.len()!=after.len()||before.modified().ok()!=after.modified().ok(){
+            return Err("原文件在读取期间发生变化，请重试。".into());
+        }
+        Ok(serde_json::json!({"name":path.file_name().and_then(|name|name.to_str()).unwrap_or("文档"),"bytes":bytes}))
+    }).await.map_err(|_|"读取原文件失败。")?
+}

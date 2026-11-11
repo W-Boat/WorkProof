@@ -5,5 +5,6 @@ commands.allow = [
   "window_action", "office_setup", "engine_status", "app_info", "pending_adapters", "decide_adapter",
   "adapter_connections", "revoke_adapter", "open_verifier", "open_verifier_browser", "verifier_url",
   "install_vscode", "open_word", "open_powerpoint", "verify_image", "embed_image",
+  "external_documents_list", "external_document_load", "external_document_open", "external_document_locate", "external_document_read","library_states", "library_set_state",
   "editor_list", "editor_create", "editor_load", "editor_save", "editor_version", "editor_export"
 ]

@@ -447,3 +447,5 @@ body:not([data-view=document]) .feedback{bottom:16px}
 .settings-surface>.setting-row>select,.settings-surface>.setting-row>fluent-radio-group,.settings-surface>.setting-row>fluent-switch,.settings-surface>.setting-row>span:not(.glyph){grid-column:3;grid-row:1}
 @media(max-width:1150px){.settings-surface>.setting-row>fluent-radio-group{grid-column:2;grid-row:2}}
 @media(max-width:860px){.settings-surface>.setting-row:not(:has(fluent-switch))>select,.settings-surface>.setting-row>span:not(.glyph){grid-column:2;grid-row:2;justify-self:start}}
+
+.library-row-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
