@@ -15,5 +15,11 @@ function paint(button){
 }
 const selector='fluent-button,button[data-icon]';
 document.querySelectorAll(selector).forEach(paint);
+for(const glyph of document.querySelectorAll('.glyph[data-fluent-icon]')){
+  const replacement=icon(glyph.dataset.fluentIcon);
+  replacement.classList.add('glyph');
+  if(glyph.slot)replacement.slot=glyph.slot;
+  glyph.replaceWith(replacement);
+}
 for(const b of document.querySelectorAll('[data-window]')){b.textContent='';b.append(icon({minimize:'subtract',maximize:'square',close:'dismiss'}[b.dataset.window]));}
 new MutationObserver(records=>{for(const r of records){if(r.target.nodeType===1){const b=r.target.closest(selector);if(b)paint(b);}for(const n of r.addedNodes)if(n.nodeType===1){if(n.matches(selector))paint(n);n.querySelectorAll(selector).forEach(paint);}}}).observe(document.body,{subtree:true,childList:true});

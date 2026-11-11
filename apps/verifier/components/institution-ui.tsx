@@ -24,7 +24,11 @@ export function TextInput({onChange,...props}:InputHTMLAttributes<HTMLInputEleme
 }
 export function Checkbox({checked,disabled,onChange,children}:{checked:boolean;disabled?:boolean;onChange:(checked:boolean)=>void;children:ReactNode}){
   const embedded=useEmbeddedFluent();
-  if(embedded)return <FluentElement tag="fluent-checkbox" checked={checked} disabled={disabled} onChange={(event:ChangeEvent<HTMLInputElement>)=>onChange(event.target.checked)}>{children}</FluentElement>;
+  const id=useId();
+  if(embedded)return <FluentElement tag="fluent-field" label-position="after" className="fluent-checkbox-field">
+    <label slot="label" id={id+'-label'} htmlFor={id}>{children}</label>
+    <FluentElement tag="fluent-checkbox" slot="input" id={id} role="checkbox" aria-labelledby={id+'-label'} aria-checked={checked} aria-disabled={disabled} checked={checked} disabled={disabled} onChange={(event:Event)=>onChange((event.currentTarget as HTMLInputElement).checked)}/>
+  </FluentElement>;
   return <label className="quiet-label"><input type="checkbox" checked={checked} disabled={disabled} onChange={event=>onChange(event.target.checked)}/>{children}</label>;
 }
 export function VerificationProgress({phase,progress}:{phase:string;progress:number}){

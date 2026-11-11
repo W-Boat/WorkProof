@@ -145,7 +145,7 @@ export default function VerificationCharts({records,partial,reduced}:{records:Re
     </div>
     {(partial||structured)&&<Notice intent="info">{partial?'这份证书只披露部分事件，可查看已披露事件的构成和分布。':'图层和三维证据可查看操作分布。具体结构指标见过程轨迹。'}</Notice>}
     <h3>{current[1]}</h3><p>{current[2]}。{selected==='scatter'&&data.plottedWrites.length<data.writes.length&&`展示 ${data.plottedWrites.length} / ${data.writes.length.toLocaleString('zh-CN')} 条记录，保留最大写入和末次写入。`}</p>
-    {empty?<Notice intent="info">这份证据中可用于当前图表的记录不足。</Notice>:table?<div className="chart-data-view">
+    {empty?<Notice intent="info">这份证据中可用于当前图表的记录不足。</Notice>:table?<div className="chart-data-view" key="data">
       <div className="verification-table-scroll" role="region" aria-label="图表数据，可横向滚动" tabIndex={0}><table>
         <caption>{current[1]} · 图表数据</caption>
         <thead><tr>{table.headers.map(header=><th key={header} scope="col">{header}</th>)}</tr></thead>
@@ -155,6 +155,6 @@ export default function VerificationCharts({records,partial,reduced}:{records:Re
         })}</tr>)}</tbody>
       </table></div>
       {table.rows.length>DATA_PAGE_SIZE&&<div className="chart-pages"><Button disabled={page===0} onClick={()=>setPage(page-1)}>上一页</Button><span role="status">第 {page+1} / {Math.ceil(table.rows.length/DATA_PAGE_SIZE)} 页</span><Button disabled={(page+1)*DATA_PAGE_SIZE>=table.rows.length} onClick={()=>setPage(page+1)}>下一页</Button></div>}
-    </div>:<div className="verification-chart" ref={root} role="img" aria-label={`${current[1]}，${current[2]}`}/>}
+    </div>:<div className="verification-chart" key="canvas" ref={root} role="img" aria-label={`${current[1]}，${current[2]}`}/>}
   </Panel>;
 }

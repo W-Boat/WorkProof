@@ -89,6 +89,10 @@ test('validated parent appearance integrates the embedded verifier without losin
   await sheet.scrollIntoViewIfNeeded();
   await page.screenshot({path:testInfo.outputPath('embedded-verifier-diagnosis.png')});
   await expect(verifier.locator('fluent-slider[aria-label="浏览事件"]')).toBeVisible();
+  const changes=verifier.getByRole('checkbox',{name:'新增与删除',exact:true});
+  await expect(changes).toHaveAttribute('aria-checked','true');
+  await changes.click();
+  await expect(changes).toHaveAttribute('aria-checked','false');
 });
 
 test('untrusted requested parent origin leaves the standalone shell visible',async({page})=>{

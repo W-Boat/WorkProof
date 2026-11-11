@@ -21,6 +21,7 @@ export async function loadEmbeddedFluent(dark: boolean) {
     import('@fluentui/web-components/option.js'),
     import('@fluentui/web-components/message-bar.js'),
     import('@fluentui/web-components/anchor-button.js'),
+    import('@fluentui/web-components/field.js'),
   ]).catch(error => {registration=undefined;throw error;});
   await registration;
   const [{setTheme},{webDarkTheme,webLightTheme}] = await Promise.all([
