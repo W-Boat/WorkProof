@@ -24,6 +24,14 @@ test('validated parent appearance integrates the embedded verifier without losin
   const primary=verifier.getByRole('button',{name:'开始本地核验'});
   await expect(primary).toHaveAttribute('appearance','primary');
   expect(await primary.evaluate(element=>element.localName)).toBe('fluent-button');
+  expect(await primary.evaluate(element=>{
+    const style=getComputedStyle(element);
+    return parseFloat(style.paddingLeft)>=12&&parseFloat(style.paddingRight)>=12&&element.getBoundingClientRect().height>=32;
+  })).toBe(true);
+  expect(await verifier.locator('.wp-content>.panel').evaluateAll(panels=>{
+    const first=panels[0].getBoundingClientRect(),second=panels[1].getBoundingClientRect();
+    return Math.abs(second.top-first.bottom-16)<=1;
+  })).toBe(true);
   await expect(verifier.locator('html')).toHaveAttribute('data-theme','dark');
   await expect(verifier.locator('html')).toHaveAttribute('data-workproof-motion','reduced');
   await expect(verifier.locator('.wp-rail')).toBeHidden();

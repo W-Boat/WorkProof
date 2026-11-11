@@ -231,9 +231,12 @@ html[data-theme=dark] .behavior-range[data-review=true]>div>span{color:#ff9ba7}h
 .fluent-verifier .fluent-panel>.panel-head{padding:16px 20px;min-height:56px;gap:12px}
 .fluent-verifier .fluent-panel>.panel-body{padding:20px}
 .fluent-verifier .panel-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.fluent-verifier fluent-button::part(control){min-height:32px;padding:5px 12px}
+/* Fluent v3 styles the host; its button has no "control" shadow part. */
+.fluent-verifier fluent-button{min-height:32px;padding:0 var(--spacingHorizontalM,12px);border:1px solid var(--colorNeutralStroke1,var(--line));border-radius:var(--borderRadiusMedium,4px)}
+.fluent-verifier fluent-button:is([appearance=primary],[appearance=subtle]){border-color:transparent}
+.fluent-verifier .wp-content>.panel{margin:0}
 .fluent-verifier .verify-actions{flex-wrap:wrap;gap:12px;margin-top:16px}
 .fluent-verifier .verify-actions>fluent-button:last-child{margin-left:auto}
 .fluent-verifier .export-row>div{gap:8px}
-@media(max-width:540px){.fluent-verifier .fluent-panel>.panel-head{padding:14px 16px}.fluent-verifier .fluent-panel>.panel-body{padding:16px}.fluent-verifier .verify-actions>fluent-button{flex:1 1 100%}.fluent-verifier .verify-actions>fluent-button::part(control){width:100%}}
+@media(max-width:540px){.fluent-verifier .fluent-panel>.panel-head{padding:14px 16px}.fluent-verifier .fluent-panel>.panel-body{padding:16px}.fluent-verifier .verify-actions>fluent-button{flex:1 1 100%}}
 @media print{.fluent-verifier .fluent-certificate{background:white;color:#242424}.fluent-verifier .fluent-certificate dt{color:#424242}}
