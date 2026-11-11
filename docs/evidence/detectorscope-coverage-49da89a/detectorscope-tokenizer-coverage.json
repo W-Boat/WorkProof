@@ -1,0 +1,109 @@
+{
+  "source_commit": "49da89a9afeb35ef8851753d817b22e0fd5d5674",
+  "model_revision": "9baaff9e2d1cdb79cafa90cdb27811b847e69dae",
+  "manifest_sha256": {
+    "calibration-en": "4538a9bcd15102bc0a504b1c8eb9812b994d5f49271c15983252d52fe825b8aa",
+    "calibration-zh": "457861ccdff939720264a13875ab11e29d839ebb88396124652857f1c554bcd7",
+    "heldout-en": "21924fbf9d4ad7e947c03e74f9d849cbdc1b25c5ad3020850435f53696d0747a",
+    "heldout-zh": "c2a961703b593a721a8444ad3a82704e87455baee11b63fe5dc198d3dfae3407"
+  },
+  "tokenizer_files_sha256": {
+    "extractor/config.json": "3aecd9e4d0b1daf9da7e1f52e895a6bb8ad537b77444f609ede14e376336f8d7",
+    "extractor/tokenizer.json": "e6ce83119bb404f7f0a6e621b76759d476357dcd01241a90f9ca136ae2b3c11c",
+    "extractor/tokenizer.model": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2",
+    "extractor/tokenizer_config.json": "5db39e7ccbeceb1dc1136ff54d717f6f84f3556893e6cc30ee4972c408ed4dc2"
+  },
+  "token_budget": [
+    8,
+    512
+  ],
+  "truncation": false,
+  "partitions": {
+    "calibration-en": {
+      "counts": {
+        "human": {
+          "total": 192,
+          "eligible": 192,
+          "too_short": 0,
+          "too_long": 0
+        },
+        "ai": {
+          "total": 192,
+          "eligible": 192,
+          "too_short": 0,
+          "too_long": 0
+        }
+      },
+      "eligible": 384,
+      "total": 384,
+      "coverage": 1.0,
+      "eligible_token_sum": 85066,
+      "meets_calibration_coverage_gate": true
+    },
+    "calibration-zh": {
+      "counts": {
+        "human": {
+          "total": 192,
+          "eligible": 192,
+          "too_short": 0,
+          "too_long": 0
+        },
+        "ai": {
+          "total": 192,
+          "eligible": 192,
+          "too_short": 0,
+          "too_long": 0
+        }
+      },
+      "eligible": 384,
+      "total": 384,
+      "coverage": 1.0,
+      "eligible_token_sum": 99719,
+      "meets_calibration_coverage_gate": true
+    },
+    "heldout-en": {
+      "counts": {
+        "human": {
+          "total": 192,
+          "eligible": 192,
+          "too_short": 0,
+          "too_long": 0
+        },
+        "ai": {
+          "total": 192,
+          "eligible": 192,
+          "too_short": 0,
+          "too_long": 0
+        }
+      },
+      "eligible": 384,
+      "total": 384,
+      "coverage": 1.0,
+      "eligible_token_sum": 86099,
+      "meets_calibration_coverage_gate": true
+    },
+    "heldout-zh": {
+      "counts": {
+        "human": {
+          "total": 192,
+          "eligible": 191,
+          "too_short": 0,
+          "too_long": 1
+        },
+        "ai": {
+          "total": 192,
+          "eligible": 192,
+          "too_short": 0,
+          "too_long": 0
+        }
+      },
+      "eligible": 383,
+      "total": 384,
+      "coverage": 0.9973958333333334,
+      "eligible_token_sum": 98227,
+      "meets_calibration_coverage_gate": true
+    }
+  },
+  "inference_executed": false,
+  "production_enabled": false
+}
