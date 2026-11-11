@@ -29,7 +29,7 @@ test('validated parent appearance integrates the embedded verifier without losin
     return parseFloat(style.paddingLeft)>=12&&parseFloat(style.paddingRight)>=12&&element.getBoundingClientRect().height>=32;
   })).toBe(true);
   expect(await verifier.locator('.wp-content>.panel').evaluateAll(panels=>{
-    const first=panels[0].getBoundingClientRect(),second=panels[1].getBoundingClientRect();
+    const [first,second]=panels.map(panel=>panel.getBoundingClientRect()).filter(rect=>rect.height>0);
     return Math.abs(second.top-first.bottom-16)<=1;
   })).toBe(true);
   await expect(verifier.locator('html')).toHaveAttribute('data-theme','dark');
