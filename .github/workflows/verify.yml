@@ -113,10 +113,7 @@ jobs:
         run: node scripts/test_extension.cjs target/debug/workproof-engine
       - name: Install Blender for native adapter validation
         run: sudo apt-get update && sudo apt-get install -y blender
-      - name: Real Blender recording and export
-        run: blender --background --factory-startup --python-exit-code 1 --python scripts/test_blender.py -- target/debug/workproof-engine
-      - name: Package Blender extension
-        run: python scripts/package_blender.py
+      - uses: ./.github/actions/blender-extension-acceptance
       - run: npm run package -w workproof-vscode
       - uses: ./.github/actions/c2pa-browser-resource
       - run: npm run build:web

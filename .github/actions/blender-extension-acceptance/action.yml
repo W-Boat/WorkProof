@@ -1,0 +1,20 @@
+name: Accept the packaged Blender extension
+description: Install the shipping ZIP into a fresh Blender profile and run the collector flow
+runs:
+  using: composite
+  steps:
+    - name: Package, install and exercise the exact Blender extension ZIP
+      shell: bash
+      run: |
+        set -euo pipefail
+        python scripts/package_blender.py
+        shopt -s nullglob
+        packages=(dist/workproof-blender-*.zip)
+        if (( ${#packages[@]} != 1 )); then
+          printf 'Expected exactly one WorkProof Blender ZIP, got %s\n' "${#packages[@]}" >&2
+          exit 1
+        fi
+        package="$(realpath "${packages[0]}")"
+        export BLENDER_USER_RESOURCES="$(mktemp -d "$RUNNER_TEMP/workproof-blender-profile.XXXXXXXX")"
+        blender --background --factory-startup --command extension install-file --repo user_default --enable "$package"
+        blender --background --python-exit-code 1 --python scripts/test_blender.py -- target/debug/workproof-engine "$package"

@@ -1,11 +1,24 @@
-"""Run inside real Blender, against a real Rust collector. No mocked bpy or signing."""
-import json,os,pathlib,subprocess,sys,tempfile,time
+"""Exercise the installed extension in Blender with a real Rust collector."""
+import hashlib,json,os,pathlib,subprocess,sys,tempfile,time,tomllib,zipfile
 import bpy
 from mathutils import Quaternion
 root=pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(root/'apps/blender'))
-import workproof
-engine=str(pathlib.Path(sys.argv[sys.argv.index('--')+1]).resolve())
+engine_arg,package_arg=sys.argv[sys.argv.index('--')+1:]
+engine=str(pathlib.Path(engine_arg).resolve())
+package=pathlib.Path(package_arg).resolve()
+profile=pathlib.Path(os.environ['BLENDER_USER_RESOURCES']).resolve()
+with zipfile.ZipFile(package) as archive:
+    manifest=tomllib.loads(archive.read('blender_manifest.toml').decode('utf-8'))
+    module_name=f'bl_ext.user_default.{manifest["id"]}'
+    assert module_name in bpy.context.preferences.addons,'Blender did not restore the enabled extension'
+    workproof=sys.modules.get(module_name)
+    assert workproof is not None,'Blender did not load the installed extension at startup'
+    installed=pathlib.Path(workproof.__file__).resolve().parent
+    assert installed.is_relative_to(profile),'Extension was loaded outside the isolated Blender profile'
+    assert pathlib.Path(sys.modules[module_name+'.location'].__file__).resolve()==installed/'location.py'
+    for name in archive.namelist():
+        assert (installed/name).read_bytes()==archive.read(name),f'Installed ZIP member differs: {name}'
+assert hasattr(bpy.types.Scene,'workproof_evolution'),'Installed extension did not register its settings'
 def wait_for(predicate,description):
     for _ in range(150):
         if predicate():return
@@ -14,12 +27,10 @@ def wait_for(predicate,description):
 with tempfile.TemporaryDirectory(prefix='workproof-blender-') as tmp:
     os.environ['WORKPROOF_DATA_DIR']=tmp
     proc=subprocess.Popen([engine],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    registered=False
     try:
         wait_for(lambda:pathlib.Path(tmp,'connection.json').exists(),'Collector startup')
         filename=str(pathlib.Path(tmp,'scene.blend'))
         bpy.ops.wm.save_as_mainfile(filepath=filename)
-        workproof.register();registered=True
         assert bpy.ops.workproof.start()=={'FINISHED'}
         wait_for(lambda:workproof._runtime.committed>=1,'First event')
         views=[area.spaces.active.region_3d for window in bpy.context.window_manager.windows for area in window.screen.areas if area.type=='VIEW_3D']
@@ -223,9 +234,18 @@ with tempfile.TemporaryDirectory(prefix='workproof-blender-') as tmp:
         rejected({'Authorization':'Bearer '+token,'Origin':'https://example.invalid'},body,403)
         rejected({'Authorization':'Bearer '+token},dict(body,source='photoshop'),422)
         rejected({'Authorization':'Bearer '+token},dict(body,seq=0),400)
-        result={'host':bpy.app.version_string,'native_adapter':'passed','opt_in_graph_full_and_selective':'passed','lost_ack_immutable_retry':'passed','same_topology_edits_preserve_digest_without_graph_rpc':'passed','same_count_reorder_emits_graph':'passed','rename_does_not_change_anonymous_topology':'passed','observed_modifier_retirement':'passed','graph_tamper_and_endpoint_auth':'passed','signed_metrics':'passed','pause_gap':'passed','real_blend_file_binding':'passed','tampered_metric_rejected':'passed','viewport_rotation_and_zoom':'passed','paused_viewport_not_counted':'passed','viewport_tamper_rejected':'passed','idle_viewport_sample_p95_ms':sorted(timings)[94],'sample_scope':'100 synchronous samples in factory-startup scene, not general editor performance','events':len(events)}
+        result={'host':bpy.app.version_string,'native_adapter':'passed','opt_in_graph_full_and_selective':'passed','lost_ack_immutable_retry':'passed','same_topology_edits_preserve_digest_without_graph_rpc':'passed','same_count_reorder_emits_graph':'passed','rename_does_not_change_anonymous_topology':'passed','observed_modifier_retirement':'passed','graph_tamper_and_endpoint_auth':'passed','signed_metrics':'passed','pause_gap':'passed','real_blend_file_binding':'passed','tampered_metric_rejected':'passed','viewport_rotation_and_zoom':'passed','paused_viewport_not_counted':'passed','viewport_tamper_rejected':'passed','idle_viewport_sample_p95_ms':sorted(timings)[94],'sample_scope':'100 synchronous samples in the default scene of an isolated Blender profile','events':len(events)}
+        result['extension_installation']={
+            'archive':package.name,
+            'sha256':hashlib.sha256(package.read_bytes()).hexdigest(),
+            'version':manifest['version'],
+            'module':module_name,
+            'enabled_on_restart':True,
+            'installed_members_match_archive':True,
+        }
         (root/'test-blender-results.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
         print(json.dumps(result))
     finally:
-        if registered:workproof.unregister()
-        proc.terminate();proc.wait(timeout=10)
+        try:bpy.ops.preferences.addon_disable(module=module_name)
+        finally:
+            proc.terminate();proc.wait(timeout=10)

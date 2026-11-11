@@ -1,6 +1,13 @@
 name: Native Blender adapter validation
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'apps/blender/**'
+      - 'scripts/package_blender.py'
+      - 'scripts/test_blender.py'
+      - '.github/actions/blender-extension-acceptance/**'
+      - '.github/workflows/blender-adapter.yml'
 permissions:
   contents: read
 jobs:
@@ -15,10 +22,7 @@ jobs:
         run: cargo build --locked -p workproof-engine
       - name: Install Blender
         run: sudo apt-get update && sudo apt-get install -y blender
-      - name: Native viewport, mesh, pause and file-binding acceptance
-        run: blender --background --factory-startup --python-exit-code 1 --python scripts/test_blender.py -- target/debug/workproof-engine
-      - name: Package complete extension source and license terms
-        run: python scripts/package_blender.py
+      - uses: ./.github/actions/blender-extension-acceptance
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-blender-extension
