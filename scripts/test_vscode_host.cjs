@@ -17,6 +17,9 @@ async function main(){
   const evidence=path.resolve('test-results/vscode-host');await fs.mkdir(evidence,{recursive:true});
   const engine=path.resolve(process.argv[2]);
   const vsix=path.resolve(process.argv[3]);
+  const manifest=JSON.parse(await fs.readFile('apps/extension/package.json','utf8'));
+  const extensionId=`${manifest.publisher}.${manifest.name}@${manifest.version}`;
+  const vsixDigest=createHash('sha256').update(await fs.readFile(vsix)).digest('hex');
   let recorder,code,browser,page;
   try{
     const metadata=await fetch('https://update.code.visualstudio.com/api/update/linux-x64/stable/latest');assert(metadata.ok);
@@ -43,8 +46,8 @@ async function main(){
     // a user's OS credential service. This profile is never uploaded.
     const common=['--no-sandbox','--password-store=basic','--user-data-dir',userData,'--extensions-dir',extensions];
     execFileSync(path.join(installation,'bin','code'),[...common,'--install-extension',vsix,'--force'],{env:environment,stdio:'pipe',timeout:60000});
-    const installed=execFileSync(path.join(installation,'bin','code'),[...common,'--list-extensions'],{env:environment,encoding:'utf8',timeout:60000});
-    assert(installed.includes('workproof-local.workproof-vscode'));
+    const installed=execFileSync(path.join(installation,'bin','code'),[...common,'--list-extensions','--show-versions'],{env:environment,encoding:'utf8',timeout:60000});
+    assert(installed.trim().split(/\r?\n/).includes(extensionId),'Expected the exact WorkProof extension version');
     const reservation=net.createServer();await new Promise(resolve=>reservation.listen(0,'127.0.0.1',resolve));const port=reservation.address().port;await new Promise(resolve=>reservation.close(resolve));
     code=spawn(path.join(installation,'code'),[...common,'--disable-gpu','--disable-workspace-trust','--skip-welcome','--skip-release-notes','--locale=en',`--remote-debugging-port=${port}`,'--remote-debugging-address=127.0.0.1',workspace,file],{env:environment,stdio:'ignore'});
     browser=await until(()=>chromium.connectOverCDP('http://127.0.0.1:'+port),'VS Code workbench CDP');
@@ -85,9 +88,11 @@ async function main(){
     await fs.appendFile(file,'tampered');let refused=false;
     try{execFileSync(engine,['verify',file,proof],{stdio:'pipe',timeout:30000});}catch(error){assert.equal(error.status,2);refused=true;}
     assert(refused);
+    assert.equal(createHash('sha256').update(await fs.readFile(vsix)).digest('hex'),vsixDigest);
     await page.screenshot({path:path.join(evidence,'paused-export.png')});
     await fs.writeFile(path.join(evidence,'acceptance.json'),JSON.stringify({
       source_commit:process.env.GITHUB_SHA,vscode_version:release.productVersion,vscode_commit:release.version,
+      extension:{id:extensionId,file:path.basename(vsix),sha256:vsixDigest},
       archive_sha256:release.sha256hash,scope:'Official Linux stable VS Code; installed VSIX; actual UI confirmation, editor, pause and simple save dialog; real Rust verification and tamper refusal. No mocked VS Code APIs. Not Windows/macOS or all historical versions.',
     },null,2));
     console.log('PASS: actual VS Code installed VSIX, editor events, paused export and independent Rust verification');
