@@ -170,6 +170,6 @@ export default function Page(){
       <div className="auxiliary-tool" hidden={tool!=='receipt'}>{result&&r?.valid&&proofFile&&<ReceiptPanel key={result.certificateId+String(proofFile.lastModified)} proof={proofFile}/>}</div>
       <div className="auxiliary-tool" hidden={tool!=='evolution'}>{result&&r?.valid&&proofFile&&<EvolutionPanel key={result.certificateId+proofFile.name} proof={proofFile}/>}</div>
     </section>
-    <Details label="如何理解核验结果"><Panel id="principles" title="如何理解核验结果" className="principles"><dl><div><dt>作品留在本机</dt><dd>浏览器中的独立工作线程计算文件指纹，不上传作品与证书。</dd></div><div><dt>签名与身份分开判断</dt><dd>签名核对记录是否改变，不证明真人身份、原创性或 AI 使用比例。</dd></div><div><dt>部分证据只核对所选归属</dt><dd>未披露的记录不连成曲线，未观测到的区间不视为持续劳动。</dd></div></dl></Panel></Details>
+    <Panel id="principles" title="如何理解核验结果" className="principles"><dl><div><dt>作品留在本机</dt><dd>浏览器中的独立工作线程计算文件指纹，不上传作品与证书。</dd></div><div><dt>签名与身份分开判断</dt><dd>签名核对记录是否改变，不证明真人身份、原创性或 AI 使用比例。</dd></div><div><dt>部分证据只核对所选归属</dt><dd>未披露的记录不连成曲线，未观测到的区间不视为持续劳动。</dd></div></dl></Panel>
   </VerifierShell>;
 }
