@@ -172,7 +172,8 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             def demo_activated():
                 assert execute("const button=document.querySelector('.verify-actions [aria-label]');return !!button?.disabled||!!document.querySelector('.uploads .upload.filled')||!!document.querySelector('.result-banner')||!!document.querySelector('.error-box')"),'Native pointer did not activate the demo'
             wait(demo_activated)
-            def frame_verified():assert execute("return !!document.querySelector('.result-banner.success')")
+            def frame_verified():
+                assert execute("const banner=document.querySelector('.result-banner.success');const result=banner?.closest('.result');return !!banner&&(!result||Number(getComputedStyle(result).opacity)>.99)")
             wait(frame_verified);screenshot('workbench-frame-verified.png')
             call('POST',f'/session/{session}/frame',{'id':None})
             assert len(handles())==1,'Workspace verification created an extra window'

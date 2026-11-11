@@ -356,7 +356,9 @@ jobs:
       - name: Install and start the real Linux package under a virtual display
         if: runner.os == 'Linux'
         run: |
+          dpkg-deb -f target/release/bundle/deb/*.deb Depends | grep -F fonts-noto-cjk
           sudo apt-get install -y "$PWD"/target/release/bundle/deb/*.deb
+          fc-match -f '%{family}\n' 'Noto Sans CJK SC' | grep -F 'Noto Sans CJK SC'
           xvfb-run -a dbus-run-session -- python3 scripts/test_tray.py /usr/bin/workproof-desktop
       - name: Verify the installed Linux native WebView and local Wasm flow
         if: runner.os == 'Linux'
