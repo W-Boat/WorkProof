@@ -114,7 +114,7 @@ export default function VerificationCharts({records,partial,reduced}:{records:Re
     const chart=init(element,null,{renderer:'canvas'});
     const color=dark?'#eee':'#242424';
     const labels=data.buckets.map(bucket=>bucket.label);
-    const base:EChartsCoreOption={animation:!reduced,animationDuration:220,color:dark?['#75b6ed','#ffad98','#9ad5a2','#d2b1eb','#f6ce70']:['#0f6cbd','#b73c26','#107c41','#7854a4','#927115'],textStyle:{color,fontFamily:'Segoe UI, Microsoft YaHei, sans-serif',fontSize:13},tooltip:{trigger:'item',renderMode:'richText',confine:true},grid:{left:66,right:38,bottom:44,top:48},legend:{textStyle:{color}}};
+    const base:EChartsCoreOption={animation:!reduced,animationDuration:220,color:dark?['#75b6ed','#ffad98','#9ad5a2','#d2b1eb','#f6ce70']:['#0f6cbd','#b73c26','#107c41','#7854a4','#927115'],textStyle:{color,fontFamily:'Segoe UI, Microsoft YaHei, sans-serif',fontSize:13},tooltip:{trigger:'item',renderMode:'richText',confine:true},grid:{left:66,right:38,bottom:44,top:48}};
     const axis=(category:string[],unit:string)=>({xAxis:{type:'category',data:category,axisLabel:{color,hideOverlap:true}},yAxis:{type:'value',name:unit,axisLabel:{color}}});
     let option:EChartsCoreOption;
     switch(selected){
@@ -131,7 +131,10 @@ export default function VerificationCharts({records,partial,reduced}:{records:Re
       }
       case 'box':option={...axis(['相邻写入间隔'],'秒'),series:[{type:'boxplot',data:[data.quantiles]}]};break;
       case 'tree':option={series:[{type:'treemap',roam:false,nodeClick:false,breadcrumb:{show:false},label:{formatter:'{b}'},data:data.categories}]};break;
-      case 'histogram':option={...axis(data.bands.map(b=>b.name),'事件'),series:[{type:'bar',name:'单次新增量',barCategoryGap:2,data:data.bands.map(b=>b.value)}]};break;
+      case 'histogram':{
+        const axes=axis(data.bands.map(b=>b.name),'事件');
+        option={...axes,xAxis:{...axes.xAxis,name:'单次新增字符数',nameLocation:'middle',nameGap:26,nameTextStyle:{color}},grid:{left:66,right:38,bottom:54,top:48},series:[{type:'bar',name:'单次新增量',barCategoryGap:2,data:data.bands.map(b=>b.value)}]};break;
+      }
     }
     chart.setOption({...base,...option});
     const observer=new ResizeObserver(()=>chart.resize());observer.observe(element);

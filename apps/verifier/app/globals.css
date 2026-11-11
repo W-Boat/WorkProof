@@ -184,7 +184,8 @@ html[data-theme=dark] .behavior-range[data-review=true]>div>span{color:#ff9ba7}h
 .fluent-verifier .result-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px}
 .fluent-verifier .result-grid>.panel{margin:0 0 16px}
 .fluent-verifier .result-banner{padding:0;margin:0 0 8px;background:none;border:0}
-.fluent-verifier fluent-message-bar{display:block;width:100%;min-width:0}
+.fluent-verifier fluent-message-bar{width:100%;min-width:0;padding:var(--spacingVerticalMNudge,8px) var(--spacingHorizontalM,12px)}
+.fluent-verifier .section-label::before{display:none}
 .fluent-verifier .result-banner fluent-message-bar>span{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .fluent-verifier .result-banner fluent-message-bar>span>svg{display:none}
 .fluent-verifier .result-banner fluent-message-bar>span+span{margin-top:3px}
