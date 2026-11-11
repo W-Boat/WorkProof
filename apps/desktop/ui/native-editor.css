@@ -449,3 +449,19 @@ body:not([data-view=document]) .feedback{bottom:16px}
 @media(max-width:860px){.settings-surface>.setting-row:not(:has(fluent-switch))>select,.settings-surface>.setting-row>span:not(.glyph){grid-column:2;grid-row:2;justify-self:start}}
 
 .library-row-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* Desktop chrome is not a selectable webpage. Document content remains editable. */
+body{user-select:none;-webkit-user-select:none}
+input,textarea,[contenteditable="true"],.cm-content,.tiptap,[data-selectable],.nv-certificate,#certificate-fingerprint,#history-preview{user-select:text;-webkit-user-select:text}
+select.wp-select-source{display:none!important}
+.wp-select{display:inline-flex;min-width:100px;max-width:100%;font:inherit;vertical-align:middle}
+.wp-select[hidden]{display:none!important}
+.wp-select fluent-option{font:inherit;min-height:36px}
+.wp-select[data-native-select=font-family]{width:180px}
+.wp-select[data-native-select=font-size]{min-width:70px;width:76px}
+.wp-select[data-native-select=paragraph-style]{width:110px}
+.editor-toolbar .wp-select{flex-shrink:0}
+.setting-row>.wp-select{grid-column:3;grid-row:1;justify-self:end;min-width:150px}
+.creation-panel>.wp-select{width:100%;max-width:420px;margin:8px 0 12px}
+.library-filters .wp-select{min-width:124px}
+@media(max-width:640px){.setting-row>.wp-select{grid-column:2;grid-row:2;justify-self:start}.wp-select{max-width:100%}}

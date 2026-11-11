@@ -1,3 +1,4 @@
+import {selectChoice} from './desktop-select';
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 
@@ -75,9 +76,9 @@ test('desktop starts with Word and shows only the chosen software steps',async({
   await expect(steps).toContainText('导出作品和证书');
   const install=page.getByRole('button',{name:'安装 / 更新 VS Code 插件'});
   await expect(install).toBeHidden();
-  await page.getByLabel('你用什么软件创作？').selectOption('vscode');
+  await selectChoice(page,'#creation-tool','vscode');
   await expect(install).toBeVisible();await expect(steps).toContainText('VS Code 底部');
-  await page.getByLabel('你用什么软件创作？').selectOption('wps');
+  await selectChoice(page,'#creation-tool','wps');
   await expect(install).toBeHidden();await expect(page.locator('#installation-note')).toContainText('暂未提供面向普通用户的一键安装包');
   await expect(page.getByRole('region',{name:'允许连接的软件'})).toBeVisible();
   await expect(page.locator('#verification')).toBeHidden();
@@ -138,7 +139,7 @@ test('embedding requires fresh consent and does not claim independent trust',asy
 
 test('desktop remembers software and keeps the workbench readable at desktop and narrow sizes',async({page},testInfo)=>{
   await desktop(page);
-  await page.getByLabel('你用什么软件创作？').selectOption('powerpoint');
+  await selectChoice(page,'#creation-tool','powerpoint');
   await page.reload();
   await page.getByRole('button',{name:'应用连接',exact:true}).click();
   await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('powerpoint');
@@ -195,7 +196,7 @@ test('desktop disables launch when the service is unavailable and recovers after
 
 test('desktop navigation switches bounded workspaces and preserves recording inputs',async({page},testInfo)=>{
   await desktop(page);await page.setViewportSize({width:960,height:780});
-  await page.getByLabel('你用什么软件创作？').selectOption('powerpoint');
+  await selectChoice(page,'#creation-tool','powerpoint');
   await page.getByRole('button',{name:'文件核验',exact:true}).click();
   await expect(page.locator('#workspace-title')).toBeFocused();
   await expect(page.locator('#verification')).toBeVisible();

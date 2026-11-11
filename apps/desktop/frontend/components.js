@@ -9,6 +9,7 @@ import '@fluentui/web-components/text-input.js';
 import {setTheme} from '@fluentui/web-components/theme/set-theme.js';
 import {webLightTheme,webDarkTheme} from '@fluentui/tokens';
 import './icon-controls.js';
+import './native-interactions.js';
 
 const applyTheme=()=>setTheme(document.documentElement.dataset.theme==='dark'?webDarkTheme:webLightTheme);
 applyTheme();
@@ -32,6 +33,8 @@ new MutationObserver(records=>{
 // All commands use the existing restricted Tauri bridge, never HTTP or shell strings.
 await import('../ui/status.js');
 await import('./editor.js');
+const {initializeSelectControls}=await import('./select-controls.js');
+initializeSelectControls();
 const {initializePaneLayout}=await import('./pane-layout.js');
 initializePaneLayout();
 // A restored tray window is ready only after event listeners, document saving

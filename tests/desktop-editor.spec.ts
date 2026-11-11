@@ -1,3 +1,4 @@
+import {selectChoice} from './desktop-select';
 import {test,expect,Page} from '@playwright/test';
 import fs from 'node:fs';
 
@@ -252,6 +253,8 @@ test('editor back command stays visible and saves before returning to the full-h
 test('verification is directly mounted in the client and accepts dropped files',async({page})=>{
   await desktop(page);await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
   await expect(page.getByRole('heading',{name:'作品核验',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'开始核验',exact:true})).toContainText('开始核验');
+  await expect(page.getByRole('button',{name:'清空文件',exact:true})).toContainText('清空文件');
   await expect(page.locator('#verifier-frame')).toHaveCount(0);await expect(page.locator('.workspace-nav')).toBeVisible();
   await page.locator('.nv-file').first().evaluate(element=>{const transfer=new DataTransfer();transfer.items.add(new File(['正文'],'作品.md',{type:'text/markdown'}));element.dispatchEvent(new DragEvent('drop',{bubbles:true,dataTransfer:transfer}));});
   await expect(page.locator('.nv-file').first()).toContainText('作品.md');
@@ -468,7 +471,7 @@ test('ribbon keyboard navigation exposes the selected page and returns focus fro
 
 test('toolbar follows cursor formats and represents mixed font sizes truthfully',async({page})=>{
   await desktop(page);const body=await create(page);await ensureRibbonOpen(page);await body.fill('大号文字');await body.press('ControlOrMeta+a');
-  await page.locator('#font-size').selectOption('18pt');await body.press('End');await page.locator('#font-size').selectOption('12pt');await body.pressSequentially('小号文字');
+  await selectChoice(page,'#font-size','18pt');await body.press('End');await selectChoice(page,'#font-size','12pt');await body.pressSequentially('小号文字');
   await body.press('ControlOrMeta+a');await expect(page.locator('#font-size')).toHaveValue('__mixed');await expect(page.locator('#font-size option:checked')).toHaveText('多种格式');
   for(const [text,size] of [['大号文字','18pt'],['小号文字','12pt']]){
     await body.evaluate((root,target)=>{
@@ -503,9 +506,9 @@ test('navigation drawer closes on Escape and manual rail choice survives reopeni
   await expect(page.locator('#nav-dismiss')).toBeHidden();await expect(page.locator('#collapse-nav')).toBeFocused();
   await page.locator('#collapse-nav').click();await page.getByRole('button',{name:'设置',exact:true}).click();
   await expect(page.locator('body')).not.toHaveClass(/nav-drawer-open/);
-  await page.locator('#navigation-mode').selectOption('auto');await page.setViewportSize({width:1280,height:820});
+  await selectChoice(page,'#navigation-mode','auto');await page.setViewportSize({width:1280,height:820});
   await expect(page.locator('body')).not.toHaveClass(/compact-nav/);
-  await page.locator('#navigation-mode').selectOption('closed');await page.reload();
+  await selectChoice(page,'#navigation-mode','closed');await page.reload();
   await expect(page.locator('body')).toHaveClass(/compact-nav/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
@@ -536,6 +539,8 @@ test('native verification uses real Wasm, renders all report views and rejects a
   await page.getByRole('button',{name:'开始核验',exact:true}).click();
   await expect(page.getByRole('heading',{name:'文件与证书一致',exact:true})).toBeVisible({timeout:20000});
   await expect(page.getByRole('heading',{name:'编辑过程检验单',exact:true})).toBeVisible();
+  await expect(page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'检验单',exact:true})).toContainText('检验单');
+  await expect(page.locator('.nv-tabs [icon-only]')).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath('native-verification-report.png')});
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'统计图',exact:true}).click();
   await expect(page.locator('.verification-chart')).toBeVisible();
@@ -597,12 +602,12 @@ test('My Documents combines external sessions with internal documents and pagina
   });
   await page.locator('.workspace-nav [data-view=library]').click();await expect(page.locator('#document-list .document-row')).toHaveCount(2);
   expect(await page.locator('#document-list .document-row').evaluateAll(rows=>rows.map(row=>(row as HTMLElement).dataset.documentKey))).toEqual(expect.arrayContaining([expect.stringMatching(/^editor:/),expect.stringMatching(/^external:/)]));
-  await page.locator('#library-source-filter').selectOption('word');await expect(page.locator('#document-list .document-row')).toHaveCount(1);await expect(page.locator('#document-list')).toContainText('Word');
+  await selectChoice(page,'#library-source-filter','word');await expect(page.locator('#document-list .document-row')).toHaveCount(1);await expect(page.locator('#document-list')).toContainText('Word');
   await page.getByRole('button',{name:'查看记录 同名创作',exact:true}).click();await expect(page.locator('body')).toHaveAttribute('data-view','external-document');
   await expect(page.locator('#external-actions > li')).toHaveCount(200);await expect(page.locator('#external-document-title')).toHaveText('同名创作');await expect(page.locator('#external-document-summary')).toContainText('205 条记录');
   await page.locator('#external-load-more').click();await expect(page.locator('#external-actions > li')).toHaveCount(205);await expect(page.locator('#external-load-more')).toBeHidden();
   await page.locator('#external-open-file').click();await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.openedExternalIds.length)).toBe(1);
-  await page.locator('#external-back-library').click();await page.locator('#library-source-filter').selectOption('editor');await expect(page.getByRole('button',{name:'继续编辑 同名创作',exact:true})).toBeVisible();
+  await page.locator('#external-back-library').click();await selectChoice(page,'#library-source-filter','editor');await expect(page.getByRole('button',{name:'继续编辑 同名创作',exact:true})).toBeVisible();
 });
 
 test('legacy external records explain missing file locations and offer the matching connection guide',async({page})=>{
@@ -628,10 +633,10 @@ test('known files group recording sessions while unbound same-name sessions rema
     w.editorHarness.externalRecords=Object.fromEntries(w.editorHarness.externalDocuments.map((item:any)=>[item.id,[{event:{seq:0,elapsed_ms:0,kind:'edit',inserted:0,deleted:0,chars:0,checkpoint:'0'.repeat(64),metrics:{}},hash:'a'.repeat(64)}]]));
   });
   await page.locator('#reload-documents').click();await expect(page.locator('#document-list .document-row')).toHaveCount(4);
-  await page.locator('#library-source-filter').selectOption('word');await expect(page.locator('#document-list .document-row')).toHaveCount(3);await expect(page.getByRole('button',{name:'查看记录 未绑定的同名文件',exact:true})).toHaveCount(2);
+  await selectChoice(page,'#library-source-filter','word');await expect(page.locator('#document-list .document-row')).toHaveCount(3);await expect(page.getByRole('button',{name:'查看记录 未绑定的同名文件',exact:true})).toHaveCount(2);
   await page.getByRole('button',{name:'查看记录 多次记录.docx',exact:true}).click();await expect(page.locator('#external-session-select')).toHaveValue('known-new');await expect(page.locator('#external-session-select option')).toHaveCount(2);
-  await page.locator('#external-session-select').selectOption('known-old');await expect(page.locator('#external-actions > li')).toHaveCount(1);await page.locator('#external-open-file').click();await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.openedExternalIds)).toEqual(['known-old']);
-  await page.locator('#external-back-library').click();await page.locator('#library-source-filter').selectOption('vscode');await page.getByRole('button',{name:'查看记录 代码.py',exact:true}).click();await expect(page.locator('#external-open-file')).toBeDisabled();await expect(page.locator('#external-file-status')).toContainText('请在原应用中打开此文件');
+  await selectChoice(page,'#external-session-select','known-old');await expect(page.locator('#external-actions > li')).toHaveCount(1);await page.locator('#external-open-file').click();await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.openedExternalIds)).toEqual(['known-old']);
+  await page.locator('#external-back-library').click();await selectChoice(page,'#library-source-filter','vscode');await page.getByRole('button',{name:'查看记录 代码.py',exact:true}).click();await expect(page.locator('#external-open-file')).toBeDisabled();await expect(page.locator('#external-file-status')).toContainText('请在原应用中打开此文件');
 });
 
 for(const viewport of [{width:1280,height:800},{width:960,height:780}]){
@@ -651,7 +656,7 @@ for(const viewport of [{width:1280,height:800},{width:960,height:780}]){
 test('simple writing fills the window and restores pane choices navigation and text on Escape',async({page},info)=>{
   await page.setViewportSize({width:1280,height:800});await desktop(page);const body=await create(page);await body.fill('精简模式让正文成为视线的中心。');await page.locator('#save-document').click();
   await page.getByRole('button',{name:'设置',exact:true}).click();await page.locator('fluent-radio[value=dark]').click();
-  await page.locator('[data-pane-preference=ribbon]').selectOption('open');await page.locator('[data-pane-preference=outline]').selectOption('closed');await page.locator('[data-pane-preference=inspector]').selectOption('open');
+  await selectChoice(page,'[data-pane-preference=ribbon]','open');await selectChoice(page,'[data-pane-preference=outline]','closed');await selectChoice(page,'[data-pane-preference=inspector]','open');
   await page.getByRole('button',{name:'我的文档',exact:true}).click();await page.getByRole('button',{name:'继续编辑 未命名文档',exact:true}).click();
   const workspace=page.locator('#write-panel');
   await expect(workspace).toHaveAttribute('data-ribbon-open','true');await expect(workspace).toHaveAttribute('data-outline-open','false');await expect(workspace).toHaveAttribute('data-inspector-open','true');
@@ -793,7 +798,7 @@ test('document statistics count Unicode characters and return focus without chan
 test('library sorting persists and source search reports the matching count',async({page})=>{
   await desktop(page);await create(page);await page.getByRole('textbox',{name:'文档名称'}).fill('Alpha 2');await page.locator('#back-library').click();
   await create(page);await page.getByRole('textbox',{name:'文档名称'}).fill('Beta 1');await page.locator('#back-library').click();
-  await page.getByRole('combobox',{name:'文档排序'}).selectOption('title');
+  await selectChoice(page,'#library-sort','title');
   await expect(page.locator('#document-list .document-row strong')).toHaveText(['Alpha 2','Beta 1']);
   await page.reload();await expect(page.getByRole('combobox',{name:'文档排序'})).toHaveValue('title');
   await page.locator('#document-search input').fill('Beta');
@@ -816,15 +821,15 @@ test('archive trash and restore retain the saved document across a reload',async
   await page.locator('#back-library').click();
   await page.getByRole('button',{name:'归档 未命名文档',exact:true}).click();
   await expect(page.getByRole('button',{name:'继续编辑 未命名文档',exact:true})).toHaveCount(0);
-  await page.locator('#library-state-filter').selectOption('archived');
+  await selectChoice(page,'#library-state-filter','archived');
   await expect(page.getByRole('button',{name:'继续编辑 未命名文档',exact:true})).toBeVisible();
-  await page.reload();await page.locator('#library-state-filter').selectOption('archived');
+  await page.reload();await selectChoice(page,'#library-state-filter','archived');
   await page.getByRole('button',{name:'恢复到我的文档 未命名文档',exact:true}).click();
-  await page.locator('#library-state-filter').selectOption('active');
+  await selectChoice(page,'#library-state-filter','active');
   await page.getByRole('button',{name:'移入回收站（保留原文件） 未命名文档',exact:true}).click();
-  await page.locator('#library-state-filter').selectOption('trash');
+  await selectChoice(page,'#library-state-filter','trash');
   await page.getByRole('button',{name:'恢复到我的文档 未命名文档',exact:true}).click();
-  await page.locator('#library-state-filter').selectOption('active');
+  await selectChoice(page,'#library-state-filter','active');
   await page.getByRole('button',{name:'继续编辑 未命名文档',exact:true}).click();
   await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('归档和回收站都保留这段正文');
 });
@@ -843,8 +848,19 @@ test('external Markdown opens as a new editable copy and grouped sessions archiv
   await page.getByRole('button',{name:'归档 外部笔记.md',exact:true}).click();
   await expect(page.getByRole('button',{name:'查看记录 外部笔记.md',exact:true})).toHaveCount(0);
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('library.states')||'{}'))).toMatchObject({'external:copy-new':'archived','external:copy-old':'archived'});
-  await page.locator('#library-state-filter').selectOption('archived');
+  await selectChoice(page,'#library-state-filter','archived');
   await page.getByRole('button',{name:'恢复到我的文档 外部笔记.md',exact:true}).click();
-  await page.locator('#library-state-filter').selectOption('active');
+  await selectChoice(page,'#library-state-filter','active');
   await expect(page.getByRole('button',{name:'查看记录 外部笔记.md',exact:true})).toBeVisible();
+});
+
+test('desktop chrome suppresses browser menus and text selection while the editor remains editable',async({page})=>{
+  await desktop(page);
+  await page.evaluate(()=>{document.addEventListener('contextmenu',event=>{(window as any).contextMenuSuppressed=event.defaultPrevented;});});
+  await page.locator('#library-summary').click({button:'right'});
+  expect(await page.evaluate(()=>(window as any).contextMenuSuppressed)).toBe(true);
+  expect(await page.locator('#library-summary').evaluate(node=>getComputedStyle(node).userSelect)).toBe('none');
+  const body=await create(page);await body.fill('编辑器仍可选择和复制文字');
+  await body.press('ControlOrMeta+a');expect(await page.evaluate(()=>getSelection()?.toString())).toBe('编辑器仍可选择和复制文字');
+  await body.pressSequentially('可以替换所选内容');await expect(body).toHaveText('可以替换所选内容');
 });
