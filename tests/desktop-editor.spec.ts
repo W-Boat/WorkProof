@@ -205,6 +205,8 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   await expect(page.locator('#settings-page .settings-surface')).toHaveCount(4);
   await expect(page.locator('#app-version')).toHaveText('0.1.0');
   await expect(page.locator('#app-build')).toHaveText('1234 · 0123456789ab');
+  await expect(page.locator('#app-build')).toHaveAttribute('title','0123456789abcdef0123456789abcdef01234567');
+  await expect(page.locator('#app-built-at')).toHaveAttribute('title',/^2026-11-11T.*Z$/);
   await expect(page.locator('#app-built-at')).not.toHaveText(/正在读取|暂未读取/);
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.locator('#reduce-motion').click();await expect(page.locator('html')).toHaveAttribute('data-reduce-motion','true');

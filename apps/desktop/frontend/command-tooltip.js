@@ -14,7 +14,9 @@ function preserveTitle(button){
 for(const button of document.querySelectorAll(selector))preserveTitle(button);
 new MutationObserver(records=>{
   for(const record of records){
-    if(record.type==='attributes')preserveTitle(record.target);
+    if(record.type==='attributes'){
+      if(record.target.matches(selector))preserveTitle(record.target);
+    }
     else for(const node of record.addedNodes)if(node instanceof Element){
       if(node.matches(selector))preserveTitle(node);
       for(const button of node.querySelectorAll(selector))preserveTitle(button);
