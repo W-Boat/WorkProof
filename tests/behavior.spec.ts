@@ -14,7 +14,7 @@ test('real signed bulk insertion produces a readable warning and locates the ori
   const trust=page.getByRole('region',{name:'证据信任状态'});
   await expect(trust).toContainText('官方客户端来源');await expect(trust).toContainText('未认证');
   await expect(trust).toContainText('未独立验证');await expect(trust).toContainText('尚未完成真实场景校准');
-  await expect(trust).toContainText('heuristic-2026-11-06.1');
+  await expect(trust).toContainText('heuristic-2026-11-11.1');
   const panel=page.getByRole('region',{name:'编辑过程提醒',exact:true});
   await expect(panel.getByText('短时间写入了大段文字',{exact:true})).toBeVisible();
   const sheet=page.getByRole('region',{name:'编辑过程检验单',exact:true});

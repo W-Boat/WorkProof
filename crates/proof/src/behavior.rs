@@ -5,7 +5,7 @@ use serde::{Deserialize,Serialize};
 use crate::{Evidence,Event,verify_evidence};
 
 pub const VERSION:&str="workproof-behavior/1";
-pub const RULE_VERSION:&str="heuristic-2026-11-06.1";
+pub const RULE_VERSION:&str="heuristic-2026-11-11.1";
 const MAX_SIGNALS:usize=8;
 const BULK:u64=500;
 const BURST_MS:u64=1000;
@@ -74,6 +74,7 @@ impl BehaviorAssessment{
                 "签名可核验记录的一致性，行为统计不能证明作者身份、人类创作或是否使用 AI。".into(),
                 "大段插入可能来自粘贴、正常导入、输入法、语音输入、辅助工具或宿主批量采样；无法据此区分来源。".into(),
                 "速率按客户端上报的本地经过时间计算，受时间精度、采样和记录遗漏影响。".into(),
+                "暂停、继续和采集缺口会分隔观察区间；不跨区间合并集中写入或持续速率，跨区间的节奏评估显示条件不足。".into(),
                 "只分析已签名的增删统计和命令计数，不读取正文；未发现提醒也不代表创作来源已获证明。".into(),
             ],signals_truncated:false,measurements:BTreeMap::new(),rule_results:rule_results(status)}
     }
@@ -124,7 +125,12 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
     assessment.summary.duration_ms=proof.records.last().map(|record|record.event.elapsed_ms).unwrap_or(0);
     for record in &proof.records{assessment.summary.paste_commands+=record.event.metrics.get("paste").copied().unwrap_or(0);}
     // Ignore save/start checkpoints, keyboard noise and undo/redo replay deltas.
-    let edits:Vec<&Event>=proof.records.iter().map(|record|&record.event).filter(|event|event.kind=="edit"&&(event.inserted>0||event.deleted>0)).collect();
+    let mut edits:Vec<&Event>=Vec::new();let mut edit_segments=Vec::new();let mut segment=0usize;
+    for record in &proof.records{
+        let event=&record.event;
+        if matches!(event.kind.as_str(),"pause"|"resume"|"gap"){segment+=1;}
+        if event.kind=="edit"&&(event.inserted>0||event.deleted>0){edits.push(event);edit_segments.push(segment);}
+    }
     assessment.summary.edits=edits.len() as u64;
     assessment.rule_results=rule_results("insufficient");
     if manifest.source!="workproof-tiptap"{set_rule(&mut assessment,"regular_timing","not_applicable");}
@@ -152,6 +158,7 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
     for(right,event)in edits.iter().enumerate(){
         peak_single_inserted=peak_single_inserted.max(event.inserted);peak_single_deleted=peak_single_deleted.max(event.deleted);
         if event.inserted.min(event.deleted)>peak_replacement.0.min(peak_replacement.1){peak_replacement=(event.inserted,event.deleted);}
+        if right>0&&edit_segments[right]!=edit_segments[right-1]{bulk_left=right;rate_left=right;}
         if right>0&&event.elapsed_ms-edits[right-1].elapsed_ms>2000{rate_left=right;}
         if event.inserted>=BULK{
             bulk_events+=1;
@@ -218,7 +225,9 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
         let regular_inserted:u64=positive.iter().map(|&index|edits[index].inserted).sum();
         measure(&mut assessment.measurements,"regular_inserted",regular_inserted);
         if !positive.is_empty(){measure(&mut assessment.measurements,"regular_duration_ms",edits[*positive.last().unwrap()].elapsed_ms-edits[positive[0]].elapsed_ms);}
-        if positive.len()>=2{
+        // A whole-process rhythm verdict requires an uninterrupted observed span.
+        // Do not manufacture inter-keystroke intervals across explicit missing data.
+        if positive.len()>=2&&edit_segments[positive[0]]==edit_segments[*positive.last().unwrap()]{
             let first=positive[0];let last=*positive.last().unwrap();let span=edits[last].elapsed_ms-edits[first].elapsed_ms;
             let mut count=0u64;let mut mean=0.0;let mut squares=0.0;let mut bounded=true;let mut minimum=u64::MAX;let mut maximum=0;
             for pair in positive.windows(2){
@@ -272,6 +281,34 @@ mod tests{
         for event in events{head=event_hash(&head,&event);records.push(Record{event,hash:head.clone()});}
         base.manifest.source=source.into();base.manifest.event_count=records.len()as u64;base.manifest.chain_head=head;
         sign(base.manifest,records,&SigningKey::from_bytes(&[7;32]))
+    }
+    fn boundary(mut original:crate::Proof,before:usize,kind:&str)->crate::Proof{
+        let mut events:Vec<Event>=original.records.into_iter().map(|record|record.event).collect();
+        events.insert(before,Event{seq:0,elapsed_ms:events[before].elapsed_ms,kind:kind.into(),inserted:0,deleted:0,chars:0,checkpoint:String::new(),metrics:Default::default()});
+        let mut head=genesis(&original.manifest.session_id);let mut records=Vec::new();
+        for(index,mut event)in events.into_iter().enumerate(){event.seq=index as u64;head=event_hash(&head,&event);records.push(Record{event,hash:head.clone()});}
+        original.manifest.event_count=records.len() as u64;original.manifest.chain_head=head;
+        sign(original.manifest,records,&SigningKey::from_bytes(&[7;32]))
+    }
+    #[test]fn explicit_recording_boundaries_do_not_create_continuous_input_evidence(){
+        let bursts=proof("workproof-tiptap",&[(0,300,0),(500,300,0)]);
+        assert!(has(&assess_behavior(&Evidence::Full(bursts.clone())),"bulk_insertion"));
+        let rate=proof("workproof-tiptap",&(0..12).map(|i|(i*1000,40,0)).collect::<Vec<_>>());
+        assert!(has(&assess_behavior(&Evidence::Full(rate.clone())),"sustained_fast_input"));
+        let rhythm=proof("workproof-tiptap",&(0..21).map(|i|(i*500,10,0)).collect::<Vec<_>>());
+        assert!(has(&assess_behavior(&Evidence::Full(rhythm.clone())),"regular_timing"));
+        for kind in ["gap","pause","resume"]{
+            let burst=assess_behavior(&Evidence::Full(boundary(bursts.clone(),2,kind)));
+            assert!(!has(&burst,"bulk_insertion"));assert_eq!(burst.summary.inserted,600);
+            assert_eq!(burst.measurements["peak_burst_inserted"],300.0);
+            let paced=assess_behavior(&Evidence::Full(boundary(rate.clone(),7,kind)));
+            assert!(!has(&paced,"sustained_fast_input"));assert_eq!(paced.summary.inserted,480);
+            let regular=assess_behavior(&Evidence::Full(boundary(rhythm.clone(),11,kind)));
+            assert!(!has(&regular,"regular_timing"));assert!(!regular.measurements.contains_key("interval_cv_percent"));
+            assert_eq!(regular.rule_results.iter().find(|rule|rule.code=="regular_timing").unwrap().status,"insufficient");
+        }
+        // A boundary before the first edit leaves its following observed span valid.
+        assert!(has(&assess_behavior(&Evidence::Full(boundary(rate,1,"gap"))),"sustained_fast_input"));
     }
     fn has(assessment:&BehaviorAssessment,code:&str)->bool{assessment.signals.iter().any(|signal|signal.code==code)}
     #[test]fn authentic_large_import_is_a_review_notice_and_never_authorship(){
