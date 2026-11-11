@@ -15,7 +15,9 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 MAX_BYTES = 32 * 1024 * 1024
-FORMATS = {"html": (".html",), "markdown": (".md",), "docx": (".docx",)}
+FORMATS = {"markdown": (".md",), "docx": (".docx",)}
+KINDS = {"word": "docx", "markdown": "markdown"}
+SIZES = (100000, 150000, 200000, 300000)
 
 
 def bounded_file(case: Path, relative: str, suffixes: tuple[str, ...]) -> Path:
@@ -144,18 +146,23 @@ def summarize_case(case: Path):
         metrics = read_json(case, "metrics.json")
         if not isinstance(metrics, dict):
             raise ValueError("metrics must be an object")
-        result.update({key: metrics.get(key) for key in ("target_chars", "actual_chars", "timeout")})
+        result.update({key: metrics.get(key) for key in ("document_kind", "target_chars", "actual_chars", "timeout")})
+        match = re.fullmatch(r"case-(word|markdown)-(100000|150000|200000|300000)", case.name)
+        if not match or metrics.get("document_kind") != match[1]:
+            raise ValueError("document_kind does not match the case directory")
+        target = int(match[2])
+        formats = {KINDS[match[1]]: FORMATS[KINDS[match[1]]]}
         result.update({key: duration(metrics.get(key)) for key in ("open_ms", "save_ms")})
         result["keypress_ms"] = keypress_summary(metrics.get("keypress_ms", []))
         exports = metrics.get("exports", {})
         if not isinstance(exports, dict):
             raise ValueError("export measurements must be an object")
-        for kind in FORMATS:
+        for kind in formats:
             entry = exports.get(kind, {})
             if not isinstance(entry, dict):
                 entry = {}
             result["exports"][kind] = {"passed": False, "ms": duration(entry.get("ms")), "timeout": bool(entry.get("timeout")), "error": str(entry["error"])[:1000] if entry.get("error") else None}
-        if metrics.get("target_chars") != int(case.name.removeprefix("case-")):
+        if metrics.get("target_chars") != target:
             result["errors"].append("target_chars does not match the case directory")
         result["errors"].extend(str(error)[:1000] for error in metrics.get("errors", [])[:40])
         if metrics.get("error"):
@@ -167,7 +174,7 @@ def summarize_case(case: Path):
         if not isinstance(marker, str) or not marker or expected.count(marker) != 1:
             raise ValueError("expected final saved text lacks one unique declared tail marker")
         result["expected_chars"] = len(expected)
-        if len(expected) < int(case.name.removeprefix("case-")):
+        if len(expected) < target:
             result["errors"].append("saved text is shorter than the requested stress size")
         if metrics.get("actual_chars") != len(expected):
             result["errors"].append("actual_chars differs from final saved text")
@@ -180,7 +187,9 @@ def summarize_case(case: Path):
         except Exception as error:
             proofs = {}
             result["errors"].append("proof readback: " + str(error)[:1000])
-        for kind, suffixes in FORMATS.items():
+        if set(exports) != set(formats):
+            result["errors"].append("exports must match the fixed document type exactly")
+        for kind, suffixes in formats.items():
             exported = result["exports"][kind]
             try:
                 entry = exports.get(kind, {})
@@ -210,14 +219,14 @@ def summarize_case(case: Path):
 def markdown_report(report):
     lines = ["# Editor synthetic stress report", "", "All timings are actual measurements in milliseconds. No performance threshold is inferred.",
              "Content checks compare the entire final saved text and final tail marker. Proof fields are read from the Rust helper output.", "",
-             "| Target chars | Actual chars | Open | Keypress p50 / p95 / max | Save | HTML ms / bytes | MD ms / bytes | DOCX ms / bytes | Result |",
+             "| Type | Target chars | Actual chars | Open | Keypress p50 / p95 / max | Save | MD ms / bytes | DOCX ms / bytes | Result |",
              "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
     def value(item):
         return "—" if item is None else str(item)
     for case in report["cases"]:
         keys = case.get("keypress_ms", {})
         exports = case.get("exports", {})
-        cells = [value(case.get("target_chars")), value(case.get("actual_chars")), value(case.get("open_ms")),
+        cells = [value(case.get("document_kind")), value(case.get("target_chars")), value(case.get("actual_chars")), value(case.get("open_ms")),
                  " / ".join(value(keys.get(key)) for key in ("p50", "p95", "max")), value(case.get("save_ms"))]
         cells.extend(" / ".join(value(exports.get(kind, {}).get(key)) for key in ("ms", "bytes")) for kind in FORMATS)
         cells.append("PASS" if case["passed"] else "FAIL")
@@ -254,12 +263,12 @@ def main():
             parser.error("report destination must stay inside the fixture root")
     cases = []
     for path in sorted(root.glob("case-*")):
-        if not path.is_symlink() and path.is_dir() and re.fullmatch(r"case-(100000|150000|200000|300000)", path.name):
+        if not path.is_symlink() and path.is_dir() and re.fullmatch(r"case-(word|markdown)-(100000|150000|200000|300000)", path.name):
             cases.append(summarize_case(path))
     present = {case["case"] for case in cases}
-    errors = ["missing required case-" + str(size) for size in (100000, 150000, 200000, 300000) if "case-" + str(size) not in present]
+    errors = [f"missing required case-{kind}-{size}" for kind in KINDS for size in SIZES if f"case-{kind}-{size}" not in present]
     report = {"scope": "synthetic editor fixtures only", "cases": cases, "errors": errors,
-              "passed": len(cases) == 4 and not errors and all(case["passed"] for case in cases)}
+              "passed": len(cases) == 8 and not errors and all(case["passed"] for case in cases)}
     output.parent.mkdir(parents=True, exist_ok=True)
     output.with_suffix(".json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     output.with_suffix(".md").write_text(markdown_report(report), encoding="utf-8")

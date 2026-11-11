@@ -60,8 +60,8 @@ fn export(root:&Path,args:&Value)->Result<Value>{
     let id=string(args,"id")?;
     let docx:Option<Vec<u8>>=serde_json::from_value(args.get("docx").cloned().unwrap_or(Value::Null)).map_err(|e|e.to_string())?;
     let markdown:Option<String>=serde_json::from_value(args.get("markdown").cloned().unwrap_or(Value::Null)).map_err(|e|e.to_string())?;
-    if docx.is_some()&&markdown.is_some(){return Err("请选择一种导出格式。".into());}
-    let extension=if docx.is_some(){"docx"}else if markdown.is_some(){"md"}else{"html"};
+    // Apply the same stored-kind gate used by the production desktop before writing.
+    let extension=editor::desktop_export_extension(root,id,docx.is_some(),markdown.is_some())?;
     let mut random=[0u8;16];rand::rngs::OsRng.fill_bytes(&mut random);
     let name=format!("WorkProof-stress-{}.{}",hex::encode(random),extension);
     let path=root.join("exports").join(&name);

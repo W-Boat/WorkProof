@@ -66,6 +66,7 @@ async function openDesktop(browser:Browser,engine:ReturnType<typeof bridge>,titl
   page.setDefaultTimeout(20000);
   await page.exposeFunction('stressNativeInvoke',async(command:string,args:any)=>{
     if(command==='window_action'&&args?.action==='ready')return null;
+    if(command==='app_info')return {version:'0.1.0',build_number:'local',source:'development',built_at:'1794384000'};
     if(command==='engine_status')return {ready:true,sessions:0,events:0};
     if(['pending_adapters','adapter_connections','external_documents_list'].includes(command))return [];
     if(command.startsWith('editor_'))return engine.invoke(command,args);
@@ -86,17 +87,18 @@ async function openDesktop(browser:Browser,engine:ReturnType<typeof bridge>,titl
   }catch(error){await context.close().catch(()=>{});throw error;}
 }
 
-for(const target of [100000,150000,200000,300000])test(`real persisted Chinese document ${target} characters`,async({browser},info)=>{
-  const output=path.resolve('test-results/editor-stress',`case-${target}`);fs.mkdirSync(output,{recursive:true});
+for(const kind of ['word','markdown'] as const)for(const target of [100000,150000,200000,300000])test(`real persisted Chinese ${kind} document ${target} characters`,async({browser},info)=>{
+  const output=path.resolve('test-results/editor-stress',`case-${kind}-${target}`);fs.mkdirSync(output,{recursive:true});
   const data=fs.mkdtempSync(path.join(os.tmpdir(),'workproof-editor-stress-'));
   const engine=bridge(data,path.join(output,'engine-stderr.log'));
-  const seed=fixture(target),title=`真实长文压测${target}`;
-  const metrics:any={target_chars:target,actual_chars:null,tail_marker:seed.tail,open_ms:null,keypress_ms:[],save_ms:null,exports:{},errors:[],scope:'Chromium 1280x900 on Actions, real Tiptap/SQLite/Ed25519 and offline Word worker. Keydown to double-rAF is a next-paint proxy. File-picker human wait excluded; bridge writes actual files. Native WebView and Chinese IME composition are outside this run.'};
+  const seed=fixture(target),title=`真实长文压测${kind}-${target}`;
+  if(kind==='markdown')Object.assign(seed.document,{attrs:{markdownSource:seed.document.content.map(paragraph=>paragraph.content[0].text).join('\n\n')}});
+  const metrics:any={document_kind:kind,target_chars:target,actual_chars:null,tail_marker:seed.tail,open_ms:null,keypress_ms:[],save_ms:null,exports:{},errors:[],scope:'Chromium 1280x900 on Actions, real Tiptap/SQLite/Ed25519 and offline Word worker. Keydown to double-rAF is a next-paint proxy. File-picker human wait excluded; bridge writes actual files. Native WebView and Chinese IME composition are outside this run.'};
   const proofs:Record<string,any>={};let initial:Awaited<ReturnType<typeof openDesktop>>|null=null;
   metrics.environment={platform:os.platform(),architecture:os.arch(),node:process.version,browser:browser.version(),logical_cpus:os.cpus().length,cpu:os.cpus()[0]?.model,host_memory_bytes:os.totalmem(),trace:'off'};
   let id='';
   try{
-    const created=await engine.invoke('editor_create',{title,started:new Date().toISOString()});id=created.id;
+    const created=await engine.invoke('editor_create',{title,kind,started:new Date().toISOString()});id=created.id;
     const seeded=nodePerformance.now();await engine.invoke('editor_save',{input:{id,expected_revision:created.revision,request_id:crypto.randomUUID().replaceAll('-',''),title,content:seed.document,actions:[{kind:'import',elapsed_ms:0,inserted:target,deleted:0,chars:target,steps:[],selection:{from:1,to:1},detail:{source:'synthetic_stress_fixture'},metrics:{}}]}});metrics.seed_save_ms=nodePerformance.now()-seeded;
     try{
       initial=await openDesktop(browser,engine,title);const {page}=initial;metrics.open_ms=initial.openMs;
@@ -160,17 +162,20 @@ for(const target of [100000,150000,200000,300000])test(`real persisted Chinese d
     const stored=await engine.invoke('editor_load',{id}),expected=documentText(stored.content);
     metrics.actual_chars=Array.from(expected).length;fs.writeFileSync(path.join(output,'expected_text.txt'),expected);
     if(!expected.startsWith(seed.text)||expected.length<target||metrics.typed_suffix&&expected!==seed.text+metrics.typed_suffix)metrics.errors.push({phase:'persisted_content',error:'Persisted document lost original text, the unique tail marker or typed suffix'});
-    for(const [format,option,extension] of [['html','html','html'],['markdown','markdown','md'],['docx','docx','docx']]){
+    expect(stored.kind).toBe(kind);
+    for(const [format,extension] of [kind==='word'?['docx','docx']:['markdown','md']]){
       let view:Awaited<ReturnType<typeof openDesktop>>|null=null;
       const entry:any={path:`artifact.${extension}`,ms:null,verified:false};metrics.exports[format]=entry;
       try{
         view=await openDesktop(browser,engine,title);entry.reopen_ms=view.openMs;
-        await view.page.locator('#export-format').selectOption(option);const previous=engine.exports.length,start=nodePerformance.now();
+        await expect(view.page.locator('#document-kind')).toHaveText(kind==='word'?'Word':'Markdown');
+        const previous=engine.exports.length,start=nodePerformance.now();
         await view.page.locator('#export-document').click();await expect(view.page.locator('#export-document')).toBeEnabled({timeout:45000});entry.ms=nodePerformance.now()-start;
         const exported=engine.exports[previous];
         if(!exported)throw new Error(await view.page.locator('#message').textContent()||'UI did not produce an actual artifact');
         proofs[format]=exported.report;
         if(exported.saved!==true||exported.report?.valid!==true||exported.report?.file_match!==true||exported.report?.signature_valid!==true)throw new Error('Actual exported certificate did not verify');
+        if(path.extname(exported.artifact_path)!=='.'+extension)throw new Error('Exported artifact does not match the fixed document type');
         if(!fs.existsSync(exported.artifact_path)||!fs.existsSync(exported.certificate_path))throw new Error('Actual exported artifact or certificate missing');
         fs.copyFileSync(exported.artifact_path,path.join(output,entry.path));fs.copyFileSync(exported.certificate_path,path.join(output,entry.path+'.wproof'));
         entry.verified=true;entry.bytes=fs.statSync(path.join(output,entry.path)).size;
