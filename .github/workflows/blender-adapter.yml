@@ -13,16 +13,51 @@ permissions:
 jobs:
   native-blender:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build the real local collector
         run: cargo build --locked -p workproof-engine
-      - name: Install Blender
+      - name: Install distribution Blender
         run: sudo apt-get update && sudo apt-get install -y blender
+      - name: Fetch the official Blender 4.2.0 minimum-version binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive=blender-4.2.0-linux-x64.tar.xz
+          curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 180 \
+            "https://download.blender.org/release/Blender4.2/$archive" --output "$archive"
+          # Published by Blender in https://download.blender.org/release/Blender4.2/blender-4.2.0.sha256
+          printf '%s  %s\n' 4f4fd7646af01f6fee9d420408318381a6e52571268eb7cf9cd5033bd9e7a359 "$archive" | sha256sum --check --strict
+          tar -xf "$archive"
+      - name: Build one extension ZIP for both native hosts
+        run: python scripts/package_blender.py
       - uses: ./.github/actions/blender-extension-acceptance
+        with:
+          blender: ${{ runner.temp }}/blender-4.2.0-linux-x64/blender
+      - name: Preserve the minimum-version result
+        run: |
+          python -c 'import json; assert json.load(open("test-blender-results.json"))["host"] == "4.2.0"'
+          mv test-blender-results.json test-blender-4.2.0-results.json
+      - uses: ./.github/actions/blender-extension-acceptance
+      - name: Require both host reports to attest the same ZIP
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          minimum = json.loads(Path("test-blender-4.2.0-results.json").read_text())
+          current = json.loads(Path("test-blender-results.json").read_text())
+          assert minimum["host"] != current["host"], "Expected two distinct Blender releases"
+          installation = minimum["extension_installation"]
+          assert installation == current["extension_installation"]
+          digest = hashlib.sha256((Path("dist") / installation["archive"]).read_bytes()).hexdigest()
+          assert digest == installation["sha256"]
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-blender-extension
@@ -30,3 +65,4 @@ jobs:
           path: |
             dist/workproof-blender-*.zip
             test-blender-results.json
+            test-blender-4.2.0-results.json
