@@ -8,6 +8,7 @@ import {VerifierShell,useVerifierReducedMotion} from '../components/VerifierShel
 import {Upload} from '../components/FileDrop';
 import {Timeline} from '../components/ProcessTimeline';
 import {BehaviorPanel} from '../components/BehaviorPanel';
+import {WordRevisionSummary} from '../components/WordRevisionSummary';
 import {BehaviorReport} from '../components/BehaviorReport';
 import {EmbeddedVerificationCharts} from '../components/EmbeddedVerificationCharts';
 import {CertificateCard,VerificationChecks,DisclosurePanel,DisclosedEvents} from '../components/ProofPanels';
@@ -149,7 +150,7 @@ export default function Page(){
       <ResultNavigation charts={r.valid} timeline={r.valid&&r.chain_valid}/>
       <div className="result-certificate"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId} behaviorNote={behaviorNote} behaviorReview={!!behaviorReview}/></div>
       <BehaviorReport assessment={result.behavior} valid={r.valid}
-        checks={<VerificationChecks inline proof={result.proof} report={r} behavior={result.behavior}/>}
+        checks={<><VerificationChecks inline proof={result.proof} report={r} behavior={result.behavior}/>{r.valid&&m.source==='word'&&<WordRevisionSummary records={records} partial={partial}/>}</>}
         reminders={<BehaviorPanel inline assessment={result.behavior} valid={r.valid} onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}/>}/>
       {r.valid&&<EmbeddedVerificationCharts key={result.certificateId} records={records} partial={partial} reduced={reduced}/>}
       {r.valid&&r.chain_valid&&<Timeline key={result.certificateId+String(proofFile?.lastModified)} records={records} signals={result.behavior?.signals} selectedSeq={focusedEventSeq} onSelect={setFocusedEventSeq}/>}

@@ -51,6 +51,11 @@ struct State {
     HWND heading=nullptr, intro=nullptr, privacy=nullptr;
     HWND status = nullptr;
     HWND counter = nullptr;
+#ifndef WORKPROOF_POWERPOINT
+    HWND autoRevisionsButton=nullptr;
+    bool autoRevisions=true;
+    WordRevisions lastRevisions;
+#endif
     HWND startButton = nullptr;
     HWND pauseButton = nullptr;
     HWND exportButton = nullptr;
@@ -170,6 +175,9 @@ void SetStatus(const std::wstring& text) {
 
 void PaintState() {
     if (!g.window) return;
+#ifndef WORKPROOF_POWERPOINT
+    EnableWindow(g.autoRevisionsButton,!g.pairing&&!g.writing&&g.session.empty());
+#endif
     EnableWindow(g.startButton, !g.pairing && !g.writing && g.session.empty());
     EnableWindow(g.pauseButton, !g.pairing && !g.writing && !g.session.empty());
     SetWindowTextW(g.pauseButton, g.paused ? L"继续记录" : L"暂停记录");
@@ -201,6 +209,20 @@ std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long i
     // The buffer above is assembled with wide characters only so numbers stay locale independent.
     std::wstring wide(buffer);
     std::string json=WideToUtf8(wide);
+#ifndef WORKPROOF_POWERPOINT
+    if(actions.empty()){
+        const auto& r=snapshot.revisions;
+        auto append=[&](const char* key,long value){
+            if(value>=0)json.insert(json.size()-2,",\""+std::string(key)+"\":"+std::to_string(value));
+        };
+        append("word_revision_tracking",r.tracking);
+        append("word_revision_total",r.total);
+        append("word_revision_insert",r.inserted);
+        append("word_revision_delete",r.deleted);
+        append("word_revision_format",r.formatted);
+        append("word_revision_other",r.other);
+    }
+#endif
     if(!actions.empty())json.insert(json.size()-2,","+actions);
     return json;
 }
@@ -355,11 +377,21 @@ void FinishPairing(PairResult* result) {
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
     g.sequence = 0;
     g.started = std::chrono::steady_clock::now();
+#ifndef WORKPROOF_POWERPOINT
+    snapshot.revisions=ReadWordRevisions(g.word,g.identity,g.autoRevisions&&!snapshot.readOnly);
+    g.lastRevisions=snapshot.revisions;
+#endif
     g.lastSampleMs = 0;
     if (!SendEvent("start", snapshot, 0, 0, std::string(), error)) { SetStatus(error); PaintState(); return; }
     g.paused = false;
     SetTimer(g.window, kSampleTimer, kSampleIntervalMs, nullptr);
+#ifdef WORKPROOF_POWERPOINT
     SetStatus(L"记录中。只发送数量与摘要，不发送正文。");
+#else
+    if(snapshot.revisions.tracking==1)SetStatus(L"记录中 · Word 修订已开启。");
+    else if(g.autoRevisions)SetStatus(L"记录中 · 未能开启 Word 修订。请检查文档保护或在“审阅”中手动开启。");
+    else SetStatus(L"记录中 · 已关闭自动开启 Word 修订。");
+#endif
     PaintState();
     if(g.launchFeedback){g.launchFeedback=false;ShowLaunchFeedback();}
 }
@@ -383,6 +415,9 @@ void Sample() {
         PaintState();
         return;
     }
+#ifndef WORKPROOF_POWERPOINT
+    snapshot.revisions=ReadWordRevisions(g.word,g.identity);
+#endif
     long long now = ElapsedMs();
     if (g.lastSampleMs != 0 && now - g.lastSampleMs > 15000) {
         SendEvent("gap", snapshot, 0, 0, std::string(), error);
@@ -422,6 +457,17 @@ void Sample() {
             SetStatus(error);PaintState();return;
         }
     }
+#ifndef WORKPROOF_POWERPOINT
+    if(!(snapshot.revisions==g.lastRevisions)){
+        if(!changed&&(snapshot.revisions.tracking>=0||snapshot.revisions.total>=0)&&
+           !SendEvent("interaction",snapshot,0,0,std::string(),error)){
+            g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+        }
+        if(g.lastRevisions.tracking==1&&snapshot.revisions.tracking==0)SetStatus(L"记录中 · Word 修订已关闭，后续修改可能没有修订标记。");
+        if(g.lastRevisions.tracking==0&&snapshot.revisions.tracking==1)SetStatus(L"记录中 · Word 修订已开启。");
+        g.lastRevisions=snapshot.revisions;
+    }
+#endif
     if(!snapshot.structureSignature.empty())g.structureSignature=snapshot.structureSignature;
     g.lastCharacters = snapshot.characters;
     g.lastParagraphs = snapshot.paragraphs;
@@ -452,6 +498,10 @@ void TogglePause() {
     if (!ReadDocument(g.word, snapshot, error)) { SetStatus(error); return; }
     if (snapshot.identity != g.identity) { SetStatus(L"当前文档不是开始记录的那一份。请切回原文档后再继续。"); return; }
     if (!SendEvent("gap", snapshot, 0, 0, std::string(), error)) { SetStatus(error); return; }
+#ifndef WORKPROOF_POWERPOINT
+    snapshot.revisions=ReadWordRevisions(g.word,g.identity);
+    g.lastRevisions=snapshot.revisions;
+#endif
     if (!SendEvent("resume", snapshot, 0, 0, std::string(), error)) { SetStatus(error); return; }
     g.lastCharacters = snapshot.characters;
     g.lastParagraphs = snapshot.paragraphs;
@@ -570,6 +620,9 @@ void Export() {
         PaintState();
         return;
     }
+#ifndef WORKPROOF_POWERPOINT
+    check.revisions=ReadWordRevisions(g.word,g.identity);
+#endif
     if (!FlushActions(check,error)||!SendEvent("save", check, 0, 0, hash, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
 
     std::string body = "{\"artifact_hash\":\"" + hash + "\",\"artifact_bytes\":" + std::to_string(bytes) + "}";
@@ -655,6 +708,9 @@ void LayoutControls(){
     add(g.intro,introHeight,18);
     add(g.status,statusHeight,8);
     add(g.counter,scale(24),16);
+#ifndef WORKPROOF_POWERPOINT
+    add(g.autoRevisionsButton,scale(42),8);
+#endif
     add(g.startButton,scale(36),8);
     add(g.pauseButton,scale(36),8);
     add(g.exportButton,scale(36),8);
@@ -685,6 +741,13 @@ void CreateControls(HWND window) {
     g.intro=create(L"STATIC",L"保存文档 → 开始记录 → 导出作品与证书",SS_LEFT);
     g.status=create(L"STATIC",L"请先保存文档，再点击开始记录。",SS_LEFT);SendMessageW(g.status,WM_SETFONT,(WPARAM)g.statusFont,TRUE);
     g.counter=create(L"STATIC",L"尚未开始",SS_LEFT);
+#ifndef WORKPROOF_POWERPOINT
+    DWORD preference=1,size=sizeof(preference);
+    if(RegGetValueW(HKEY_CURRENT_USER,L"Software\\WorkProof",L"WordAutoRevisions",RRF_RT_REG_DWORD,nullptr,&preference,&size)!=ERROR_SUCCESS)preference=1;
+    g.autoRevisions=preference!=0;
+    g.autoRevisionsButton=create(L"BUTTON",L"开始记录时开启 Word 修订",BS_AUTOCHECKBOX|BS_MULTILINE|WS_TABSTOP);
+    SendMessageW(g.autoRevisionsButton,BM_SETCHECK,g.autoRevisions?BST_CHECKED:BST_UNCHECKED,0);
+#endif
     g.startButton=create(L"BUTTON",L"开始记录",BS_PUSHBUTTON|WS_TABSTOP);
     g.pauseButton=create(L"BUTTON",L"暂停记录",BS_PUSHBUTTON|WS_TABSTOP);
     g.exportButton=create(L"BUTTON",L"导出作品和证书",BS_PUSHBUTTON|WS_TABSTOP);
@@ -694,7 +757,7 @@ void CreateControls(HWND window) {
 #ifdef WORKPROOF_POWERPOINT
     g.privacy=create(L"STATIC",L"记录幻灯片数、对象变化、时间与保存摘要。文件位置仅在本机保存，方便从文档列表打开。\n\n数量不变的文字、图片和样式修改可能无法识别。记录不能单独证明作者身份或原创性。",SS_LEFT);
 #else
-    g.privacy=create(L"STATIC",L"不采集正文。记录编辑数量、段落数、时间与文件摘要。文件位置仅在本机保存，方便从文档列表打开。\n\n记录可能遗漏修改，不能单独证明作者身份或原创性。关闭侧栏后仍可通过 WorkProof 菜单暂停记录。",SS_LEFT);
+    g.privacy=create(L"STATIC",L"不采集正文。记录编辑数量、段落数、时间与文件摘要。开启 Word 修订后，文档本身可能保留被删除的文字，分享前请检查 Word 的审阅标记。文件位置仅在本机保存，方便从文档列表打开。\n\n记录可能遗漏修改，不能单独证明作者身份或原创性。关闭侧栏后仍可通过 WorkProof 菜单暂停记录。",SS_LEFT);
 #endif
     LayoutControls();
 }
@@ -773,6 +836,18 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
             return 0;
         case WM_COMMAND: {
             HWND source = (HWND)lParam;
+#ifndef WORKPROOF_POWERPOINT
+            if(source&&source==g.autoRevisionsButton&&HIWORD(wParam)==BN_CLICKED){
+                const DWORD preference=SendMessageW(source,BM_GETCHECK,0,0)==BST_CHECKED?1:0;
+                if(RegSetKeyValueW(HKEY_CURRENT_USER,L"Software\\WorkProof",L"WordAutoRevisions",REG_DWORD,&preference,sizeof(preference))==ERROR_SUCCESS){
+                    g.autoRevisions=preference!=0;
+                }else{
+                    SendMessageW(source,BM_SETCHECK,g.autoRevisions?BST_CHECKED:BST_UNCHECKED,0);
+                    SetStatus(L"未能保存修订设置，请重试。");
+                }
+                return 0;
+            }
+#endif
             if (source == g.startButton) BeginPairing();
             else if (source == g.pauseButton) TogglePause();
             else if (source == g.exportButton) Export();
@@ -812,6 +887,9 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
             g.statusFont = nullptr;
             g.bodyFont = nullptr;
             g.window = nullptr;
+#ifndef WORKPROOF_POWERPOINT
+            g.autoRevisionsButton=nullptr;
+#endif
             g.status = g.counter = g.startButton = g.pauseButton = g.exportButton = g.cancelButton = g.newButton = g.verifierLink = nullptr;
             return 0;
         default:

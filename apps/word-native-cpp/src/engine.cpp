@@ -200,6 +200,58 @@ bool RunEngine(const std::wstring& arguments, std::string& output, std::wstring&
     return false;
 }
 
+#ifndef WORKPROOF_POWERPOINT
+WordRevisions ReadWordRevisions(IDispatch* application,const std::wstring& identity,bool enable) {
+    WordRevisions result;
+    Variant document, name, tracking, revisions, count;
+    if(FAILED(GetProperty(application,kActiveDocument,document.get()))||document.value.vt!=VT_DISPATCH||!document.value.pdispVal)return result;
+    auto* doc=document.value.pdispVal;
+    if(FAILED(GetProperty(doc,L"FullName",name.get()))||name.value.vt!=VT_BSTR||!name.value.bstrVal||identity!=name.value.bstrVal)return result;
+    if(SUCCEEDED(GetProperty(doc,L"TrackRevisions",tracking.get()))&&tracking.value.vt==VT_BOOL)result.tracking=tracking.value.boolVal!=VARIANT_FALSE;
+    if(enable&&result.tracking==0){
+        LPOLESTR member=const_cast<LPOLESTR>(L"TrackRevisions");
+        DISPID id=0,named=DISPID_PROPERTYPUT;
+        VARIANT arg={};arg.vt=VT_BOOL;arg.boolVal=VARIANT_TRUE;
+        DISPPARAMS params={&arg,&named,1,1};
+        if(SUCCEEDED(doc->GetIDsOfNames(IID_NULL,&member,1,LOCALE_USER_DEFAULT,&id))&&
+           SUCCEEDED(doc->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_PROPERTYPUT,&params,nullptr,nullptr,nullptr))){
+            Variant confirmed;
+            result.tracking=SUCCEEDED(GetProperty(doc,L"TrackRevisions",confirmed.get()))&&confirmed.value.vt==VT_BOOL
+                ? (confirmed.value.boolVal!=VARIANT_FALSE) : -1;
+        }
+    }
+    if(FAILED(GetProperty(doc,L"Revisions",revisions.get()))||revisions.value.vt!=VT_DISPATCH||!revisions.value.pdispVal)return result;
+    auto* collection=revisions.value.pdispVal;
+    if(FAILED(GetProperty(collection,L"Count",count.get()))||count.value.vt!=VT_I4||count.value.lVal<0||count.value.lVal>1000000000)return result;
+    result.total=count.value.lVal;
+    // Count remains available for large collections. Classify only a complete,
+    // bounded scan and never request text, author names or revision ranges.
+    if(result.total>128)return result;
+    const auto started=GetTickCount64();
+    long added=0,removed=0,formatted=0,other=0;
+    LPOLESTR item=const_cast<LPOLESTR>(L"Item");
+    DISPID id=0;
+    if(result.total&&FAILED(collection->GetIDsOfNames(IID_NULL,&item,1,LOCALE_USER_DEFAULT,&id)))return result;
+    for(long i=1;i<=result.total;++i){
+        if(GetTickCount64()-started>=35)return result;
+        VARIANT arg={};arg.vt=VT_I4;arg.lVal=i;
+        DISPPARAMS params={&arg,nullptr,1,0};
+        Variant revision,type;
+        if(FAILED(collection->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_METHOD|DISPATCH_PROPERTYGET,&params,revision.get(),nullptr,nullptr))||
+           revision.value.vt!=VT_DISPATCH||!revision.value.pdispVal||
+           FAILED(GetProperty(revision.value.pdispVal,L"Type",type.get()))||type.value.vt!=VT_I4)return result;
+        switch(type.value.lVal){
+            case 1: ++added;break;
+            case 2: ++removed;break;
+            case 3: case 4: case 8: case 10: case 11: case 12: case 13: ++formatted;break;
+            default: ++other;break;
+        }
+    }
+    result.inserted=added;result.deleted=removed;result.formatted=formatted;result.other=other;
+    return result;
+}
+#endif
+
 bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& error) {
     snapshot.editorWindow=nullptr;snapshot.layoutSignature.clear();snapshot.formatSignature.clear();snapshot.structureSignature.clear();
     snapshot.selectionStart=-1;snapshot.selectionEnd=-1;
