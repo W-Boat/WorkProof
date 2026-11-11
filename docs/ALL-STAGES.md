@@ -10,12 +10,10 @@
 - **证据互操作**：PNG/JPEG/受限 PDF 的原生和浏览器 C2PA 路径已分项验收，见[C2PA](C2PA.md)；RFC 3161 手工及可选直接申请路径见[时间凭据](TIMESTAMPS.md)。独立信任根、公共服务鉴权/CORS、吊销和长期验证仍有边界，不提供自动公共身份认证。
 - **机构底座与交付**：继续采用 scaffold-master 的权限、审计和统一 Vue 组件，通过受控原生进程复用 Rust 核验。最新已下载核对的是 [efe611a 服务器包](INSTITUTION-DELIVERY-efe611a.md)：整体、29 个清单文件及镜像配置均已核对，14 项服务器检查已归档。默认不启用签发或 AI；旧可选 AI 环境不能视为已与此新版基础镜像配套。
 - **签发身份**：创建身份、独立密钥加密恢复、v2 部署摘要与所选文件关联、公钥错配拒绝均已通过，并包含在 efe611a 包中。[42862853571](https://github.com/W-Boat/WorkProof/actions/runs/42862853571) 覆盖备份前源 HTTP 回执、恢复部署和同一源密钥，以及旧、新回执通过原公钥核验。普通角色的实际授权、同意、签发、下载、独立核验和撤权已在后续 [HTTP 验收](https://github.com/W-Boat/WorkProof/actions/runs/42867163920)及[浏览器验收](https://github.com/W-Boat/WorkProof/actions/runs/42867916154)通过。这些验收使用合成身份及隔离部署。生产托管、轮换、吊销与原子联合备份仍待开发或配置。见[回执说明](INSTITUTION-RECEIPTS.md)。
-- **辅助判断**：现有模型和元数据线索见[校准结果](AI-CALIBRATION-RESULTS.md)及[LRR 评估](LRR-EVALUATION-RESULTS.md)。DetectorScope 原[双语运行](https://github.com/W-Boat/WorkProof/actions/runs/42857716376)完成两语各 384 份的校准和阈值冻结，在留出集阶段达到 330 分钟上限。两份校准归档的摘要、样本身份、转换连续性与阈值算术已核对。[分词检查](https://github.com/W-Boat/WorkProof/actions/runs/42949848464)确认英文留出集 384/384、中文留出集 383/384 在固定长度范围内。原始[覆盖率记录](evidence/detectorscope-coverage-49da89a/detectorscope-tokenizer-coverage.json)只计输入资格。[续跑](https://github.com/W-Boat/WorkProof/actions/runs/42950474175)沿用冻结政策补齐留出集，仍待独立误报与漏报结果。更多检测方法、生产启用及商业分发审查继续保留在目标中。
+- **辅助判断**：现有模型和元数据线索见[校准结果](AI-CALIBRATION-RESULTS.md)及[LRR 评估](LRR-EVALUATION-RESULTS.md)。DetectorScope 使用原校准阈值完成双语留出评分及独立复核。该配置的英文漏报为 127/192，中文漏报为 170/192，继续保留为研究配置。[完整双语结果](DETECTORSCOPE-RESULTS.md) · [分词覆盖率记录](evidence/detectorscope-coverage-49da89a/detectorscope-tokenizer-coverage.json)
 - **正式发布缺口**：商业代码签名、公开分享部署、官方信任发布渠道、真实宿主全版本验收和生产签发身份需要独立配置、凭据或进一步开发。许可边界见[商业许可审查](COMMERCIAL-LICENSE-AUDIT.md)，来源证明边界见[信任模型](TRUST-MODEL.md)。
 
 新增[网页许可专项](https://github.com/W-Boat/WorkProof/actions/runs/42953989949)已通过，归档 30 个锁定版本的图表与 Fluent 运行依赖许可。npm 未携带的微软许可使用既有确切版本材料补齐，并核对锁文件 integrity 与原始正文摘要。[许可产物](https://github.com/W-Boat/WorkProof/actions/runs/42953989949/artifacts/13826287376)覆盖列明的依赖闭包，整套产品的其他分发条件继续以商业许可审查为准。
-
-DetectorScope 留出评分和独立复核已完成。该配置的英文漏报为 127/192，中文漏报为 170/192，继续保留为研究配置。[完整双语结果](DETECTORSCOPE-RESULTS.md)
 
 Windows x64 安装包的 GitHub 构建来源证明已通过，已核对下载包的外层摘要和安装程序摘要。[最新安装包及核验记录](BUILD-PROVENANCE.md)
 
