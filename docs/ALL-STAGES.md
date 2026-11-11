@@ -13,6 +13,8 @@
 - **辅助判断**：现有模型和元数据线索见[校准结果](AI-CALIBRATION-RESULTS.md)及[LRR 评估](LRR-EVALUATION-RESULTS.md)。DetectorScope 原[双语运行](https://github.com/W-Boat/WorkProof/actions/runs/42857716376)完成两语各 384 份的校准和阈值冻结，在留出集阶段达到 330 分钟上限。两份校准归档的摘要、样本身份、转换连续性与阈值算术已核对。[分词检查](https://github.com/W-Boat/WorkProof/actions/runs/42949848464)确认英文留出集 384/384、中文留出集 383/384 在固定长度范围内。原始[覆盖率记录](evidence/detectorscope-coverage-49da89a/detectorscope-tokenizer-coverage.json)只计输入资格。[续跑](https://github.com/W-Boat/WorkProof/actions/runs/42950474175)沿用冻结政策补齐留出集，仍待独立误报与漏报结果。更多检测方法、生产启用及商业分发审查继续保留在目标中。
 - **正式发布缺口**：商业代码签名、公开分享部署、官方信任发布渠道、真实宿主全版本验收和生产签发身份需要独立配置、凭据或进一步开发。许可边界见[商业许可审查](COMMERCIAL-LICENSE-AUDIT.md)，来源证明边界见[信任模型](TRUST-MODEL.md)。
 
+新增[网页许可专项](https://github.com/W-Boat/WorkProof/actions/runs/42953989949)已通过，归档 30 个锁定版本的图表与 Fluent 运行依赖许可。npm 未携带的微软许可使用既有确切版本材料补齐，并核对锁文件 integrity 与原始正文摘要。[许可产物](https://github.com/W-Boat/WorkProof/actions/runs/42953989949/artifacts/13826287376)覆盖列明的依赖闭包，整套产品的其他分发条件继续以商业许可审查为准。
+
 下一步复核完整双语评分，并推进联合备份恢复。宿主正式分发、更多检测方法及真实环境误报评估继续保留在全阶段目标中。
 
 后续确认：`452114e` 的 42746441860 与 `17c2e5f` 的 42746801236 已全部成功，分别覆盖明确创建签发身份，以及真实部署恢复后显式加载独立恢复的合成身份并通过 HTTP 签发。v2 密钥包和部署备份摘要关联的 `d76b506` 仍在 42747308542 验收；源密钥连续性和原子联合备份尚未证明。
