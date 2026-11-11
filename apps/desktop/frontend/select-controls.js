@@ -6,7 +6,7 @@ import {css} from '@microsoft/fast-element';
 // Fluent's default 160px internal minimum otherwise overflows compact font-size
 // fields and intercepts adjacent formatting buttons. Add a size variant through
 // FAST's style controller, preserving the official template and interaction.
-const compactStyles=css`.control{min-width:0;max-width:100%}`;
+const compactStyles=css`.control{min-width:0;max-width:100%;white-space:nowrap}::slotted(button){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}`;
 
 // Keep the existing HTML select as the form/state contract; only the visible
 // control changes. All editor and settings handlers keep their original events.
