@@ -446,7 +446,7 @@ $('text-align').addEventListener('change',event=>{if(editor){hint('format');edit
 async function exportDocument(){
   if(!active||exporting||closing)return;
   const buttons=[$('export-document'),$('export-from-certificate')];buttons.forEach(b=>b.disabled=true);
-  const format=$('export-format').value;
+  const format=active.kind==='markdown'?'markdown':'docx';
   let frozen=false;
   try{
     workspace.validate();

@@ -211,7 +211,7 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   for(const [id,command] of [['replace-one','replace'],['replace-all','replaceAll']])$(id).addEventListener('click',()=>{hint('format');getEditor()?.commands[command]();updateFindCount();});
   return {outline,applyMode,setDocumentKind,rememberPagination,setClosing,closeFind,changed(){outline();if(pendingSource&&pendingSource.editor!==getEditor())cancelPendingSource();if(source&&sourceId!==getActive()?.id)closeSource();},validate(){if(sourceError)throw sourceError;},markdownText(){
     if(sourceError)throw sourceError;
-    const text=losslessMarkdown();if(text===null)throw new Error('文档含有 Markdown 无法完整保留的格式，请选择 Word 或网页作品导出。');
+    const text=losslessMarkdown();if(text===null)throw new Error('文档含有 Markdown 无法保留的格式，请移除相关格式后再保存。');
     return source?.state.doc.toString()??text;
   },openFind(replace=false){ $('find-panel').hidden=false;$(replace?'replace-text':'find-text').focus();},closeSource};
 }

@@ -1,9 +1,10 @@
 """Actions-only real installed Linux WebView. No mocked IPC or browser engine."""
-import base64,json,os,pathlib,signal,subprocess,sys,tempfile,time,urllib.request,urllib.error
+import base64,datetime,json,os,pathlib,signal,subprocess,sys,tempfile,time,tomllib,urllib.request,urllib.error
 
 assert os.environ.get('GITHUB_ACTIONS')=='true' and sys.platform=='linux'
 evidence=pathlib.Path('test-results/embedded-webview');evidence.mkdir(parents=True,exist_ok=True)
 session=None
+build_information=None
 def call(method,path,body=None):
     payload=json.dumps(body).encode() if body is not None else None
     request=urllib.request.Request('http://127.0.0.1:4444'+path,data=payload,headers={'Content-Type':'application/json'},method=method)
@@ -137,6 +138,17 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         def ready():
             assert execute("const status=document.getElementById('status');return status?.dataset.state==='ready'||status?.textContent.includes('可以开始记录')"),'Workbench engine did not become ready'
         wait(ready);workbench=handles()[0];screenshot('workbench.png')
+        if os.environ.get('WORKPROOF_EXPECT_BUILD_METADATA')=='1':
+            expected_version=tomllib.loads(pathlib.Path('apps/desktop/src-tauri/Cargo.toml').read_text())['package']['version']
+            def build_metadata_ready():
+                value=execute("return {version:document.getElementById('app-version')?.textContent,build:document.getElementById('app-build')?.textContent,source:document.getElementById('app-build')?.title,built_at:document.getElementById('app-built-at')?.title}")
+                assert value['version']==expected_version
+                assert value['source']==os.environ['GITHUB_SHA']
+                assert value['build'].startswith(os.environ['GITHUB_RUN_NUMBER']+' · ')
+                assert datetime.datetime.fromisoformat(value['built_at'].replace('Z','+00:00')).timestamp()<=time.time()+60
+                return value
+            build_information=wait(build_metadata_ready)
+            (evidence/'build-information.json').write_text(json.dumps(build_information,ensure_ascii=False,indent=2),encoding='utf-8')
         # The PC shell keeps verification in its own workspace. Exercise the
         # real navigation before opening the embedded verifier window.
         # The separate historical milestone also runs this script against an

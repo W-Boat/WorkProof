@@ -14,6 +14,7 @@ async function desktop(page:import('@playwright/test').Page,fail=false,nativeWor
     let connections=[{ticket:'word-ticket',origin:'https://school.example',source:'word',channel:'browser',expires_in_seconds:1800,sessions:2},{ticket:'wps-ticket',origin:'https://wps.example',source:'wps',channel:'browser',expires_in_seconds:3600,sessions:1}];
     (window as any).__TAURI__={core:{invoke:async(command:string,args?:{ticket?:string;action?:string})=>{
       if(command==='window_action'&&args?.action==='ready')return null;
+      if(command==='app_info')return {version:'0.1.0',build_number:'1234',source:'0123456789abcdef0123456789abcdef01234567',built_at:'1794384000'};
       if(command==='engine_status')return {ready:true,sessions:3,events:12};
       if(command==='pending_adapters')return nativeWord?[{ticket:'native-word',origin:'',source:'word',channel:'native'}]:[];
       if(command==='adapter_connections')return connections;

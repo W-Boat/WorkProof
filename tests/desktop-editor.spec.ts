@@ -21,6 +21,7 @@ async function desktop(page:Page){
     w.editorHarness={failNext:false,saves:[],exports:0,listeners:{},windowActions:[]};
     w.__TAURI__={event:{listen:async(name:string,listener:any)=>{w.editorHarness.listeners[name]=listener;return ()=>delete w.editorHarness.listeners[name];}},core:{invoke:async(command:string,args:any)=>{
       const docs=read();
+      if(command==='app_info')return {version:'0.1.0',build_number:'1234',source:'0123456789abcdef0123456789abcdef01234567',built_at:'1794384000'};
       if(command==='engine_status')return {ready:true,sessions:0,events:0,...(w.editorHarness.engineStatus||{})};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
       if(command==='editor_list')return Object.values(docs);
@@ -47,7 +48,7 @@ async function desktop(page:Page){
         doc.actions=input.actions.map((action:any)=>({action,revision:doc.revision})).reverse().concat(doc.actions).slice(0,300);
         doc.versions.unshift({revision:doc.revision,saved:Date.now(),count:input.actions.length});doc.snapshots[doc.revision]=input.content;write(docs);return {revision:doc.revision};
       }
-      if(command==='editor_export'){w.editorHarness.exports++;return {cancelled:true};}
+      if(command==='editor_export'){w.editorHarness.exports++;w.editorHarness.lastExport=args;return {cancelled:true};}
       if(command==='window_action'){
         if(args.action==='ready'){w.editorHarness.ready={listeners:Object.keys(w.editorHarness.listeners),hasCloseGate:typeof w.workproofBeforeClose==='function'};return null;}
         w.editorHarness.closed=true;w.editorHarness.windowActions.push(args.action);return null;
@@ -199,8 +200,11 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   await page.locator('fluent-radio[value=light]').click();
   await page.screenshot({path:info.outputPath('fluent-settings-light.png')});
   await page.locator('fluent-radio[value=dark]').click();
-  await expect(page.locator('#settings-page .settings-group')).toHaveCount(4);
-  await expect(page.locator('#settings-page .settings-surface')).toHaveCount(3);
+  await expect(page.locator('#settings-page .settings-group')).toHaveCount(5);
+  await expect(page.locator('#settings-page .settings-surface')).toHaveCount(4);
+  await expect(page.locator('#app-version')).toHaveText('0.1.0');
+  await expect(page.locator('#app-build')).toHaveText('1234 · 0123456789ab');
+  await expect(page.locator('#app-built-at')).not.toHaveText(/正在读取|暂未读取/);
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.locator('#reduce-motion').click();await expect(page.locator('html')).toHaveAttribute('data-reduce-motion','true');
   expect(await page.locator('#settings-page').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
@@ -216,6 +220,24 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   await page.setViewportSize({width:1280,height:800});await page.screenshot({path:info.outputPath('fluent-settings-dark.png')});
 });
 
+test('editor back command stays visible and saves before returning to the full-height library',async({page})=>{
+  await desktop(page);await expect(page.locator('body > footer')).toBeHidden();
+  const body=await create(page);
+  await expect(page.locator('body > footer')).toBeVisible();
+  await page.setViewportSize({width:420,height:780});
+  const back=page.getByRole('button',{name:'返回我的文档',exact:true});
+  await expect(back).toBeVisible();
+  expect(await back.evaluate(node=>{const r=node.getBoundingClientRect();return r.width>=32&&r.height>=32&&r.left>=0&&r.right<=innerWidth;})).toBe(true);
+  await body.fill('返回时保留的正文');
+  await page.evaluate(()=>(window as any).editorHarness.failNext=true);
+  await back.click();await expect(page.locator('#save-state')).toContainText('未保存');
+  await expect(body).toBeVisible();
+  await back.click();await expect(page.locator('body')).toHaveAttribute('data-view','library');
+  await expect(page.locator('body > footer')).toBeHidden();
+  await page.getByRole('button',{name:'继续编辑 未命名文档',exact:true}).click();
+  await expect(body).toHaveText('返回时保留的正文');
+});
+
 test('verification loads inside the shell without exposing native commands to that frame',async({page})=>{
   await desktop(page);await page.route('**/embedded-test/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><h1>核验页测试夹具</h1>'}));
   await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.getByRole('button',{name:'在 WorkProof 内核验作品',exact:true}).click();
@@ -226,7 +248,7 @@ test('verification loads inside the shell without exposing native commands to th
 test('offline Word module exports real DOCX and imports it through the existing converter',async({page})=>{
   await desktop(page);const body=await create(page);await body.fill('离线 Word 转换测试');
   await page.evaluate(()=>{const w=window as any,original=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(c:string,a:any)=>{if(c==='editor_export')w.wordBytes=a.docx;return original(c,a);};});
-  await page.getByLabel('导出格式').selectOption('docx');await page.locator('#export-document').click();
+  await page.locator('#export-document').click();
   await expect.poll(()=>page.evaluate(()=>(window as any).wordBytes?.length||0),{timeout:25000}).toBeGreaterThan(100);
   const bytes=await page.evaluate(()=>(window as any).wordBytes);expect(bytes.slice(0,4)).toEqual([80,75,3,4]);
   await expect(page.locator('#export-document')).toBeEnabled();await page.locator('.workspace-nav [data-view=library]').click();
@@ -340,12 +362,19 @@ test('offline Word bridge preserves headings lists tables and supported rich mar
 
 test('document type controls pagination and source access',async({page})=>{
   await desktop(page);const body=await create(page);
+  await expect(page.locator('#export-format')).toHaveCount(0);
+  await page.locator('#export-document').click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.lastExport?.docx?.slice(0,4))).toEqual([80,75,3,4]);
+  expect(await page.evaluate(()=>(window as any).editorHarness.lastExport.markdown)).toBeNull();
   await expect(page.locator('#document-kind')).toHaveText('Word');
   await expect(page.locator('#toggle-source')).toBeHidden();
   await ensureRibbonOpen(page);await page.locator('[data-ribbon=layout]').click();
   const pagination=page.locator('[data-command=pages]');
   await pagination.click();await expect(pagination).toHaveAttribute('aria-pressed','false');
   await page.locator('#back-library').click();await create(page,'markdown');
+  await page.locator('#export-document').click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.lastExport?.markdown)).toBe('');
+  expect(await page.evaluate(()=>(window as any).editorHarness.lastExport.docx)).toBeNull();
   await expect(body).toHaveAttribute('rm-pagination-disabled','');
   await expect(pagination).toBeDisabled();await expect(page.locator('#toggle-source')).toBeVisible();
   await page.locator('#back-library').click();await create(page);
@@ -362,7 +391,7 @@ test('lossless Markdown tables tasks and embedded images remain editable and exp
   await page.locator('#toggle-source').click();const source=page.locator('#markdown-source .cm-content');await expect(source).toBeVisible();await expect(source).toContainText('待办事项');
   await source.press('ControlOrMeta+End');await source.press('Enter');await source.pressSequentially('源码继续编辑');await page.locator('#toggle-source').click();await expect(body).toContainText('源码继续编辑');
   await page.evaluate(()=>{const w=window as any,invoke=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(command:string,args:any)=>{if(command==='editor_export')w.exportedMarkdown=args.markdown;return invoke(command,args);};});
-  await page.locator('#export-format').selectOption('markdown');await page.locator('#export-document').click();await expect.poll(()=>page.evaluate(()=>(window as any).exportedMarkdown)).toBe(text+'\n源码继续编辑');
+  await page.locator('#export-document').click();await expect.poll(()=>page.evaluate(()=>(window as any).exportedMarkdown)).toBe(text+'\n源码继续编辑');
 });
 
 test('closing freezes Markdown and waits for durable save before issuing the native close',async({page})=>{
@@ -513,7 +542,7 @@ test('cancelling Markdown export keeps the source editor open and editable',asyn
   const source=page.locator('#markdown-source .cm-content');
   await expect(source).toBeVisible();
   await source.fill('# 保留源码');
-  await page.locator('#export-format').selectOption('markdown');
+
   await page.locator('#export-document').click();
   await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.exports)).toBe(1);
   await expect(source).toBeEditable();

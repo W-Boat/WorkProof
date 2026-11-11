@@ -161,6 +161,24 @@ fn render(v:&Value)->String{
     let align=match v["attrs"]["textAlign"].as_str(){Some("center")=>"center",Some("right")=>"right",Some("justify")=>"justify",_=>"left"};format!("<{tag}{cells} style=\"text-align:{align};{}\">{check}{children}</{tag}>",presentation(&v["attrs"]))
 }
 pub struct Export {pub html:String,pub proof:Proof,pub report:workproof_protocol::Report}
+/// Desktop file choices follow the persisted document type, including legacy files.
+pub fn desktop_export_extension(root:&Path,id:&str,docx:bool,markdown:bool)->Result<&'static str>{
+    if !valid_id(id){return Err("文档标识无效。".into());}
+    let connection=db(root)?;
+    let (kind,legacy):(Option<String>,Option<String>)=connection.query_row(
+        "SELECT t.kind,CASE WHEN t.kind IS NULL THEN d.content END FROM documents d LEFT JOIN document_types t ON t.document=d.id WHERE d.id=?1",
+        [id],|row|Ok((row.get(0)?,row.get(1)?)),
+    ).map_err(storage)?;
+    let legacy_body=legacy.map(parse).transpose()?;
+    let kind=kind.as_deref().unwrap_or_else(||legacy_kind(legacy_body.as_ref().unwrap_or(&Value::Null)));
+    match (kind,docx,markdown){
+        ("word",true,false)=>Ok("docx"),
+        ("markdown",false,true)=>Ok("md"),
+        ("word",_,_)=>Err("Word 文档请保存为 .docx。".into()),
+        ("markdown",_,_)=>Err("Markdown 文档请保存为 .md。".into()),
+        _=>Err("文档类型无法确认，请重新打开文档。".into()),
+    }
+}
 pub fn export(root:&Path,id:&str,file_name:&str)->Result<Export>{
     export_artifact(root,id,file_name,None)
 }
@@ -210,6 +228,29 @@ mod tests {
     struct Temp(std::path::PathBuf);impl Drop for Temp{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
     fn root()->Temp{let p=std::env::temp_dir().join(format!("wp-editor-{}",super::super::random_hex(12)));std::fs::create_dir_all(&p).unwrap();std::fs::write(p.join("signing-key.bin"),[7u8;32]).unwrap();Temp(p)}
     fn save_input(id:&str)->Save{Save{id:id.into(),expected_revision:0,request_id:"a".repeat(32),title:"课程论文".into(),content:json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"你好 <script>"}]}]}),actions:vec![Action{kind:"edit".into(),elapsed_ms:30,inserted:11,deleted:0,chars:11,steps:vec![json!({"stepType":"replace"})],selection:json!({"from":1,"to":1}),detail:Value::Null,metrics:BTreeMap::new()}]}}
+    #[test]
+    fn desktop_export_uses_saved_type_and_rejects_cross_format_payloads(){
+        let root=root();
+        for (kind,docx,markdown,extension) in [("word",true,false,"docx"),("markdown",false,true,"md")]{
+            let document=create(&root.0,"导出类型","",kind).unwrap();
+            let id=document["id"].as_str().unwrap();
+            save(&root.0,save_input(id)).unwrap();
+            assert_eq!(desktop_export_extension(&root.0,id,docx,markdown).unwrap(),extension);
+            for (word,md) in [(false,false),(true,true),(!docx,!markdown)]{
+                assert!(desktop_export_extension(&root.0,id,word,md).is_err());
+            }
+        }
+        let document=create(&root.0,"旧 Markdown","","word").unwrap();
+        let id=document["id"].as_str().unwrap();
+        let connection=db(&root.0).unwrap();
+        connection.execute("DELETE FROM document_types WHERE document=?1",[id]).unwrap();
+        let mut content=document["content"].clone();
+        content["attrs"]=json!({"markdownSource":"# 保留类型"});
+        connection.execute("UPDATE documents SET content=?2 WHERE id=?1",params![id,encoded(&content).unwrap()]).unwrap();
+        drop(connection);
+        assert_eq!(desktop_export_extension(&root.0,id,false,true).unwrap(),"md");
+        assert!(desktop_export_extension(&root.0,id,true,false).is_err());
+    }
     #[test]
     fn document_kind_survives_saves_and_legacy_markdown_is_preserved() {
         let root = root();

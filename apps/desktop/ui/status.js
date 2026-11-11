@@ -334,3 +334,22 @@ embedButton.addEventListener('click',async()=>{
   }catch(error){result.textContent=String(error);}
   finally{embedding=false;embedConsent.checked=false;embedConsent.disabled=false;embedButton.disabled=true;}
 });
+
+// Immutable installer metadata comes from Rust's build, never the user's clock.
+async function showBuildInformation(){
+  try{
+    const info=await window.__TAURI__.core.invoke('app_info');
+    if(typeof info?.version!=='string'||typeof info.source!=='string'||typeof info.build_number!=='string')throw new Error('Missing build metadata');
+    const epoch=Number(info.built_at),built=new Date(epoch*1000);
+    if(!Number.isFinite(epoch)||epoch<=0||!Number.isFinite(built.getTime()))throw new Error('Invalid build time');
+    document.getElementById('app-version').textContent=info.version;
+    const source=info.source==='development'?'开发构建':info.source.slice(0,12);
+    document.getElementById('app-build').textContent=info.build_number==='local'?source:`${info.build_number} · ${source}`;
+    document.getElementById('app-build').title=info.source;
+    document.getElementById('app-built-at').textContent=new Intl.DateTimeFormat('zh-CN',{dateStyle:'medium',timeStyle:'long'}).format(built);
+    document.getElementById('app-built-at').title=built.toISOString();
+  }catch{
+    for(const id of ['app-version','app-build','app-built-at'])document.getElementById(id).textContent='暂未读取';
+  }
+}
+void showBuildInformation();

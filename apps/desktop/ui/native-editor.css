@@ -419,3 +419,25 @@ body[data-view=verification] #verification:has(#verifier-frame:not([hidden])){di
 #flow-detail>.event-item{padding-bottom:0}
 @media(max-width:860px){.settings-surface>.setting-row{padding:16px}.library-filters{flex-basis:100%}.library-filters fluent-text-input{max-width:none}.library-actions{margin-left:0}}
 @media(max-width:540px){.library-filters fluent-text-input{flex-basis:100%}.library-filters select{flex:1 1 120px;min-width:0}.library-actions{width:100%}.settings-surface .setting-row>select{grid-column:2;justify-self:start;max-width:100%}}
+/* The document has its own back command and status; other pages use all height. */
+body:not([data-view=document]){grid-template-rows:36px minmax(0,1fr) 0}
+body:not([data-view=document])>footer{display:none}
+body:not([data-view=document]) .feedback{bottom:16px}
+.doc-head{gap:12px}
+#back-library{display:inline-flex;flex:0 0 32px;width:32px;min-width:32px;height:32px;padding:0}
+#back-library::part(control){width:32px;min-width:32px;height:32px;min-height:32px;padding:6px}
+.doc-head>.doc-actions{gap:8px}
+.doc-actions fluent-button,.doc-actions fluent-button::part(control){min-height:32px;height:32px}
+.writing-chrome fluent-button.icon-button,.writing-chrome fluent-button.icon-button::part(control){width:32px;min-width:32px;height:32px;min-height:32px;padding:6px}
+.ribbon-controls select{height:32px;min-height:32px;font-size:13px}
+#verifier-controls{min-height:48px;padding:8px 20px;gap:12px}
+#verifier-controls>div{display:flex;align-items:center;gap:8px}
+@media(max-width:760px){.doc-head{gap:6px}.doc-head>.doc-actions{gap:4px}.writing-chrome fluent-button.icon-button,.writing-chrome fluent-button.icon-button::part(control){width:32px;min-width:32px;height:32px;min-height:32px;padding:6px}}
+@media(max-width:540px){.doc-head>.document-kind{display:none}}
+.settings-surface .about-line{margin:0;padding:20px;gap:14px;font-size:17px;font-weight:600}
+.settings-surface .about-line p{font-weight:400;font-size:14px}
+.build-details{margin:0;padding:0 20px 12px}
+.build-details>div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;padding:12px 0;border-top:1px solid var(--stroke);font-size:14px;line-height:1.6}
+.build-details dt{color:var(--muted)}
+.build-details dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+@media(max-width:540px){.build-details>div{grid-template-columns:84px minmax(0,1fr);gap:12px}}

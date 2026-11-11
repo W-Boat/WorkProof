@@ -16,10 +16,10 @@ pub async fn editor_version(window:WebviewWindow,id:String,revision:u64)->Result
 #[tauri::command]
 pub async fn editor_export(window:WebviewWindow,id:String,docx:Option<Vec<u8>>,markdown:Option<String>)->Result<Value,String>{
     let dir=root(&window)?;
-    if docx.is_some()&&markdown.is_some(){return Err("请选择一种导出格式。".into());}
     tauri::async_runtime::spawn_blocking(move||{
+        let extension=store::desktop_export_extension(&dir,&id,docx.is_some(),markdown.is_some())?;
         // Picker text is fixed: never interpolate a document name into shell code.
-        let (filter,suggested,extension)=if docx.is_some(){("Word 作品|*.docx","WorkProof.docx","docx")}else if markdown.is_some(){("Markdown 作品|*.md","WorkProof.md","md")}else{("HTML 作品|*.html","WorkProof.html","html")};
+        let (filter,suggested)=if extension=="docx"{("Word 作品|*.docx","WorkProof.docx")}else{("Markdown 作品|*.md","WorkProof.md")};
         let Some(path)=super::c2pa::pick("导出作品与证书，请选择新的文件名",filter,true,suggested)?else{return Ok(json!({"cancelled":true}));};
         if !path.is_absolute()||!path.extension().and_then(|e|e.to_str()).is_some_and(|e|e.eq_ignore_ascii_case(extension)){return Err(format!("请使用 .{extension} 文件名保存作品。"));}
         let certificate=path.with_extension(format!("{extension}.wproof"));
