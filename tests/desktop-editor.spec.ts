@@ -154,6 +154,12 @@ test('real Tiptap edits and formats persist and reopen with independent navigati
   await expect(page.locator('#save-state')).toHaveText('已保存到本机');
   await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions).map((a:any)=>a.kind))).toEqual(expect.arrayContaining(['edit','format','space','enter','backspace']));
   await page.getByRole('tab',{name:'过程',exact:true}).click();await expect(page.locator('#version-flow button')).not.toHaveCount(0);
+  await expect(page.locator('#flow-detail')).toBeHidden();
+  const actionNode=page.locator('#action-route button').first();
+  await actionNode.click();
+  await expect(actionNode).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#flow-detail')).toBeVisible();
+  await expect(page.locator('#flow-detail .action-details')).toHaveCount(1);
   await expect(page.locator('.workspace-nav [aria-current=page]')).toHaveCount(1);
   await expect(page.locator('.workspace-nav [aria-current=page] .nav-label')).toHaveText('我的文档');
   await page.locator('#version-flow button').first().click();await expect(page.locator('#history-version-label')).toHaveText('版本 1');await expect(page.locator('#history-preview')).not.toContainText('second');
@@ -189,8 +195,11 @@ test('undo redo and cancelled export preserve the document and do not show a cer
 test('settings use upright icons and equal window buttons with reduced motion',async({page},info)=>{
   await desktop(page);await page.evaluate(()=>document.body.dataset.platform='windows');
   await page.getByRole('button',{name:'设置',exact:true}).click();await page.locator('fluent-radio[value=dark]').click();
+  await expect(page.locator('#settings-page .settings-group')).toHaveCount(4);
+  await expect(page.locator('#settings-page .settings-surface')).toHaveCount(3);
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.locator('#reduce-motion').click();await expect(page.locator('html')).toHaveAttribute('data-reduce-motion','true');
+  expect(await page.locator('#settings-page').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
   const sizes=await page.locator('.window-controls button').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));expect(sizes).toEqual([{w:46,h:36},{w:46,h:36},{w:46,h:36}]);
   expect(await page.locator('.workspace-nav .wp-icon svg').first().evaluate(n=>getComputedStyle(n).transform)).toBe('none');
   for(const width of [1280,960,420,360]){await page.setViewportSize({width,height:780});if(width<640&&!await page.locator('body').evaluate(n=>n.classList.contains('compact-nav')))await page.locator('#collapse-nav').click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}

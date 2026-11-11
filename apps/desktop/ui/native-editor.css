@@ -387,3 +387,36 @@ body[data-view=verification] #verification:has(#verifier-frame:not([hidden])){di
 #verifier-controls{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:6px 16px;border-bottom:1px solid var(--stroke)}
 #verifier-controls h2{font-size:15px}
 #verification-load-status:not(:empty){margin-top:14px}
+/* Shared Windows workbench rhythm. Animate state changes, not refreshed data. */
+:root{--motion-fast:90ms;--motion-enter:180ms;--surface-radius:8px}
+.library-toolbar{align-items:flex-start;gap:12px;row-gap:16px;margin-bottom:20px}
+.library-filters,.library-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+.library-filters{flex:1 1 480px}
+.library-filters fluent-text-input{flex:1 1 200px;min-width:160px;max-width:320px;width:auto;margin-right:0}
+.library-actions{margin-left:auto;justify-content:flex-end}
+.library-filters select{max-width:100%}
+.document-row{animation:none;border-radius:var(--surface-radius);transition:border-color var(--motion-fast) linear,background-color var(--motion-fast) linear}
+.document-row:focus-within{border-color:var(--accent)}
+.settings-group+.settings-group{margin-top:28px}
+.settings-group>.section-label{margin:0 0 12px;font-size:16px;line-height:1.5}
+.settings-group-note{font-size:14px;line-height:1.6;margin:-4px 0 12px}
+.settings-surface{border:1px solid var(--stroke);border-radius:var(--surface-radius);background:var(--content);overflow:hidden}
+.settings-surface>.setting-row{margin:0;border:0;border-radius:0;background:transparent;min-height:80px;padding:16px 20px}
+.settings-surface>.setting-row+.setting-row{border-top:1px solid var(--stroke)}
+.settings-surface .setting-row>div{min-width:0}
+.settings-surface .setting-row h3{font-weight:500}
+.settings-surface .setting-row p{line-height:1.6}
+.settings-surface .setting-row>.glyph{color:var(--muted)}
+.settings-group>.setting-details,.settings-group>.advanced-tools{border-radius:var(--surface-radius)}
+.nav-item::part(control),fluent-button::part(control){transition:background-color var(--motion-fast) linear,border-color var(--motion-fast) linear,color var(--motion-fast) linear}
+.document-tabs>button,.ribbon-tabs>button,.document-kind-choice,.flow-node,.version-node{transition:background-color var(--motion-fast) linear,border-color var(--motion-fast) linear,color var(--motion-fast) linear}
+.document-tabs>button:hover,.ribbon-tabs>button:hover{color:var(--text)}
+.document-kind-choice{grid-template-columns:28px minmax(0,1fr);gap:3px 12px;border-radius:var(--surface-radius);padding:16px}
+.document-kind-choice>.wp-icon{grid-column:1;grid-row:1/3;align-self:center;color:var(--accent)}
+.document-kind-choice>strong,.document-kind-choice>span:not(.wp-icon){grid-column:2}
+.document-kind-choice>span:not(.wp-icon){font-size:14px;line-height:1.6}
+.document-kind-choice:hover{border-color:var(--accent)}
+#flow-detail{padding:16px;margin-block:12px 20px;border:1px solid var(--stroke);border-radius:var(--surface-radius);background:var(--content);animation:page-enter var(--motion-enter) var(--ease) both}
+#flow-detail>.event-item{padding-bottom:0}
+@media(max-width:860px){.settings-surface>.setting-row{padding:16px}.library-filters{flex-basis:100%}.library-filters fluent-text-input{max-width:none}.library-actions{margin-left:0}}
+@media(max-width:540px){.library-filters fluent-text-input{flex-basis:100%}.library-filters select{flex:1 1 120px;min-width:0}.library-actions{width:100%}.settings-surface .setting-row>select{grid-column:2;justify-self:start;max-width:100%}}
