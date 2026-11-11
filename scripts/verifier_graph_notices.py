@@ -1,7 +1,7 @@
-"""Stage locked React Flow and ECharts dependency notices in the exported verifier.
+"""Stage locked visualization and Fluent UI notices in the exported verifier.
 
 Runs during CI web builds. Does not download or execute package contents.
-This covers the graph dependency closure, not commercial clearance of the whole app.
+This covers the named runtime dependency closures, not the whole application.
 """
 import hashlib,json,pathlib,re
 
@@ -19,7 +19,9 @@ def resolve(parent,name):
         if not parts:raise RuntimeError('Locked graph dependency missing: '+name)
         parts.pop()
 
-pending=[resolve('apps/verifier',name) for name in ('@xyflow/react','echarts')];seen=set();inventory=[]
+roots=('@xyflow/react','echarts','@fluentui/tokens','@fluentui/web-components',
+       '@microsoft/fast-element','@microsoft/focusgroup-polyfill')
+pending=[resolve('apps/verifier',name) for name in roots];seen=set();inventory=[]
 while pending:
     key=pending.pop()
     if key in seen:continue
@@ -41,6 +43,7 @@ while pending:
     inventory.append({'name':manifest['name'],'version':manifest['version'],'license':manifest['license'],'integrity':entry.get('integrity'),'files':package_files})
     pending.extend(resolve(key,name) for name in entry.get('dependencies',{}))
 destination.mkdir(parents=True,exist_ok=True)
-(destination/'inventory.json').write_text(json.dumps({'scope':'Locked React Flow and ECharts declared dependency closures; peer dependencies and other site components are outside this inventory. Not commercial clearance.',
+(destination/'inventory.json').write_text(json.dumps({'scope':'Locked visualization and Fluent UI declared dependency closures; peer dependencies and other site components are outside this inventory.',
+    'roots':list(roots),
     'package_lock_sha256':hashlib.sha256(lock_bytes).hexdigest(),'packages':sorted(inventory,key=lambda item:item['name'])},indent=2)+'\n',encoding='utf-8')
-print('Staged original graph notices for',len(inventory),'locked packages')
+print('Staged original visualization and Fluent notices for',len(inventory),'locked packages')
