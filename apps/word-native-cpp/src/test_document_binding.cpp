@@ -31,6 +31,7 @@ void Trace(const wchar_t*){}
 void TraceHresult(const wchar_t*,long){}
 void TraceIid(const wchar_t*,const GUID&){}
 bool ReadDocument(IDispatch*,DocSnapshot& snapshot,std::wstring&){snapshot=current;return true;}
+WordRevisions ReadWordRevisions(IDispatch*,const std::wstring&,bool){return current.revisions;}
 bool SaveDocument(IDispatch*,std::wstring&){++saveCalls;return true;}
 bool HttpJson(const std::wstring&,const std::wstring& path,const std::string& body,const std::wstring&,std::string& response,long& status){
     ++httpCalls;status=200;response="{}";
