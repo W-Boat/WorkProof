@@ -449,7 +449,12 @@ $('markdown-file').addEventListener('change',async event=>{
 });
 const workspaceTools=initializeWorkspaceTools({
   getEditor:()=>editor,canOpen:()=>!closing&&!opening&&!exporting&&!creating,
-  usesLinkShortcut:event=>Boolean(editor&&event.target instanceof Element&&event.target.closest('#tiptap-editor')&&(!editor.state.selection.empty||editor.isActive('link'))),
+  usesLinkShortcut:event=>{
+    if(!editor||!(event.target instanceof Element)||!event.target.closest('#tiptap-editor'))return false;
+    editor.view.domObserver.flush();
+    const {empty,$from}=editor.state.selection;
+    return !empty||Boolean(editorRuntime.getMarkRange($from,editor.schema.marks.link));
+  },
   onShortcut:event=>{if(document.body.dataset.view==='document')addAction('keyboard',{detail:{source:'workspace-command',key:event.key,code:event.code,ctrl:event.ctrlKey,meta:event.metaKey,shift:event.shiftKey,alt:event.altKey,repeat:event.repeat,composing:false}});},
   onError:error=>ui.showMessage(errorText(error),'error'),
   commands:()=>{
