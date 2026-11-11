@@ -10,4 +10,6 @@ Windows 原生 Word 加载项在侧栏提供“开始记录时开启 Word 修订
 - [Windows x64 桌面安装包及构建证明](https://github.com/W-Boat/WorkProof/actions/runs/43034221911/artifacts/13866134244)
 - [原生接口检查](https://github.com/W-Boat/WorkProof/actions/runs/43034221852)
 
+[端到端验收](https://github.com/W-Boat/WorkProof/actions/runs/43052225757/job/130632159920)的记录服务步骤已通过。合成 Word 采样经真实 HTTP 接口写入、签发，再由独立核验程序读取。独立的[浏览器验收](https://github.com/W-Boat/WorkProof/actions/runs/43052870516)继续核对检验单与篡改拒绝。
+
 真实 Word 验收使用临时副本。先从修订关闭的文档开始，勾选选项并检查 Word 的“审阅”开关。随后做一次增删和格式修改，暂停再继续，导出作品和证书。核验页应显示初始标记、后续采样及最后一次采样状态。另开一份临时副本，取消勾选后检查 Word 的修订开关维持原状态。已有修订、受保护文档、切换活动文档和接受修订后的计数分别记录。真实 Office 验收结果待补。
