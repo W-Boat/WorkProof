@@ -198,6 +198,7 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   await page.setViewportSize({width:1280,height:800});
   await page.getByRole('button',{name:'设置',exact:true}).click();
   await page.locator('fluent-radio[value=light]').click();
+  await page.locator('main').evaluate(node=>node.scrollTop=0);
   await page.screenshot({path:info.outputPath('fluent-settings-light.png')});
   await page.locator('fluent-radio[value=dark]').click();
   await expect(page.locator('#settings-page .settings-group')).toHaveCount(5);
@@ -215,6 +216,8 @@ test('settings use upright icons and equal window buttons with reduced motion',a
     if(width<640&&!await page.locator('body').evaluate(n=>n.classList.contains('compact-nav')))await page.locator('#collapse-nav').click();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     expect(await page.locator('#settings-page').evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);
+    expect(await page.locator('#appearance-label').evaluate(node=>node.getBoundingClientRect().width)).toBeGreaterThan(140);
+    await page.locator('main').evaluate(node=>node.scrollTop=0);
     if(width===420)await page.screenshot({path:info.outputPath('fluent-settings-narrow.png')});
   }
   await page.setViewportSize({width:1280,height:800});await page.screenshot({path:info.outputPath('fluent-settings-dark.png')});
