@@ -82,5 +82,6 @@ export function BehaviorReport({assessment,valid}:{assessment?:BehaviorAssessmen
     {!embedded&&<BehaviorOverview assessment={assessment} full={!!full}/>}
     <div className="behavior-table-scroll" role="region" aria-label="完整编辑过程检验单，可横向滚动" tabIndex={0}><table><caption>编辑过程统计与参考条件 · {assessment?.rule_version||'评估不可用'}</caption><thead><tr><th scope="col">项目</th><th scope="col">测量值</th><th scope="col">单位</th><th scope="col">参考条件</th><th scope="col">结果</th></tr></thead><tbody>{displayed.map(({row,state})=><tr key={row.name} data-review={state.flag}><th scope="row">{row.name}</th><td>{row.value===null||row.value===undefined?'—':row.value.toLocaleString('zh-CN',{maximumFractionDigits:2})}</td><td>{row.unit}</td><td>{row.reference}</td><td className="measurement-result">{state.text}</td></tr>)}{displayed.length===0&&<tr><td colSpan={5}>当前没有需要复核的项目。</td></tr>}</tbody></table></div>
     <div className="behavior-rule-results">{Object.entries(names).map(([code,name])=><p key={code}><strong>{name}</strong><span>{!full?'— 范围不足':triggered.has(code)?'↑ 规则已触发，需复核':assessment?.rule_results?.find(rule=>rule.code===code)?.status==='within_reference'?'未触发该项提醒':'— 样本或条件不足'}</span></p>)}</div>
+    {embedded&&full&&<details><summary>查看指标雷达图与参考区间</summary><BehaviorOverview assessment={assessment} full={full}/></details>}
   </Panel>;
 }

@@ -161,10 +161,15 @@ html[data-theme=dark] .behavior-range[data-review=true]>div>span{color:#ff9ba7}h
 .fluent-verifier .wp-content{width:min(1180px,100%);margin-inline:auto;padding:clamp(16px,3vw,32px);display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 .fluent-verifier .fluent-panel{background:var(--colorNeutralBackground1,var(--surface-solid));border:1px solid var(--colorNeutralStroke2,var(--line));border-radius:8px;box-shadow:none}
 .fluent-verifier fluent-button{max-width:100%}
-.fluent-verifier fluent-button::part(control){gap:6px}
-.fluent-verifier .fluent-upload{display:block;width:100%;padding:0;min-height:96px}
-.fluent-verifier .fluent-upload::part(control){width:100%;min-height:96px;justify-content:flex-start;padding:12px}
+.fluent-verifier fluent-button::part(content){display:inline-flex;align-items:center;gap:6px;min-width:0}
+.fluent-verifier .fluent-upload{display:flex;width:100%;padding:12px 16px;min-height:96px}
+.fluent-verifier .fluent-upload::part(content){width:100%;gap:12px}
 .fluent-verifier .fluent-upload .upload-copy{flex:1;text-align:left}
+.fluent-verifier .fluent-upload :is(.upload-icon,.upload-end){flex:none}
+.fluent-verifier .verify-actions .embedded-tool{width:auto;min-width:0;padding-inline:12px}
+.fluent-verifier .verify-actions .action-label{display:inline}
+.fluent-verifier .page-head,.fluent-verifier .verify-steps{margin-bottom:4px}
+.fluent-verifier .empty-proof{display:none}
 .fluent-verifier fluent-text-input{width:100%}
 .fluent-verifier .chart-choices,.fluent-verifier .diagnosis-summary,.fluent-verifier .diagnosis-summary>div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .fluent-verifier .diagnosis-summary{justify-content:space-between;margin-bottom:12px}

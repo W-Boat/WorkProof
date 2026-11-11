@@ -30,6 +30,13 @@ test('validated parent appearance integrates the embedded verifier without losin
   await expect(verifier.locator('.wp-topbar')).toBeHidden();
   await expect(verifier.getByRole('button',{name:'开始本地核验'})).toBeVisible();
   await expect(verifier.getByRole('button',{name:'先体验一份演示证据'})).toBeVisible();
+  await expect(verifier.locator('.verify-actions .action-label')).toBeVisible();
+  const fileCard=verifier.locator('.uploads .fluent-upload').first();
+  expect(await fileCard.evaluate(card=>{
+    const icon=card.querySelector('.upload-icon')!.getBoundingClientRect();
+    const text=card.querySelector('.upload-copy')!.getBoundingClientRect();
+    return text.left>=icon.right&&Math.abs((text.top+text.bottom)-(icon.top+icon.bottom))<=4;
+  })).toBe(true);
   const overflow=await verifier.locator('html').evaluate(node=>node.scrollWidth>node.clientWidth);
   expect(overflow).toBe(false);
   await page.screenshot({path:testInfo.outputPath('embedded-verifier-dark.png'),fullPage:true});
