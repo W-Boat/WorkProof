@@ -8,7 +8,7 @@
 - **跨平台构建**：[cbc6554 完整回归](https://github.com/W-Boat/WorkProof/actions/runs/42947619619)六项成功，包含 Windows x64、macOS Intel/ARM、Linux x64 开发包。Linux 的实际安装及原生 WebView 已通过本地 Wasm 核验、换件拒绝、重新核验和命令隔离。后续 `603ea7c` 的 [Linux 任务](https://github.com/W-Boat/WorkProof/actions/runs/42951065832/job/130298128114)已通过 DEB 中文字体依赖安装、字体匹配检查和原生核验。已核对完整原生界面产物的 GitHub 摘要，并查看[真实截图](evidence/embedded-native-603ea7c/workbench-frame-verified.png)确认中文可读，原始[验收记录](evidence/embedded-native-603ea7c/acceptance.json)一并保留。
 - **宿主适配**：VS Code、Word/PowerPoint、WPS、Photoshop、Blender 均有对应源码和验收边界。Word/PPT 原生加载项与 Office.js/WPS 加载项是不同分发路径；WPS 工具许可和真实版本覆盖尚有缺口。见[Word 原生](WORD-NATIVE.md)、[Office 服务](OFFICE-SERVER.md)及 `apps/photoshop`、`apps/blender` 的宿主说明。不能以模拟 API 验收代替真实软件安装验收。
 - **证据互操作**：PNG/JPEG/受限 PDF 的原生和浏览器 C2PA 路径已分项验收，见[C2PA](C2PA.md)；RFC 3161 手工及可选直接申请路径见[时间凭据](TIMESTAMPS.md)。独立信任根、公共服务鉴权/CORS、吊销和长期验证仍有边界，不提供自动公共身份认证。
-- **机构底座与交付**：继续采用 scaffold-master 的权限、审计和统一 Vue 组件，通过受控原生进程复用 Rust 核验。最新已下载核对的是 [efe611a 服务器包](INSTITUTION-DELIVERY-efe611a.md)：整体、29 个清单文件及镜像配置均已核对，14 项服务器检查已归档。默认不启用签发或 AI；旧可选 AI 环境不能视为已与此新版基础镜像配套。
+- **机构底座与交付**：继续采用 scaffold-master 的权限、审计和统一 Vue 组件，通过受控原生进程复用 Rust 核验。最新已下载核对的 Linux amd64 服务器包通过 16 项服务器检查，外层、29 个清单文件和镜像配置均已核对。可在同一次维护窗口生成并发布配套部署及签发密钥备份。签发和 AI 均需明确配置。[最新服务器包](INSTITUTION-DELIVERY-b6789ba.md)
 - **签发身份**：创建身份、独立密钥加密恢复、v2 部署摘要与所选文件关联、公钥错配拒绝均已通过，并包含在 efe611a 包中。[42862853571](https://github.com/W-Boat/WorkProof/actions/runs/42862853571) 覆盖备份前源 HTTP 回执、恢复部署和同一源密钥，以及旧、新回执通过原公钥核验。普通角色的实际授权、同意、签发、下载、独立核验和撤权已在后续 [HTTP 验收](https://github.com/W-Boat/WorkProof/actions/runs/42867163920)及[浏览器验收](https://github.com/W-Boat/WorkProof/actions/runs/42867916154)通过。这些验收使用合成身份及隔离部署。生产托管、轮换、吊销与原子联合备份仍待开发或配置。见[回执说明](INSTITUTION-RECEIPTS.md)。
 - **辅助判断**：现有模型和元数据线索见[校准结果](AI-CALIBRATION-RESULTS.md)及[LRR 评估](LRR-EVALUATION-RESULTS.md)。DetectorScope 使用原校准阈值完成双语留出评分及独立复核。该配置的英文漏报为 127/192，中文漏报为 170/192，继续保留为研究配置。[完整双语结果](DETECTORSCOPE-RESULTS.md) · [分词覆盖率记录](evidence/detectorscope-coverage-49da89a/detectorscope-tokenizer-coverage.json)
 - **正式发布缺口**：商业代码签名、公开分享部署、官方信任发布渠道、真实宿主全版本验收和生产签发身份需要独立配置、凭据或进一步开发。许可边界见[商业许可审查](COMMERCIAL-LICENSE-AUDIT.md)，来源证明边界见[信任模型](TRUST-MODEL.md)。
@@ -17,7 +17,7 @@
 
 Windows x64 安装包的 GitHub 构建来源证明已通过，已核对下载包的外层摘要和安装程序摘要。[最新安装包及核验记录](BUILD-PROVENANCE.md)
 
-接下来推进机构备份恢复、宿主正式分发和更多检测方法的真实环境评估。
+接下来推进宿主正式分发、签发身份托管和更多检测方法的真实环境评估。
 
 后续确认：`452114e` 的 42746441860 与 `17c2e5f` 的 42746801236 已全部成功，分别覆盖明确创建签发身份，以及真实部署恢复后显式加载独立恢复的合成身份并通过 HTTP 签发。v2 密钥包和部署备份摘要关联的 `d76b506` 仍在 42747308542 验收；源密钥连续性和原子联合备份尚未证明。
 
