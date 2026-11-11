@@ -6,6 +6,37 @@ on:
 permissions:
   contents: read
 jobs:
+  windows-edge:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/protocol-browser-resource
+      - run: node scripts/stage_desktop_ui.cjs
+      - name: Real bundled editor and verifier in the Windows system browser
+        env:
+          WORKPROOF_BROWSER_CHANNEL: msedge
+        run: npx playwright test --config playwright.desktop.config.ts --project chromium
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-workbench-windows-edge
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: error
   desktop-ui:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

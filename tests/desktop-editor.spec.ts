@@ -529,13 +529,14 @@ test('native verification shares client theme and closes without leaving stale r
   await page.getByRole('button',{name:'关闭本次核验'}).click();await expect(root).toHaveCount(0);await expect(page.locator('#verify')).toBeFocused();
 });
 
-test('native verification uses real Wasm, renders all report views and rejects a changed artifact',async({page})=>{
+test('native verification uses real Wasm, renders all report views and rejects a changed artifact',async({page},testInfo)=>{
   await desktop(page);await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
   await page.getByLabel('1 · 最终作品', {exact:true}).setInputFiles('apps/verifier/public/demo/essay.md');
   await page.getByLabel('2 · WorkProof 证书', {exact:true}).setInputFiles('apps/verifier/public/demo/essay.md.wproof');
   await page.getByRole('button',{name:'开始核验',exact:true}).click();
   await expect(page.getByRole('heading',{name:'文件与证书一致',exact:true})).toBeVisible({timeout:20000});
   await expect(page.getByRole('heading',{name:'编辑过程检验单',exact:true})).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath('native-verification-report.png')});
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'统计图',exact:true}).click();
   await expect(page.locator('.verification-chart')).toBeVisible();
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'操作记录',exact:true}).click();await expect(page.locator('.nv-table tbody tr').first()).toBeVisible();
