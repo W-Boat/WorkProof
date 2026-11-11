@@ -10,6 +10,7 @@ test('embedding query and self messages cannot hide standalone navigation',async
 });
 
 test('validated parent appearance integrates the embedded verifier without losing controls',async({page},testInfo)=>{
+  test.setTimeout(45000);
   await page.route('**/embedding-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><body style="margin:0"><iframe title="核验工作台" style="width:100%;height:900px;border:0"></iframe><script>window.addEventListener("message",event=>{if(event.data&&event.data.type==="workproof:verifier-ready")window.verifierReady=true;});const f=document.querySelector("iframe");f.src="/?embedded=1&parentOrigin="+encodeURIComponent(location.origin);</script></body></html>'}));
   await page.goto('/embedding-fixture');
   const verifier=page.frameLocator('iframe');
@@ -51,6 +52,26 @@ test('validated parent appearance integrates the embedded verifier without losin
   await expect(verifier.locator('.behavior-report tbody tr[data-review=false]')).toHaveCount(0);
   await verifier.locator('.verification-charts').scrollIntoViewIfNeeded();
   await page.screenshot({path:testInfo.outputPath('embedded-verifier-charts.png')});
+
+  const uploads=verifier.locator('.uploads .fluent-upload');
+  for(const [index,name] of ['behavior-bulk.txt','behavior-bulk.txt.wproof'].entries()){
+    await uploads.nth(index).evaluate(async (element,filename)=>{
+      const response=await fetch('/demo/'+filename);
+      if(!response.ok)throw new Error('Missing signed fixture '+filename);
+      const dataTransfer=new DataTransfer();
+      dataTransfer.items.add(new File([await response.blob()],filename));
+      element.dispatchEvent(new DragEvent('drop',{dataTransfer,bubbles:true,cancelable:true}));
+    },name);
+    await expect(uploads.nth(index)).toContainText(name);
+  }
+  await primary.click();
+  await expect(verifier.locator('#verification-result')).toContainText('编辑过程有待复核提醒');
+  const sheet=verifier.getByRole('region',{name:'编辑过程检验单'});
+  await sheet.getByRole('button',{name:'需复核',exact:true}).click();
+  await expect(sheet.getByRole('row').filter({has:verifier.getByRole('rowheader',{name:'单次最大新增',exact:true})})).toContainText('↑');
+  await sheet.scrollIntoViewIfNeeded();
+  await page.screenshot({path:testInfo.outputPath('embedded-verifier-diagnosis.png')});
+  await expect(verifier.locator('fluent-slider[aria-label="浏览事件"]')).toBeVisible();
 });
 
 test('untrusted requested parent origin leaves the standalone shell visible',async({page})=>{

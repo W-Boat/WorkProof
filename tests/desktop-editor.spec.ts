@@ -409,8 +409,19 @@ test('toolbar follows cursor formats and represents mixed font sizes truthfully'
   await desktop(page);const body=await create(page);await ensureRibbonOpen(page);await body.fill('大号文字');await body.press('ControlOrMeta+a');
   await page.locator('#font-size').selectOption('18pt');await body.press('End');await page.locator('#font-size').selectOption('12pt');await body.pressSequentially('小号文字');
   await body.press('ControlOrMeta+a');await expect(page.locator('#font-size')).toHaveValue('__mixed');await expect(page.locator('#font-size option:checked')).toHaveText('多种格式');
-  await body.press('ControlOrMeta+a');await body.press('ArrowLeft');await body.press('ArrowRight');await expect(page.locator('#font-size')).toHaveValue('18pt');
-  await body.press('ControlOrMeta+a');await body.press('ArrowRight');await expect(page.locator('#font-size')).toHaveValue('12pt');
+  for(const [text,size] of [['大号文字','18pt'],['小号文字','12pt']]){
+    await body.evaluate((root,target)=>{
+      const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+      while(walker.nextNode()){
+        const node=walker.currentNode,offset=node.textContent?.indexOf(target)??-1;
+        if(offset<0)continue;
+        getSelection()!.collapse(node,offset+1);
+        return;
+      }
+      throw new Error(`Missing formatted text: ${target}`);
+    },text);
+    await expect(page.locator('#font-size')).toHaveValue(size);
+  }
 });
 
 test('link dialog inserts edits validates and removes links while preserving their visible text',async({page})=>{
