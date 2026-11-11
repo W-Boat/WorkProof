@@ -3,10 +3,13 @@ export function initializePaneLayout() {
   const workspace = document.getElementById('write-panel');
   if (!workspace || workspace.dataset.panesInitialized) return;
   workspace.dataset.panesInitialized = 'true';
+  const chrome=document.querySelector('.writing-chrome');
+  const tools=document.createElement('div');tools.id='editor-tools';tools.className='editor-tools';chrome.before(tools);tools.append(chrome);
+  document.querySelector('.doc-actions').prepend(document.getElementById('toggle-ribbon'));
   const panes = {
     outline: {element: document.getElementById('writing-outline'), button: document.getElementById('toggle-outline')},
     inspector: {element: document.getElementById('action-inspector'), button: document.getElementById('toggle-inspector')},
-    ribbon: {element: document.getElementById('writing-ribbon'), button: document.getElementById('toggle-ribbon')},
+    ribbon: {element: tools, button: document.getElementById('toggle-ribbon')},
   };
   const preferences = {};
   const controls = [...document.querySelectorAll('[data-pane-preference]')];
@@ -78,6 +81,7 @@ export function initializePaneLayout() {
     focusButton?.setAttribute('aria-pressed', String(focused));
     for (const [name, {element, button}] of Object.entries(panes)) {
       if (!visible[name] && element.contains(document.activeElement)) button?.focus();
+      if(name==='ribbon'){document.getElementById('writing-ribbon').dataset.open='true';document.getElementById('writing-ribbon').inert=!visible[name];}
       element.inert = !visible[name];
       element.setAttribute('aria-hidden', String(!visible[name]));
       element.dataset.open = String(visible[name]);
@@ -133,6 +137,7 @@ export function initializePaneLayout() {
     if(focused)setFocused(false);
     persist('ribbon','open');render();
   });
+  new MutationObserver(()=>{if(!document.getElementById('find-panel').hidden){persist('ribbon','open');render();}}).observe(document.getElementById('find-panel'),{attributes:true,attributeFilter:['hidden']});
   new MutationObserver(render).observe(workspace, {attributes: true, attributeFilter: ['data-edit-mode']});
   new ResizeObserver(render).observe(document.querySelector('.writing-chrome'));
   let previousWorkspaceSize=null;

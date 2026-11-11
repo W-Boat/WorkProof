@@ -6,6 +6,7 @@ import '@fluentui/web-components/radio.js';
 import '@fluentui/web-components/radio-group.js';
 import '@fluentui/web-components/field.js';
 import '@fluentui/web-components/text-input.js';
+import '@fluentui/web-components/progress-bar.js';
 import {setTheme} from '@fluentui/web-components/theme/set-theme.js';
 import {webLightTheme,webDarkTheme} from '@fluentui/tokens';
 import './icon-controls.js';

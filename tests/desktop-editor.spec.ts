@@ -26,6 +26,7 @@ async function desktop(page:Page){
       if(command==='engine_status')return {ready:true,sessions:0,events:0,...(w.editorHarness.engineStatus||{})};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
       if(command==='editor_list')return Object.values(docs);
+      if(command==='library_delete'){if(args.kind==='editor'){for(const id of args.ids)delete docs[id];write(docs);}else w.editorHarness.externalDocuments=(w.editorHarness.externalDocuments||[]).filter((item:any)=>!args.ids.includes(item.id));return {deleted:args.ids.length};}
       if(command==='library_states')return JSON.parse(localStorage.getItem('library.states')||'{}');
       if(command==='library_set_state'){
         const states=JSON.parse(localStorage.getItem('library.states')||'{}');
@@ -73,6 +74,7 @@ async function ensureRibbonOpen(page:Page){
   await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');
   // Selecting a tool tab explicitly expands its page even if automatic layout
   // changes between the preceding observation and this user interaction.
+  if(await page.locator('#write-panel').getAttribute('data-ribbon-open')!=='true')await page.locator('#toggle-ribbon').click();
   await page.locator('#toolbar-home').click();
   await expect(page.locator('#write-panel')).toHaveAttribute('data-ribbon-open','true');
   await expect(page.locator('#writing-ribbon')).not.toHaveAttribute('inert','');
@@ -816,7 +818,7 @@ test('a save failure prevents a template from replacing the current document',as
   await expect(page.locator('#save-state')).toHaveAttribute('data-state','error');
 });
 
-test('archive trash and restore retain the saved document across a reload',async({page})=>{
+test('archive restores saved content and permanent deletion requires confirmation',async({page})=>{
   await desktop(page);const body=await create(page);await body.fill('归档和回收站都保留这段正文');
   await page.locator('#back-library').click();
   await page.getByRole('button',{name:'归档 未命名文档',exact:true}).click();
@@ -826,12 +828,12 @@ test('archive trash and restore retain the saved document across a reload',async
   await page.reload();await selectChoice(page,'#library-state-filter','archived');
   await page.getByRole('button',{name:'恢复到我的文档 未命名文档',exact:true}).click();
   await selectChoice(page,'#library-state-filter','active');
-  await page.getByRole('button',{name:'移入回收站（保留原文件） 未命名文档',exact:true}).click();
-  await selectChoice(page,'#library-state-filter','trash');
-  await page.getByRole('button',{name:'恢复到我的文档 未命名文档',exact:true}).click();
-  await selectChoice(page,'#library-state-filter','active');
   await page.getByRole('button',{name:'继续编辑 未命名文档',exact:true}).click();
   await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('归档和回收站都保留这段正文');
+  await page.locator('#back-library').click();await page.getByRole('button',{name:'删除 未命名文档',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'取消',exact:true}).click();await expect(page.getByRole('button',{name:'继续编辑 未命名文档',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'删除 未命名文档',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'永久删除',exact:true}).click();
+  await expect(page.getByRole('button',{name:'继续编辑 未命名文档',exact:true})).toHaveCount(0);await page.reload();await expect(page.locator('#document-list .document-row')).toHaveCount(0);
 });
 
 test('external Markdown opens as a new editable copy and grouped sessions archive together',async({page})=>{
@@ -863,4 +865,21 @@ test('desktop chrome suppresses browser menus and text selection while the edito
   const body=await create(page);await body.fill('编辑器仍可选择和复制文字');
   await body.press('ControlOrMeta+a');expect(await page.evaluate(()=>getSelection()?.toString())).toBe('编辑器仍可选择和复制文字');
   await body.pressSequentially('可以替换所选内容');await expect(body).toHaveText('可以替换所选内容');
+});
+
+test('folding the toolbar hides its tabs and commands while keeping a header expand button',async({page})=>{
+  await desktop(page);await create(page);await ensureRibbonOpen(page);
+  await page.locator('#toggle-ribbon').click();await expect(page.locator('#editor-tools')).toHaveAttribute('aria-hidden','true');
+  await expect.poll(()=>page.locator('#editor-tools').evaluate(node=>node.getBoundingClientRect().height)).toBeLessThan(2);
+  await expect(page.locator('.doc-actions #toggle-ribbon')).toBeVisible();
+  await page.locator('#toggle-ribbon').click();await expect(page.locator('#toolbar-home')).toBeVisible();await expect(page.getByRole('button',{name:'加粗',exact:true})).toBeVisible();
+});
+
+test('preparing the recording service dims and blocks the home page until ready',async({page})=>{
+  await desktop(page);await page.evaluate(()=>{(window as any).editorHarness.engineStatus={ready:false};});
+  await expect(page.locator('#engine-loading')).toBeVisible();await expect(page.locator('main')).toHaveAttribute('inert','');
+  expect(await page.locator('main').evaluate(node=>Number(getComputedStyle(node).opacity))).toBeLessThan(1);
+  await expect(page.locator('#engine-loading fluent-progress-bar')).toBeVisible();
+  await page.evaluate(()=>{(window as any).editorHarness.engineStatus={ready:true};});
+  await expect(page.locator('#engine-loading')).toBeHidden();await expect(page.locator('main')).not.toHaveAttribute('inert','');
 });

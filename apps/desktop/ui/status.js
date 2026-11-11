@@ -162,7 +162,7 @@ async function refresh(){
   refreshing=true;
   try{
     const s=await window.__TAURI__.core.invoke('engine_status');
-    engineReady=s.ready===true;updateLaunchButtons();
+    engineReady=s.ready===true;document.body.dataset.engineLoading=String(!engineReady);document.querySelector('main').inert=!engineReady;document.getElementById('engine-loading').hidden=engineReady;updateLaunchButtons();
     document.getElementById('status').dataset.state=engineReady?'ready':'preparing';
     document.getElementById('status').textContent=s.ready?'记录服务已就绪':'正在准备记录服务…';
     window.dispatchEvent(new CustomEvent('workproof-engine',{detail:{ready:engineReady,sessions:s.sessions,events:s.events}}));
@@ -193,7 +193,7 @@ async function refresh(){
         region.append(card);
       }
     }
-  }catch{engineReady=false;connectionsKnown=false;updateLaunchButtons();updateConnectionBadges();const status=document.getElementById('status');status.dataset.state='error';status.textContent='暂时无法连接记录服务。请退出并重新打开 WorkProof。';}
+  }catch{document.body.dataset.engineLoading='false';document.querySelector('main').inert=false;document.getElementById('engine-loading').hidden=true;engineReady=false;connectionsKnown=false;updateLaunchButtons();updateConnectionBadges();const status=document.getElementById('status');status.dataset.state='error';status.textContent='暂时无法连接记录服务。请退出并重新打开 WorkProof。';}
   finally{refreshing=false;}
 }
 refresh();setInterval(refresh,1500);document.addEventListener('visibilitychange',refresh);

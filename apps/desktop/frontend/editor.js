@@ -241,6 +241,20 @@ $('library-source-filter').after(librarySort);
 const librarySummary=element('p','library-summary');librarySummary.id='library-summary';librarySummary.setAttribute('role','status');$('document-list').before(librarySummary);
 librarySort.addEventListener('change',()=>{try{localStorage.setItem('workproof.library-sort',librarySort.value);}catch{}renderLibrary();});
 const titleOrder=new Intl.Collator('zh-CN',{numeric:true,sensitivity:'base'});
+let deletionDialog=null;
+function confirmLibraryDeletion(doc,kind){
+  if(!deletionDialog){
+    deletionDialog=element('dialog','library-delete-dialog');deletionDialog.id='library-delete-dialog';deletionDialog.setAttribute('aria-labelledby','library-delete-title');
+    const heading=element('h2','','永久删除这份文档？');heading.id='library-delete-title';
+    const description=element('p');description.id='library-delete-description';
+    const actions=element('div','dialog-actions');
+    for(const [value,label] of [['cancel','取消'],['delete','永久删除']]){const button=element('fluent-button','',label);button.dataset.keepLabel='true';button.setAttribute('appearance',value==='delete'?'primary':'secondary');button.addEventListener('click',()=>deletionDialog.close(value));actions.append(button);}
+    deletionDialog.append(heading,description,actions);document.body.append(deletionDialog);
+  }
+  deletionDialog.querySelector('p').textContent=`“${doc.title}”${kind==='external'?'在 WorkProof 中的全部记录将永久删除，原应用中的文件会保留。':'及其编辑版本、过程记录将永久删除。'} 此操作无法恢复。`;
+  deletionDialog.returnValue='';deletionDialog.showModal();deletionDialog.querySelector('fluent-button').focus();
+  return new Promise(resolve=>deletionDialog.addEventListener('close',()=>resolve(deletionDialog.returnValue==='delete'),{once:true}));
+}
 function renderLibrary(){
   const list=$('document-list'),focusKey=document.activeElement?.closest('[data-document-key]')?.dataset.documentKey;
   const query=($('document-search').value||'').trim().toLocaleLowerCase();
@@ -277,13 +291,19 @@ function renderLibrary(){
       });actions.append(copy);
     }
 
-    for(const [state,title,glyph] of (selectedState==='active'?[['archived','归档','archive'],['trash','移入回收站（保留原文件）','delete']]:[['active','恢复到我的文档','arrow_left']])){
+    for(const [state,title,glyph] of (selectedState==='active'?[['archived','归档','archive'],['delete','删除','delete']]:[['active','恢复到我的文档','arrow_left']])){
       const manage=element('fluent-button','',title);manage.dataset.icon=glyph;manage.setAttribute('aria-label',title+' '+doc.title);manage.title=title;
       manage.addEventListener('click',async()=>{
         manage.disabled=true;
         try{
+          if(state==='delete'&&!await confirmLibraryDeletion(doc,entry.type))return;
           await flush();
           const ids=entry.type==='external'?entry.sessions.map(session=>session.id):[doc.id];
+          if(state==='delete'){
+            await ipc('library_delete',{kind:entry.type,ids});
+            if(entry.type==='editor'&&active?.id===doc.id){active=null;editor?.destroy();editor=null;}
+            await loadLibrary();ui.showMessage('已永久删除 WorkProof 中的文档和记录。');return;
+          }
           await ipc('library_set_state',{kind:entry.type,ids,state});
           for(const id of ids)libraryStates[entry.type+':'+id]=state;
           renderLibrary();
@@ -306,7 +326,7 @@ async function loadLibrary(){
   try{
     libraryLoadError='';
     for(const [index,result] of results.entries()){
-      if(index===2){if(result.status==='fulfilled'&&result.value&&typeof result.value==='object'&&!Array.isArray(result.value))libraryStates=result.value;else libraryLoadError+='归档与回收站状态暂未读取，请点击刷新重试。';continue;}
+      if(index===2){if(result.status==='fulfilled'&&result.value&&typeof result.value==='object'&&!Array.isArray(result.value))libraryStates=Object.fromEntries(Object.entries(result.value).map(([id,state])=>[id,state==='trash'?'active':state]));else libraryLoadError+='归档与回收站状态暂未读取，请点击刷新重试。';continue;}
       if(result.status==='fulfilled'&&Array.isArray(result.value)){if(index===0)documents=result.value;else externalDocuments=result.value;}
       else libraryLoadError+=(index===0?'内置文档':'外部应用文档')+'暂未读取，请点击刷新重试。';
     }

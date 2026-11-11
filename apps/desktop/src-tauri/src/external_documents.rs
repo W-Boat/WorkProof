@@ -79,7 +79,7 @@ mod embedded_tests{
     #[test]
     fn workbench_permissions_cover_the_external_library(){
         let permissions=include_str!("../permissions/workbench.toml");
-        for command in ["external_documents_list","external_document_load","external_document_locate","external_document_open","external_document_read","library_states","library_set_state"]{
+        for command in ["external_documents_list","external_document_load","external_document_locate","external_document_open","external_document_read","library_states","library_set_state","library_delete"]{
             assert!(permissions.contains(&format!("\"{command}\"")),"Missing workbench permission: {command}");
         }
     }
@@ -94,6 +94,11 @@ mod embedded_tests{
 pub async fn library_states(window:WebviewWindow)->Result<Value,String>{
     let root=root(&window)?;
     tauri::async_runtime::spawn_blocking(move||workproof_engine::library_state::list(&root)).await.map_err(|_|"无法读取文档状态。")?
+}
+#[tauri::command]
+pub async fn library_delete(window:WebviewWindow,kind:String,ids:Vec<String>)->Result<Value,String>{
+    let root=root(&window)?;
+    tauri::async_runtime::spawn_blocking(move||workproof_engine::library_state::delete(&root,&kind,&ids)).await.map_err(|_|"删除未能完成，请重试。")?
 }
 #[tauri::command]
 pub async fn library_set_state(window:WebviewWindow,kind:String,ids:Vec<String>,state:String)->Result<Value,String>{
