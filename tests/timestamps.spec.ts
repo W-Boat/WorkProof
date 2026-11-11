@@ -8,6 +8,7 @@ test('cancelling an online timestamp request ignores its late response',async({p
   const gate=new Promise<void>(resolve=>release=resolve),received=new Promise<void>(resolve=>started=resolve),settled=new Promise<void>(resolve=>finished=resolve);
   await page.route('https://tsa.example.test/sign',async route=>{started();await gate;try{await route.fulfill({status:200,contentType:'application/timestamp-reply',headers:{'Access-Control-Allow-Origin':'*'},body:Buffer.from([48,0])});}catch{}finally{finished();}});
   await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'时间凭据',exact:true}).click();
   const panel=page.getByRole('region',{name:'检查外部时间凭据',exact:true});await panel.getByText('添加或检查时间凭据（可选）',{exact:true}).click();await panel.getByText('直接向时间服务申请',{exact:true}).click();await panel.getByLabel('HTTPS 时间服务地址').fill('https://tsa.example.test/sign');await panel.getByRole('button',{name:'生成请求并发送至此服务'}).click();await received;
   await panel.getByRole('button',{name:'取消当前操作'}).click();release();await settled;
   await expect(panel.getByRole('status')).toContainText('已取消');await expect(panel.getByRole('button',{name:'保存当前响应'})).toHaveCount(0);await expect(panel.getByText('时间凭据与签名一致',{exact:true})).toHaveCount(0);
@@ -16,6 +17,7 @@ test('cancelling an online timestamp request ignores its late response',async({p
 for(const invalid of ['html','oversized'])test(`online timestamp rejects ${invalid} response without a trusted result`,async({page})=>{
   await page.route('https://tsa.example.test/sign',route=>route.fulfill({status:200,contentType:invalid==='html'?'text/html':'application/timestamp-reply',headers:{'Access-Control-Allow-Origin':'*'},body:invalid==='html'?'<html>login</html>':Buffer.alloc(128*1024+1)}));
   await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'时间凭据',exact:true}).click();
   const panel=page.getByRole('region',{name:'检查外部时间凭据',exact:true});await panel.getByText('添加或检查时间凭据（可选）',{exact:true}).click();await panel.getByText('直接向时间服务申请',{exact:true}).click();await panel.getByLabel('HTTPS 时间服务地址').fill('https://tsa.example.test/sign');await panel.getByRole('button',{name:'生成请求并发送至此服务'}).click();
   await expect(panel.getByRole('alert')).toContainText(invalid==='html'?'文件类型':'128 KB');await expect(panel.getByText('时间凭据与签名一致',{exact:true})).toHaveCount(0);await expect(panel.getByRole('button',{name:'保存当前响应'})).toHaveCount(0);
 });
@@ -32,6 +34,7 @@ test('explicit online request receives a real synthetic TSA response without tru
     await route.fulfill({status:200,contentType:'application/timestamp-reply',headers:{'Access-Control-Allow-Origin':'*'},body:fs.readFileSync(response)});
   });
   await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'时间凭据',exact:true}).click();
   const panel=page.getByRole('region',{name:'检查外部时间凭据',exact:true});await panel.getByText('添加或检查时间凭据（可选）',{exact:true}).click();await panel.getByText('直接向时间服务申请',{exact:true}).click();
   await panel.getByLabel('HTTPS 时间服务地址').fill('http://tsa.example.test/sign');await panel.getByRole('button',{name:'生成请求并发送至此服务'}).click();await expect(panel.getByRole('alert')).toContainText('HTTPS');expect(sent).toBe(0);
   await panel.getByLabel('HTTPS 时间服务地址').fill('https://tsa.example.test/sign');await panel.getByRole('button',{name:'生成请求并发送至此服务'}).click();
@@ -44,6 +47,7 @@ test('real OpenSSL timestamp is verified locally with explicit trust and honest 
   const external:string[]=[];
   page.on('request',request=>{if(!request.url().startsWith('http://127.0.0.1:4173')&&!request.url().startsWith('blob:'))external.push(request.url());});
   await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'时间凭据',exact:true}).click();
   const panel=page.getByRole('region',{name:'检查外部时间凭据',exact:true});await panel.getByText('添加或检查时间凭据（可选）',{exact:true}).click();
   await panel.getByLabel('原始时间戳请求（.tsq）').setInputFiles(fixture+'request.tsq');await panel.getByLabel('时间戳响应（.tsr）').setInputFiles(fixture+'response.tsr');await panel.getByLabel('你信任的 CA 证书（.pem）').setInputFiles(fixture+'ca.pem');
   const submit=panel.getByRole('button',{name:'检查时间凭据',exact:true}),consent=panel.getByRole('checkbox');await expect(submit).toBeDisabled();await consent.check();await submit.click();
@@ -63,6 +67,7 @@ test('browser request downloads, round-trips through OpenSSL and clears stale re
   const external:string[]=[];
   page.on('request',request=>{if(!request.url().startsWith('http://127.0.0.1:4173')&&!request.url().startsWith('blob:'))external.push(request.url());});
   await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'时间凭据',exact:true}).click();
   const panel=page.getByRole('region',{name:'检查外部时间凭据',exact:true});await panel.getByText('添加或检查时间凭据（可选）',{exact:true}).click();
   const download=page.waitForEvent('download');await panel.getByRole('button',{name:'生成并下载时间戳请求',exact:true}).click();
   const query=testInfo.outputPath('browser.tsq'),response=testInfo.outputPath('browser.tsr'),ca=testInfo.outputPath('ca.pem');
@@ -95,6 +100,7 @@ test('timestamp worker can be cancelled and times out without blocking the page'
     };
   });
   await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'时间凭据',exact:true}).click();
   const panel=page.getByRole('region',{name:'检查外部时间凭据',exact:true});await panel.getByText('添加或检查时间凭据（可选）',{exact:true}).click();
   const generate=panel.getByRole('button',{name:'生成并下载时间戳请求',exact:true});
   await generate.click();await expect(panel.getByRole('button',{name:'取消当前操作',exact:true})).toBeVisible();

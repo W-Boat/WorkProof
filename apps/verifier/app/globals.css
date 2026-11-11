@@ -240,3 +240,21 @@ html[data-theme=dark] .behavior-range[data-review=true]>div>span{color:#ff9ba7}h
 .fluent-verifier .export-row>div{gap:8px}
 @media(max-width:540px){.fluent-verifier .fluent-panel>.panel-head{padding:14px 16px}.fluent-verifier .fluent-panel>.panel-body{padding:16px}.fluent-verifier .verify-actions>fluent-button{flex:1 1 100%}}
 @media print{.fluent-verifier .fluent-certificate{background:white;color:#242424}.fluent-verifier .fluent-certificate dt{color:#424242}}
+
+/* Separate primary report and opt-in checks without discarding selected files. */
+.verification-page-nav,.auxiliary-tool-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.verification-page-nav{margin-bottom:16px}
+.verifier-page[hidden],.auxiliary-tool[hidden],.verify-steps[hidden]{display:none!important}
+.verifier-page{min-width:0;animation:verifier-view-enter 160ms ease-out}
+.verifier-page>.panel{margin-bottom:20px}
+.auxiliary-heading{margin-bottom:16px}.auxiliary-heading h2{font-size:20px;font-weight:600}.auxiliary-heading p{margin-top:8px;line-height:1.7;color:var(--ink-muted)}
+.auxiliary-tool-nav{margin-bottom:20px}.auxiliary-tool .panel{margin:0}
+.inline-checks{padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.inline-reminders{padding-block:16px;border-block:1px solid var(--line);margin-block:16px}
+.fluent-verifier .verification-table-scroll{max-height:520px;scrollbar-gutter:stable}
+@keyframes verifier-view-enter{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+html[data-workproof-motion="reduced"] .verifier-page{animation:none}
+@media(prefers-reduced-motion:reduce){.verifier-page{animation:none}}
+@media print{.verification-page-nav,.auxiliary-page,.verify-steps{display:none!important}}
+
+.fluent-verifier .verification-page-nav{margin:0}.result-certificate{margin-bottom:20px}

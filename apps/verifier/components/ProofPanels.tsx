@@ -39,7 +39,7 @@ export function CertificateCard({proof,report,certificateId,behaviorNote,behavio
     <p className="certificate-disclaimer">{partial?'仅证明所选事件的归属，未核验完整记录链。':''}签名者身份未经认证。本记录不证明人类创作、原创性或持续劳动。</p>
   </article>;
 }
-export function VerificationChecks({proof,report:r,behavior}:{proof:Proof;report:Report;behavior?:BehaviorAssessment|null}){
+export function VerificationChecks({proof,report:r,behavior,inline=false}:{proof:Proof;report:Report;behavior?:BehaviorAssessment|null;inline?:boolean}){
   const embedded=useEmbeddedFluent();
   const partial=r.scope==='selective';
   const checks:[boolean|string|null,string,string,string][]=[
@@ -58,14 +58,15 @@ export function VerificationChecks({proof,report:r,behavior}:{proof:Proof;report
     <div className="check-boundary"><Info size={17}/><div><strong>身份与时间仍需单独判断</strong><p>签名身份未经认证<br/>证书内未提供外部时间凭据<br/>无法据此判断 AI 使用比例{partial&&<><br/>完整记录链未核验<br/>未披露区间的采集缺口未知</>}</p></div></div>
   </>;
   const raw=JSON.stringify({report:r,manifest:proof.manifest},null,2);
-  return <Panel id={embedded?'verification-checks':undefined} title="核验明细" className="checks-panel">
+  const content=<>
     {checks.map(([ok,title,desc,failure])=><div className="check-row" key={title}><span className={ok?'check-icon':'fail-icon'}>{ok?<Check size={15}/>:<X size={15}/>}</span><div><strong>{title}<Tag tone={ok?'ok':'danger'}>{ok?'通过':'失败'}</Tag></strong><p>{ok?desc:failure}</p></div></div>)}
     {embedded?<Details label="查看证据的信任范围">{assurance}</Details>:assurance}
     {embedded?<Details label="查看原始核验详情"><pre className="fluent-raw-verification" tabIndex={0}>{raw}</pre></Details>:<Dialog.Root><Dialog.Trigger asChild><Button variant="ghost"><Code2 size={15}/>查看原始核验详情</Button></Dialog.Trigger><Dialog.Portal>
       <Dialog.Overlay className="overlay wp-dialog-overlay"/>
       <Dialog.Content className="modal wp-dialog"><header className="modal-head"><div><Dialog.Title className="modal-title">原始核验详情</Dialog.Title><Dialog.Description className="modal-sub">核验算法结果与签名清单；身份与时间需独立判断。</Dialog.Description></div><Dialog.Close asChild><Button variant="ghost" aria-label="关闭详情"><X size={17}/></Button></Dialog.Close></header><div className="modal-body"><pre>{raw}</pre></div></Dialog.Content>
     </Dialog.Portal></Dialog.Root>}
-  </Panel>;
+  </>;
+  return inline?<section id="verification-checks" aria-label="核验明细" className="checks-panel inline-checks">{content}</section>:<Panel id={embedded?'verification-checks':undefined} title="核验明细" className="checks-panel">{content}</Panel>;
 }
 export function DisclosurePanel({selection,busy,error,onChange,onExport}:{selection:string;busy:boolean;error:string;onChange:(s:string)=>void;onExport:()=>void}){
   return <Panel title="选择性披露" aria-label="选择性披露导出" className="disclosure-panel">

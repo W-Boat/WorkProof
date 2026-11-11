@@ -28,7 +28,7 @@ test('validated parent appearance integrates the embedded verifier without losin
     const style=getComputedStyle(element);
     return parseFloat(style.paddingLeft)>=12&&parseFloat(style.paddingRight)>=12&&element.getBoundingClientRect().height>=32;
   })).toBe(true);
-  expect(await verifier.locator('.wp-content>.panel').evaluateAll(panels=>{
+  expect(await verifier.locator('.wp-content>.panel,.wp-content>.verifier-page:not([hidden])').evaluateAll(panels=>{
     const [first,second]=panels.map(panel=>panel.getBoundingClientRect()).filter(rect=>rect.height>0);
     return Math.abs(second.top-first.bottom-16)<=1;
   })).toBe(true);
@@ -89,7 +89,27 @@ test('validated parent appearance integrates the embedded verifier without losin
   await primary.click();
   await expect(verifier.locator('#verification-result')).toContainText('编辑过程有待复核提醒');
   const sheet=verifier.getByRole('region',{name:'编辑过程检验单',exact:true});
-  await sheet.getByRole('button',{name:/^需复核/}).click();
+  // One signed 3000-character insertion triggers two rule categories, while
+  // three primary measurements are flagged. Counts must identify their unit.
+  await expect(sheet.getByLabel('检验计数')).toContainText('规则库 5 类 · 全部指标 37 项 · 本次触发 2 类 · 关键指标需复核 3 项');
+  await expect(sheet.locator('.diagnosis-rule-list>div')).toHaveCount(5);
+  await expect(sheet.getByRole('button',{name:'全部指标 (37)',exact:true})).toBeVisible();
+  await sheet.getByRole('button',{name:'全部指标 (37)',exact:true}).click();
+  await expect(sheet.locator('tbody tr')).toHaveCount(37);
+  const related=sheet.getByRole('row').filter({has:verifier.getByRole('rowheader',{name:'单次达到大段写入阈值的事件',exact:true})});
+  await expect(related).toContainText('记录值');
+  await expect(related).toHaveAttribute('data-review','false');
+  await sheet.getByRole('button',{name:'需复核指标 (3)',exact:true}).click();
+  await expect(sheet.locator('tbody tr')).toHaveCount(3);
+  await verifier.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();
+  await expect(sheet).toBeHidden();
+  await expect(verifier.getByRole('region',{name:'辅助检查工作区'})).toBeVisible();
+  await expect(verifier.getByRole('region',{name:'进一步检查 AI 线索',exact:true})).toBeVisible();
+  await expect(verifier.getByRole('region',{name:'检查作品内嵌的创作证书',exact:true})).toBeHidden();
+  await verifier.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'检验单',exact:true}).click();
+  await expect(sheet).toBeVisible();
+  await expect(verifier.locator('#verification-result')).toContainText('证据核验通过');
+  await expect(uploads.first()).toContainText('behavior-bulk.txt');
   await expect(sheet.getByRole('row').filter({has:verifier.getByRole('rowheader',{name:'单次最大新增',exact:true})})).toContainText('↑');
   await expect(sheet.getByRole('columnheader',{name:'实测'})).toBeVisible();
   await verifier.getByRole('button',{name:'查看原始核验详情'}).click();

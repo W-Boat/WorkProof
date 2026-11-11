@@ -26,7 +26,7 @@ function jpegExif(little=true,comment=Buffer.from('ASCII\0\0\0a fixture comment\
 
 test('JPEG EXIF and simple XMP stay local and remain editable clues',async({page})=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
-  await page.goto('/');
+  await page.goto('/');await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'文件属性',exact:true}).click();
   // Use the browser's actual JPEG encoder, then add synthetic metadata segments.
   const encoded=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=1;return c.toDataURL('image/jpeg').split(',')[1];});
   const image=Buffer.from(encoded,'base64'),panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
@@ -68,7 +68,7 @@ test('JPEG EXIF and simple XMP stay local and remain editable clues',async({page
 });
 
 test('JPEG malformed segment bounds and repeated metadata have explicit limits',async({page})=>{
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
+  await page.goto('/');await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'文件属性',exact:true}).click();const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
   async function scan(buffer:Buffer){
     await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'bounded.jpg',mimeType:'image/jpeg',buffer});await panel.getByRole('button',{name:'检查文件属性',exact:true}).click();
   }
@@ -85,7 +85,7 @@ test('JPEG malformed segment bounds and repeated metadata have explicit limits',
 
 test('IPTC generative source declarations are editable clues, distinct from ordinary algorithmic edits',async({page})=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
+  await page.goto('/');await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'文件属性',exact:true}).click();const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
   const namespace='http://iptc.org/std/Iptc4xmpExt/2008-02-29/',prefix='http://cv.iptc.org/newscodes/digitalsourcetype/';
   const xml=(type:string,ns=namespace,resource=false)=>`<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:iptc="${ns}">${resource?`<iptc:DigitalSourceType rdf:resource="${prefix+type}"/>`:`<iptc:DigitalSourceType>${prefix+type}</iptc:DigitalSourceType>`}</rdf:Description></rdf:RDF></x:xmpmeta>`;
   async function scanPng(text:string,compressed=false){
@@ -133,7 +133,7 @@ test('IPTC generative source declarations are editable clues, distinct from ordi
 });
 test('optional PNG metadata stays local and distinguishes hints from conclusions',async({page})=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
+  await page.goto('/');await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'文件属性',exact:true}).click();const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
   const scan=panel.getByRole('button',{name:'检查文件属性',exact:true});await expect(scan).toBeDisabled();
   const image=Buffer.concat([png.subarray(0,-12),chunk('tEXt',Buffer.from('prompt\0<script>alert(1)</script> test')),chunk('zTXt',Buffer.from('hidden\0\0not inflated')),png.subarray(-12)]);
   await page.getByLabel('选择最终作品',{exact:true}).setInputFiles({name:'metadata.png',mimeType:'image/png',buffer:image});await scan.click();
@@ -147,7 +147,7 @@ test('optional PNG metadata stays local and distinguishes hints from conclusions
 
 test('PNG compressed text is bounded, checks text CRC, and stays an editable clue',async({page},testInfo)=>{
   const external:string[]=[];page.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4173')external.push(r.url());});
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});
+  await page.goto('/');await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'文件属性',exact:true}).click();const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});
   await panel.getByText('查看作品的文件属性（可选）',{exact:true}).click();
   const fileName='用于检查长文件名显示的作品_'+ 'project_'.repeat(16)+'.png';
   const scan=async(parts:Buffer[])=>{
@@ -198,7 +198,7 @@ function docx(parts:[string,string][],compressed=true,descriptor=false,documentP
 test('PPTX properties use the same bounded local scanner without reading slide text',async({page})=>{
   const external:string[]=[];
   page.on('request',request=>{if(new URL(request.url()).origin!=='http://127.0.0.1:4173')external.push(request.url());});
-  await page.goto('/');
+  await page.goto('/');await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'文件属性',exact:true}).click();
   const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
   const app='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft PowerPoint</Application></Properties>';
   const custom='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><property name="workflow"><vt:lpwstr>editable source clue</vt:lpwstr></property></Properties>';
@@ -221,7 +221,7 @@ test('PPTX properties use the same bounded local scanner without reading slide t
 });
 test('DOCX properties remain local, distinguish editable hints and reject hostile containers',async({page})=>{
   const external:string[]=[];page.on('request',request=>{if(new URL(request.url()).origin!=='http://127.0.0.1:4173')external.push(request.url());});
-  await page.goto('/');const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
+  await page.goto('/');await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'文件属性',exact:true}).click();const panel=page.getByRole('region',{name:'进一步检查 AI 线索',exact:true});await panel.getByText('查看作品的文件属性（可选）', {exact:true}).click();
   const scan=panel.getByRole('button',{name:'检查文件属性',exact:true});
   const app='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>WPS Office</Application></Properties>';
   const custom='<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><property name="prompt"><vt:lpwstr>&lt;script&gt;example&lt;/script&gt;</vt:lpwstr></property></Properties>';

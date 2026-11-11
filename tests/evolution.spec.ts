@@ -11,6 +11,7 @@ test('real Blender recording reaches the user page through artifact hashing and 
   await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
   await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
   await expect(page.getByText('演示数据',{exact:true})).toHaveCount(0);
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'图层与结构',exact:true}).click();
   await page.getByText('收到 .wgraph 结构文件？查看对象和图层怎样变化',{exact:true}).click();
   await page.getByLabel('选择 .wgraph 结构文件',{exact:true}).setInputFiles(native+'scene.blend.wgraph');
   await page.getByRole('button',{name:'核验并查看结构',exact:true}).click();
@@ -26,6 +27,7 @@ test('real Wasm binds structure snapshots, changes parents, rejects tampering an
   await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles(fixture+'structure-demo.txt.wproof');
   await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
   await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'图层与结构',exact:true}).click();
   await page.getByText('收到 .wgraph 结构文件？查看对象和图层怎样变化',{exact:true}).click();
   await page.getByLabel('选择 .wgraph 结构文件',{exact:true}).setInputFiles(fixture+'structure-demo.wgraph');
   await page.getByRole('button',{name:'核验并查看结构',exact:true}).click();
@@ -66,6 +68,7 @@ test('selective certificate only authorizes structures in disclosed events',asyn
   await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles(fixture+'structure-demo.selected.wproof');
   await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
   await expect(page.getByText('部分证据核验通过',{exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'图层与结构',exact:true}).click();
   await page.getByText('收到 .wgraph 结构文件？查看对象和图层怎样变化',{exact:true}).click();
   await page.getByLabel('选择 .wgraph 结构文件',{exact:true}).setInputFiles(fixture+'structure-demo.wgraph');
   await page.getByRole('button',{name:'核验并查看结构',exact:true}).click();

@@ -18,7 +18,12 @@ import {MetadataPanel} from '../components/MetadataPanel';
 import {EmbeddedCertificatePanel} from '../components/EmbeddedCertificatePanel';
 import {EvolutionPanel} from '../components/EvolutionPanel';
 
+const auxiliaryTools=[{id:'metadata',label:'文件属性'},{id:'embedded',label:'图片与 PDF 证书'},{id:'timestamp',label:'时间凭据'},{id:'receipt',label:'机构回执'},{id:'evolution',label:'图层与结构'}] as const;
+type AuxiliaryTool=typeof auxiliaryTools[number]['id'];
+
 export default function Page(){
+  const [view,setView]=useState<'report'|'tools'>('report');
+  const [tool,setTool]=useState<AuxiliaryTool>('metadata');
   const [focusedEventSeq,setFocusedEventSeq]=useState<number|null>(null);
   const [artifact,setArtifact]=useState<File|null>(null),[proofFile,setProofFile]=useState<File|null>(null),[stage,setStage]=useState<Stage>('idle'),[progress,setProgress]=useState(0),[phase,setPhase]=useState(''),[result,setResult]=useState<Result|null>(null),[error,setError]=useState(''),[demoBusy,setDemoBusy]=useState(false);
   const demoRequest=useRef<AbortController|null>(null);
@@ -27,7 +32,7 @@ export default function Page(){
   const resultHeading=useRef<HTMLDivElement|null>(null);
   const errorMessage=useRef<HTMLDivElement|null>(null),returnToUpload=useRef(false);
   const focusResult=useCallback(()=>{const target=resultHeading.current;if(!target)return;target.focus({preventScroll:true});target.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});},[reduced]);
-  useEffect(()=>{if(stage==='done'&&result)focusResult();},[stage,result,focusResult]);
+  useEffect(()=>{if(view==='report'&&stage==='done'&&result)focusResult();},[stage,result,view,focusResult]);
   useEffect(()=>{
     const target=stage==='error'?errorMessage.current:returnToUpload.current&&stage==='idle'&&!artifact&&!proofFile?document.querySelector<HTMLButtonElement>('.uploads .upload'):null;
     if(!target)return;returnToUpload.current=false;target.focus({preventScroll:true});target.scrollIntoView({block:'center',behavior:reduced?'auto':'smooth'});
@@ -38,7 +43,7 @@ export default function Page(){
   useEffect(()=>()=>{demoRequest.current?.abort();demoRequest.current=null;stopVerification();const active=disclosureWorker.current;disclosureWorker.current=null;active?.terminate();},[]);
   const invalidate=()=>{demoRequest.current?.abort();demoRequest.current=null;setDemoBusy(false);setShareMessage('');stopVerification();disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');setSelection('');setResult(null);setStage('idle');setError('');setPhase('');setProgress(0);};
   function verify(a=artifact,p=proofFile,expected=expectedId){
-    if(!a||!p)return;disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');stopVerification();setResult(null);setError('');setProgress(0);setPhase('');setStage('working');
+    if(!a||!p)return;setView('report');disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');stopVerification();setResult(null);setError('');setProgress(0);setPhase('');setStage('working');
     setShareMessage('');
     try{
       const w=new Worker('/verify-worker.js',{type:'module'});worker.current=w;
@@ -128,35 +133,43 @@ export default function Page(){
   }
   return <VerifierShell>
     <PageHeader title="证据核验" desc="选作品、选证书，查看核验结果。所有计算在你的浏览器内完成，文件不会上传。"/>
-    <ol className="verify-steps" aria-label="核验流程"><li data-current={!artifact}><b>1</b><span>选择作品<small>收到的原始文件</small></span></li><li data-current={!!artifact&&!proofFile}><b>2</b><span>选择证书<small>对应的 .wproof 文件</small></span></li><li data-current={!!artifact&&!!proofFile}><b>3</b><span>核验与分享<small>看结果，保存签名证书</small></span></li></ol>
+    <nav className="verification-page-nav" aria-label="核验页面"><Button variant={view==='report'?'primary':'ghost'} aria-current={view==='report'?'page':undefined} onClick={()=>setView('report')}><FileText size={18}/>检验单</Button><Button variant={view==='tools'?'primary':'ghost'} aria-current={view==='tools'?'page':undefined} onClick={()=>setView('tools')}><Fingerprint size={18}/>辅助检查</Button></nav>
+    <ol hidden={view!=='report'} className="verify-steps" aria-label="核验流程"><li data-current={!artifact}><b>1</b><span>选择作品<small>收到的原始文件</small></span></li><li data-current={!!artifact&&!proofFile}><b>2</b><span>选择证书<small>对应的 .wproof 文件</small></span></li><li data-current={!!artifact&&!!proofFile}><b>3</b><span>核验与分享<small>看结果，保存签名证书</small></span></li></ol>
     <Panel title="载入作品与过程证书" aria-label="核验作品与证书" tools={<Tag tone="info">本地处理</Tag>}>
       <div className="uploads"><Upload label="选择最终作品" caption="拖入原始交付文件，支持任意格式" file={artifact} onFile={f=>{invalidate();setArtifact(f);}} disabled={stage==='working'}/><Upload label="选择 .wproof 证书" caption="与作品对应的过程记录文件" accept=".wproof,application/json" file={proofFile} onFile={f=>{invalidate();setProofFile(f);}} disabled={stage==='working'}/></div>
-      <Details label="没有 .wproof 证书？" className="fingerprint-input"><p>如果你是接收方，请向作品提供者索取与这份作品一起导出的 .wproof 文件。证书图片或截图不能代替这个文件。</p><p>如果你是创作者，请先用 WorkProof 开始记录，完成创作后导出作品和证书。已经完成的作品无法补录过去的创作过程。</p><p>只有作品文件也可以先查看下方的“进一步检查 AI 线索”；这些线索不能代替过程记录。第一次使用，可以点击“先体验一份演示证据”。</p></Details>
+      <Details label="没有 .wproof 证书？" className="fingerprint-input"><p>如果你是接收方，请向作品提供者索取与这份作品一起导出的 .wproof 文件。证书图片或截图不能代替这个文件。</p><p>如果你是创作者，请先用 WorkProof 开始记录，完成创作后导出作品和证书。已经完成的作品无法补录过去的创作过程。</p><p>只有作品文件也可以进入“辅助检查”查看文件属性；这些线索不能代替过程记录。第一次使用，可以点击“先体验一份演示证据”。</p></Details>
       <Details label="收到证书指纹？核对是否为同一张证书（可选）" className="fingerprint-input"><label className="field"><span className="field-label">发送者提供的完整证书指纹</span><TextInput aria-label="发送者提供的完整证书指纹" value={expectedId} onChange={e=>{invalidate();setExpectedId(e.target.value);}} placeholder="粘贴 64 位指纹；不一致时核验不会通过" maxLength={128} disabled={stage==='working'}/></label><p>请从可信渠道取得指纹。仅检查证书自带签名，无法识别别人重新签发的替代证书。</p></Details>
-      <div className="verify-actions"><Button variant="ghost" onClick={demo} disabled={demoBusy||stage==='working'} className="embedded-tool" aria-label="先体验一份演示证据" title="先体验一份演示证据">{demoBusy?<LoaderCircle size={15} className="spin"/>:<Activity size={15}/>}<span className="action-label">先体验一份演示证据</span><ArrowUpRight size={13}/></Button>{stage==='working'?<Button onClick={invalidate}><X size={15}/>取消核验</Button>:<Button variant="primary" disabled={!artifact||!proofFile} onClick={stage==='done'?focusResult:()=>verify()}><ShieldCheck size={16}/>{stage==='done'?'查看核验结果':'开始本地核验'}</Button>}</div>
+      <div className="verify-actions"><Button variant="ghost" onClick={demo} disabled={demoBusy||stage==='working'} className="embedded-tool" aria-label="先体验一份演示证据" title="先体验一份演示证据">{demoBusy?<LoaderCircle size={15} className="spin"/>:<Activity size={15}/>}<span className="action-label">先体验一份演示证据</span><ArrowUpRight size={13}/></Button>{stage==='working'?<Button onClick={invalidate}><X size={15}/>取消核验</Button>:<Button variant="primary" disabled={!artifact||!proofFile} onClick={stage==='done'?()=>{setView('report');focusResult();}:()=>verify()}><ShieldCheck size={16}/>{stage==='done'?'查看核验结果':'开始本地核验'}</Button>}</div>
       {stage==='working'&&<VerificationProgress phase={phase} progress={progress}/>}
       {stage==='error'&&<div ref={errorMessage} tabIndex={-1} className="error-box" role="alert"><AlertTriangle size={18}/><div><strong>暂时无法完成核验</strong><p>{error}</p></div></div>}
     </Panel>
+    <div className="verifier-page" hidden={view!=='report'}>
     {result&&m&&r?<motion.div initial={reduced?false:{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:reduced?0:.18}} className="result">
       <div id="verification-result" ref={resultHeading} tabIndex={-1} role="status" className={`result-banner ${r.valid?'success':'failure'}`}><Notice intent={r.valid?(behaviorReview?'warning':'success'):'error'}><span>{r.valid?<ShieldCheck size={21}/>:<AlertTriangle size={21}/>}<strong>{r.valid?(partial?'部分证据核验通过':'证据核验通过'):'证据核验未通过'}</strong>{m.demo&&<Tag tone="neutral">演示数据</Tag>}</span><span>{r.valid?(behaviorReview?'文件与签名一致 · 编辑过程有待复核提醒':partial?'所选事件属于已签名记录集；完整链未核验':'文件、记录链与签名一致'):'请检查文件配对及证据完整性'}</span></Notice></div>
       <ResultNavigation charts={r.valid} timeline={r.valid&&r.chain_valid}/>
-      <div className="result-grid"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId} behaviorNote={behaviorNote} behaviorReview={!!behaviorReview}/><VerificationChecks proof={result.proof} report={r} behavior={result.behavior}/></div>
-      <BehaviorPanel assessment={result.behavior} valid={r.valid} onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}/>
-      <BehaviorReport assessment={result.behavior} valid={r.valid}/>
+      <div className="result-certificate"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId} behaviorNote={behaviorNote} behaviorReview={!!behaviorReview}/></div>
+      <BehaviorReport assessment={result.behavior} valid={r.valid}
+        checks={<VerificationChecks inline proof={result.proof} report={r} behavior={result.behavior}/>}
+        reminders={<BehaviorPanel inline assessment={result.behavior} valid={r.valid} onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}/>}/>
       {r.valid&&<EmbeddedVerificationCharts key={result.certificateId} records={records} partial={partial} reduced={reduced}/>}
       {r.valid&&r.chain_valid&&<Timeline key={result.certificateId+String(proofFile?.lastModified)} records={records} signals={result.behavior?.signals} selectedSeq={focusedEventSeq} onSelect={setFocusedEventSeq}/>}
       {result.certificateMatch===false&&<p className="error-box" role="alert">证书指纹不一致：这不是发送者指定的证书。请向发送者确认，勿作为有效交付凭据。</p>}
       {result.certificateMatch===true&&<p className="caption">证书指纹一致：与发送者提供的证书相符。</p>}
       <div className="export-row"><span><LockKeyhole size={13}/>本次核验未上传作品或证书</span><div><Button disabled={!r.valid} onClick={exportImage} className="embedded-tool" aria-label="保存证书图片" title="保存证书图片"><ArrowDownToLine size={15}/><span className="action-label">保存证书图片</span></Button><Button disabled={!r.valid} onClick={()=>window.print()} className="embedded-tool" aria-label="打印 / PDF" title="打印 / PDF"><FileText size={15}/><span className="action-label">打印 / PDF</span></Button><Button variant="ghost" onClick={()=>{returnToUpload.current=true;invalidate();setArtifact(null);setProofFile(null);setExpectedId('');}} aria-label="清空重新核验" title="核验另一份作品" className="embedded-tool"><RotateCcw size={16}/><span className="action-label">核验另一份作品</span></Button></div></div>
       {r.valid&&<Panel title="分享可复核的签名证书" className="share-panel"><p>把签名证书和作品原文件发给对方，对方即可重新核验。证书图片方便展示，复核时仍需 .wproof 文件。</p><p>{partial?'此证书仅包含已披露的事件。':'此证书包含完整过程记录。如需减少公开内容，请先在下方导出部分证据，再载入核验后分享。'}</p><label className="field"><span className="field-label">证书指纹 · 用于识别证书是否被替换</span><code className="share-fingerprint" tabIndex={0}>{result.certificateId}</code></label><div className="share-actions"><Button variant="primary" onClick={shareCertificate}>分享签名证书</Button><Button className="embedded-tool" aria-label="下载签名证书" title="下载签名证书" onClick={()=>{if(proofFile)download(proofFile,proofFile.name);}}><ArrowDownToLine size={16}/><span className="action-label">下载签名证书</span></Button><Button className="embedded-tool" aria-label="复制指纹与核验说明" title="复制指纹与核验说明" onClick={copyFingerprint}><Fingerprint size={16}/><span className="action-label">复制指纹与核验说明</span></Button></div><p role="status">{shareMessage}</p><p className="caption">请经可信渠道发送指纹。当前不生成公网链接；本机地址无法供他人远程访问。签名可以查出内容改动，签名者身份仍未经认证。</p></Panel>}
-      {r.valid&&proofFile&&<ReceiptPanel key={result.certificateId+String(proofFile.lastModified)} proof={proofFile}/>}
-      {r.valid&&<TimestampPanel key={result.certificateId} signature={result.proof.signature}/>}
       {r.valid&&!partial&&m.protocol==='workproof/3'&&<DisclosurePanel selection={selection} busy={disclosureBusy} error={disclosureError} onChange={setSelection} onExport={exportDisclosure}/>}
       {r.valid&&partial&&<DisclosedEvents records={records}/>}
-      {r.valid&&proofFile&&<EvolutionPanel key={result.certificateId+proofFile.name} proof={proofFile}/>}
     </motion.div>:<Panel className="empty-proof"><EmptyState icon={<Fingerprint size={28}/>} title={stage==='working'?'正在核验作品和证书…':demoBusy?'正在载入演示…':stage==='error'?'请按上方提示检查后重试':artifact&&proofFile?'文件已选好，可以开始核验':artifact?'下一步：选择配套证书':proofFile?'下一步：选择对应作品':'载入一份作品，开始核验。'} desc={stage==='working'?'请稍候；需要更换文件时，可以先取消核验。':demoBusy?'你也可以直接选择自己的作品和证书。':artifact&&proofFile?'点击“开始本地核验”，查看文件、签名和记录的检查结果。':artifact?'请选择提供者发来的 .wproof 文件。只有作品还不能核对创作记录。':proofFile?'请选择与这份证书一同收到的原始作品文件。':'你将看到文件匹配、记录完整性、签名与过程轨迹，也可以先体验标明来源的演示证据。'}/></Panel>}
-    <EmbeddedCertificatePanel/>
-    <MetadataPanel file={artifact}/>
-    <Panel id="principles" title="如何理解核验结果" className="principles"><dl><div><dt>作品留在本机</dt><dd>浏览器中的独立工作线程计算文件指纹，不上传作品与证书。</dd></div><div><dt>签名与身份分开判断</dt><dd>签名核对记录是否改变，不证明真人身份、原创性或 AI 使用比例。</dd></div><div><dt>部分证据只核对所选归属</dt><dd>未披露的记录不连成曲线，未观测到的区间不视为持续劳动。</dd></div></dl></Panel>
+    </div>
+    <section className="verifier-page auxiliary-page" hidden={view!=='tools'} aria-label="辅助检查工作区">
+      <header className="auxiliary-heading"><h2>辅助检查</h2><p>按需选择一项检查。文件属性可直接查看；时间、回执和结构检查需先取得有效的过程证书。</p></header>
+      <nav className="auxiliary-tool-nav" aria-label="选择辅助检查">{auxiliaryTools.map(item=><Button key={item.id} variant={tool===item.id?'primary':'ghost'} aria-pressed={tool===item.id} disabled={!r?.valid&&!['metadata','embedded'].includes(item.id)} onClick={()=>setTool(item.id)}>{item.label}</Button>)}</nav>
+      <div className="auxiliary-tool" hidden={tool!=='metadata'}><MetadataPanel file={artifact}/></div>
+      <div className="auxiliary-tool" hidden={tool!=='embedded'}><EmbeddedCertificatePanel/></div>
+      <div className="auxiliary-tool" hidden={tool!=='timestamp'}>{result&&r?.valid&&<TimestampPanel key={result.certificateId} signature={result.proof.signature}/>}</div>
+      <div className="auxiliary-tool" hidden={tool!=='receipt'}>{result&&r?.valid&&proofFile&&<ReceiptPanel key={result.certificateId+String(proofFile.lastModified)} proof={proofFile}/>}</div>
+      <div className="auxiliary-tool" hidden={tool!=='evolution'}>{result&&r?.valid&&proofFile&&<EvolutionPanel key={result.certificateId+proofFile.name} proof={proofFile}/>}</div>
+    </section>
+    <Details label="如何理解核验结果"><Panel id="principles" title="如何理解核验结果" className="principles"><dl><div><dt>作品留在本机</dt><dd>浏览器中的独立工作线程计算文件指纹，不上传作品与证书。</dd></div><div><dt>签名与身份分开判断</dt><dd>签名核对记录是否改变，不证明真人身份、原创性或 AI 使用比例。</dd></div><div><dt>部分证据只核对所选归属</dt><dd>未披露的记录不连成曲线，未观测到的区间不视为持续劳动。</dd></div></dl></Panel></Details>
   </VerifierShell>;
 }

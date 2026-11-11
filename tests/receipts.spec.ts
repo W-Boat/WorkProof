@@ -18,6 +18,7 @@ test('real Rust receipt is verified locally only after independent key trust',as
   }finally{expect(path.dirname(fs.realpathSync(directory))).toBe(temporary);expect(path.basename(directory)).toMatch(/^workproof-browser-receipt-/);fs.rmSync(directory,{recursive:true,force:true});}
   const external:string[]=[];page.on('request',request=>{if(!request.url().startsWith('http://127.0.0.1:4173')&&!request.url().startsWith('blob:'))external.push(request.url());});
   await page.goto('/');await page.getByRole('button',{name:'先体验一份演示证据'}).click();await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'机构回执',exact:true}).click();
   const panel=page.getByRole('region',{name:'检查机构接收回执',exact:true});await panel.getByText('核对签发者与接收回执（可选）',{exact:true}).click();
   await panel.getByLabel('接收回执（.json）').setInputFiles(receipt);await panel.getByLabel('独立取得的签发公钥（.hex）').setInputFiles(publicFile);await panel.getByLabel('签发者标识',{exact:true}).fill('browser-test');
   const submit=panel.getByRole('button',{name:'检查接收回执',exact:true});await expect(submit).toBeDisabled();await panel.getByRole('checkbox').check();await submit.click();
