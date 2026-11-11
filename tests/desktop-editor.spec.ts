@@ -828,6 +828,7 @@ test('archive restores saved content and permanent deletion requires confirmatio
   await expect(page.getByRole('button',{name:'继续编辑 未命名文档',exact:true})).toHaveCount(0);
   await selectChoice(page,'#library-state-filter','archived');
   await expect(page.getByRole('button',{name:'继续编辑 未命名文档',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'删除 未命名文档',exact:true})).toBeVisible();
   await page.reload();await selectChoice(page,'#library-state-filter','archived');
   await page.getByRole('button',{name:'恢复到我的文档 未命名文档',exact:true}).click();
   await selectChoice(page,'#library-state-filter','active');

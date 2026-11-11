@@ -291,7 +291,7 @@ function renderLibrary(){
       });actions.append(copy);
     }
 
-    for(const [state,title,glyph] of (selectedState==='active'?[['archived','归档','archive'],['delete','删除','delete']]:[['active','恢复到我的文档','arrow_left']])){
+    for(const [state,title,glyph] of (selectedState==='active'?[['archived','归档','archive'],['delete','删除','delete']]:[['active','恢复到我的文档','arrow_left'],['delete','删除','delete']])){
       const manage=element('fluent-button','',title);manage.dataset.icon=glyph;manage.setAttribute('aria-label',title+' '+doc.title);manage.title=title;
       manage.addEventListener('click',async()=>{
         manage.disabled=true;
