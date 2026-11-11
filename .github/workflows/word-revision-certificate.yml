@@ -1,0 +1,53 @@
+name: Word revision certificate acceptance
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/word-revision-certificate.yml'
+      - 'apps/verifier/components/WordRevisionSummary.tsx'
+      - 'crates/proof/src/lib.rs'
+      - 'tests/behavior.spec.ts'
+      - 'scripts/test_engine.py'
+permissions:
+  contents: read
+jobs:
+  revision-certificate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: word-revision-certificate
+      - run: npm ci
+      - uses: ./.github/actions/protocol-browser-resource
+      - name: Sign revision observations with the real local collector
+        env:
+          WORKPROOF_WORD_REVISION_FIXTURE: ${{ runner.temp }}/word-revision.wproof
+        run: |
+          cargo build --locked -p workproof-engine
+          python scripts/test_engine.py target/debug/workproof-engine
+      - run: npm run build:web
+      - run: npx playwright install --with-deps chromium
+      - name: Read signed revision observations and reject tampering in Chromium
+        env:
+          WORKPROOF_WORD_REVISION_FIXTURE: ${{ runner.temp }}/word-revision.wproof
+        run: npx playwright test tests/behavior.spec.ts --grep 'collector-signed Word observations'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: word-revision-certificate-report
+          path: |
+            test-engine-results.json
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
