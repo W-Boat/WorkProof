@@ -19,9 +19,9 @@
 
 ## 当前界面验收
 
-[三浏览器 Actions](https://github.com/W-Boat/WorkProof/actions/runs/42998876162)的 186 项检查通过，包含保存失败阻止返回、Word/Markdown 对应导出、应用版本展示、设置分组、360–1280 像素窗口下的设置文字宽度和减少动态效果。已下载并核对[截图产物](https://github.com/W-Boat/WorkProof/actions/runs/42998876162/artifacts/13844933376)的 GitHub 摘要，查看宽屏深色编辑器、浅色设置及窄屏深色设置。另修复了点击动作流程后详情仍隐藏的问题。
+[三浏览器 Actions](https://github.com/W-Boat/WorkProof/actions/runs/43002254904)的 186 项检查通过，包含保存失败阻止返回、Word/Markdown 对应导出、应用版本、完整提交和构建时间标题展示、设置分组、360–1280 像素窗口下的设置文字宽度和减少动态效果。已下载并核对[截图产物](https://github.com/W-Boat/WorkProof/actions/runs/42998876162/artifacts/13844933376)的 GitHub 摘要，查看宽屏深色编辑器、浅色设置及窄屏深色设置。另修复了点击动作流程后详情仍隐藏的问题。
 
-浏览器检查使用存储 IPC 夹具，实际数据库类型与导出载荷校验由同一次运行的 Rust 引擎检查覆盖。安装包中的构建来源与真实 WebView 信息继续由完整桌面工作流验证，不把固定版本的浏览器夹具当作真实安装包来源证明。
+浏览器检查使用存储 IPC 夹具，实际数据库类型与导出载荷校验由同一次运行的 Rust 引擎检查覆盖。`3d73a58` 的 [Windows 安装包任务](https://github.com/W-Boat/WorkProof/actions/runs/43002254823/job/130462130336)成功，构建编号为 575，安装包和来源证明摘要已核对。实际安装后读取版本信息的 Linux WebView 检查仍待后续完整运行，不把固定版本的浏览器夹具当作真实安装包来源证明。
 
 ## 编辑与记录
 
