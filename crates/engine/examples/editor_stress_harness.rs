@@ -122,7 +122,7 @@ fn dispatch(root:&Path,request:&Request)->Result<Value>{
     let args=&request.args;
     match request.command.as_str(){
         "editor_list"=>editor::list(root),
-        "editor_create"=>editor::create(root,string(args,"title")?,string(args,"started")?),
+        "editor_create"=>editor::create(root,string(args,"title")?,string(args,"started")?,args["kind"].as_str().unwrap_or("word")),
         "editor_load"=>editor::load(root,string(args,"id")?),
         "editor_save"=>editor::save(root,serde_json::from_value(args.get("input").cloned().ok_or("Missing input")?).map_err(|e|e.to_string())?),
         "editor_version"=>editor::version(root,string(args,"id")?,args["revision"].as_u64().ok_or("Missing unsigned revision")?),

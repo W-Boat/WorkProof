@@ -118,7 +118,7 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
     record(type,{detail:{source:'markdown',data:typeof event.data==='string'?event.data.slice(0,2048):null}});
   };
   async function openSource(){
-    const editor=getEditor();if(!editor||closing||pendingSource)return;
+    const editor=getEditor();if(!editor||mode!=='markdown'||closing||pendingSource)return;
     const id=getActive()?.id,generation=++sourceGeneration;
     const applicable=()=>generation===sourceGeneration&&!closing&&getEditor()===editor&&getActive()?.id===id&&document.body.dataset.view==='document'&&$('tab-write').getAttribute('aria-selected')==='true';
     if(!applicable())return;
@@ -146,16 +146,14 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   }
   function closeSource(){cancelPendingSource();if(sourceError){showMessage(sourceError.message,'error');return false;}rememberDraft();source?.destroy();source=null;$('markdown-source').replaceChildren();$('markdown-source-panel').hidden=true;$('tiptap-editor').hidden=false;$('toggle-source').setAttribute('aria-pressed','false');return true;}
   $('toggle-source').addEventListener('click',()=>sourceVisible()?closeSource():openSource());
-  document.querySelectorAll('[data-mode]').forEach(button=>button.addEventListener('click',()=>{
-    if(button.dataset.mode==='word'&&!closeSource())return;
-    rememberPagination();
-    mode=button.dataset.mode;
+  function setDocumentKind(kind){
+    mode=kind==='markdown'?'markdown':'word';
     $('write-panel').dataset.editMode=mode;
-    document.querySelectorAll('[data-mode]').forEach(item=>item.setAttribute('aria-pressed',String(item.dataset.mode===mode)));
+    $('document-kind').textContent=mode==='markdown'?'Markdown':'Word';
+    $('toggle-source').hidden=mode!=='markdown';
     applyMode();
     document.dispatchEvent(new Event('workproof:editor-mode'));
-    record('layout',{detail:{mode},metrics:{layout_changes:1}});
-  }));
+  }
   $('write-panel').dataset.editMode=mode;
   window.addEventListener('workproof-view',event=>{if(event.detail!=='document')cancelPendingSource();});
   document.addEventListener('workproof-editor-tab',event=>{if(event.detail!=='write')cancelPendingSource();});
@@ -200,7 +198,7 @@ export function initializeWritingWorkspace({getEditor,getActive,record,hint,flus
   function nextMatch(backward){const editor=getEditor();editor?.commands[backward?'goToPreviousResult':'goToNextResult']();updateFindCount();}
   $('find-next').addEventListener('click',()=>nextMatch(false));$('find-previous').addEventListener('click',()=>nextMatch(true));
   for(const [id,command] of [['replace-one','replace'],['replace-all','replaceAll']])$(id).addEventListener('click',()=>{hint('format');getEditor()?.commands[command]();updateFindCount();});
-  return {outline,applyMode,rememberPagination,setClosing,changed(){outline();if(pendingSource&&pendingSource.editor!==getEditor())cancelPendingSource();if(source&&sourceId!==getActive()?.id)closeSource();},validate(){if(sourceError)throw sourceError;},markdownText(){
+  return {outline,applyMode,setDocumentKind,rememberPagination,setClosing,changed(){outline();if(pendingSource&&pendingSource.editor!==getEditor())cancelPendingSource();if(source&&sourceId!==getActive()?.id)closeSource();},validate(){if(sourceError)throw sourceError;},markdownText(){
     if(sourceError)throw sourceError;
     const text=losslessMarkdown();if(text===null)throw new Error('文档含有 Markdown 无法完整保留的格式，请选择 Word 或网页作品导出。');
     return source?.state.doc.toString()??text;

@@ -18,6 +18,7 @@ fn db(root:&Path)->Result<Connection>{
     db.busy_timeout(std::time::Duration::from_secs(5)).map_err(storage)?;
     db.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
       CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY,title TEXT NOT NULL,started TEXT NOT NULL,created INTEGER NOT NULL,modified INTEGER NOT NULL,revision INTEGER NOT NULL,content TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS document_types(document TEXT PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN ('word','markdown')),FOREIGN KEY(document) REFERENCES documents(id));
       CREATE TABLE IF NOT EXISTS revisions(document TEXT NOT NULL,revision INTEGER NOT NULL,content TEXT NOT NULL,actions TEXT NOT NULL,saved INTEGER NOT NULL,request TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(document,revision),UNIQUE(document,request),FOREIGN KEY(document) REFERENCES documents(id));
       CREATE TABLE IF NOT EXISTS editor_events(document TEXT NOT NULL,seq INTEGER NOT NULL,json TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(document,seq),FOREIGN KEY(document) REFERENCES documents(id));").map_err(storage)?;
     Ok(db)
@@ -59,30 +60,37 @@ fn event(action:&Action,seq:u64,last_elapsed:u64)->Result<Event>{
 
 pub fn list(root:&Path)->Result<Value>{
     let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
-    let mut stmt=db.prepare("SELECT id,title,modified,revision FROM documents ORDER BY modified DESC LIMIT 2000").map_err(storage)?;
-    let rows=stmt.query_map([],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"modified":r.get::<_,u64>(2)?,"revision":r.get::<_,u64>(3)?}))).map_err(storage)?;
+    let mut stmt=db.prepare("SELECT d.id,d.title,d.modified,d.revision,t.kind FROM documents d LEFT JOIN document_types t ON t.document=d.id ORDER BY d.modified DESC LIMIT 2000").map_err(storage)?;
+    let rows=stmt.query_map([],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"modified":r.get::<_,u64>(2)?,"revision":r.get::<_,u64>(3)?,"kind":r.get::<_,Option<String>>(4)?}))).map_err(storage)?;
     let mut items=vec![];for row in rows{items.push(row.map_err(storage)?);}Ok(json!(items))
 }
-pub fn create(root:&Path,title:&str,started:&str)->Result<Value>{
+pub fn create(root:&Path,title:&str,started:&str,kind:&str)->Result<Value>{
     if !title_ok(title)||started.len()>64{return Err("请使用 1–120 字的文档名称。".into());}
+    if !matches!(kind,"word"|"markdown"){return Err("请选择 Word 或 Markdown 文档。".into());}
     let _lock=WRITER.lock().map_err(storage)?;let mut db=db(root)?;let tx=db.transaction().map_err(storage)?;
     let id=super::random_hex(16);let now=super::now_ms();let body=json!({"type":"doc","content":[{"type":"paragraph"}]});
     let e=Event{seq:0,elapsed_ms:0,kind:"start".into(),inserted:0,deleted:0,chars:0,checkpoint:digest(encoded(&body)?.as_bytes()),metrics:BTreeMap::new()};
     tx.execute("INSERT INTO documents VALUES(?1,?2,?3,?4,?4,0,?5)",params![id,title,started,now,encoded(&body)?]).map_err(storage)?;
+    tx.execute("INSERT INTO document_types(document,kind) VALUES(?1,?2)",params![id,kind]).map_err(storage)?;
     tx.execute("INSERT INTO revisions VALUES(?1,0,?2,'[]',?3,'initial','')",params![id,encoded(&body)?,now]).map_err(storage)?;
     tx.execute("INSERT INTO editor_events VALUES(?1,0,?2,?3)",params![id,encoded(&e)?,event_hash(&genesis(&id),&e)]).map_err(storage)?;
     tx.commit().map_err(storage)?;drop(_lock);load(root,&id)
 }
+fn legacy_kind(content:&Value)->&'static str {
+    if content["attrs"]["markdownSource"].is_string() { "markdown" } else { "word" }
+}
 pub fn load(root:&Path,id:&str)->Result<Value>{
     if !valid_id(id){return Err("文档编号无效。".into());}
     let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
-    let (title,created,revision,content):(String,u64,u64,String)=db.query_row("SELECT title,created,revision,content FROM documents WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).map_err(storage)?;
+    let (title,created,revision,content,kind):(String,u64,u64,String,Option<String>)=db.query_row("SELECT d.title,d.created,d.revision,d.content,t.kind FROM documents d LEFT JOIN document_types t ON t.document=d.id WHERE d.id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).map_err(storage)?;
+    let content=parse(content)?;
+    let kind=kind.as_deref().unwrap_or_else(||legacy_kind(&content));
     let mut stmt=db.prepare("SELECT revision,saved,actions FROM revisions WHERE document=?1 ORDER BY revision DESC LIMIT 120").map_err(storage)?;
     let rows=stmt.query_map([id],|r|Ok((r.get::<_,u64>(0)?,r.get::<_,u64>(1)?,r.get::<_,String>(2)?))).map_err(storage)?;
     let mut versions=vec![];let mut actions=vec![];
     for row in rows{let (rev,time,json)=row.map_err(storage)?;let batch:Vec<Action>=serde_json::from_str(&json).map_err(storage)?;versions.push(json!({"revision":rev,"saved":time,"count":batch.len()}));if actions.len()<300{for a in batch.into_iter().rev().take(300-actions.len()){actions.push(json!({"revision":rev,"action":a}));}}}
     let count:u64=db.query_row("SELECT COUNT(*) FROM editor_events WHERE document=?1",[id],|r|r.get(0)).map_err(storage)?;
-    Ok(json!({"id":id,"title":title,"created":created,"revision":revision,"content":parse(content)?,"versions":versions,"actions":actions,"event_count":count}))
+    Ok(json!({"id":id,"title":title,"created":created,"revision":revision,"content":content,"kind":kind,"versions":versions,"actions":actions,"event_count":count}))
 }
 pub fn version(root:&Path,id:&str,revision:u64)->Result<Value>{
     if !valid_id(id){return Err("文档编号无效。".into());}let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
@@ -96,6 +104,12 @@ pub fn save(root:&Path,input:Save)->Result<Value>{
     if let Some((revision,hash))=previous {if hash!=payload{return Err("保存请求冲突，请重新打开文档。".into());}return Ok(json!({"revision":revision}));}
     let revision:u64=tx.query_row("SELECT revision FROM documents WHERE id=?1",[&input.id],|r|r.get(0)).map_err(storage)?;
     if revision!=input.expected_revision{return Err("这份文档已在其他窗口更新。请先保留当前内容，再重新打开文档。".into());}
+    let kind_exists:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM document_types WHERE document=?1)",[&input.id],|r|r.get(0)).map_err(storage)?;
+    if !kind_exists {
+        let previous_content:String=tx.query_row("SELECT content FROM documents WHERE id=?1",[&input.id],|r|r.get(0)).map_err(storage)?;
+        let kind=legacy_kind(&parse(previous_content)?);
+        tx.execute("INSERT INTO document_types(document,kind) VALUES(?1,?2)",params![input.id,kind]).map_err(storage)?;
+    }
     let (last_seq,mut head,json):(u64,String,String)=tx.query_row("SELECT seq,hash,json FROM editor_events WHERE document=?1 ORDER BY seq DESC LIMIT 1",[&input.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(storage)?;
     let mut elapsed=serde_json::from_str::<Event>(&json).map_err(storage)?.elapsed_ms;
     if last_seq+input.actions.len() as u64+2>=MAX_EVENTS as u64{return Err("这份记录已满，请新建文档继续。".into());}
@@ -188,7 +202,7 @@ mod tests {
     }
     #[test]
     fn markdown_certificate_binds_the_exact_utf8_file(){
-        let root=root();let d=create(&root.0,"Markdown","2026-11-06T00:00:00Z").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();
+        let root=root();let d=create(&root.0,"Markdown","2026-11-06T00:00:00Z","word").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();
         let source="# 标题\n\n保留 **原始语法** 与空白。\n";
         let out=export_markdown(&root.0,id,"写作.md",source).unwrap();assert!(out.report.valid);assert_eq!(out.proof.manifest.artifact_hash,digest(source.as_bytes()));assert_eq!(out.proof.manifest.artifact_bytes,source.len() as u64);
         assert!(!verify(&out.proof,&digest(source.trim().as_bytes()),source.trim().len() as u64).valid);
@@ -196,8 +210,31 @@ mod tests {
     struct Temp(std::path::PathBuf);impl Drop for Temp{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
     fn root()->Temp{let p=std::env::temp_dir().join(format!("wp-editor-{}",super::super::random_hex(12)));std::fs::create_dir_all(&p).unwrap();std::fs::write(p.join("signing-key.bin"),[7u8;32]).unwrap();Temp(p)}
     fn save_input(id:&str)->Save{Save{id:id.into(),expected_revision:0,request_id:"a".repeat(32),title:"课程论文".into(),content:json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"你好 <script>"}]}]}),actions:vec![Action{kind:"edit".into(),elapsed_ms:30,inserted:11,deleted:0,chars:11,steps:vec![json!({"stepType":"replace"})],selection:json!({"from":1,"to":1}),detail:Value::Null,metrics:BTreeMap::new()}]}}
-    #[test]fn saves_reopen_and_retries_exact_request_without_duplicate_events(){let root=root();let d=create(&root.0,"课程论文","2026-11-06T00:00:00Z").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();save(&root.0,save_input(id)).unwrap();let loaded=load(&root.0,id).unwrap();assert_eq!(loaded["revision"],1);assert_eq!(loaded["event_count"],3);assert_eq!(version(&root.0,id,0).unwrap()["content"][0]["type"],"paragraph");let mut stale=save_input(id);stale.request_id="b".repeat(32);assert!(save(&root.0,stale).is_err());}
-    #[test]fn export_verifies_and_tampering_fails_without_executable_content(){let root=root();let d=create(&root.0,"论文","2026-11-06T00:00:00Z").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();let out=export(&root.0,id,"workproof.html").unwrap();assert!(out.report.valid);assert!(!out.html.contains("<script>"));assert!(out.html.contains("&lt;script&gt;"));assert!(!verify(&out.proof,&digest(b"changed"),7).valid);let mut p=out.proof.clone();p.records[1].event.inserted+=1;assert!(!verify(&p,&p.manifest.artifact_hash,p.manifest.artifact_bytes).valid);}
-    #[test]fn rejects_path_ids_unknown_nodes_and_invalid_action_metrics(){let root=root();assert!(load(&root.0,"../key").is_err());let d=create(&root.0,"论文","").unwrap();let mut s=save_input(d["id"].as_str().unwrap());s.content=json!({"type":"doc","content":[{"type":"iframe"}]});assert!(save(&root.0,s).is_err());let mut s=save_input(d["id"].as_str().unwrap());s.actions[0].metrics.insert("clipboard_text".into(),1);assert!(save(&root.0,s).is_err());assert_eq!(load(&root.0,d["id"].as_str().unwrap()).unwrap()["revision"],0);}
-    #[test]fn refuses_changed_body_before_signing_a_new_export(){let root=root();let d=create(&root.0,"论文","").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();let db=db(&root.0).unwrap();db.execute("UPDATE documents SET content=?2 WHERE id=?1",params![id,encoded(&json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"altered"}]}]})).unwrap()]).unwrap();drop(db);assert!(export(&root.0,id,"workproof.html").is_err());}
+    #[test]
+    fn document_kind_survives_saves_and_legacy_markdown_is_preserved() {
+        let root = root();
+        let doc = create(&root.0, "Markdown", "", "markdown").unwrap();
+        let id = doc["id"].as_str().unwrap();
+        assert_eq!(doc["kind"], "markdown");
+        save(&root.0, save_input(id)).unwrap();
+        assert_eq!(load(&root.0, id).unwrap()["kind"], "markdown");
+        assert!(create(&root.0, "无效类型", "", "html").is_err());
+
+        let old = create(&root.0, "旧文档", "", "word").unwrap();
+        let old_id = old["id"].as_str().unwrap();
+        let connection = db(&root.0).unwrap();
+        connection.execute("DELETE FROM document_types WHERE document=?1", [old_id]).unwrap();
+        assert_eq!(load(&root.0, old_id).unwrap()["kind"], "word");
+        let mut content = old["content"].clone();
+        content["attrs"] = json!({"markdownSource":"# 原始 Markdown"});
+        connection.execute("UPDATE documents SET content=?2 WHERE id=?1", params![old_id, encoded(&content).unwrap()]).unwrap();
+        drop(connection);
+        assert_eq!(load(&root.0, old_id).unwrap()["kind"], "markdown");
+        save(&root.0, save_input(old_id)).unwrap();
+        assert_eq!(load(&root.0, old_id).unwrap()["kind"], "markdown");
+    }
+    #[test]fn saves_reopen_and_retries_exact_request_without_duplicate_events(){let root=root();let d=create(&root.0,"课程论文","2026-11-06T00:00:00Z","word").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();save(&root.0,save_input(id)).unwrap();let loaded=load(&root.0,id).unwrap();assert_eq!(loaded["revision"],1);assert_eq!(loaded["event_count"],3);assert_eq!(version(&root.0,id,0).unwrap()["content"][0]["type"],"paragraph");let mut stale=save_input(id);stale.request_id="b".repeat(32);assert!(save(&root.0,stale).is_err());}
+    #[test]fn export_verifies_and_tampering_fails_without_executable_content(){let root=root();let d=create(&root.0,"论文","2026-11-06T00:00:00Z","word").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();let out=export(&root.0,id,"workproof.html").unwrap();assert!(out.report.valid);assert!(!out.html.contains("<script>"));assert!(out.html.contains("&lt;script&gt;"));assert!(!verify(&out.proof,&digest(b"changed"),7).valid);let mut p=out.proof.clone();p.records[1].event.inserted+=1;assert!(!verify(&p,&p.manifest.artifact_hash,p.manifest.artifact_bytes).valid);}
+    #[test]fn rejects_path_ids_unknown_nodes_and_invalid_action_metrics(){let root=root();assert!(load(&root.0,"../key").is_err());let d=create(&root.0,"论文","","word").unwrap();let mut s=save_input(d["id"].as_str().unwrap());s.content=json!({"type":"doc","content":[{"type":"iframe"}]});assert!(save(&root.0,s).is_err());let mut s=save_input(d["id"].as_str().unwrap());s.actions[0].metrics.insert("clipboard_text".into(),1);assert!(save(&root.0,s).is_err());assert_eq!(load(&root.0,d["id"].as_str().unwrap()).unwrap()["revision"],0);}
+    #[test]fn refuses_changed_body_before_signing_a_new_export(){let root=root();let d=create(&root.0,"论文","","word").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();let db=db(&root.0).unwrap();db.execute("UPDATE documents SET content=?2 WHERE id=?1",params![id,encoded(&json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"altered"}]}]})).unwrap()]).unwrap();drop(db);assert!(export(&root.0,id,"workproof.html").is_err());}
 }

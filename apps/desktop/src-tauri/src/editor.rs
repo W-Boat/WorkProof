@@ -6,7 +6,7 @@ fn root(window:&WebviewWindow)->Result<std::path::PathBuf,String>{super::workben
 #[tauri::command]
 pub async fn editor_list(window:WebviewWindow)->Result<Value,String>{let dir=root(&window)?;tauri::async_runtime::spawn_blocking(move||store::list(&dir)).await.map_err(|_|"文档列表未能读取。")?}
 #[tauri::command]
-pub async fn editor_create(window:WebviewWindow,title:String,started:String)->Result<Value,String>{let dir=root(&window)?;tauri::async_runtime::spawn_blocking(move||store::create(&dir,&title,&started)).await.map_err(|_|"文档未能创建。")?}
+pub async fn editor_create(window:WebviewWindow,title:String,started:String,kind:String)->Result<Value,String>{let dir=root(&window)?;tauri::async_runtime::spawn_blocking(move||store::create(&dir,&title,&started,&kind)).await.map_err(|_|"文档未能创建。")?}
 #[tauri::command]
 pub async fn editor_load(window:WebviewWindow,id:String)->Result<Value,String>{let dir=root(&window)?;tauri::async_runtime::spawn_blocking(move||store::load(&dir,&id)).await.map_err(|_|"文档未能打开。")?}
 #[tauri::command]

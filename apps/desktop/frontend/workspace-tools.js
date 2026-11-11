@@ -2,7 +2,7 @@ import {icon} from './icons.js';
 const $=id=>document.getElementById(id);
 const node=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;};
 
-export function initializeWorkspaceTools({commands,canOpen,onError,getEditor,onShortcut}){
+export function initializeWorkspaceTools({commands,canOpen,onError,getEditor,onShortcut,usesLinkShortcut}){
   const trigger=node('fluent-button','workspace-command-trigger');trigger.id='workspace-commands';
   trigger.setAttribute('appearance','subtle');trigger.setAttribute('aria-label','快捷命令（Ctrl+K）');
   trigger.setAttribute('data-icon','search');trigger.textContent='快捷命令';
@@ -51,7 +51,7 @@ export function initializeWorkspaceTools({commands,canOpen,onError,getEditor,onS
   });
   document.addEventListener('keydown',event=>{
     if(event.isComposing||event.defaultPrevented||!canOpen())return;
-    if((event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==='k'){event.preventDefault();event.stopPropagation();onShortcut?.(event);dialog.open?close():open();}
+    if((event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==='k'&&!usesLinkShortcut?.(event)){event.preventDefault();event.stopPropagation();onShortcut?.(event);dialog.open?close():open();}
     if((event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==='n'&&!document.querySelector('dialog[open]')){
       event.preventDefault();event.stopPropagation();onShortcut?.(event);run('new');
     }
@@ -60,14 +60,17 @@ export function initializeWorkspaceTools({commands,canOpen,onError,getEditor,onS
   const stats=node('dialog','workspace-statistics');stats.id='document-statistics';stats.setAttribute('aria-labelledby','statistics-title');
   const statsTitle=node('h2','','文档统计');statsTitle.id='statistics-title';const values=node('dl','statistics-values');
   const done=node('fluent-button');done.setAttribute('appearance','primary');done.setAttribute('data-keep-label','true');done.textContent='完成';
-  stats.append(statsTitle,values,node('p','statistics-note','只统计当前正文。英文词按连续字母统计，中文按汉字统计。'),done);document.body.append(stats);
+  stats.append(statsTitle,values,node('p','statistics-note','只统计当前正文，字符数不计段落分隔符。'),done);document.body.append(stats);
   done.addEventListener('click',()=>stats.close());stats.addEventListener('close',()=>$('editor-word-count')?.focus({preventScroll:true}));
   function showStatistics(){
     const editor=getEditor();if(!editor||!canOpen()||document.querySelector('dialog[open]'))return;
-    const text=editor.getText();let characters=0,nonblank=0,han=0,paragraphs=0;
+    const doc=editor.state.doc;
+    const text=doc.textBetween(0,doc.content.size,'');
+    const words=doc.textBetween(0,doc.content.size,'\n');
+    let characters=0,nonblank=0,han=0,paragraphs=0;
     for(const character of text){characters++;if(!/\s/u.test(character))nonblank++;if(/\p{Script=Han}/u.test(character))han++;}
     editor.state.doc.descendants(item=>{if(['paragraph','heading'].includes(item.type.name)&&item.textContent.trim())paragraphs++;});
-    const rows=[['字符（含空白）',characters],['非空白字符',nonblank],['汉字',han],['英文词',(text.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g)||[]).length],['文字段落（含标题）',paragraphs]];
+    const rows=[['字符（含空白）',characters],['非空白字符',nonblank],['汉字',han],['英文词',(words.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g)||[]).length],['文字段落（含标题）',paragraphs]];
     values.replaceChildren(...rows.map(([label,count])=>{const row=node('div');row.append(node('dt','',label),node('dd','',count.toLocaleString()));return row;}));stats.showModal();done.focus();
   }
   $('editor-word-count').addEventListener('click',showStatistics);

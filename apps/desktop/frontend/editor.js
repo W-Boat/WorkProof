@@ -188,22 +188,33 @@ async function openDocument(doc){
     const domEvents={keydown,copy:()=>{commandAction('copy');return false;},paste:()=>{commandAction('paste');return false;},cut:()=>{commandAction('cut');return false;},beforeinput:(_v,event)=>{addAction('beforeinput',{detail:{input_type:event.inputType}});if(event.inputType==='historyUndo')hint('undo');if(event.inputType==='historyRedo')hint('redo');return false;},input:(_v,event)=>{addAction('input',{detail:{input_type:event.inputType}});return false;},focus:()=>{addAction('focus');return false;},blur:()=>{addAction('blur');return false;}};
     for(const type of ['compositionstart','compositionupdate','compositionend','drop','dragstart','dragend'])domEvents[type]=(_v,event)=>{addAction(type,{detail:{data:typeof event.data==='string'?event.data.slice(0,2048):null}});return false;};
     editor=new editorRuntime.Editor({element:$('tiptap-editor'),extensions:editorRuntime.editorExtensions(true),content:doc.content,editorProps:{attributes:{'aria-label':'文档正文',role:'textbox','aria-multiline':'true',spellcheck:'true'},handleDOMEvents:domEvents},onTransaction:transaction,onSelectionUpdate:({editor:e})=>updateToolbar(e)});
-    restorePageLayout();workspace.applyMode();suppressed=false;workspace.changed();state('已保存到本机','saved');$('editor-word-count').textContent=`${editorCharacters().toLocaleString()} 字符`;
+    restorePageLayout();workspace.setDocumentKind(doc.kind);suppressed=false;workspace.changed();state('已保存到本机','saved');$('editor-word-count').textContent=`${editorCharacters().toLocaleString()} 字符`;
     $('certificate-result').hidden=true;$('certificate-empty').hidden=false;renderRecent();updateToolbar();ui.selectView('document');selectTab('write');
   }catch(error){reportError(error);}finally{suppressed=false;opening=false;}
 }
-async function createDocument(templateId='blank'){
+async function createDocument(kind,templateId='blank'){
   if(opening||creating||exporting||closing)return;
   creating=true;
   const buttons=[$('new-document'),$('first-document')];buttons.forEach(b=>b.disabled=true);
   try{
     const template=draftTemplates.find(item=>item.id===templateId);
-    await flush();const doc=await ipc('editor_create',{title:template?.title||'未命名文档',started:new Date().toISOString()});await openDocument(doc);
+    try{await flush();}catch(error){reportError(error);return;}
+    const doc=await ipc('editor_create',{title:template?.title||'未命名文档',started:new Date().toISOString(),kind});await openDocument(doc);
     if(active?.id!==doc.id)throw new Error('新文档尚未打开，请从我的文档重试。');
     if(template){hint('import');editor.view.dispatch(editor.state.tr.replaceWith(0,editor.state.doc.content.size,editor.schema.nodeFromJSON(template.content).content).setMeta('workproofTemplate',template.id));await flush();}
     $('document-title').focus();$('document-title').select();await loadLibrary();
   }
   catch(error){ui.showMessage(errorText(error),'error');}finally{creating=false;buttons.forEach(b=>b.disabled=false);}
+}
+function chooseDocumentKind(templateId='blank'){
+  if(opening||creating||exporting||closing||document.querySelector('dialog[open]'))return;
+  const dialog=$('document-kind-dialog');
+  dialog.returnValue='';
+  dialog.addEventListener('close',()=>{
+    const kind=dialog.returnValue;
+    if(kind==='word'||kind==='markdown')createDocument(kind,templateId);
+  },{once:true});
+  dialog.showModal();
 }
 function element(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
 const librarySort=element('select');librarySort.id='library-sort';librarySort.setAttribute('aria-label','文档排序');
@@ -258,7 +269,7 @@ window.addEventListener('workproof-engine',event=>{
   if(catalogRefreshTimer===null)catalogRefreshTimer=setTimeout(()=>{catalogRefreshTimer=null;if(document.body.dataset.view==='library')loadLibrary();},Math.max(0,10000-(Date.now()-lastLibraryRefresh)));
 });
 window.addEventListener('workproof-view',event=>{if(event.detail==='library')loadLibrary();});
-$('new-document').addEventListener('click',createDocument);$('first-document').addEventListener('click',createDocument);$('reload-documents').addEventListener('click',loadLibrary);$('document-search').addEventListener('input',renderLibrary);
+$('new-document').addEventListener('click',()=>chooseDocumentKind());$('first-document').addEventListener('click',()=>chooseDocumentKind());$('reload-documents').addEventListener('click',loadLibrary);$('document-search').addEventListener('input',renderLibrary);
 $('library-source-filter')?.addEventListener('change',renderLibrary);
 $('document-title').addEventListener('input',()=>{if(active){dirty=true;state('待保存');scheduleSave();$('certificate-result').hidden=true;$('certificate-empty').hidden=false;}});
 $('back-library').addEventListener('click',async()=>{try{await flush();ui.selectView('library',true);}catch(error){reportError(error);}});
@@ -420,7 +431,8 @@ $('word-file').addEventListener('change',async event=>{
   try{
     if(!file.name.toLowerCase().endsWith('.docx')||file.size>8*1024*1024)throw new Error('请选择不超过 8 MB 的 .docx 文件。');
     await flush();const content=await wordOperation('import',{bytes:await file.arrayBuffer()});
-    const title=file.name.replace(/\.docx$/i,'').slice(0,120)||'导入的 Word 文档';const doc=await ipc('editor_create',{title,started:new Date().toISOString()});await openDocument(doc);
+    const title=file.name.replace(/\.docx$/i,'').slice(0,120)||'导入的 Word 文档';const doc=await ipc('editor_create',{title,started:new Date().toISOString(),kind:'word'});await openDocument(doc);
+    if(active?.id!==doc.id)throw new Error('导入文档尚未打开，请从我的文档重试。');
     hint('import');editor.commands.setContent(content);await flush();ui.showMessage('Word 正文、常用格式和表格已导入，从现在开始记录。复杂版式请在 Word 中核对。');await loadLibrary();
   }catch(error){ui.showMessage(errorText(error),'error');}finally{importing=false;$('import-word').disabled=false;}
 });
@@ -429,21 +441,23 @@ $('markdown-file').addEventListener('change',async event=>{
   const file=event.target.files?.[0];event.target.value='';if(!file||importing||opening||exporting)return;importing=true;$('import-markdown').disabled=true;
   try{
     if(!/\.(md|markdown|txt)$/i.test(file.name)||file.size>512*1024)throw new Error('请选择不超过 512 KB 的 Markdown 或文本文件。');
-    const text=await file.text();await flush();const doc=await ipc('editor_create',{title:file.name.replace(/\.(md|markdown|txt)$/i,'').slice(0,120)||'Markdown 文档',started:new Date().toISOString()});await openDocument(doc);
+    const text=await file.text();await flush();const doc=await ipc('editor_create',{title:file.name.replace(/\.(md|markdown|txt)$/i,'').slice(0,120)||'Markdown 文档',started:new Date().toISOString(),kind:'markdown'});await openDocument(doc);
+    if(active?.id!==doc.id)throw new Error('导入文档尚未打开，请从我的文档重试。');
     const parsed=editor.schema.nodeFromJSON(editor.markdown.parse(text));hint('import');editor.view.dispatch(editor.state.tr.replaceWith(0,editor.state.doc.content.size,parsed.content).setDocAttribute('markdownSource',text));await flush();
-    document.querySelector('[data-mode=markdown]').click();ui.showMessage('Markdown 已导入，从现在开始记录。');await loadLibrary();
+    ui.showMessage('Markdown 已导入，从现在开始记录。');await loadLibrary();
   }catch(error){ui.showMessage(errorText(error),'error');}finally{importing=false;$('import-markdown').disabled=false;}
 });
 const workspaceTools=initializeWorkspaceTools({
   getEditor:()=>editor,canOpen:()=>!closing&&!opening&&!exporting&&!creating,
+  usesLinkShortcut:event=>Boolean(editor&&event.target instanceof Element&&event.target.closest('#tiptap-editor')&&(!editor.state.selection.empty||editor.isActive('link'))),
   onShortcut:event=>{if(document.body.dataset.view==='document')addAction('keyboard',{detail:{source:'workspace-command',key:event.key,code:event.code,ctrl:event.ctrlKey,meta:event.metaKey,shift:event.shiftKey,alt:event.altKey,repeat:event.repeat,composing:false}});},
   onError:error=>ui.showMessage(errorText(error),'error'),
   commands:()=>{
     const current=Boolean(active&&document.body.dataset.view==='document'),writing=current&&$('tab-write').getAttribute('aria-selected')==='true';
     const navigate=async view=>{await flush();ui.selectView(view,true);};
     return [
-      {id:'new',title:'新建空白文档',description:'自动保存正文与编辑过程',icon:'document',shortcut:'Ctrl+N',run:()=>createDocument()},
-      ...draftTemplates.map(template=>({id:'template:'+template.id,title:'新建'+template.title,description:template.description,icon:'document_text',run:()=>createDocument(template.id)})),
+      {id:'new',title:'新建空白文档',description:'自动保存正文与编辑过程',icon:'document',shortcut:'Ctrl+N',run:()=>chooseDocumentKind()},
+      ...draftTemplates.map(template=>({id:'template:'+template.id,title:'新建'+template.title,description:template.description,icon:'document_text',run:()=>chooseDocumentKind(template.id)})),
       {id:'import-word',title:'导入 Word 文档',description:'打开 .docx，从导入后开始记录',icon:'arrow_upload',run:()=>$('import-word').click()},
       {id:'import-markdown',title:'导入 Markdown 或文本',description:'打开 .md、.markdown 或 .txt',icon:'code',run:()=>$('import-markdown').click()},
       {id:'save',title:'保存当前文档',description:'将正文与待保存动作写入本机',icon:'save',enabled:current,run:()=>flush()},

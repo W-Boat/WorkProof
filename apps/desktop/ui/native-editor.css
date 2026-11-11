@@ -375,3 +375,9 @@ body:not([data-view=document]) .writing-statistics-button{display:none}
 @keyframes workspace-dialog-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.workspace-command-dialog[open],.workspace-statistics[open]{animation:none}}
 :root[data-reduce-motion=true] .workspace-command-dialog[open],:root[data-reduce-motion=true] .workspace-statistics[open]{animation:none}
+.document-kind{flex:none;color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap}
+.document-kind-choice{display:grid;width:100%;gap:3px;padding:12px 14px;margin-bottom:8px;text-align:left;background:var(--content);border:1px solid var(--stroke);border-radius:5px;color:var(--text)}
+.document-kind-choice strong{font-size:16px}
+.document-kind-choice span{color:var(--muted)}
+.document-kind-choice:hover{background:var(--hover)}
+.document-kind-cancel{display:block;margin:14px 0 0 auto;padding:5px 12px;background:transparent;border:1px solid var(--stroke);border-radius:4px;color:var(--text)}

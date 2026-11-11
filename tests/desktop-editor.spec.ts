@@ -34,7 +34,7 @@ async function desktop(page:Page){
       if(command==='external_document_open'){(w.editorHarness.openedExternalIds||=[]).push(args.id);return null;}
       if(command==='editor_create'){
         const id=crypto.randomUUID().replaceAll('-',''),now=Date.now();
-        const doc={id,title:args.title,created:now,modified:now,revision:0,content:{type:'doc',content:[{type:'paragraph'}]},actions:[],versions:[{revision:0,saved:now,count:0}],snapshots:{0:{type:'doc',content:[{type:'paragraph'}]}},event_count:1};docs[id]=doc;write(docs);return doc;
+        const doc={id,title:args.title,kind:args.kind,created:now,modified:now,revision:0,content:{type:'doc',content:[{type:'paragraph'}]},actions:[],versions:[{revision:0,saved:now,count:0}],snapshots:{0:{type:'doc',content:[{type:'paragraph'}]}},event_count:1};docs[id]=doc;write(docs);return doc;
       }
       if(command==='editor_load')return docs[args.id];
       if(command==='editor_version')return docs[args.id].snapshots[args.revision];
@@ -59,7 +59,8 @@ async function desktop(page:Page){
   await page.goto('/desktop-status/index.html');
   await expect(page.getByRole('button',{name:'新建文档',exact:true})).toBeVisible();
 }
-async function create(page:Page){await page.getByRole('button',{name:'新建文档',exact:true}).click();await expect(page.getByRole('textbox',{name:'文档正文'})).toBeVisible();await expect(page.locator('#new-document')).toBeEnabled();return page.getByRole('textbox',{name:'文档正文'});}
+async function selectKind(page:Page,kind:'word'|'markdown'){await page.locator(`#document-kind-dialog button[value=${kind}]`).click();}
+async function create(page:Page,kind:'word'|'markdown'='word'){await page.getByRole('button',{name:'新建文档',exact:true}).click();await selectKind(page,kind);await expect(page.getByRole('textbox',{name:'文档正文'})).toBeVisible();await expect(page.locator('#new-document')).toBeEnabled();return page.getByRole('textbox',{name:'文档正文'});}
 async function ensureRibbonOpen(page:Page){
   await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');
   // Selecting a tool tab explicitly expands its page even if automatic layout
@@ -92,18 +93,17 @@ test('CodeMirror loads only for Markdown source and reuses its runtime',async({p
   const requests:string[]=[];
   page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/desktop-status/markdown-source-runtime.js'))requests.push(request.url());});
   await desktop(page);await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');expect(requests).toEqual([]);
-  const body=await create(page);await body.fill('正文编辑无需源码组件');expect(requests).toEqual([]);
-  await page.locator('[data-mode=markdown]').click();await expect(body).toBeVisible();expect(requests).toEqual([]);
+  const body=await create(page,'markdown');await body.fill('正文编辑无需源码组件');expect(requests).toEqual([]);
   await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toBeVisible();expect(requests).toHaveLength(1);
   await page.locator('#toggle-source').click();await expect(body).toBeVisible();await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toBeVisible();expect(requests).toHaveLength(1);
 });
 
-test('switching to Word cancels a pending source open and reopening uses the latest document',async({page})=>{
-  await desktop(page);const body=await create(page);await body.fill('等待加载时的原稿');await page.locator('[data-mode=markdown]').click();
+test('leaving the editor cancels a pending source open and reopening uses the latest document',async({page})=>{
+  await desktop(page);const body=await create(page,'markdown');await body.fill('等待加载时的原稿');
   const delayed=await delayMarkdownRuntime(page);
   await page.locator('#toggle-source').click();await delayed.requestStarted;
   await expect(page.locator('#toggle-source')).toHaveAttribute('aria-busy','true');await expect(body).toBeVisible();
-  await page.locator('[data-mode=word]').click();
+  await page.locator('#tab-process').click();await page.locator('#tab-write').click();
   await body.focus();await body.press('ControlOrMeta+a');await body.press('Backspace');
   await expect(body).toHaveText('');await page.keyboard.insertText('加载期间更新后的正文');
   await expect(body).toHaveText('加载期间更新后的正文');
@@ -111,11 +111,11 @@ test('switching to Word cancels a pending source open and reopening uses the lat
   delayed.release();await loaded;
   await page.evaluate(async()=>{await import(new URL('markdown-source-runtime.js',document.baseURI).href);await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));});
   await expect(page.locator('#markdown-source-panel')).toBeHidden();await expect(page.locator('#markdown-source .cm-content')).toHaveCount(0);await expect(body).toHaveText('加载期间更新后的正文');
-  await page.locator('[data-mode=markdown]').click();await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toHaveText('加载期间更新后的正文');
+  await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toHaveText('加载期间更新后的正文');
 });
 
 test('tray quit saves while a source runtime is pending and prevents its late view from opening',async({page})=>{
-  await desktop(page);const body=await create(page);await body.click();await body.press('Control+a');await body.press('Backspace');await page.keyboard.insertText('退出前保留的正文');await expect(body).toContainText('退出前保留的正文');await page.locator('[data-mode=markdown]').click();
+  await desktop(page);const body=await create(page,'markdown');await body.click();await body.press('Control+a');await body.press('Backspace');await page.keyboard.insertText('退出前保留的正文');await expect(body).toContainText('退出前保留的正文');
   const delayed=await delayMarkdownRuntime(page);
   await page.locator('#toggle-source').click();await delayed.requestStarted;
   await page.evaluate(()=>{(window as any).editorHarness.listeners['workproof-quit-requested']();});
@@ -128,17 +128,17 @@ test('tray quit saves while a source runtime is pending and prevents its late vi
 });
 
 test('a delayed source request cannot replace a different document opened from the library',async({page})=>{
-  await desktop(page);const body=await create(page);await body.fill('第一份文档的正文');
+  await desktop(page);const body=await create(page,'markdown');await body.fill('第一份文档的正文');
   const delayed=await delayMarkdownRuntime(page);await page.locator('#toggle-source').click();await delayed.requestStarted;
   await page.locator('#back-library').click();await create(page);await body.fill('第二份文档保留自己的内容');
   const loaded=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/desktop-status/markdown-source-runtime.js'));
   delayed.release();await loaded;
   await page.evaluate(async()=>{await import(new URL('markdown-source-runtime.js',document.baseURI).href);await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));});
-  await expect(body).toHaveText('第二份文档保留自己的内容');await expect(page.locator('#markdown-source .cm-content')).toHaveCount(0);await expect(page.locator('#toggle-source')).toBeEnabled();
+  await expect(body).toHaveText('第二份文档保留自己的内容');await expect(page.locator('#markdown-source .cm-content')).toHaveCount(0);await expect(page.locator('#toggle-source')).toBeHidden();
 });
 
 test('a failed source entry request preserves text and can be retried without reloading the app',async({page})=>{
-  await desktop(page);const body=await create(page);await body.fill('网络失败也保留正文');
+  await desktop(page);const body=await create(page,'markdown');await body.fill('网络失败也保留正文');
   let attempts=0;
   await page.route('**/desktop-status/markdown-source-runtime.js*',route=>++attempts===1?route.abort('failed'):route.fallback());
   await page.locator('#toggle-source').click();await expect(page.locator('#message')).toContainText('源码编辑器暂未加载');await expect(page.locator('#toggle-source')).toBeEnabled();await expect(body).toHaveText('网络失败也保留正文');
@@ -273,19 +273,15 @@ test('reduced motion removes pane animation and collapsing a focused pane restor
   await expect(page.getByRole('button',{name:'加粗',exact:true})).toBeVisible();
 });
 
-test('Markdown source keeps exact source in saved document and mode switching preserves rich content',async({page})=>{
-  await desktop(page);const body=await create(page);await body.fill('模式切换保留正文');
-  await page.locator('[data-mode=markdown]').click();await expect(body).toContainText('模式切换保留正文');
-  await page.locator('#toggle-source').click();const source=page.locator('#markdown-source .cm-content');await expect(source).toBeVisible();
+test('Markdown keeps exact source and its type after reopening',async({page})=>{
+  await desktop(page);const body=await create(page,'markdown');
+  await page.locator('#toggle-source').click();const source=page.locator('#markdown-source .cm-content');
   await source.fill('# 标题\n\n保留   源码空格');await page.locator('#save-document').click();
-  const saved=await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).content);
-  expect(saved.attrs.markdownSource).toBe('# 标题\n\n保留   源码空格');
-  await page.locator('[data-mode=word]').click();await expect(body.locator('h1')).toHaveText('标题');
-  await page.locator('[data-mode=markdown]').click();await page.locator('#toggle-source').click();await expect(source).toContainText('保留   源码空格');
-  await page.locator('[data-mode=word]').click();await body.click();await body.press('ControlOrMeta+a');await ensureRibbonOpen(page);await page.getByRole('button',{name:'下划线',exact:true}).click();
-  await page.locator('[data-mode=markdown]').click();await expect(body.locator('u')).toHaveText(['标题','保留   源码空格']);
-  await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source-panel')).toBeVisible();
-  await page.locator('#toggle-source').click();await expect(body.locator('u')).toHaveText(['标题','保留   源码空格']);
+  await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.saves.at(-1)?.content.attrs?.markdownSource)).toBe('# 标题\n\n保留   源码空格');
+  await page.locator('#back-library').click();await page.getByRole('button',{name:'继续编辑 未命名文档',exact:true}).click();
+  await expect(page.locator('#document-kind')).toHaveText('Markdown');await expect(body.locator('h1')).toHaveText('标题');
+  await expect(page.locator('[data-mode]')).toHaveCount(0);
+  await page.locator('#toggle-source').click();await expect(source).toContainText('保留   源码空格');
 });
 
 test('offline Word bridge preserves headings lists tables and supported rich marks',async({page})=>{
@@ -323,23 +319,19 @@ test('offline Word bridge preserves headings lists tables and supported rich mar
   await expect(page.locator('#tiptap-editor ul')).toBeVisible();await expect(page.locator('#tiptap-editor ol')).toBeVisible();
 });
 
-test('Markdown uses continuous layout and restores Word pagination preference without changing the document',async({page})=>{
-  await desktop(page);const body=await create(page);await body.fill(Array.from({length:80},(_,i)=>`第 ${i+1} 行连续写作内容。`).join('\n'));
-  await page.locator('#save-document').click();
-  const original=await page.evaluate(()=>JSON.stringify((window as any).editorHarness.saves.at(-1).content));
-  await ensureRibbonOpen(page);await page.locator('[data-ribbon=layout]').click();const pagination=page.locator('[data-command=pages]');
+test('document type controls pagination and source access',async({page})=>{
+  await desktop(page);const body=await create(page);
+  await expect(page.locator('#document-kind')).toHaveText('Word');
+  await expect(page.locator('#toggle-source')).toBeHidden();
+  await ensureRibbonOpen(page);await page.locator('[data-ribbon=layout]').click();
+  const pagination=page.locator('[data-command=pages]');
   await pagination.click();await expect(pagination).toHaveAttribute('aria-pressed','false');
-  await page.locator('[data-mode=markdown]').click();await expect(body).toHaveAttribute('rm-pagination-disabled','');await expect(pagination).toBeDisabled();
-  await page.locator('[data-mode=word]').click();await expect(body).toHaveAttribute('rm-pagination-disabled','');await expect(pagination).toBeEnabled();
-  await pagination.click();await expect(pagination).toHaveAttribute('aria-pressed','true');await expect(body).not.toHaveAttribute('rm-pagination-disabled','');
-  await page.locator('[data-mode=markdown]').click();await expect(body).toHaveAttribute('rm-pagination-disabled','');
-  await expect(body.locator('[data-rm-pagination]')).toHaveCount(0);
-  await page.locator('[data-mode=word]').click();await expect(body).not.toHaveAttribute('rm-pagination-disabled','');
-  await page.locator('#save-document').click();
-  expect(await page.evaluate(()=>JSON.stringify((window as any).editorHarness.saves.at(-1).content))).toBe(original);
-  await page.locator('[data-mode=markdown]').click();await page.locator('.workspace-nav [data-view=library]').click();await page.locator('#new-document').click();
+  await page.locator('#back-library').click();await create(page,'markdown');
   await expect(body).toHaveAttribute('rm-pagination-disabled','');
-  await page.locator('[data-mode=word]').click();await expect(body).not.toHaveAttribute('rm-pagination-disabled','');
+  await expect(pagination).toBeDisabled();await expect(page.locator('#toggle-source')).toBeVisible();
+  await page.locator('#back-library').click();await create(page);
+  await expect(page.locator('#document-kind')).toHaveText('Word');
+  await expect(pagination).toBeEnabled();await expect(pagination).toHaveAttribute('aria-pressed','false');
 });
 
 test('lossless Markdown tables tasks and embedded images remain editable and export their exact source',async({page})=>{
@@ -355,8 +347,8 @@ test('lossless Markdown tables tasks and embedded images remain editable and exp
 });
 
 test('closing freezes Markdown and waits for durable save before issuing the native close',async({page})=>{
-  await desktop(page);const body=await create(page);
-  await page.locator('[data-mode=markdown]').click();await page.locator('#toggle-source').click();
+  await desktop(page);const body=await create(page,'markdown');
+  await page.locator('#toggle-source').click();
   await page.evaluate(()=>{
     const w=window as any,invoke=w.__TAURI__.core.invoke;let blockNext=true;
     w.__TAURI__.core.invoke=(command:string,args:any)=>{
@@ -638,7 +630,7 @@ test('workspace commands create a recorded template and remain keyboard accessib
   await page.screenshot({path:info.outputPath('workspace-command-center-light.png')});
   const search=palette.getByRole('searchbox',{name:'搜索功能或文档'});
   await search.fill('找不到的命令xyz');await expect(palette.getByText('没有找到。试试“新建”“查找”或文档名称。')).toBeVisible();
-  await search.fill('会议记录');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
+  await search.fill('会议记录');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');await selectKind(page,'word');
   await expect(palette).not.toBeVisible();await expect(page.getByRole('textbox',{name:'文档名称'})).toHaveValue('会议记录');
   await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('讨论要点');
   await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.saves.flatMap((s:any)=>s.actions).some((a:any)=>a.kind==='import'&&a.detail?.source==='builtin-template'&&a.detail?.template_id==='meeting'))).toBe(true);
@@ -669,7 +661,7 @@ test('library sorting persists and source search reports the matching count',asy
   await page.getByRole('combobox',{name:'文档排序'}).selectOption('title');
   await expect(page.locator('#document-list .document-row strong')).toHaveText(['Alpha 2','Beta 1']);
   await page.reload();await expect(page.getByRole('combobox',{name:'文档排序'})).toHaveValue('title');
-  await page.getByRole('textbox',{name:'搜索文档',exact:true}).fill('Beta');
+  await page.locator('#document-search input').fill('Beta');
   await expect(page.locator('#library-summary')).toHaveText('找到 1 份，共 2 份文档');
   await expect(page.locator('#document-list .document-row strong')).toHaveText(['Beta 1']);
 });
@@ -677,8 +669,8 @@ test('library sorting persists and source search reports the matching count',asy
 test('a save failure prevents a template from replacing the current document',async({page})=>{
   await desktop(page);const body=await create(page);
   await page.evaluate(()=>{const w=window as any,invoke=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(command:string,args:any)=>command==='editor_save'?Promise.reject(new Error('磁盘不可写')):invoke(command,args);});
-  await body.fill('必须保留的未保存内容');await page.keyboard.press('Control+k');
-  await page.getByRole('searchbox',{name:'搜索功能或文档'}).fill('新建阅读笔记');await page.keyboard.press('Enter');
+  await body.fill('必须保留的未保存内容');await body.press('End');await page.keyboard.press('Control+k');
+  await page.getByRole('searchbox',{name:'搜索功能或文档'}).fill('新建阅读笔记');await page.keyboard.press('Enter');await selectKind(page,'markdown');
   await expect(body).toHaveText('必须保留的未保存内容');
   await expect.poll(()=>page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('test.editor.documents')||'{}')).length)).toBe(1);
   await expect(page.locator('#save-state')).toHaveAttribute('data-state','error');
