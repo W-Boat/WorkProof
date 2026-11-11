@@ -451,8 +451,8 @@ body:not([data-view=document]) .feedback{bottom:16px}
 .library-row-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
 /* Desktop chrome is not a selectable webpage. Document content remains editable. */
-body{user-select:none;-webkit-user-select:none}
-input,textarea,[contenteditable="true"],.cm-content,.tiptap,[data-selectable],.nv-certificate,#certificate-fingerprint,#history-preview{user-select:text;-webkit-user-select:text}
+body,body *{user-select:none;-webkit-user-select:none}
+input,textarea,[contenteditable="true"],[contenteditable="true"] *,.cm-content,.cm-content *,.tiptap,.tiptap *,[data-selectable],[data-selectable] *,.nv-certificate,.nv-certificate *,#certificate-fingerprint,#history-preview,#history-preview *{user-select:text;-webkit-user-select:text}
 select.wp-select-source{display:none!important}
 .wp-select{display:inline-flex;min-width:100px;max-width:100%;font:inherit;vertical-align:middle}
 .wp-select[hidden]{display:none!important}
