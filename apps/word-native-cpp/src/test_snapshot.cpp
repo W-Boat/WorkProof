@@ -82,7 +82,7 @@ int main(){
     if(!Check(doc,false,"negative characters"))return 1;
     doc.characters=0;doc.paragraphs=-1;
     if(!Check(doc,false,"negative paragraphs"))return 1;
-    const std::wstring identity=LR"(C:ixture	est.docx)";
+    const std::wstring identity=LR"(C:\fixture\test.docx)";
     const auto wrong=workproof::ReadWordRevisions(&doc,L"other.docx",true);
     const auto off=workproof::ReadWordRevisions(&doc,identity,false);
     if(wrong.tracking!=-1||off.tracking!=0||doc.trackingWrites!=0||off.total!=4)return 1;
