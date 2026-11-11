@@ -258,3 +258,5 @@ html[data-workproof-motion="reduced"] .verifier-page{animation:none}
 @media print{.verification-page-nav,.auxiliary-page,.verify-steps{display:none!important}}
 
 .fluent-verifier .verification-page-nav{margin:0}.result-certificate{margin-bottom:20px}
+
+.fluent-verifier .verifier-page:has(>.empty-proof){display:none}

@@ -30,9 +30,9 @@ test('real signed bulk insertion produces a readable warning and locates the ori
   await expect(panel).toContainText('粘贴、导入已有文稿');await expect(panel).toContainText('无法判定内容由人或 AI 创作');
   await expect(page.locator('#verification-result')).toContainText('编辑过程有待复核提醒');
   expect(await panel.evaluate(element=>!!(element.compareDocumentPosition(document.querySelector('.export-row')!)&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-  await expect(page.locator('.certificate-behavior')).toContainText('项过程提醒');
+  await expect(page.locator('.certificate-behavior')).toContainText('处过程提醒');
   await page.getByRole('button',{name:'复制指纹与核验说明',exact:true}).click();
-  await expect.poll(()=>page.evaluate(()=>(window as any).copiedBehaviorShare)).toContain('项过程提醒');
+  await expect.poll(()=>page.evaluate(()=>(window as any).copiedBehaviorShare)).toContain('处过程提醒');
   await panel.getByRole('button',{name:'定位提醒 1',exact:true}).click();
   await expect.poll(()=>page.getByRole('slider',{name:'浏览事件',exact:true}).inputValue()).not.toBe('0');
   await page.getByRole('checkbox',{name:'写入速率',exact:true}).check();

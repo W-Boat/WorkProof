@@ -9,7 +9,7 @@ export function behaviorSummary(assessment?:BehaviorAssessment|null,scope:'full'
   if(scope==='selective')return '过程信息不足（仅披露部分记录）';
   if(!assessment||['insufficient','unavailable'].includes(assessment.status))return '过程信息不足';
   if(assessment.status==='not_applicable')return '文字过程规则不适用';
-  if(assessment.status==='review'&&assessment.signals.length)return `${assessment.signals_truncated?'至少 ':''}${assessment.signals.length} 项过程提醒，需进一步复核`;
+  if(assessment.status==='review'&&assessment.signals.length)return `已显示 ${assessment.signals.length} 处过程提醒${assessment.signals_truncated?'（仅显示部分）':''}，需进一步复核`;
   if(assessment.status==='no_flags')return '过程统计暂未触发提醒';
   return '过程信息不足';
 }

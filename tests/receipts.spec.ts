@@ -23,7 +23,10 @@ test('real Rust receipt is verified locally only after independent key trust',as
   await panel.getByLabel('接收回执（.json）').setInputFiles(receipt);await panel.getByLabel('独立取得的签发公钥（.hex）').setInputFiles(publicFile);await panel.getByLabel('签发者标识',{exact:true}).fill('browser-test');
   const submit=panel.getByRole('button',{name:'检查接收回执',exact:true});await expect(submit).toBeDisabled();await panel.getByRole('checkbox').check();await submit.click();
   await expect(panel.getByText('接收回执与当前证据一致',{exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'检验单',exact:true}).click();
   await expect(page.getByRole('region',{name:'证据信任状态'})).toContainText('未认证');
+  await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();
+  await expect(panel.getByText('接收回执与当前证据一致',{exact:true})).toBeVisible();
   await panel.getByLabel('独立取得的签发公钥（.hex）').setInputFiles(wrongFile);await expect(panel.getByRole('checkbox')).not.toBeChecked();await expect(panel.getByRole('status')).toHaveCount(0);await panel.getByRole('checkbox').check();await submit.click();await expect(panel.getByRole('alert')).toBeVisible();
   await panel.getByLabel('独立取得的签发公钥（.hex）').setInputFiles(publicFile);await panel.getByLabel('签发者标识',{exact:true}).fill('untrusted-name');await panel.getByRole('checkbox').check();await submit.click();await expect(panel.getByRole('alert')).toBeVisible();
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
