@@ -50,7 +50,7 @@ def select_file(selector,path):
     wait(displayed)
 
 def click_text(text):
-    element=execute('return Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes('+json.dumps(text)+'))')
+    element=execute('return Array.from(document.querySelectorAll("button,fluent-button")).find(b=>(b.getAttribute("aria-label")||b.textContent).includes(arguments[0]))',[text])
     assert element
     click_element(element)
 def settled_layout():
@@ -67,7 +67,7 @@ def activate_iframe_text_with_pointer(text):
     settled_layout()
     call('POST',f'/session/{session}/frame',{'id':frame})
     try:
-        element=execute('return Array.from(document.querySelectorAll("button")).find(b=>(b.getAttribute("aria-label")||b.textContent).includes('+json.dumps(text)+'))')
+        element=execute('return Array.from(document.querySelectorAll("button,fluent-button")).find(b=>(b.getAttribute("aria-label")||b.textContent).includes(arguments[0]))',[text])
         assert element,'Workspace pointer target missing'
         execute("arguments[0].scrollIntoView({block:'center',behavior:'instant'});return true",[element])
         settled_layout()
@@ -109,7 +109,7 @@ def failure_dom_diagnostics():
     return {readyState:document.readyState,embedded:document.querySelector('.wp-stage')?.className||null,theme:document.documentElement.dataset.theme||null,
       viewport:{width:innerWidth,height:innerHeight,scrollX,scrollY},
       activeElement:document.activeElement?{tag:document.activeElement.tagName,id:document.activeElement.id,role:document.activeElement.getAttribute('role'),label:document.activeElement.getAttribute('aria-label')}:null,
-      buttons:Array.from(document.querySelectorAll('button')).slice(0,32).map(b=>({label:(b.getAttribute('aria-label')||b.textContent||'').trim().slice(0,100),disabled:b.disabled,rect:rect(b)})),
+      buttons:Array.from(document.querySelectorAll('button,fluent-button')).slice(0,32).map(b=>({label:(b.getAttribute('aria-label')||b.textContent||'').trim().slice(0,100),disabled:b.disabled,rect:rect(b)})),
       selectedFileCounts:Array.from(document.querySelectorAll('input[type=file]')).slice(0,8).map(input=>({label:input.getAttribute('aria-label'),count:input.files?.length||0})),
       progress:document.querySelector('.progress')?.textContent?.slice(0,300)||null,error:document.querySelector('.error-box')?.textContent?.slice(0,600)||null,
       resultSuccess:!!document.querySelector('.result-banner.success'),resultFailure:!!document.querySelector('.result-banner.failure'),
@@ -161,7 +161,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             install_failure_diagnostics()
             if execute("return new URLSearchParams(location.search).get('embedded')==='1'"):
                 def appearance_ready():
-                    assert execute("return document.querySelector('.wp-stage')?.classList.contains('wp-embedded')&&document.querySelector('.wp-rail')?.getBoundingClientRect().height===0"),'Desktop appearance did not activate'
+                    assert execute("const rail=document.querySelector('.wp-rail');return document.querySelector('.wp-stage')?.classList.contains('wp-embedded')&&(!rail||rail.getBoundingClientRect().height===0)&&!!document.querySelector('.verify-actions [aria-label]')"),'Desktop appearance did not activate'
                 wait(appearance_ready)
                 # Let React commit the accepted appearance and its layout before
                 # choosing a target in the frame's own browsing context.
@@ -170,7 +170,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             assert isolated is True,'Workspace iframe acquired workbench commands'
             activate_iframe_text_with_pointer('先体验一份演示证据')
             def demo_activated():
-                assert execute("const button=Array.from(document.querySelectorAll('button')).find(b=>(b.getAttribute('aria-label')||b.textContent).includes('先体验一份演示证据'));return !!button?.disabled||!!document.querySelector('.uploads .upload.filled')||!!document.querySelector('.result-banner')||!!document.querySelector('.error-box')"),'Native pointer did not activate the demo'
+                assert execute("const button=document.querySelector('.verify-actions [aria-label]');return !!button?.disabled||!!document.querySelector('.uploads .upload.filled')||!!document.querySelector('.result-banner')||!!document.querySelector('.error-box')"),'Native pointer did not activate the demo'
             wait(demo_activated)
             def frame_verified():assert execute("return !!document.querySelector('.result-banner.success')")
             wait(frame_verified);screenshot('workbench-frame-verified.png')
