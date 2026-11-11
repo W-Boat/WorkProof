@@ -8,6 +8,7 @@ fn main() {
     println!("cargo:rustc-env=WORKPROOF_BUILD_SOURCE={source}");
     println!("cargo:rustc-env=WORKPROOF_BUILD_NUMBER={number}");
     println!("cargo:rustc-env=WORKPROOF_BUILD_EPOCH={epoch}");
+    println!("cargo:warning=WorkProof build source={source} number={number} epoch={epoch}");
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "window_action","office_setup","engine_status","app_info","pending_adapters","decide_adapter",

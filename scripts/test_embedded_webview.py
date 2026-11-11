@@ -143,12 +143,14 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             def build_metadata_ready():
                 value=execute("return {version:document.getElementById('app-version')?.textContent,build:document.getElementById('app-build')?.textContent,source:document.getElementById('app-build')?.title,built_at:document.getElementById('app-built-at')?.title}")
                 assert value['version']==expected_version
-                assert value['source']==os.environ['GITHUB_SHA']
-                assert value['build'].startswith(os.environ['GITHUB_RUN_NUMBER']+' · ')
-                assert datetime.datetime.fromisoformat(value['built_at'].replace('Z','+00:00')).timestamp()<=time.time()+60
+                assert value['source'] and value['built_at']
                 return value
             build_information=wait(build_metadata_ready)
             (evidence/'build-information.json').write_text(json.dumps(build_information,ensure_ascii=False,indent=2),encoding='utf-8')
+            print('Installed package build information:',json.dumps(build_information,ensure_ascii=True),flush=True)
+            assert build_information['source']==os.environ['GITHUB_SHA'],'Installed package source does not match the checkout'
+            assert build_information['build'].startswith(os.environ['GITHUB_RUN_NUMBER']+' · '),'Installed package build number does not match this run'
+            assert datetime.datetime.fromisoformat(build_information['built_at'].replace('Z','+00:00')).timestamp()<=time.time()+60
         # The PC shell keeps verification in its own workspace. Exercise the
         # real navigation before opening the embedded verifier window.
         # The separate historical milestone also runs this script against an
