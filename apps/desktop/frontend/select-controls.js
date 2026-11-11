@@ -35,7 +35,6 @@ export function initializeSelectControls(){
         for(const item of listbox.querySelectorAll('fluent-option')){
           item.selected=item.value===source.value;item.setAttribute('aria-selected',String(item.selected));
         }
-        listbox.value=source.value;
       }finally{rendering=false;}
     }
     for(const property of ['value','selectedIndex']){
@@ -49,6 +48,13 @@ export function initializeSelectControls(){
       source.value=value;source.dispatchEvent(new Event('input',{bubbles:true}));source.dispatchEvent(new Event('change',{bubbles:true}));
     });
     source.addEventListener('change',synchronize);source.addEventListener('input',synchronize);
+    function labelControl(){
+      const control=dropdown.querySelector('[slot="control"]');if(!control)return;
+      control.setAttribute('aria-label',label);
+      if(source.hasAttribute('aria-labelledby'))control.setAttribute('aria-labelledby',source.getAttribute('aria-labelledby'));
+    }
+    new MutationObserver(labelControl).observe(dropdown,{subtree:true,childList:true});
+    source.focus=options=>dropdown.querySelector('[slot="control"]')?.focus(options);
     new MutationObserver(synchronize).observe(source,{subtree:true,childList:true,characterData:true,attributes:true});
     source.after(dropdown);source.classList.add('wp-select-source');source.tabIndex=-1;source.setAttribute('aria-hidden','true');
     // Labels still refer to the original control for form compatibility.
