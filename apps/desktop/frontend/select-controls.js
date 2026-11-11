@@ -18,7 +18,6 @@ export function initializeSelectControls(){
     enhanced.add(source);
     if(!source.id)source.id='workproof-select-'+(++sequence);
     const dropdown=document.createElement('fluent-dropdown'),listbox=document.createElement('fluent-listbox');
-    dropdown.$fastController.addStyles(compactStyles);
     dropdown.className='wp-select';dropdown.dataset.nativeSelect=source.id;
     dropdown.id=source.id+'-fluent';listbox.setAttribute('role','listbox');dropdown.append(listbox);
     const label=source.getAttribute('aria-label')||[...source.labels].map(label=>label.textContent.trim()).join(' ')||source.id;
@@ -63,7 +62,7 @@ export function initializeSelectControls(){
     new MutationObserver(labelControl).observe(dropdown,{subtree:true,childList:true});
     source.focus=options=>dropdown.querySelector('[slot="control"]')?.focus(options);
     new MutationObserver(synchronize).observe(source,{subtree:true,childList:true,characterData:true,attributes:true});
-    source.after(dropdown);source.classList.add('wp-select-source');source.tabIndex=-1;source.setAttribute('aria-hidden','true');
+    source.after(dropdown);dropdown.$fastController.addStyles(compactStyles);source.classList.add('wp-select-source');source.tabIndex=-1;source.setAttribute('aria-hidden','true');
     // Labels still refer to the original control for form compatibility.
     for(const labelNode of source.labels)labelNode.addEventListener('click',event=>{event.preventDefault();dropdown.querySelector('[slot="control"]')?.focus();});
     synchronize();
