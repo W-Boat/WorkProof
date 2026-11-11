@@ -10,7 +10,8 @@ function paint(button){
   const content=button.cloneNode(true);
   content.querySelectorAll('.glyph,[aria-hidden="true"]').forEach(node=>node.remove());
   const label=button.getAttribute('aria-label')||content.textContent.trim();if(!label)return;
-  const name=button.dataset.icon||commands[button.dataset.command]||ids[button.id]||(['new-document','first-document'].includes(button.id)?'document_text':null)||(button.dataset.view?{library:'document_text',verification:'checkmark',connections:'plug_connected',settings:'settings'}[button.dataset.view]:null)||(label.includes('断开')?'plug_connected':label.includes('导出')?'arrow_download':label.includes('继续编辑')?'document_text':label.includes('打开')?'document':label.includes('安装')?'plug_connected':'more_horizontal');
+  const name=button.dataset.icon||commands[button.dataset.command]||ids[button.id]||(['new-document','first-document'].includes(button.id)?'document_text':null)||(button.dataset.view?{library:'document_text',verification:'checkmark',connections:'plug_connected',settings:'settings'}[button.dataset.view]:null)||(label.includes('断开')?'plug_connected':label.includes('导出')?'arrow_download':label.includes('继续编辑')?'document_text':label.includes('打开')?'document':label.includes('安装')?'plug_connected':null);
+  if(!name)return;
   button.setAttribute('aria-label',label);if(!button.title)button.title=label;
   const keep=button.classList.contains('nav-item')||button.dataset.keepLabel==='true'||/新建|创建文档|导出作品与证书|打开 .*并开始记录|允许连接|^拒绝$|安装 \/ 修复/.test(label)||button.hasAttribute('data-mode');
   if(keep){button.querySelectorAll('.glyph').forEach(g=>g.remove());button.prepend(icon(name));}
