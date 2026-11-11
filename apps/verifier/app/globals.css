@@ -171,14 +171,55 @@ html[data-theme=dark] .behavior-range[data-review=true]>div>span{color:#ff9ba7}h
 .fluent-verifier .page-head,.fluent-verifier .verify-steps{margin-bottom:4px}
 .fluent-verifier .empty-proof{display:none}
 .fluent-verifier fluent-text-input{width:100%}
-.fluent-verifier .chart-choices,.fluent-verifier .diagnosis-summary,.fluent-verifier .diagnosis-summary>div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fluent-verifier .diagnosis-summary,.fluent-verifier .diagnosis-summary>div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .fluent-verifier .diagnosis-summary{justify-content:space-between;margin-bottom:12px}
 .fluent-verifier .diagnosis-summary span{color:var(--ink-muted);font-size:13px}
 .fluent-verifier .verification-chart{width:100%;height:clamp(260px,44vw,400px);margin:12px 0}
 .fluent-verifier .verification-charts h3{margin:16px 0 4px;font-size:16px}
-.fluent-verifier .chart-counts{display:grid;gap:6px}
-.fluent-verifier .chart-counts div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line)}
 .fluent-verifier .behavior-table-scroll{max-height:32rem;overflow:auto;margin-top:14px}
 .fluent-verifier .behavior-report td:nth-child(2){font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
 .fluent-verifier .behavior-report th:first-child{min-width:9rem}
 .fluent-verification-progress{display:grid;gap:6px;margin-top:12px;color:var(--ink-muted)}
+.fluent-verifier .wp-content{font-family:var(--fontFamilyBase,"Segoe UI",sans-serif)}
+.fluent-verifier .result-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px}
+.fluent-verifier .result-grid>.panel{margin:0 0 16px}
+.fluent-verifier .result-banner{padding:0;margin:0 0 8px;background:none;border:0}
+.fluent-verifier fluent-message-bar{display:block;width:100%;min-width:0}
+.fluent-verifier .result-banner fluent-message-bar>span{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.fluent-verifier .result-banner fluent-message-bar>span>svg{display:none}
+.fluent-verifier .result-banner fluent-message-bar>span+span{margin-top:3px}
+.fluent-verifier .verification-result-navigation{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 12px}
+.fluent-verifier [id^="verification-"]{scroll-margin-top:16px}
+.fluent-verifier fluent-accordion{display:block;margin-block:8px}
+.fluent-verifier fluent-accordion-item::part(button){white-space:normal;text-align:start}
+.fluent-verifier .fluent-disclosure-content{display:flow-root;min-width:0;padding:4px 0 12px;overflow-wrap:anywhere}
+.fluent-verifier .fluent-field{display:grid;gap:5px;font-size:14px;font-weight:600;min-width:0}
+.fluent-verifier fluent-dropdown{width:100%;min-width:0}
+.fluent-verifier .fluent-certificate-name{font-size:clamp(20px,3vw,32px);font-weight:600;line-height:1.3;margin:0 0 18px;overflow-wrap:anywhere}
+.fluent-verifier .fluent-certificate dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(110px,100%),1fr));gap:12px;margin:0 0 16px}
+.fluent-verifier .fluent-certificate dt{font-size:13px;color:var(--colorNeutralForeground2,var(--ink-muted))}
+.fluent-verifier .fluent-certificate dd{margin:4px 0 0;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.fluent-verifier .fluent-certificate code{overflow-wrap:anywhere}
+.fluent-verifier .fluent-raw-verification{white-space:pre-wrap;max-height:22rem;overflow:auto;background:var(--colorNeutralBackground2,var(--canvas));padding:12px}
+.fluent-verifier .fluent-diagnosis fluent-message-bar p{margin:4px 0 0}
+.fluent-verifier .diagnosis-rule-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:0 16px;margin:12px 0 18px}
+.fluent-verifier .diagnosis-rule-list>div{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:42px;padding-block:6px;border-bottom:1px solid var(--colorNeutralStroke2,var(--line));font-size:14px}
+.fluent-verifier .diagnosis-rule-list fluent-badge{flex:none}
+.fluent-verifier .fluent-diagnosis .diagnosis-summary{margin-bottom:0}
+.fluent-verifier .fluent-diagnosis table{min-width:590px}
+.fluent-verifier .fluent-diagnosis .measurement-result{min-width:0}
+.fluent-verifier .fluent-diagnosis td:nth-child(2)>span{font-size:12px;font-weight:400}
+.fluent-verifier .fluent-diagnosis .behavior-table-scroll{max-height:28rem}
+.fluent-verifier .verification-chart-toolbar{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.fluent-verifier .verification-chart-toolbar .fluent-field{width:min(260px,100%)}
+.fluent-verifier .verification-charts h3+p{margin:0 0 10px;color:var(--colorNeutralForeground2,var(--ink-muted));line-height:1.6}
+.fluent-verifier .verification-table-scroll{overflow:auto;border:1px solid var(--colorNeutralStroke2,var(--line));border-radius:var(--borderRadiusMedium,4px)}
+.fluent-verifier .chart-data-view table{width:100%;border-collapse:collapse;text-align:start;font-size:14px}
+.fluent-verifier .chart-data-view :is(caption,th,td){padding:9px 12px;text-align:start}
+.fluent-verifier .chart-data-view thead{background:var(--colorNeutralBackground2,var(--canvas))}
+.fluent-verifier .chart-data-view tbody tr{border-top:1px solid var(--colorNeutralStroke2,var(--line))}
+.fluent-verifier .chart-data-view tbody th{font-weight:400}
+.fluent-verifier .chart-data-view td{font-variant-numeric:tabular-nums}
+.fluent-verifier .chart-pages{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:10px;font-size:13px}
+@media(max-width:800px){.fluent-verifier .result-grid{grid-template-columns:minmax(0,1fr);gap:0}.fluent-verifier .result-grid>.checks-panel{margin-bottom:16px!important}}
+@media print{.fluent-verifier .verification-result-navigation{display:none!important}.fluent-verifier .fluent-certificate{break-inside:avoid}}

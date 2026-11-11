@@ -1,7 +1,7 @@
 'use client';
 import {Component,useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import dynamic from 'next/dynamic';
-import {Panel,Tag} from './institution-ui';
+import {Panel,Tag,Details,Select} from './institution-ui';
 import {Upload} from './FileDrop';
 import {Button} from './button';
 
@@ -56,7 +56,7 @@ export function EvolutionPanel({proof}:{proof:File}){
     try{worker.postMessage({action:'evolution',proof,supplement:file});}catch{finish('无法读取文件，请重新选择。');}
   }
   return <Panel title="查看结构变化（可选）" className="evolution-panel">
-    <details><summary>收到 .wgraph 结构文件？查看对象和图层怎样变化</summary>
+    <Details label="收到 .wgraph 结构文件？查看对象和图层怎样变化">
       <p>部分录制工具可另行导出结构文件。它保留对象编号、层级和顺序，便于浏览几次保存的结构，不展示对象名称或作品内容。</p>
       <Upload label="选择 .wgraph 结构文件" caption="与当前证书配套，最多 8 MB" accept=".wgraph,application/json" file={file} disabled={busy} onFile={next=>{reset();setFile(next);}}/>
       <div className="share-actions"><Button disabled={!file||busy} onClick={check}>{busy?'正在核验结构…':'核验并查看结构'}</Button>{busy&&<Button variant="ghost" onClick={()=>{reset();setMessage('已取消结构核验。');}}>取消</Button>}</div>
@@ -64,7 +64,7 @@ export function EvolutionPanel({proof}:{proof:File}){
       {report&&snapshot&&<div className="evolution-result">
         <Tag tone="ok">结构与证书中的记录一致</Tag>
         <p>已核对 {report.snapshots.length} 份结构。这里仅展示文件中提供、且能在证书中核对的结构，不表示每一步操作都已记录。</p>
-        <label className="quiet-label">选择一次结构记录<select aria-label="选择结构记录" value={index} onChange={event=>{setIndex(Number(event.target.value));setPage(0);}}>{report.snapshots.map((item,i)=><option key={item.seq} value={i}>第 {i+1} 份 · 事件 {item.seq+1} · {item.nodes.length} 个节点</option>)}</select></label>
+        <div className="quiet-label">{/* The selector operates on already verified snapshots. */}<Select label="选择结构记录" value={String(index)} onChange={value=>{setIndex(Number(value));setPage(0);}} options={report.snapshots.map((item,i)=>({value:String(i),label:`第 ${i+1} 份 · 事件 ${item.seq+1} · ${item.nodes.length} 个节点`}))}/></div>
         <p>来源：{snapshot.source} · 对象编号仅在本次记录中用于识别同一节点。</p>
         {!!rows.length&&<Button aria-expanded={showGraph} onClick={()=>setShowGraph(!showGraph)}>{showGraph?'收起关系图':'打开关系图'}</Button>}
         {showGraph&&<GraphBoundary key={snapshot.seq}><EvolutionGraph rows={rows}/></GraphBoundary>}
@@ -72,6 +72,6 @@ export function EvolutionPanel({proof}:{proof:File}){
         {!rows.length&&<p>这次结构记录中没有对象。</p>}
         {rows.length>PAGE_SIZE&&<div className="share-actions"><Button disabled={!page} onClick={()=>setPage(page-1)}>上一页</Button><span role="status">第 {page+1} / {Math.ceil(rows.length/PAGE_SIZE)} 页 · 共 {rows.length} 个节点</span><Button disabled={(page+1)*PAGE_SIZE>=rows.length} onClick={()=>setPage(page+1)}>下一页</Button></div>}
       </div>}
-    </details>
+    </Details>
   </Panel>;
 }

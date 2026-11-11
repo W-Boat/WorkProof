@@ -3,7 +3,7 @@ import {useState} from 'react';
 import {type RecordEntry,type BehaviorSignal,time,labels,metricLabels,shorten} from '../lib/evidence';
 import {ActionBreakdown} from './ActionBreakdown';
 import {Button} from './button';
-import {Checkbox} from './institution-ui';
+import {Checkbox,Select} from './institution-ui';
 import {FluentElement,useEmbeddedFluent} from './fluent-embedded';
 export function Timeline({records,signals=[],selectedSeq,onSelect}:{records:RecordEntry[];signals?:BehaviorSignal[];selectedSeq?:number|null;onSelect?:(seq:number)=>void}){
   const [selected,setSelected]=useState(0);
@@ -38,7 +38,7 @@ export function Timeline({records,signals=[],selectedSeq,onSelect}:{records:Reco
   const focused=selectedSeq===null||selectedSeq===undefined?-1:records.findIndex(r=>r.event.seq===selectedSeq);
   const index=Math.max(0,Math.min(focused>=0?focused:selected,records.length-1));const active=records[index];
   const choose=(next:number)=>{setSelected(next);if(records[next])onSelect?.(records[next].event.seq);};
-  return <section className="timeline-panel panel m-surface"><div className="section-top"><div><h2 className="section-label">过程轨迹</h2></div><label className="quiet-label"><select aria-label="过程指标" value={metric} onChange={e=>setMetric(e.target.value)}>{available.map(k=><option key={k} value={k}>{metricLabels[k]}</option>)}</select></label></div>
+  return <section id={embedded?"verification-timeline":undefined} className={`timeline-panel panel ${embedded?"fluent-panel":"m-surface"}`}><div className="section-top"><div><h2 className="section-label">过程轨迹</h2></div><div className="quiet-label"><Select label="过程指标" value={metric} onChange={setMetric} options={available.map(key=>({value:key,label:metricLabels[key]}))}/></div></div>
     {!structured&&<div className="behavior-layers"><Checkbox checked={showChanges} onChange={setShowChanges}>新增与删除</Checkbox><Checkbox checked={showRate} onChange={setShowRate}>写入速率</Checkbox></div>}
     <div className="process-legend" aria-label="图表图例"><span><i className="legend-quantity"/>内容量</span>{!structured&&<><span><i className="legend-add"/>新增字符</span><span><i className="legend-delete"/>删除字符</span><span><i className="legend-rate"/>写入速率</span></>}<span><i className="legend-notice"/>需要复核的时间</span></div>
     <div className="process-chart-scroll" role="region" aria-label="编辑过程图表，可横向滚动" tabIndex={0}><svg className="process-chart" viewBox={`0 0 940 ${chartHeight}`} role="img" aria-label="同一时间轴上的内容量、每段新增删除与写入速率，均附单位和刻度">

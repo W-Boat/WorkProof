@@ -1,6 +1,6 @@
 'use client';
 import {AlertTriangle,Info,LocateFixed} from 'lucide-react';
-import {Panel} from './institution-ui';
+import {Panel,Details} from './institution-ui';
 import {Button} from './button';
 import {type BehaviorAssessment,type BehaviorSignal,time} from '../lib/evidence';
 
@@ -18,6 +18,6 @@ export function BehaviorPanel({assessment,valid,onLocate}:{assessment?:BehaviorA
     <p className="behavior-explanation">提醒根据本机记录的字数、操作和时间间隔生成，用于辅助复核。粘贴、导入已有文稿、语音输入和辅助工具都可能产生这些变化，请结合创作者说明了解来源。这些统计无法判定内容由人或 AI 创作。</p>
     {signals.length>0&&<ol className="behavior-signals">{signals.map((signal,index)=><li key={`${signal.code}-${signal.first_seq}-${index}`}><div><strong>{titles[signal.code]||'这段编辑记录值得了解'}</strong><span>{time(signal.start_ms)}{signal.end_ms!==signal.start_ms?` — ${time(signal.end_ms)}`:''}</span><p>{detail(signal)}</p>{signal.code==='bulk_insertion'&&<p>可能包含粘贴或导入，请查看这段文字是怎样进入文档的。</p>}</div><Button variant="ghost" onClick={()=>onLocate(signal.first_seq)} aria-label={`定位提醒 ${index+1}`}><LocateFixed size={16}/>定位</Button></li>)}</ol>}
     {usable&&assessment.signals_truncated&&<p className="caption">本页展示部分提醒，请结合完整记录继续查看。</p>}
-    {usable&&<details className="behavior-rules"><summary>查看统计范围与提醒规则</summary>{assessment.scope==='selective'?<p>当前仅查看已披露的 {assessment.summary.events.toLocaleString()} 条记录，完整修改量与粘贴次数暂不可评估。</p>:<p>当前查看 {assessment.summary.events.toLocaleString()} 条记录，其中包含 {assessment.summary.edits.toLocaleString()} 次文字修改。已记录 {assessment.summary.paste_commands.toLocaleString()} 次粘贴指令。</p>}<p>粘贴指令表示操作被触发，实际写入量以文字修改记录为准。记录时间来自本机，不是外部可信时间。</p>{assessment.limitations.map((line,index)=><p key={index}>{line}</p>)}<p>规则版本 {assessment.rule_version}</p><dl>{Object.entries(assessment.thresholds).map(([key,value])=><div key={key}><dt>{rules[key]||'其他规则参数'}</dt><dd>{value}</dd></div>)}</dl></details>}
+    {usable&&<Details label="查看统计范围与提醒规则" className="behavior-rules">{assessment.scope==='selective'?<p>当前仅查看已披露的 {assessment.summary.events.toLocaleString()} 条记录，完整修改量与粘贴次数暂不可评估。</p>:<p>当前查看 {assessment.summary.events.toLocaleString()} 条记录，其中包含 {assessment.summary.edits.toLocaleString()} 次文字修改。已记录 {assessment.summary.paste_commands.toLocaleString()} 次粘贴指令。</p>}<p>粘贴指令表示操作被触发，实际写入量以文字修改记录为准。记录时间来自本机，不是外部可信时间。</p>{assessment.limitations.map((line,index)=><p key={index}>{line}</p>)}<p>规则版本 {assessment.rule_version}</p><dl>{Object.entries(assessment.thresholds).map(([key,value])=><div key={key}><dt>{rules[key]||'其他规则参数'}</dt><dd>{value}</dd></div>)}</dl></Details>}
   </Panel>;
 }

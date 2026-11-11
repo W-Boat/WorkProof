@@ -1,4 +1,4 @@
-import type {ChangeEvent,HTMLAttributes,InputHTMLAttributes,ReactNode} from 'react';
+import {useEffect,useId,useRef,type ChangeEvent,type HTMLAttributes,type InputHTMLAttributes,type ReactNode} from 'react';
 import {FluentElement,useEmbeddedFluent} from './fluent-embedded';
 // Thin React adapters for the institution's Vue primitives. Classes and styling have one source.
 // Vue SFCs are not imported into React; their shared CSS is imported unchanged in globals.css.
@@ -34,4 +34,60 @@ export function VerificationProgress({phase,progress}:{phase:string;progress:num
 }
 export function EmptyState({title,desc,icon}:{title:string;desc:string;icon:ReactNode}){
   return <div className="empty"><span className="empty-ico m-groove">{icon}</span><h2 className="empty-title">{title}</h2><p>{desc}</p></div>;
+}
+
+export function Details({label,className,children}:{label:string;className?:string;children:ReactNode}){
+  const embedded=useEmbeddedFluent();
+  if(!embedded)return <details className={className}><summary>{label}</summary>{children}</details>;
+  return <FluentElement tag="fluent-accordion" className={className}>
+    <FluentElement tag="fluent-accordion-item" heading-level={3}>
+      <span slot="heading">{label}</span>
+      <div className="fluent-disclosure-content">{children}</div>
+    </FluentElement>
+  </FluentElement>;
+}
+
+export function Select({label,value,options,onChange}:{label:string;value:string;options:{value:string;label:string;disabled?:boolean}[];onChange:(value:string)=>void}){
+  const embedded=useEmbeddedFluent();
+  const labelId=useId();
+  const field=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    const element=field.current;
+    if(!element)return;
+    // Fluent v3 inserts the button in the light DOM without copying the host label.
+    const labelControl=()=>element.querySelector('[slot="control"]')?.setAttribute('aria-labelledby',labelId);
+    const observer=new MutationObserver(labelControl);
+    observer.observe(element,{childList:true,subtree:true});
+    labelControl();
+    return()=>observer.disconnect();
+  },[embedded,labelId]);
+  if(!embedded)return <select aria-label={label} value={value} onChange={event=>onChange(event.target.value)}>
+    {options.map(option=><option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
+  </select>;
+  return <div className="fluent-field" ref={field}>
+    <span id={labelId}>{label}</span>
+    <FluentElement tag="fluent-dropdown" aria-labelledby={labelId} onChange={(event:Event)=>{
+      const next=(event.currentTarget as HTMLElement&{value:string|null}).value;
+      if(next!==null)onChange(next);
+    }}>
+      <FluentElement tag="fluent-listbox">
+        {options.map(option=><FluentElement tag="fluent-option" key={option.value} value={option.value} defaultSelected={option.value===value} disabled={option.disabled}>{option.label}</FluentElement>)}
+      </FluentElement>
+    </FluentElement>
+  </div>;
+}
+
+export function Notice({intent,children}:{intent:'success'|'warning'|'error'|'info';children:ReactNode}){
+  const embedded=useEmbeddedFluent();
+  return embedded?<FluentElement tag="fluent-message-bar" intent={intent} layout="multiline">{children}</FluentElement>:children;
+}
+
+export function ResultNavigation({charts,timeline}:{charts:boolean;timeline:boolean}){
+  if(!useEmbeddedFluent())return null;
+  return <nav className="verification-result-navigation" aria-label="跳到报告章节">
+    <FluentElement tag="fluent-anchor-button" appearance="subtle" href="#verification-checks">核验明细</FluentElement>
+    <FluentElement tag="fluent-anchor-button" appearance="subtle" href="#verification-diagnosis">编辑过程检验单</FluentElement>
+    {charts&&<FluentElement tag="fluent-anchor-button" appearance="subtle" href="#verification-charts">统计图</FluentElement>}
+    {timeline&&<FluentElement tag="fluent-anchor-button" appearance="subtle" href="#verification-timeline">过程轨迹</FluentElement>}
+  </nav>;
 }

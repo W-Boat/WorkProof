@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {Panel,Tag,Checkbox} from './institution-ui';
+import {Panel,Tag,Checkbox,Details} from './institution-ui';
 import {Button} from './button';
 import {Upload} from './FileDrop';
 import type {TimestampResult} from '../lib/timestamps';
@@ -60,16 +60,16 @@ export function TimestampPanel({signature}:{signature:string}){
     finally{clearTimeout(deadline);if(current===generation.current){active.current=null;setBusy(false);}}
   }
   return <Panel title="检查外部时间凭据" className="timestamp-panel">
-    <details><summary>添加或检查时间凭据（可选）</summary>
+    <Details label="添加或检查时间凭据（可选）">
     <p>想证明这份签名在某个时间前已经存在，可以向独立时间服务申请凭据。已有请求和响应文件时，直接从第 3 步开始。作品和证书不会上传。</p>
     <p><strong>1. 生成请求文件</strong><br/>请求只含签名摘要和随机编号，不含作品内容。每次重新生成都会清除旧响应，请保留下载的原始请求。</p>
     <Button disabled={busy} onClick={generate}>生成并下载时间戳请求</Button>
     <p><strong>2. 交给你选择的时间服务</strong><br/>按服务方的说明提交 .tsq 文件，保存返回的 .tsr 文件；也可以展开下方入口直接申请。</p>
-    <details><summary>直接向时间服务申请</summary>
+    <Details label="直接向时间服务申请">
       <p>点击发送后，将向你填写的地址提交一份新请求，仅含签名摘要和随机编号。请先确认服务条款与费用；不会发送作品、证书文件、登录凭据或 Cookie。服务须允许浏览器跨域请求，暂不支持需要登录的接口。</p>
       <label className="quiet-label">HTTPS 时间服务地址<input className="input-shell" type="url" value={service} disabled={busy} onChange={event=>setService(event.target.value)} placeholder="https://…" style={{width:'100%',minWidth:0}}/></label>
       <Button disabled={busy||!service.trim()} onClick={applyOnline}>生成请求并发送至此服务</Button>
-    </details>
+    </Details>
     <div>{files[0]&&<Button variant="ghost" disabled={busy} onClick={()=>download(files[0]!)}>保存当前请求</Button>}{files[1]&&<Button variant="ghost" disabled={busy} onClick={()=>download(files[1]!)}>保存当前响应</Button>}</div>
     <p><strong>3. 选择文件并检查</strong><br/>加载请求、响应和从可信渠道独立取得的 CA 证书。下面的检查在浏览器内完成。</p>
     <div className="timestamp-files">{[
@@ -88,6 +88,6 @@ export function TimestampPanel({signature}:{signature:string}){
     <p className="caption">未查询撤销状态，不认证作者身份或人类创作比例。自建 CA 也可签发时间戳；通过检查不等于公共权威认可。当前仅支持 SHA-256、SigningCertificateV2 的 DER 时间凭据。</p>
     <p className="caption">时间结果不会写入原证书或证书图片。分享时请附上原始 .tsq 和 .tsr 文件；接收方仍需独立选择信任的 CA。</p>
     <p className="caption"><a href="/timestamp-licenses.txt" target="_blank" rel="noreferrer">查看相关开源组件许可</a></p>
-    </details>
+    </Details>
   </Panel>;
 }

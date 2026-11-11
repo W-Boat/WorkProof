@@ -1,13 +1,14 @@
 'use client';
 import {useState} from 'react';
 import {BehaviorOverview} from './BehaviorOverview';
-import {Panel,Tag} from './institution-ui';
+import {Details,Notice,Panel,Tag} from './institution-ui';
 import {Button} from './button';
 import {useEmbeddedFluent} from './fluent-embedded';
 import {type BehaviorAssessment} from '../lib/evidence';
 
 type Row={key?:string;name:string;value:number|null|undefined;unit:string;reference:string;code?:string;direction?:'up'|'down';status?:string};
 const names:Record<string,string>={bulk_insertion:'大段或短时集中写入',bulk_dominated:'集中写入占比',sustained_fast_input:'持续高速写入',regular_timing:'写入间隔过于接近',mass_replacement:'成段替换'};
+const primaryMeasurements:Record<string,string[]>={bulk_insertion:['peak_single_inserted','peak_burst_inserted'],bulk_dominated:['bulk_share'],sustained_fast_input:['peak_qualified_rate_chars_per_second'],regular_timing:['interval_cv_percent'],mass_replacement:['peak_replacement_inserted','peak_replacement_deleted']};
 export function BehaviorReport({assessment,valid}:{assessment?:BehaviorAssessment|null;valid:boolean}){
   const embedded=useEmbeddedFluent();
   const [filter,setFilter]=useState<'all'|'review'>('all');
@@ -24,7 +25,7 @@ export function BehaviorReport({assessment,valid}:{assessment?:BehaviorAssessmen
     {name:'记录跨度',value:full&&summary?summary.duration_ms/1000:null,unit:'秒',reference:'记录起点至最后事件，不等同于实际劳动时间'},
     {name:'粘贴指令',value:full?summary?.paste_commands:null,unit:'次',reference:'操作被触发的次数；不等于粘贴成功次数'},
     {name:'集中写入的新增量',value:full?summary?.bulk_inserted:null,unit:'字符',reference:`单次或 ${reference('burst_window_ms',' 毫秒')} 内累计新增 ≥ ${reference('bulk_inserted',' 字符')}`,code:'bulk_insertion'},
-    {name:'集中写入占比',value:full&&summary?summary.bulk_share*100:null,unit:'%',reference:`累计新增 ≥ ${reference('bulk_dominated_inserted',' 字符')}，且集中写入占比 ≥ ${reference('bulk_dominated_percent','%')}`,code:'bulk_dominated'},
+    {key:'bulk_share',name:'集中写入占比',value:full&&summary?summary.bulk_share*100:null,unit:'%',reference:`累计新增 ≥ ${reference('bulk_dominated_inserted',' 字符')}，且集中写入占比 ≥ ${reference('bulk_dominated_percent','%')}`,code:'bulk_dominated'},
   ];
   const extra:{key:string;name:string;unit:string;reference:string;code:string;direction?:'up'|'down'}[]=[
     {key:'peak_single_deleted',name:'单次最大删除',unit:'字符',reference:'实际观测值，无独立提醒阈值',code:''},
@@ -61,6 +62,7 @@ export function BehaviorReport({assessment,valid}:{assessment?:BehaviorAssessmen
   function result(row:Row){
     if(row.value===undefined||row.value===null)return {text:'— 信息不足',flag:false};
     if(!row.code)return {text:'记录值',flag:false};
+    if(embedded&&!primaryMeasurements[row.code]?.includes(row.key||''))return {text:'记录值',flag:false};
     if(['bulk_insert_events','bulk_burst_windows','rate_windows_evaluated','rate_qualified_windows','mass_replacement_events'].includes(row.key||'')&&row.value===0)return {text:'记录值',flag:false};
     if(['peak_single_inserted','peak_burst_inserted'].includes(row.key||'')&&row.value<(thresholds.bulk_inserted??Infinity))return {text:'未达到该项阈值',flag:false};
     if(triggered.has(row.code))return {text:`${row.direction==='down'?'↓':'↑'} 需复核`,flag:true};
@@ -70,18 +72,46 @@ export function BehaviorReport({assessment,valid}:{assessment?:BehaviorAssessmen
     return {text:'未触发该项提醒',flag:false};
   }
   const evaluated=rows.map(row=>({row,state:result(row)}));
-  const displayed=embedded?[...evaluated].sort((a,b)=>Number(b.state.flag)-Number(a.state.flag)).filter(({state})=>filter==='all'||state.flag):evaluated;
-  const reviewCount=evaluated.filter(({state})=>state.flag).length;
+  if(embedded){
+    const review=evaluated.filter(({state})=>state.flag);
+    const remaining=evaluated.filter(({state})=>!state.flag);
+    const ruleCount=full?Object.keys(names).filter(code=>triggered.has(code)).length:0;
+    const assessed=full&&assessment?.rule_results?.some(rule=>rule.status==='within_reference');
+    const ruleText=ruleCount?`${ruleCount} 条规则提示复核`:assessed?'已评估的规则未触发提醒':'可评估的文字编辑记录不足';
+    const visibleRows=filter==='review'?review:[...review,...remaining];
+    return <Panel id="verification-diagnosis" title="编辑过程检验单" className="behavior-report fluent-diagnosis">
+      <Notice intent={ruleCount?'warning':'info'}><strong>{ruleText}</strong>
+        <p>{ruleCount?'优先核对下方标红的项目，再查看对应时段。规则提示仅供人工复核。':assessment?.scope==='selective'?'这份证书仅披露部分记录，无法评估整段编辑过程。':'有足够数据的规则会给出结果，其余会标明条件不足。'}</p>
+      </Notice>
+      <div className="diagnosis-rule-list" aria-label="规则结果">
+        {Object.entries(names).map(([code,name])=>{
+          const status=full?assessment?.rule_results?.find(rule=>rule.code===code)?.status:undefined;
+          const flagged=full&&triggered.has(code);
+          return <div key={code}><span>{name}</span><Tag tone={flagged?'danger':status==='within_reference'?'ok':'neutral'}>{flagged?'需复核':status==='within_reference'?'未触发':status==='not_applicable'?'不适用':'条件不足'}</Tag></div>;
+        })}
+      </div>
+      <div className="diagnosis-summary">
+        <div role="group" aria-label="筛选检验项"><Button variant={filter==='all'?'primary':'ghost'} aria-pressed={filter==='all'} onClick={()=>setFilter('all')}>全部指标 ({evaluated.length})</Button><Button variant={filter==='review'?'primary':'ghost'} aria-pressed={filter==='review'} onClick={()=>setFilter('review')}>需复核 ({review.length})</Button></div>
+        <span role="status">显示 {visibleRows.length} 项</span>
+      </div>
+      <div className="behavior-table-scroll verification-table-scroll" role="region" aria-label="完整编辑过程检验单，可横向滚动" tabIndex={0}>
+        <table>
+          <caption>编辑过程统计 · {assessment?.rule_version||'规则版本不可用'}</caption>
+          <thead><tr><th scope="col">项目</th><th scope="col">实测</th><th scope="col">结果</th><th scope="col">触发条件或说明</th></tr></thead>
+          <tbody>{visibleRows.map(({row,state})=><tr key={row.name} data-review={state.flag}>
+            <th scope="row">{row.name}</th>
+            <td>{row.value==null?'—':<>{row.value.toLocaleString('zh-CN',{maximumFractionDigits:2})} <span>{row.unit}</span></>}</td>
+            <td className="measurement-result">{state.text}</td><td>{row.reference}</td>
+          </tr>)}{!visibleRows.length&&<tr><td colSpan={4}>当前没有需要复核的指标。</td></tr>}</tbody>
+        </table>
+      </div>
+      {full&&<Details label="查看指标雷达图与参考区间"><BehaviorOverview assessment={assessment} full/></Details>}
+    </Panel>;
+  }
   return <Panel title="编辑过程检验单" className="behavior-report">
-    {embedded&&<div className="diagnosis-summary">
-      <div><Tag tone={reviewCount?'danger':full?'ok':'neutral'}>{reviewCount?`${reviewCount} 项需复核`:full?'当前规则未触发提醒':'评估范围不足'}</Tag>
-      <span>{assessment?.scope==='selective'?'部分披露':available?'已取得记录':'记录不可用'}</span></div>
-      <div role="group" aria-label="筛选检验项"><Button variant={filter==='all'?'primary':'ghost'} aria-pressed={filter==='all'} onClick={()=>setFilter('all')}>全部项目</Button><Button variant={filter==='review'?'primary':'ghost'} aria-pressed={filter==='review'} onClick={()=>setFilter('review')}>需复核</Button></div>
-    </div>}
     <p>逐项列出实际测量值与参考条件。红色箭头表示对应的联合规则需要复核；信息不足显示“—”。这些参考条件是统计规则，不能据此认定创作者或 AI 使用情况。</p>
-    {!embedded&&<BehaviorOverview assessment={assessment} full={!!full}/>}
-    <div className="behavior-table-scroll" role="region" aria-label="完整编辑过程检验单，可横向滚动" tabIndex={0}><table><caption>编辑过程统计与参考条件 · {assessment?.rule_version||'评估不可用'}</caption><thead><tr><th scope="col">项目</th><th scope="col">测量值</th><th scope="col">单位</th><th scope="col">参考条件</th><th scope="col">结果</th></tr></thead><tbody>{displayed.map(({row,state})=><tr key={row.name} data-review={state.flag}><th scope="row">{row.name}</th><td>{row.value===null||row.value===undefined?'—':row.value.toLocaleString('zh-CN',{maximumFractionDigits:2})}</td><td>{row.unit}</td><td>{row.reference}</td><td className="measurement-result">{state.text}</td></tr>)}{displayed.length===0&&<tr><td colSpan={5}>当前没有需要复核的项目。</td></tr>}</tbody></table></div>
+    <BehaviorOverview assessment={assessment} full={!!full}/>
+    <div className="behavior-table-scroll" role="region" aria-label="完整编辑过程检验单，可横向滚动" tabIndex={0}><table><caption>编辑过程统计与参考条件 · {assessment?.rule_version||'评估不可用'}</caption><thead><tr><th scope="col">项目</th><th scope="col">测量值</th><th scope="col">单位</th><th scope="col">参考条件</th><th scope="col">结果</th></tr></thead><tbody>{evaluated.map(({row,state})=><tr key={row.name} data-review={state.flag}><th scope="row">{row.name}</th><td>{row.value===null||row.value===undefined?'—':row.value.toLocaleString('zh-CN',{maximumFractionDigits:2})}</td><td>{row.unit}</td><td>{row.reference}</td><td className="measurement-result">{state.text}</td></tr>)}</tbody></table></div>
     <div className="behavior-rule-results">{Object.entries(names).map(([code,name])=><p key={code}><strong>{name}</strong><span>{!full?'— 范围不足':triggered.has(code)?'↑ 规则已触发，需复核':assessment?.rule_results?.find(rule=>rule.code===code)?.status==='within_reference'?'未触发该项提醒':'— 样本或条件不足'}</span></p>)}</div>
-    {embedded&&full&&<details><summary>查看指标雷达图与参考区间</summary><BehaviorOverview assessment={assessment} full={full}/></details>}
   </Panel>;
 }

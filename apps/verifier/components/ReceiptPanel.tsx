@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {Panel,Tag,TextInput,Checkbox} from './institution-ui';
+import {Panel,Tag,TextInput,Checkbox,Details} from './institution-ui';
 import {Button} from './button';
 import {Upload} from './FileDrop';
 type ReceiptReport={receipt_verified:boolean;issuer_key_matched:boolean;received_scope:string;issuer_id:string;received_at_ms:number;expires_at_ms:number};
@@ -25,7 +25,7 @@ export function ReceiptPanel({proof}:{proof:File}){
       worker.postMessage({action:'receipt',proof,receipt,issuerId:issuer,publicKey,nowMs:Date.now()});
     }catch(failure){fail(failure instanceof Error?failure.message:'回执检查未能完成。');}
   }
-  return <Panel title="检查机构接收回执" className="timestamp-panel"><details><summary>核对签发者与接收回执（可选）</summary>
+  return <Panel title="检查机构接收回执" className="timestamp-panel"><Details label="核对签发者与接收回执（可选）">
     <p>接收回执说明某个签发者接收并签署过哪些证据。请从独立可信渠道取得公钥与签发者标识；不要因为证书附带公钥就直接信任它。所有检查在本机完成。</p>
     <div className="timestamp-files"><Upload label="接收回执（.json）" caption="签发方提供的回执，最多 16 KB" file={receipt} disabled={busy} onFile={file=>{reset();setReceipt(file);}}/><Upload label="独立取得的签发公钥（.hex）" caption="只选择公钥，不选择私钥，最多 128 字节" file={key} disabled={busy} onFile={file=>{reset();setKey(file);}}/></div>
     <label className="field"><span className="field-label">签发者标识</span><TextInput aria-label="签发者标识" value={issuer} maxLength={128} disabled={busy} onChange={event=>{reset();setIssuer(event.target.value);}}/></label>
@@ -34,5 +34,5 @@ export function ReceiptPanel({proof}:{proof:File}){
     {busy&&<p role="status">正在本机检查回执，可取消，超过 15 秒自动停止。</p>}{error&&<p role="alert">{error}</p>}
     {result&&<div role="status" style={{overflowWrap:'anywhere'}}><Tag tone="ok">接收回执与当前证据一致</Tag><p>签发者：{result.issuer_id}；接收范围：{result.received_scope==='selective'?'部分披露':'完整证据'}。</p><p>签发方声明接收时间：{new Date(result.received_at_ms).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}（北京时间）。</p></div>}
     <p className="caption">最多接受 31 天有效期，使用本机当前时间检查。该结果不证明来自官方客户端、操作真实或人类创作；接收时间也不是独立时间服务认证。改变证书字节后需重新签发回执。</p>
-  </details></Panel>;
+  </Details></Panel>;
 }
