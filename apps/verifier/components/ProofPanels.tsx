@@ -22,6 +22,10 @@ export function CertificateCard({proof,report,certificateId,behaviorNote,behavio
       <p>文件指纹（BLAKE3）</p><code>{m.artifact_hash}</code>
       {report.valid&&certificateId&&<><p>证书指纹（SHA-256）</p><code>{certificateId}</code></>}
     </Details>
+    <div className="fluent-print-fingerprints"><p>文件指纹（BLAKE3）</p><code>{m.artifact_hash}</code>
+      {report.valid&&certificateId&&<><p>证书指纹（SHA-256）</p><code>{certificateId}</code></>}
+      <p>{partial?'本次核验仅覆盖已披露的记录。':''}签名者身份未经认证。</p>
+    </div>
   </Panel>;
   return <article className={`certificate ${report.valid?'':'invalid'}`} aria-label="过程记录证书">
     <header className="certificate-header"><span><Fingerprint size={20}/>WORKPROOF</span><span>{partial?'选择性披露':'创作过程记录'}</span></header>

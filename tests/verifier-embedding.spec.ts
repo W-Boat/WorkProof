@@ -50,8 +50,10 @@ test('validated parent appearance integrates the embedded verifier without losin
   const names=['操作频次','新增与删除','文档长度','累计新增','单次写入散点','操作构成','操作热图','写入间隔箱线图','操作矩形树图','新增量直方图'];
   for(const name of names){
     await chartSelector.click();
+    await expect(chartSelector).toHaveAttribute('aria-expanded','true');
     await expect(verifier.locator('.verification-charts fluent-option')).toHaveCount(10);
     await verifier.getByRole('option',{name,exact:true}).click();
+    await expect(chartSelector).toHaveAttribute('aria-expanded','false');
     await expect(chartSelector).toContainText(name);
     await expect(verifier.getByRole('img',{name:new RegExp(`^${name}，`)}).locator('canvas')).toBeVisible();
   }

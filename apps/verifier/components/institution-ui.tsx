@@ -70,8 +70,8 @@ export function Select({label,value,options,onChange}:{label:string;value:string
       const next=(event.currentTarget as HTMLElement&{value:string|null}).value;
       if(next!==null)onChange(next);
     }}>
-      <FluentElement tag="fluent-listbox">
-        {options.map(option=><FluentElement tag="fluent-option" key={option.value} value={option.value} defaultSelected={option.value===value} disabled={option.disabled}>{option.label}</FluentElement>)}
+      <FluentElement tag="fluent-listbox" role="listbox">
+        {options.map(option=><FluentElement tag="fluent-option" role="option" key={option.value} value={option.value} aria-selected={option.value===value} aria-disabled={option.disabled} defaultSelected={option.value===value} disabled={option.disabled}>{option.label}</FluentElement>)}
       </FluentElement>
     </FluentElement>
   </div>;

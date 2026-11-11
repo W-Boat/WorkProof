@@ -223,3 +223,5 @@ html[data-theme=dark] .behavior-range[data-review=true]>div>span{color:#ff9ba7}h
 .fluent-verifier .chart-pages{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:10px;font-size:13px}
 @media(max-width:800px){.fluent-verifier .result-grid{grid-template-columns:minmax(0,1fr);gap:0}.fluent-verifier .result-grid>.checks-panel{margin-bottom:16px!important}}
 @media print{.fluent-verifier .verification-result-navigation{display:none!important}.fluent-verifier .fluent-certificate{break-inside:avoid}}
+.fluent-verifier .fluent-print-fingerprints{display:none}
+@media print{.fluent-verifier .fluent-certificate fluent-accordion,.fluent-verifier .verify-steps{display:none!important}.fluent-verifier .fluent-print-fingerprints{display:block}}
