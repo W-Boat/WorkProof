@@ -8,4 +8,5 @@ export async function selectChoice(page:Page,selector:string,value:string){
   await control.click();
   await control.getByRole('option',{name:label,exact:true}).click();
   await expect(source).toHaveValue(value);
+  await expect(control.locator('[slot="control"]')).toContainText(label);
 }

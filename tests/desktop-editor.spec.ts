@@ -472,7 +472,7 @@ test('ribbon keyboard navigation exposes the selected page and returns focus fro
 test('toolbar follows cursor formats and represents mixed font sizes truthfully',async({page})=>{
   await desktop(page);const body=await create(page);await ensureRibbonOpen(page);await body.fill('大号文字');await body.press('ControlOrMeta+a');
   await selectChoice(page,'#font-size','18pt');await body.press('End');await selectChoice(page,'#font-size','12pt');await body.pressSequentially('小号文字');
-  await body.press('ControlOrMeta+a');await expect(page.locator('#font-size')).toHaveValue('__mixed');await expect(page.locator('#font-size option:checked')).toHaveText('多种格式');
+  await body.press('ControlOrMeta+a');await expect(page.locator('#font-size')).toHaveValue('__mixed');await expect(page.locator('#font-size option:checked')).toHaveText('多种格式');await expect(page.locator('[data-native-select=font-size] [slot=control]')).toContainText('多种格式');
   for(const [text,size] of [['大号文字','18pt'],['小号文字','12pt']]){
     await body.evaluate((root,target)=>{
       const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
@@ -800,7 +800,7 @@ test('library sorting persists and source search reports the matching count',asy
   await create(page);await page.getByRole('textbox',{name:'文档名称'}).fill('Beta 1');await page.locator('#back-library').click();
   await selectChoice(page,'#library-sort','title');
   await expect(page.locator('#document-list .document-row strong')).toHaveText(['Alpha 2','Beta 1']);
-  await page.reload();await expect(page.getByRole('combobox',{name:'文档排序'})).toHaveValue('title');
+  await page.reload();await expect(page.locator('#library-sort')).toHaveValue('title');await expect(page.locator('[data-native-select=library-sort] [slot=control]')).toContainText('按名称排序');
   await page.locator('#document-search input').fill('Beta');
   await expect(page.locator('#library-summary')).toHaveText('我的文档 · 1 份，本分组共 2 份');
   await expect(page.locator('#document-list .document-row strong')).toHaveText(['Beta 1']);
