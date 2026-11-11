@@ -177,7 +177,7 @@ ui.beforeNavigate=async()=>{
 window.workproofCancelClose=()=>{
   if(!closing)return;
   closing=false;workspace.setClosing(false);
-  document.querySelector('main').inert=false;document.querySelector('.workspace-nav').inert=false;
+  window.workproofSetInteractionLock('closing',false);
   setEditable(editableBeforeClose||(!dirty&&!pending.length&&!inflight));
 };
 window.workproofBeforeClose=async()=>{
@@ -189,7 +189,7 @@ window.workproofBeforeClose=async()=>{
   if(closing)return;
   editableBeforeClose=editor?.isEditable??true;closing=true;
   setEditable(false);workspace.setClosing(true);
-  document.querySelector('main').inert=true;document.querySelector('.workspace-nav').inert=true;
+  window.workproofSetInteractionLock('closing',true);
   try{await flush();}
   catch(error){window.workproofCancelClose();reportError(error);throw new Error('文档尚未保存，窗口已保留。请重试保存后再关闭。');}
 };
