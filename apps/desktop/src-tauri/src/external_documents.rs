@@ -77,6 +77,13 @@ pub async fn external_document_open(window:WebviewWindow,id:String)->Result<(),S
 mod embedded_tests{
     use super::*;
     #[test]
+    fn workbench_permissions_cover_the_external_library(){
+        let permissions=include_str!("../permissions/workbench.toml");
+        for command in ["external_documents_list","external_document_load","external_document_locate","external_document_open","external_document_read","library_states","library_set_state"]{
+            assert!(permissions.contains(&format!("\"{command}\"")),"Missing workbench permission: {command}");
+        }
+    }
+    #[test]
     fn document_opening_excludes_programs_and_shortcuts(){
         for path in ["report.DOCX","slides.pptx","drawing.psd","model.blend","notes.md"]{assert!(opens_as_document(Path::new(path)));}
         for path in ["app.exe","file.docx.lnk","script.js","script.ps1","script.bat","site.url","file"]{assert!(!opens_as_document(Path::new(path)));}
