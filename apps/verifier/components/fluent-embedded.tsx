@@ -24,6 +24,9 @@ export async function loadEmbeddedFluent(dark: boolean) {
 
 const nativeEvents:Record<string,string>={onClick:'onclick',onInput:'oninput',onChange:'onchange',onDragOver:'ondragover',onDragLeave:'ondragleave',onDrop:'ondrop'};
 export function FluentElement({tag,...props}:{tag:string;[key:string]:unknown}){
-  const attributes=Object.fromEntries(Object.entries(props).map(([name,value])=>[nativeEvents[name]??name,value]));
+  const attributes=Object.fromEntries(Object.entries(props).map(([name,value])=>[
+    nativeEvents[name]??name,
+    name.startsWith('aria-')&&typeof value==='boolean'?String(value):value,
+  ]));
   return createElement(tag,attributes);
 }
