@@ -541,6 +541,14 @@ test('native verification uses real Wasm, renders all report views and rejects a
   await expect(page.locator('.verification-chart')).toBeVisible();
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'操作记录',exact:true}).click();await expect(page.locator('.nv-table tbody tr').first()).toBeVisible();
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'证书信息',exact:true}).click();await expect(page.locator('.nv-certificate')).toContainText('essay.md');
+  const certificateId=await page.locator('.nv-certificate > div').filter({hasText:'证书指纹'}).locator('dd').innerText();
+  const downloadEvent=page.waitForEvent('download');await page.getByRole('button',{name:'保存原始证书',exact:true}).click();
+  const saved=await downloadEvent;expect(saved.suggestedFilename()).toBe('essay.md.wproof');
+  expect(fs.readFileSync((await saved.path())!)).toEqual(fs.readFileSync('apps/verifier/public/demo/essay.md.wproof'));
+  const expected=page.locator('.nv-expected input');await expected.fill('0'.repeat(64));await expect(page.locator('.nv-certificate')).toHaveCount(0);
+  await page.getByRole('button',{name:'开始核验',exact:true}).click();await expect(page.locator('.nv-verdict')).toContainText('证书指纹不一致');
+  await expect(page.getByRole('button',{name:'保存原始证书',exact:true})).toHaveCount(0);
+  await expected.fill(certificateId);await page.getByRole('button',{name:'开始核验',exact:true}).click();await expect(page.locator('.nv-verdict')).toContainText('指定证书指纹一致');
   await page.getByLabel('1 · 最终作品', {exact:true}).setInputFiles({name:'essay.md',mimeType:'text/markdown',buffer:Buffer.from('被修改的正文')});
   await expect(page.locator('.nv-certificate')).toHaveCount(0);await page.getByRole('button',{name:'开始核验',exact:true}).click();
   await expect(page.getByRole('heading',{name:'核验未通过',exact:true})).toBeVisible();
@@ -830,6 +838,7 @@ test('external Markdown opens as a new editable copy and grouped sessions archiv
   await page.locator('#reload-documents').click();
   await page.getByRole('button',{name:'在内置编辑器打开副本 外部笔记.md',exact:true}).click();
   await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('从外部软件读取的正文');
+  await expect(page.locator('#import-markdown')).toBeEnabled();
   await page.locator('#back-library').click();
   await page.getByRole('button',{name:'归档 外部笔记.md',exact:true}).click();
   await expect(page.getByRole('button',{name:'查看记录 外部笔记.md',exact:true})).toHaveCount(0);

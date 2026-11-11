@@ -265,15 +265,15 @@ function renderLibrary(){
     if(entry.type==='external'&&/\.(docx|md|markdown|txt)$/i.test(doc.title)){
       const copy=element('fluent-button','','编辑副本');copy.setAttribute('aria-label','在内置编辑器打开副本 '+doc.title);copy.dataset.icon='document_text';
       copy.addEventListener('click',async()=>{
-        if(importing||opening||closing||creating||openingLibraryEntry)return;
-        copy.disabled=true;
+        if(importing||opening||closing||creating||exporting||openingLibraryEntry)return;
+        copy.disabled=true;openingLibraryEntry=true;
         try{
           const result=await ipc('external_document_read',{id:doc.id});
           if(!result||!Array.isArray(result.bytes)||typeof result.name!=='string')throw new Error('原文件未能读取。');
           const target=/\.docx$/i.test(result.name)?$('word-file'):$('markdown-file');
           const transfer=new DataTransfer();transfer.items.add(new File([new Uint8Array(result.bytes)],result.name));
-          target.files=transfer.files;target.dispatchEvent(new Event('change',{bubbles:true}));
-        }catch(error){ui.showMessage(errorText(error),'error');}finally{copy.disabled=false;}
+          target.files=transfer.files;openingLibraryEntry=false;target.dispatchEvent(new Event('change',{bubbles:true}));
+        }catch(error){ui.showMessage(errorText(error),'error');}finally{openingLibraryEntry=false;copy.disabled=false;}
       });actions.append(copy);
     }
 
