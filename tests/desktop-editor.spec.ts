@@ -70,6 +70,9 @@ async function desktop(page:Page){
 }
 async function selectKind(page:Page,kind:'word'|'markdown'){await page.locator(`#document-kind-dialog button[value=${kind}]`).click();}
 async function create(page:Page,kind:'word'|'markdown'='word'){await page.getByRole('button',{name:'新建文档',exact:true}).click();await selectKind(page,kind);await expect(page.getByRole('textbox',{name:'文档正文'})).toBeVisible();await expect(page.locator('#new-document')).toBeEnabled();return page.getByRole('textbox',{name:'文档正文'});}
+async function ensureToolsOpen(page:Page){
+  if(await page.locator('#write-panel').getAttribute('data-ribbon-open')!=='true')await page.locator('#toggle-ribbon').click();
+}
 async function ensureRibbonOpen(page:Page){
   await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');
   // Selecting a tool tab explicitly expands its page even if automatic layout
@@ -104,14 +107,14 @@ test('CodeMirror loads only for Markdown source and reuses its runtime',async({p
   page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/desktop-status/markdown-source-runtime.js'))requests.push(request.url());});
   await desktop(page);await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');expect(requests).toEqual([]);
   const body=await create(page,'markdown');await body.fill('正文编辑无需源码组件');expect(requests).toEqual([]);
-  await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toBeVisible();expect(requests).toHaveLength(1);
-  await page.locator('#toggle-source').click();await expect(body).toBeVisible();await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toBeVisible();expect(requests).toHaveLength(1);
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toBeVisible();expect(requests).toHaveLength(1);
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();await expect(body).toBeVisible();await ensureToolsOpen(page);await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toBeVisible();expect(requests).toHaveLength(1);
 });
 
 test('leaving the editor cancels a pending source open and reopening uses the latest document',async({page})=>{
   await desktop(page);const body=await create(page,'markdown');await body.fill('等待加载时的原稿');
   const delayed=await delayMarkdownRuntime(page);
-  await page.locator('#toggle-source').click();await delayed.requestStarted;
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();await delayed.requestStarted;
   await expect(page.locator('#toggle-source')).toHaveAttribute('aria-busy','true');await expect(body).toBeVisible();
   await page.locator('#tab-process').click();await page.locator('#tab-write').click();
   await body.focus();await body.press('ControlOrMeta+a');await body.press('Backspace');
@@ -121,13 +124,13 @@ test('leaving the editor cancels a pending source open and reopening uses the la
   delayed.release();await loaded;
   await page.evaluate(async()=>{await import(new URL('markdown-source-runtime.js',document.baseURI).href);await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));});
   await expect(page.locator('#markdown-source-panel')).toBeHidden();await expect(page.locator('#markdown-source .cm-content')).toHaveCount(0);await expect(body).toHaveText('加载期间更新后的正文');
-  await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toHaveText('加载期间更新后的正文');
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toHaveText('加载期间更新后的正文');
 });
 
 test('tray quit saves while a source runtime is pending and prevents its late view from opening',async({page})=>{
   await desktop(page);const body=await create(page,'markdown');await body.click();await body.press('Control+a');await body.press('Backspace');await page.keyboard.insertText('退出前保留的正文');await expect(body).toContainText('退出前保留的正文');
   const delayed=await delayMarkdownRuntime(page);
-  await page.locator('#toggle-source').click();await delayed.requestStarted;
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();await delayed.requestStarted;
   await page.evaluate(()=>{(window as any).editorHarness.listeners['workproof-quit-requested']();});
   await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.windowActions)).toEqual(['quit']);
   expect(await page.evaluate(()=>(window as any).editorHarness.saves.at(-1).content.content[0].content[0].text)).toBe('退出前保留的正文');
@@ -139,7 +142,7 @@ test('tray quit saves while a source runtime is pending and prevents its late vi
 
 test('a delayed source request cannot replace a different document opened from the library',async({page})=>{
   await desktop(page);const body=await create(page,'markdown');await body.fill('第一份文档的正文');
-  const delayed=await delayMarkdownRuntime(page);await page.locator('#toggle-source').click();await delayed.requestStarted;
+  const delayed=await delayMarkdownRuntime(page);await ensureToolsOpen(page);await page.locator('#toggle-source').click();await delayed.requestStarted;
   await page.locator('#back-library').click();await create(page);await body.fill('第二份文档保留自己的内容');
   const loaded=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/desktop-status/markdown-source-runtime.js'));
   delayed.release();await loaded;
@@ -151,8 +154,8 @@ test('a failed source entry request preserves text and can be retried without re
   await desktop(page);const body=await create(page,'markdown');await body.fill('网络失败也保留正文');
   let attempts=0;
   await page.route('**/desktop-status/markdown-source-runtime.js*',route=>++attempts===1?route.abort('failed'):route.fallback());
-  await page.locator('#toggle-source').click();await expect(page.locator('#message')).toContainText('源码编辑器暂未加载');await expect(page.locator('#toggle-source')).toBeEnabled();await expect(body).toHaveText('网络失败也保留正文');
-  await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toHaveText('网络失败也保留正文');expect(attempts).toBe(2);
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();await expect(page.locator('#message')).toContainText('源码编辑器暂未加载');await expect(page.locator('#toggle-source')).toBeEnabled();await expect(body).toHaveText('网络失败也保留正文');
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();await expect(page.locator('#markdown-source .cm-content')).toHaveText('网络失败也保留正文');expect(attempts).toBe(2);
 });
 
 test('real Tiptap edits and formats persist and reopen with independent navigation',async({page},info)=>{
@@ -294,20 +297,20 @@ test('writing panes follow window space and preserve manual choices after reopen
   await page.setViewportSize({width:760,height:800});
   await expect(workspace).toHaveAttribute('data-inspector-open','false');
   await expect(page.locator('#action-inspector')).toHaveAttribute('inert','');
-  await page.locator('#toggle-inspector').click();
+  await ensureToolsOpen(page);await page.locator('#toggle-inspector').click();
   await expect(workspace).toHaveAttribute('data-inspector-open','true');
   await expect(workspace).toHaveClass(/pane-overlay-open/);
   await page.keyboard.press('Escape');
   await expect(workspace).toHaveAttribute('data-inspector-open','false');
   await page.setViewportSize({width:1600,height:900});
   await expect(workspace).toHaveAttribute('data-inspector-open','true');
-  await page.locator('#toggle-inspector').click();
+  await ensureToolsOpen(page);await page.locator('#toggle-inspector').click();
   await expect(workspace).toHaveAttribute('data-inspector-open','false');
   await page.reload();
   await page.getByRole('button',{name:'继续编辑 未命名文档'}).click();
   await expect(workspace).toHaveAttribute('data-inspector-open','false');
   const ribbonBeforeFocus=await workspace.getAttribute('data-ribbon-open');
-  await page.locator('#focus-writing').click();
+  await ensureToolsOpen(page);await page.locator('#focus-writing').click();
   await expect(workspace).toHaveAttribute('data-ribbon-open','false');
   await expect(workspace).toHaveAttribute('data-outline-open','false');
   await page.keyboard.press('Escape');
@@ -319,7 +322,7 @@ test('reduced motion removes pane animation and collapsing a focused pane restor
   await page.setViewportSize({width:1600,height:900});
   await page.emulateMedia({reducedMotion:'reduce'});
   await desktop(page);await create(page);
-  if(await page.locator('#write-panel').getAttribute('data-inspector-open')!=='true')await page.locator('#toggle-inspector').click();
+  if(await page.locator('#write-panel').getAttribute('data-inspector-open')!=='true'){await ensureToolsOpen(page);await page.locator('#toggle-inspector').click();}
   await ensureRibbonOpen(page);
   expect(await page.locator('#writing-ribbon').evaluate(element=>getComputedStyle(element).transitionDuration)).toBe('0s');
   await page.locator('#view-process').focus();
@@ -334,13 +337,13 @@ test('reduced motion removes pane animation and collapsing a focused pane restor
 
 test('Markdown keeps exact source and its type after reopening',async({page})=>{
   await desktop(page);const body=await create(page,'markdown');
-  await page.locator('#toggle-source').click();const source=page.locator('#markdown-source .cm-content');
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();const source=page.locator('#markdown-source .cm-content');
   await source.fill('# 标题\n\n保留   源码空格');await page.locator('#save-document').click();
   await expect.poll(()=>page.evaluate(()=>(window as any).editorHarness.saves.at(-1)?.content.attrs?.markdownSource)).toBe('# 标题\n\n保留   源码空格');
   await page.locator('#back-library').click();await page.getByRole('button',{name:'继续编辑 未命名文档',exact:true}).click();
   await expect(page.locator('#document-kind')).toHaveText('Markdown');await expect(body.locator('h1')).toHaveText('标题');
   await expect(page.locator('[data-mode]')).toHaveCount(0);
-  await page.locator('#toggle-source').click();await expect(source).toContainText('保留   源码空格');
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();await expect(source).toContainText('保留   源码空格');
 });
 
 test('offline Word bridge preserves headings lists tables and supported rich marks',async({page})=>{
@@ -406,15 +409,15 @@ test('lossless Markdown tables tasks and embedded images remain editable and exp
   await page.locator('#markdown-file').setInputFiles({name:'无损编辑.md',mimeType:'text/markdown',buffer:Buffer.from(text)});
   const body=page.locator('#tiptap-editor .tiptap');await expect(body.locator('table')).toHaveCount(1);await expect(body.getByRole('checkbox')).toHaveCount(2);await expect(body.locator('img')).toHaveCount(1);
   await expect.poll(()=>body.locator('img').evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
-  await page.locator('#toggle-source').click();const source=page.locator('#markdown-source .cm-content');await expect(source).toBeVisible();await expect(source).toContainText('待办事项');
-  await source.press('ControlOrMeta+End');await source.press('Enter');await source.pressSequentially('源码继续编辑');await page.locator('#toggle-source').click();await expect(body).toContainText('源码继续编辑');
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();const source=page.locator('#markdown-source .cm-content');await expect(source).toBeVisible();await expect(source).toContainText('待办事项');
+  await source.press('ControlOrMeta+End');await source.press('Enter');await source.pressSequentially('源码继续编辑');await ensureToolsOpen(page);await page.locator('#toggle-source').click();await expect(body).toContainText('源码继续编辑');
   await page.evaluate(()=>{const w=window as any,invoke=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(command:string,args:any)=>{if(command==='editor_export')w.exportedMarkdown=args.markdown;return invoke(command,args);};});
   await page.locator('#export-document').click();await expect.poll(()=>page.evaluate(()=>(window as any).exportedMarkdown)).toBe(text+'\n源码继续编辑');
 });
 
 test('closing freezes Markdown and waits for durable save before issuing the native close',async({page})=>{
   await desktop(page);const body=await create(page,'markdown');
-  await page.locator('#toggle-source').click();
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();
   await page.evaluate(()=>{
     const w=window as any,invoke=w.__TAURI__.core.invoke;let blockNext=true;
     w.__TAURI__.core.invoke=(command:string,args:any)=>{
@@ -583,7 +586,7 @@ test('desktop rail leaves an unsaved editor open on a failed save and supports r
 
 test('cancelling Markdown export keeps the source editor open and editable',async({page})=>{
   await desktop(page);await create(page,'markdown');
-  await page.locator('#toggle-source').click();
+  await ensureToolsOpen(page);await page.locator('#toggle-source').click();
   const source=page.locator('#markdown-source .cm-content');
   await expect(source).toBeVisible();
   await source.fill('# 保留源码');
@@ -663,7 +666,7 @@ test('simple writing fills the window and restores pane choices navigation and t
   const workspace=page.locator('#write-panel');
   await expect(workspace).toHaveAttribute('data-ribbon-open','true');await expect(workspace).toHaveAttribute('data-outline-open','false');await expect(workspace).toHaveAttribute('data-inspector-open','true');
   const before=await page.evaluate(()=>({compact:document.body.classList.contains('compact-nav'),preferences:['ribbon','outline','inspector'].map(name=>localStorage.getItem(`workproof.pane.${name}`))}));
-  await page.locator('#focus-writing').click();await expect(page.locator('body')).toHaveClass(/simple-writing/);await expect(page.locator('#exit-simple-writing')).toBeVisible();
+  await ensureToolsOpen(page);await page.locator('#focus-writing').click();await expect(page.locator('body')).toHaveClass(/simple-writing/);await expect(page.locator('#exit-simple-writing')).toBeVisible();
   await expect(page.locator('.workspace-nav')).toHaveAttribute('inert','');await expect(page.locator('.doc-head')).toHaveAttribute('inert','');
   await expect.poll(()=>page.locator('.editor-canvas').evaluate(element=>{const rectangle=element.getBoundingClientRect();return rectangle.width*rectangle.height/(innerWidth*innerHeight);})).toBeGreaterThanOrEqual(.7);
   await page.screenshot({path:info.outputPath('typora-simple-dark.png')});
@@ -671,11 +674,11 @@ test('simple writing fills the window and restores pane choices navigation and t
   await expect(workspace).toHaveAttribute('data-ribbon-open','true');await expect(workspace).toHaveAttribute('data-outline-open','false');await expect(workspace).toHaveAttribute('data-inspector-open','true');
   await expect(page.locator('.workspace-nav')).not.toHaveAttribute('inert','');await expect(page.locator('.doc-head')).not.toHaveAttribute('inert','');await expect(body).toHaveText('精简模式让正文成为视线的中心。');
   expect(await page.evaluate(()=>({compact:document.body.classList.contains('compact-nav'),preferences:['ribbon','outline','inspector'].map(name=>localStorage.getItem(`workproof.pane.${name}`))}))).toEqual(before);
-  await page.locator('#focus-writing').click();await page.locator('#exit-simple-writing').click();await expect(page.locator('body')).not.toHaveClass(/simple-writing/);
+  await ensureToolsOpen(page);await page.locator('#focus-writing').click();await page.locator('#exit-simple-writing').click();await expect(page.locator('body')).not.toHaveClass(/simple-writing/);
 });
 
 test('leaving the editor exits simple writing and releases navigation controls',async({page})=>{
-  await desktop(page);await create(page);await page.locator('#focus-writing').click();await expect(page.locator('body')).toHaveClass(/simple-writing/);
+  await desktop(page);await create(page);await ensureToolsOpen(page);await page.locator('#focus-writing').click();await expect(page.locator('body')).toHaveClass(/simple-writing/);
   await page.evaluate(()=>(window as any).workproofUI.selectView('connections',true));
   await expect(page.locator('body')).toHaveAttribute('data-view','connections');await expect(page.locator('body')).not.toHaveClass(/simple-writing/);await expect(page.locator('#exit-simple-writing')).toBeHidden();await expect(page.locator('.workspace-nav')).not.toHaveAttribute('inert','');
 });
