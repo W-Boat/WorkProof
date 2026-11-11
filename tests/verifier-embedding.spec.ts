@@ -21,7 +21,8 @@ test('validated parent appearance integrates the embedded verifier without losin
   },appearance);
   await expect(verifier.locator('.wp-stage')).toHaveClass(/wp-fluent wp-embedded/);
   const primary=verifier.getByRole('button',{name:'开始本地核验'});
-  expect(await primary.evaluate(element=>{const probe=document.createElement('span');probe.style.color='var(--fluent-primary)';element.append(probe);const expected=getComputedStyle(probe).color;probe.remove();return getComputedStyle(element).backgroundColor===expected;})).toBe(true);
+  await expect(primary).toHaveAttribute('appearance','primary');
+  expect(await primary.evaluate(element=>element.localName)).toBe('fluent-button');
   await expect(verifier.locator('html')).toHaveAttribute('data-theme','dark');
   await expect(verifier.locator('html')).toHaveAttribute('data-workproof-motion','reduced');
   await expect(verifier.locator('.wp-rail')).toBeHidden();
@@ -35,6 +36,21 @@ test('validated parent appearance integrates the embedded verifier without losin
   await expect(verifier.locator('html')).toHaveAttribute('data-theme','light');
   await expect(verifier.locator('html')).toHaveAttribute('data-workproof-motion','full');
   await page.screenshot({path:testInfo.outputPath('embedded-verifier-light.png'),fullPage:true});
+  await verifier.getByRole('button',{name:'先体验一份演示证据'}).click();
+  await expect(verifier.locator('#verification-result')).toContainText('证据核验通过');
+  const choices=verifier.getByRole('group',{name:'选择统计图'});
+  await expect(choices.getByRole('button')).toHaveCount(10);
+  const names=['操作频次','新增与删除','文档长度','累计新增','单次写入散点','操作构成','操作热图','写入间隔箱线图','操作矩形树图','新增量直方图'];
+  for(const name of names){
+    const choice=choices.getByRole('button',{name,exact:true});
+    await choice.click();await expect(choice).toHaveAttribute('aria-pressed','true');
+    await expect(verifier.getByRole('img',{name:new RegExp(`^${name}，`)}).locator('canvas')).toBeVisible();
+  }
+  const filter=verifier.getByRole('group',{name:'筛选检验项'});
+  await filter.getByRole('button',{name:'需复核',exact:true}).click();
+  await expect(verifier.locator('.behavior-report tbody tr[data-review=false]')).toHaveCount(0);
+  await verifier.locator('.verification-charts').scrollIntoViewIfNeeded();
+  await page.screenshot({path:testInfo.outputPath('embedded-verifier-charts.png')});
 });
 
 test('untrusted requested parent origin leaves the standalone shell visible',async({page})=>{

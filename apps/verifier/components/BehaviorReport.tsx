@@ -1,11 +1,16 @@
 'use client';
+import {useState} from 'react';
 import {BehaviorOverview} from './BehaviorOverview';
-import {Panel} from './institution-ui';
+import {Panel,Tag} from './institution-ui';
+import {Button} from './button';
+import {useEmbeddedFluent} from './fluent-embedded';
 import {type BehaviorAssessment} from '../lib/evidence';
 
 type Row={key?:string;name:string;value:number|null|undefined;unit:string;reference:string;code?:string;direction?:'up'|'down';status?:string};
 const names:Record<string,string>={bulk_insertion:'大段或短时集中写入',bulk_dominated:'集中写入占比',sustained_fast_input:'持续高速写入',regular_timing:'写入间隔过于接近',mass_replacement:'成段替换'};
 export function BehaviorReport({assessment,valid}:{assessment?:BehaviorAssessment|null;valid:boolean}){
+  const embedded=useEmbeddedFluent();
+  const [filter,setFilter]=useState<'all'|'review'>('all');
   const available=!!(valid&&assessment&&assessment.status!=='unavailable'),full=available&&assessment.scope==='full'&&assessment.status!=='not_applicable'&&assessment.measurements!==undefined&&Object.keys(assessment.measurements).length>0;
   const summary=assessment?.summary,thresholds=assessment?.thresholds||{};
   const triggered=new Set(assessment?.rule_results?assessment.rule_results.filter(rule=>rule.status==='triggered').map(rule=>rule.code):assessment?.signals.map(signal=>signal.code)||[]);
@@ -64,10 +69,18 @@ export function BehaviorReport({assessment,valid}:{assessment?:BehaviorAssessmen
     if(status!=='within_reference')return {text:'— 条件不足',flag:false};
     return {text:'未触发该项提醒',flag:false};
   }
+  const evaluated=rows.map(row=>({row,state:result(row)}));
+  const displayed=embedded?[...evaluated].sort((a,b)=>Number(b.state.flag)-Number(a.state.flag)).filter(({state})=>filter==='all'||state.flag):evaluated;
+  const reviewCount=evaluated.filter(({state})=>state.flag).length;
   return <Panel title="编辑过程检验单" className="behavior-report">
+    {embedded&&<div className="diagnosis-summary">
+      <div><Tag tone={reviewCount?'danger':full?'ok':'neutral'}>{reviewCount?`${reviewCount} 项需复核`:full?'当前规则未触发提醒':'评估范围不足'}</Tag>
+      <span>{assessment?.scope==='selective'?'部分披露':available?'已取得记录':'记录不可用'}</span></div>
+      <div role="group" aria-label="筛选检验项"><Button variant={filter==='all'?'primary':'ghost'} aria-pressed={filter==='all'} onClick={()=>setFilter('all')}>全部项目</Button><Button variant={filter==='review'?'primary':'ghost'} aria-pressed={filter==='review'} onClick={()=>setFilter('review')}>需复核</Button></div>
+    </div>}
     <p>逐项列出实际测量值与参考条件。红色箭头表示对应的联合规则需要复核；信息不足显示“—”。这些参考条件是统计规则，不能据此认定创作者或 AI 使用情况。</p>
-    <BehaviorOverview assessment={assessment} full={!!full}/>
-    <div className="behavior-table-scroll" role="region" aria-label="完整编辑过程检验单，可横向滚动" tabIndex={0}><table><caption>编辑过程统计与参考条件 · {assessment?.rule_version||'评估不可用'}</caption><thead><tr><th scope="col">项目</th><th scope="col">测量值</th><th scope="col">单位</th><th scope="col">参考条件</th><th scope="col">结果</th></tr></thead><tbody>{rows.map(row=>{const state=result(row);return <tr key={row.name} data-review={state.flag}><th scope="row">{row.name}</th><td>{row.value===null||row.value===undefined?'—':row.value.toLocaleString('zh-CN',{maximumFractionDigits:2})}</td><td>{row.unit}</td><td>{row.reference}</td><td className="measurement-result">{state.text}</td></tr>;})}</tbody></table></div>
+    {!embedded&&<BehaviorOverview assessment={assessment} full={!!full}/>}
+    <div className="behavior-table-scroll" role="region" aria-label="完整编辑过程检验单，可横向滚动" tabIndex={0}><table><caption>编辑过程统计与参考条件 · {assessment?.rule_version||'评估不可用'}</caption><thead><tr><th scope="col">项目</th><th scope="col">测量值</th><th scope="col">单位</th><th scope="col">参考条件</th><th scope="col">结果</th></tr></thead><tbody>{displayed.map(({row,state})=><tr key={row.name} data-review={state.flag}><th scope="row">{row.name}</th><td>{row.value===null||row.value===undefined?'—':row.value.toLocaleString('zh-CN',{maximumFractionDigits:2})}</td><td>{row.unit}</td><td>{row.reference}</td><td className="measurement-result">{state.text}</td></tr>)}{displayed.length===0&&<tr><td colSpan={5}>当前没有需要复核的项目。</td></tr>}</tbody></table></div>
     <div className="behavior-rule-results">{Object.entries(names).map(([code,name])=><p key={code}><strong>{name}</strong><span>{!full?'— 范围不足':triggered.has(code)?'↑ 规则已触发，需复核':assessment?.rule_results?.find(rule=>rule.code===code)?.status==='within_reference'?'未触发该项提醒':'— 样本或条件不足'}</span></p>)}</div>
   </Panel>;
 }

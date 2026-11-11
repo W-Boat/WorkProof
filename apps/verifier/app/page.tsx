@@ -3,12 +3,13 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {motion} from 'motion/react';
 import {ArrowDownToLine,ArrowUpRight,ShieldCheck,X,AlertTriangle,RotateCcw,LoaderCircle,FileText,Activity,LockKeyhole,Fingerprint} from 'lucide-react';
 import {Button} from '../components/button';
-import {PageHeader,Panel,Tag,EmptyState,TextInput} from '../components/institution-ui';
+import {PageHeader,Panel,Tag,EmptyState,TextInput,VerificationProgress} from '../components/institution-ui';
 import {VerifierShell,useVerifierReducedMotion} from '../components/VerifierShell';
 import {Upload} from '../components/FileDrop';
 import {Timeline} from '../components/ProcessTimeline';
 import {BehaviorPanel} from '../components/BehaviorPanel';
 import {BehaviorReport} from '../components/BehaviorReport';
+import {EmbeddedVerificationCharts} from '../components/EmbeddedVerificationCharts';
 import {CertificateCard,VerificationChecks,DisclosurePanel,DisclosedEvents} from '../components/ProofPanels';
 import {type Stage,type Result,download,escape,time,behaviorSummary} from '../lib/evidence';
 import {ReceiptPanel} from '../components/ReceiptPanel';
@@ -133,7 +134,7 @@ export default function Page(){
       <details className="fingerprint-input"><summary>没有 .wproof 证书？</summary><p>如果你是接收方，请向作品提供者索取与这份作品一起导出的 .wproof 文件。证书图片或截图不能代替这个文件。</p><p>如果你是创作者，请先用 WorkProof 开始记录，完成创作后导出作品和证书。已经完成的作品无法补录过去的创作过程。</p><p>只有作品文件也可以先查看下方的“进一步检查 AI 线索”；这些线索不能代替过程记录。第一次使用，可以点击“先体验一份演示证据”。</p></details>
       <details className="fingerprint-input"><summary>收到证书指纹？核对是否为同一张证书（可选）</summary><label className="field"><span className="field-label">发送者提供的完整证书指纹</span><TextInput aria-label="发送者提供的完整证书指纹" value={expectedId} onChange={e=>{invalidate();setExpectedId(e.target.value);}} placeholder="粘贴 64 位指纹；不一致时核验不会通过" maxLength={128} disabled={stage==='working'}/></label><p>请从可信渠道取得指纹。仅检查证书自带签名，无法识别别人重新签发的替代证书。</p></details>
       <div className="verify-actions"><Button variant="ghost" onClick={demo} disabled={demoBusy||stage==='working'} className="embedded-tool" aria-label="先体验一份演示证据" title="先体验一份演示证据">{demoBusy?<LoaderCircle size={15} className="spin"/>:<Activity size={15}/>}<span className="action-label">先体验一份演示证据</span><ArrowUpRight size={13}/></Button>{stage==='working'?<Button onClick={invalidate}><X size={15}/>取消核验</Button>:<Button variant="primary" disabled={!artifact||!proofFile} onClick={stage==='done'?focusResult:()=>verify()}><ShieldCheck size={16}/>{stage==='done'?'查看核验结果':'开始本地核验'}</Button>}</div>
-      {stage==='working'&&<div className="progress" role="status"><span>{phase}</span><span>{progress}%</span><div><i style={{width:`${progress}%`}}/></div></div>}
+      {stage==='working'&&<VerificationProgress phase={phase} progress={progress}/>}
       {stage==='error'&&<div ref={errorMessage} tabIndex={-1} className="error-box" role="alert"><AlertTriangle size={18}/><div><strong>暂时无法完成核验</strong><p>{error}</p></div></div>}
     </Panel>
     {result&&m&&r?<motion.div initial={reduced?false:{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:reduced?0:.18}} className="result">
@@ -141,6 +142,7 @@ export default function Page(){
       <div className="result-grid"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId} behaviorNote={behaviorNote} behaviorReview={!!behaviorReview}/><VerificationChecks proof={result.proof} report={r} behavior={result.behavior}/></div>
       <BehaviorPanel assessment={result.behavior} valid={r.valid} onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}/>
       <BehaviorReport assessment={result.behavior} valid={r.valid}/>
+      {r.valid&&<EmbeddedVerificationCharts key={result.certificateId} records={records} partial={partial} reduced={reduced}/>}
       {r.valid&&r.chain_valid&&<Timeline key={result.certificateId+String(proofFile?.lastModified)} records={records} signals={result.behavior?.signals} selectedSeq={focusedEventSeq} onSelect={setFocusedEventSeq}/>}
       {result.certificateMatch===false&&<p className="error-box" role="alert">证书指纹不一致：这不是发送者指定的证书。请向发送者确认，勿作为有效交付凭据。</p>}
       {result.certificateMatch===true&&<p className="caption">证书指纹一致：与发送者提供的证书相符。</p>}

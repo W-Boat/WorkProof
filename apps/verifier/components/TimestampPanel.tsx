@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {Panel,Tag} from './institution-ui';
+import {Panel,Tag,Checkbox} from './institution-ui';
 import {Button} from './button';
 import {Upload} from './FileDrop';
 import type {TimestampResult} from '../lib/timestamps';
@@ -78,7 +78,7 @@ export function TimestampPanel({signature}:{signature:string}){
       {label:'你信任的 CA 证书（.pem）',caption:'从可信渠道取得的签发机构证书，最多 256 KB',accept:'.pem'},
     ].map((item,index)=><Upload key={item.label} {...item} file={files[index]} disabled={busy} onFile={file=>{if(busy)return;reset();setFiles(previous=>previous.map((value,i)=>i===index?file:value));}}/>)}</div>
     <p>CA 指为时间服务签发证书的机构。不确定该信任谁时，可以跳过这项可选检查。</p>
-    <label className="quiet-label"><input type="checkbox" checked={trusted} disabled={busy||!files[2]} onChange={event=>{if(busy)return;generation.current++;setTrusted(event.target.checked);setResult(null);}}/>我已核对 CA 来源，并同意以这份 CA 作为本次信任依据</label>
+    <Checkbox checked={trusted} disabled={busy||!files[2]} onChange={checked=>{if(busy)return;generation.current++;setTrusted(checked);setResult(null);}}>我已核对 CA 来源，并同意以这份 CA 作为本次信任依据</Checkbox>
     <Button disabled={busy||!trusted||files.some(file=>!file)} onClick={verify}>{busy?'请稍候…':'检查时间凭据'}</Button>
     {busy&&<p role="status">正在处理时间文件。可以取消；超过 15 秒会自动停止。</p>}
     {busy&&<Button onClick={cancel}>取消当前操作</Button>}

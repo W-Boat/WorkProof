@@ -7,6 +7,7 @@ import type {CSSProperties} from 'react';
 import {desktopAppearance} from '../lib/desktop-appearance';
 import {Button} from './button';
 import {Tag} from './institution-ui';
+import {EmbeddedFluent,loadEmbeddedFluent} from './fluent-embedded';
 
 export function useVerifierReducedMotion(){
   const system=useReducedMotion();
@@ -21,6 +22,13 @@ export function useVerifierReducedMotion(){
 
 export function VerifierShell({children}:{children:ReactNode}){
   const [dark,setDark]=useState(false),[embedded,setEmbedded]=useState(false);
+  const [fluentReady,setFluentReady]=useState(false),[fluentError,setFluentError]=useState(false);
+  useEffect(()=>{
+    if(!embedded)return;
+    let active=true;
+    loadEmbeddedFluent(dark).then(()=>{if(active){setFluentReady(true);setFluentError(false);}},()=>{if(active)setFluentError(true);});
+    return()=>{active=false;};
+  },[embedded,dark]);
   const controlled=useRef(false);
   useEffect(()=>{
     const query=window.matchMedia('(prefers-color-scheme: dark)');
@@ -53,6 +61,13 @@ export function VerifierShell({children}:{children:ReactNode}){
   }
   const fluent=dark?webDarkTheme:webLightTheme;
   const fluentStyle={'--canvas':fluent.colorNeutralBackground2,'--surface-solid':fluent.colorNeutralBackground1,'--input-bg':fluent.colorNeutralBackground1,'--ink':fluent.colorNeutralForeground1,'--ink-muted':fluent.colorNeutralForeground2,'--line':fluent.colorNeutralStroke2,'--line-strong':fluent.colorNeutralStroke1,'--blue':fluent.colorBrandForeground1,'--fluent-primary':fluent.colorBrandBackground,'--fluent-primary-hover':fluent.colorBrandBackgroundHover,'--fluent-primary-pressed':fluent.colorBrandBackgroundPressed} as CSSProperties;
+  if(embedded)return <EmbeddedFluent.Provider value={fluentReady}>
+    <div className="wp-stage wp-fluent wp-embedded fluent-verifier" style={fluentStyle}>
+      <main className="wp-content" id="verify">
+        {fluentError?<p role="alert">核验界面组件加载失败。请重新打开核验页。</p>:fluentReady?children:<p role="status">正在载入核验工具…</p>}
+      </main>
+    </div>
+  </EmbeddedFluent.Provider>;
   return <div className={`wp-stage${embedded?' wp-fluent wp-embedded':''}`} style={embedded?fluentStyle:undefined}><div className="wp-frame">
     <aside className="rail m-rail wp-rail" aria-label="主导航">
       <a className="rail-brand" href="/" aria-label="WorkProof 首页"><span className="brand-mark"><img src="/icon.png" alt="" width="34" height="34"/></span><span className="brand-text"><span className="brand-name">WorkProof</span><span className="brand-sub">开源证人</span></span></a>

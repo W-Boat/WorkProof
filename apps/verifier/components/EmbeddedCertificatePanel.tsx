@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {Panel,Tag} from './institution-ui';
+import {Panel,Tag,Checkbox} from './institution-ui';
 import {Upload} from './FileDrop';
 import {Button} from './button';
 type Summary={scope:string;disclosed:number;total:number};
@@ -39,7 +39,7 @@ export function EmbeddedCertificatePanel(){
       <Upload label="1. 选择带证书的作品" caption="PNG、JPEG 或 PDF，最多 96 MB" accept=".png,.jpg,.jpeg,.pdf" file={asset} disabled={busy} onFile={file=>{reset();setAsset(file);}}/>
       <Upload label="2. 选择你信任的 CA 文件" caption="从签发方等可信渠道独立取得，PEM 格式，最多 256 KB" accept=".pem,.crt,.cer" file={ca} disabled={busy} onFile={file=>{reset();setCa(file);}}/>
       <p>CA 是签发机构的证书。请先核对来源；和作品一起收到一份 CA，并不能说明它可信。</p>
-      <label className="quiet-label"><input type="checkbox" checked={trusted} disabled={busy||!ca} onChange={event=>{setTrusted(event.target.checked);setResult(null);setMessage('');}}/>我已核对 CA 来源，将它作为本次检查的信任依据</label>
+      <Checkbox checked={trusted} disabled={busy||!ca} onChange={checked=>{setTrusted(checked);setResult(null);setMessage('');}}>我已核对 CA 来源，将它作为本次检查的信任依据</Checkbox>
       <Button disabled={busy||!asset||!ca||!trusted} onClick={check}>{busy?'正在检查…':'3. 开始本地检查'}</Button>
       {busy&&<Button variant="ghost" onClick={()=>{reset();setMessage('已取消，可以更换文件后重新检查。');}}>取消检查</Button>}
       {message&&<p role="status">{message}</p>}
