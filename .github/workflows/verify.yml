@@ -159,6 +159,10 @@ jobs:
     needs: windows-resources
     runs-on: windows-latest
     timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -271,6 +275,38 @@ jobs:
         run: |
           cargo build --locked -p workproof-engine --example native_adapter_harness
           node scripts/test_photoshop_engine.cjs target/debug/examples/native_adapter_harness.exe target/release/workproof-engine.exe
+      - name: Attest the Windows installer build
+        if: ${{ github.repository == 'W-Boat/WorkProof' && github.event_name != 'pull_request' }}
+        id: installer-attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: target/release/bundle/nsis/*-setup.exe
+      - name: Verify installer provenance, changed bytes and wrong source rejection
+        if: ${{ steps.installer-attestation.outcome == 'success' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_ATTESTATION_BUNDLE: ${{ steps.installer-attestation.outputs.bundle-path }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $PSNativeCommandUseErrorActionPreference=$false
+          $installers=@(Get-ChildItem -LiteralPath target/release/bundle/nsis -Filter '*-setup.exe')
+          if($installers.Count -ne 1){throw 'Expected exactly one installer'}
+          $bundle='target/release/bundle/nsis/BUILD-PROVENANCE.sigstore.json'
+          Copy-Item -LiteralPath $env:BUILD_ATTESTATION_BUNDLE -Destination $bundle
+          $policy=@('--bundle',$bundle,'--repo',$env:GITHUB_REPOSITORY,'--signer-workflow',"$env:GITHUB_REPOSITORY/.github/workflows/verify.yml",'--source-ref',$env:GITHUB_REF,'--deny-self-hosted-runners')
+          $verified=& gh attestation verify $installers[0].FullName @policy --source-digest $env:GITHUB_SHA --format json
+          if($LASTEXITCODE -ne 0){throw 'Installer provenance did not verify'}
+          $verified | Set-Content -Encoding utf8 target/release/bundle/nsis/BUILD-PROVENANCE.verification.json
+          & gh attestation verify $installers[0].FullName @policy --source-digest ('0'*40) 2>$null
+          if($LASTEXITCODE -eq 0){throw 'Wrong source commit was accepted'}
+          $changed=Join-Path $env:RUNNER_TEMP 'workproof-provenance-changed.exe'
+          Copy-Item -LiteralPath $installers[0].FullName -Destination $changed
+          $stream=[IO.File]::OpenWrite($changed)
+          try {$stream.Seek(0,[IO.SeekOrigin]::End) | Out-Null; $stream.WriteByte(1)} finally {$stream.Dispose()}
+          & gh attestation verify $changed @policy --source-digest $env:GITHUB_SHA 2>$null
+          if($LASTEXITCODE -eq 0){throw 'Changed installer was accepted'}
+          exit 0
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-windows-x64
@@ -281,6 +317,7 @@ jobs:
             target/release/workproof-inspector.exe
             target/release/workproof-timestamp.exe
             target/release/bundle/nsis/*.exe
+            target/release/bundle/nsis/BUILD-PROVENANCE*.json
             test-tray-results.json
             performance-windows.json
             test-engine-results.json
