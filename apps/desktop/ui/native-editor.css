@@ -466,8 +466,8 @@ select.wp-select-source{display:none!important}
 .library-filters .wp-select{min-width:124px}
 @media(max-width:640px){.setting-row>.wp-select{grid-column:2;grid-row:2;justify-self:start}.wp-select{max-width:100%}}
 
-.editor-tools{display:grid;grid-template-rows:1fr;min-height:0;overflow:hidden;transition:grid-template-rows 160ms var(--ease),opacity 160ms var(--ease)}
-.editor-tools>.writing-chrome{min-height:0;overflow:hidden}
+.editor-tools{display:grid;grid-template-rows:1fr;min-height:0;overflow:clip;transition:grid-template-rows 160ms var(--ease),opacity 160ms var(--ease)}
+.editor-tools>.writing-chrome{min-height:0;overflow:clip}
 .editor-tools[data-open=false]{grid-template-rows:0fr;opacity:0}
 .editor-tools[data-open=false]>.writing-chrome{padding-block:0;border:0}
 .doc-actions>#toggle-ribbon{flex-shrink:0}

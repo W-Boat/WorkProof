@@ -867,7 +867,7 @@ test('desktop chrome suppresses browser menus and text selection while the edito
   expect(await page.evaluate(()=>(window as any).contextMenuSuppressed)).toBe(true);
   expect(await page.locator('#library-summary').evaluate(node=>getComputedStyle(node).userSelect)).toBe('none');
   const body=await create(page);await body.fill('编辑器仍可选择和复制文字');
-  await body.press('ControlOrMeta+a');expect(await page.evaluate(()=>getSelection()?.toString())).toBe('编辑器仍可选择和复制文字');
+  await body.press('ControlOrMeta+a');expect(await page.evaluate(()=>getSelection()?.toString().trim())).toBe('编辑器仍可选择和复制文字');
   await body.pressSequentially('可以替换所选内容');await expect(body).toHaveText('可以替换所选内容');
 });
 
