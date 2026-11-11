@@ -5,6 +5,7 @@
 全阶段目标仍未完成。下文按开发时间保留历史，其中较早“未实现”“待验收”不能覆盖以下专题的后续证据，也不能把单平台或测试夹具成功扩展为所有环境可用。
 
 - **品牌与桌面**：生成品牌资源已在桌面、站点和 Windows 图标中接入。内置编辑器新建时选择 Word 或 Markdown，内嵌核验页使用 Fluent UI，支持 10 种统计视图及按需复核筛选。[桌面回归](https://github.com/W-Boat/WorkProof/actions/runs/42946247009) 177 项通过，[核验回归](https://github.com/W-Boat/WorkProof/actions/runs/42947420732) 119 项通过、4 项跳过。[Windows x64 安装包](https://github.com/W-Boat/WorkProof/actions/runs/42946722609/artifacts/13824680724) 已下载并核对外层 SHA-256。内置编辑器动作记录、导出与特定环境性能见[编辑器](DESKTOP-EDITOR.md)和[长文压测](EDITOR-STRESS-RESULTS.md)。
+- **跨平台构建**：[cbc6554 完整回归](https://github.com/W-Boat/WorkProof/actions/runs/42947619619)六项成功，包含 Windows x64、macOS Intel/ARM、Linux x64 开发包。Linux 的实际安装及原生 WebView 已通过本地 Wasm 核验、换件拒绝、重新核验和命令隔离；截图暴露干净系统缺少中文字体。后续 DEB 声明 `fonts-noto-cjk` 依赖，安装后检查中文字体并采集原生截图的 [603ea7c 回归](https://github.com/W-Boat/WorkProof/actions/runs/42951065832) 仍在运行。
 - **宿主适配**：VS Code、Word/PowerPoint、WPS、Photoshop、Blender 均有对应源码和验收边界。Word/PPT 原生加载项与 Office.js/WPS 加载项是不同分发路径；WPS 工具许可和真实版本覆盖尚有缺口。见[Word 原生](WORD-NATIVE.md)、[Office 服务](OFFICE-SERVER.md)及 `apps/photoshop`、`apps/blender` 的宿主说明。不能以模拟 API 验收代替真实软件安装验收。
 - **证据互操作**：PNG/JPEG/受限 PDF 的原生和浏览器 C2PA 路径已分项验收，见[C2PA](C2PA.md)；RFC 3161 手工及可选直接申请路径见[时间凭据](TIMESTAMPS.md)。独立信任根、公共服务鉴权/CORS、吊销和长期验证仍有边界，不提供自动公共身份认证。
 - **机构底座与交付**：继续采用 scaffold-master 的权限、审计和统一 Vue 组件，通过受控原生进程复用 Rust 核验。最新已下载核对的是 [efe611a 服务器包](INSTITUTION-DELIVERY-efe611a.md)：整体、29 个清单文件及镜像配置均已核对，14 项服务器检查已归档。默认不启用签发或 AI；旧可选 AI 环境不能视为已与此新版基础镜像配套。
