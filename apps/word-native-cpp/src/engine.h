@@ -18,7 +18,6 @@ struct WordRevisions {
     }
 };
 struct DocSnapshot {
-    WordRevisions revisions;
     std::wstring identity;   // FullName, never leaves this machine
     std::wstring name;       // file name only
     long long characters;
@@ -32,6 +31,7 @@ struct DocSnapshot {
     std::wstring formatSignature;
     std::wstring structureSignature; // Local SHA-256 of bounded PPT object metadata; no content.
     long selectionStart = -1, selectionEnd = -1;
+    WordRevisions revisions;
 };
 
 // Late-bound access to the running Word instance. Everything stays on the caller's (Word UI) thread.
