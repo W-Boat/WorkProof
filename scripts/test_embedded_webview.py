@@ -47,7 +47,7 @@ def select_file(selector,path):
     identifier=element['element-6066-11e4-a52e-4f735466cecf']
     call('POST',f'/session/{session}/element/{identifier}/value',{'text':str(path.resolve())})
     def displayed():
-        assert execute("const input=document.querySelector(arguments[0]);const card=input.closest('.upload-field')||input.closest('button');return card?.querySelector('strong')?.textContent===arguments[1]",[selector,path.name])
+        assert execute("const input=document.querySelector(arguments[0]);const card=input.closest('.upload-field')||input.closest('.nv-file')||input.closest('button');return card?.querySelector('strong')?.textContent===arguments[1]",[selector,path.name])
     wait(displayed)
 
 def click_text(text):
@@ -191,6 +191,22 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             wait(frame_verified);screenshot('workbench-frame-verified.png')
             call('POST',f'/session/{session}/frame',{'id':None})
             assert len(handles())==1,'Workspace verification created an extra window'
+            open_native_verifier()
+        if execute("return !!document.getElementById('desktop-verifier-root')"):
+            def native_ready():assert execute("return !!document.querySelector('.native-verifier input[type=file]')")
+            wait(native_ready)
+            native_url=call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];window.__TAURI__.core.invoke('verifier_url').then(done);",'args':[]})
+            native_files=pathlib.Path(temporary)/'native-verification';native_files.mkdir(mode=0o700)
+            for name in ('essay.md','essay.md.wproof'):
+                with urllib.request.urlopen(native_url.rstrip('/')+'/demo/'+name,timeout=10) as response:body=response.read(262145)
+                assert len(body)<=262144
+                (native_files/name).write_bytes(body)
+            upload('input[aria-label="1 · 最终作品"]',native_files/'essay.md')
+            upload('input[aria-label="2 · WorkProof 证书"]',native_files/'essay.md.wproof')
+            click_text('开始核验')
+            def native_verified():assert execute("return document.querySelector('.nv-verdict')?.dataset.valid==='true'")
+            wait(native_verified);screenshot('workbench-native-verified.png')
+            assert len(handles())==1,'Native verification created an extra window'
             open_native_verifier()
         def second():
             result=handles();assert len(result)==2;return next(h for h in result if h!=workbench)

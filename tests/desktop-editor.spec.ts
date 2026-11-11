@@ -7,7 +7,7 @@ async function desktop(page:Page){
   await page.route('**/desktop-status/**',route=>{
     const asset=new URL(route.request().url()).pathname.slice('/desktop-status/'.length);
     const name=asset.split('/').at(-1)!;
-    const type:Record<string,string>={'index.html':'text/html','word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','theme.css':'text/css','native-editor.css':'text/css','brand.png':'image/png'};
+    const type:Record<string,string>={'index.html':'text/html','word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','theme.css':'text/css','native-editor.css':'text/css','native-verifier.css':'text/css','verify-worker.js':'application/javascript','brand.png':'image/png'};
     const headers=name==='index.html'?{'Content-Security-Policy':JSON.parse(fs.readFileSync('apps/desktop/src-tauri/tauri.conf.json','utf8')).app.security.csp}:{};
     const chunk=/^chunks\/[A-Za-z0-9_-]+\.js$/.test(asset);
     if(!chunk&&(!type[name]||asset!==name))return route.abort();
@@ -249,11 +249,13 @@ test('editor back command stays visible and saves before returning to the full-h
   await expect(body).toHaveText('返回时保留的正文');
 });
 
-test('verification loads inside the shell without exposing native commands to that frame',async({page})=>{
-  await desktop(page);await page.route('**/embedded-test/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><h1>核验页测试夹具</h1>'}));
-  await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.getByRole('button',{name:'在 WorkProof 内核验作品',exact:true}).click();
-  await expect(page.frameLocator('#verifier-frame').getByRole('heading')).toHaveText('核验页测试夹具');await expect(page.locator('.workspace-nav')).toBeVisible();
-  expect(await page.frameLocator('#verifier-frame').locator('body').evaluate(()=>typeof (window as any).__TAURI__)).toBe('undefined');
+test('verification is directly mounted in the client and accepts dropped files',async({page})=>{
+  await desktop(page);await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
+  await expect(page.getByRole('heading',{name:'作品核验',exact:true})).toBeVisible();
+  await expect(page.locator('#verifier-frame')).toHaveCount(0);await expect(page.locator('.workspace-nav')).toBeVisible();
+  await page.locator('.nv-file').first().evaluate(element=>{const transfer=new DataTransfer();transfer.items.add(new File(['正文'],'作品.md',{type:'text/markdown'}));element.dispatchEvent(new DragEvent('drop',{bubbles:true,dataTransfer:transfer}));});
+  await expect(page.locator('.nv-file').first()).toContainText('作品.md');
+  await expect(page.getByRole('button',{name:'开始核验',exact:true})).toBeDisabled();
 });
 
 test('offline Word module exports real DOCX and imports it through the existing converter',async({page})=>{
@@ -515,17 +517,33 @@ test('icon command tooltips explain their action and shortcut for keyboard users
   await page.keyboard.press('Escape');await expect(tooltip).toBeHidden();
 });
 
-test('embedded verification receives desktop appearance when theme and motion change',async({page})=>{
-  await desktop(page);await page.route('**/embedded-test/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><h1>核验页测试夹具</h1><script>addEventListener("message",event=>{if(event.source===parent&&event.data.type==="workproof:appearance"){document.documentElement.dataset.theme=event.data.theme;document.documentElement.dataset.motion=String(event.data.reduceMotion);}});parent.postMessage({type:"workproof:verifier-ready"},"*");</script>'}));
-  await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
-  const child=page.frameLocator('#verifier-frame').locator('html');await expect(child).toHaveAttribute('data-theme','light');
+test('native verification shares client theme and closes without leaving stale results',async({page})=>{
+  await desktop(page);await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
+  const root=page.locator('.native-verifier');await expect(root).toBeVisible();
+  const light=await root.evaluate(node=>getComputedStyle(node).color);
   await page.getByRole('button',{name:'设置',exact:true}).click();await page.locator('fluent-radio[value=dark]').click();
-  await expect(child).toHaveAttribute('data-theme','dark');await page.locator('#reduce-motion').click();await expect(child).toHaveAttribute('data-motion','true');
-  await expect(page.locator('#verification')).toBeHidden();
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await expect.poll(()=>root.evaluate(node=>getComputedStyle(node).color)).not.toBe(light);
+  await page.locator('#reduce-motion').click();await expect(page.locator('html')).toHaveAttribute('data-reduce-motion','true');
   await page.getByRole('button',{name:'文件核验',exact:true}).click();
-  await page.getByRole('button',{name:'关闭本次核验'}).click();
-  await expect(page.locator('#verifier-frame')).toBeHidden();
-  await expect(page.locator('#verify')).toBeFocused();
+  await page.getByRole('button',{name:'关闭本次核验'}).click();await expect(root).toHaveCount(0);await expect(page.locator('#verify')).toBeFocused();
+});
+
+test('native verification uses real Wasm, renders all report views and rejects a changed artifact',async({page})=>{
+  await desktop(page);await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
+  await page.getByLabel('1 · 最终作品', {exact:true}).setInputFiles('apps/verifier/public/demo/essay.md');
+  await page.getByLabel('2 · WorkProof 证书', {exact:true}).setInputFiles('apps/verifier/public/demo/essay.md.wproof');
+  await page.getByRole('button',{name:'开始核验',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'文件与证书一致',exact:true})).toBeVisible({timeout:20000});
+  await expect(page.getByRole('heading',{name:'编辑过程检验单',exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'统计图',exact:true}).click();
+  await expect(page.locator('.verification-chart')).toBeVisible();
+  await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'操作记录',exact:true}).click();await expect(page.locator('.nv-table tbody tr').first()).toBeVisible();
+  await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'证书信息',exact:true}).click();await expect(page.locator('.nv-certificate')).toContainText('essay.md');
+  await page.getByLabel('1 · 最终作品', {exact:true}).setInputFiles({name:'essay.md',mimeType:'text/markdown',buffer:Buffer.from('被修改的正文')});
+  await expect(page.locator('.nv-certificate')).toHaveCount(0);await page.getByRole('button',{name:'开始核验',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'核验未通过',exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'操作记录',exact:true}).click();await expect(page.locator('.nv-table')).toHaveCount(0);
 });
 
 test('desktop rail leaves an unsaved editor open on a failed save and supports retry',async({page})=>{

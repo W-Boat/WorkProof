@@ -18,7 +18,7 @@ const uiBuild=require('esbuild').buildSync({
   entryPoints:[path.join(root,'apps/desktop/frontend/components.js'),path.join(root,'apps/desktop/frontend/markdown-source-runtime.js')],
   outdir:path.join(root,'apps/desktop/ui'),chunkNames:'chunks/[name]-[hash]',
   bundle:true,splitting:true,metafile:true,format:'esm',platform:'browser',target:['es2022'],minify:true,
-  legalComments:'eof',loader:{'.svg':'text'},
+  legalComments:'eof',jsx:'automatic',loader:{'.svg':'text'},
 });
 // Check actual compiled static imports. The document controller is loaded by
 // startup as well, so include its static closure without following lazy edges.
@@ -55,3 +55,12 @@ function notices(name,from){const dir=dependency(name,from);if(!dir||seen.has(di
 }
 for(const name of Object.keys(JSON.parse(fs.readFileSync(path.join(root,'apps/desktop/package.json'),'utf8')).dependencies))notices(name,root);
 fs.writeFileSync(path.join(noticeRoot,'index.json'),JSON.stringify({packages:inventory,missing_license_files:inventory.filter(p=>!p.files.length).map(p=>p.name+'@'+p.version)},null,2));
+
+// Only the shared protocol worker and Wasm runtime enter the native UI origin.
+// Never copy the website HTML, navigation, CSS or Next runtime into the client.
+const nativeUi=path.join(root,'apps/desktop/ui');
+fs.copyFileSync(path.join(root,'apps/verifier/public/verify-worker.js'),path.join(nativeUi,'verify-worker.js'));
+const wasmCandidates=['apps/desktop/src-tauri/resources/verifier/wasm','apps/verifier/public/wasm'];
+const nativeWasm=wasmCandidates.map(p=>path.join(root,p)).find(p=>fs.existsSync(path.join(p,'workproof_protocol_bg.wasm')));
+if(nativeWasm)fs.cpSync(nativeWasm,path.join(nativeUi,'wasm'),{recursive:true});
+else if(fs.existsSync(path.join(root,'apps/desktop/src-tauri/resources/verifier/index.html')))throw new Error('Packaged native verifier is missing the protocol Wasm runtime');

@@ -210,46 +210,26 @@ for(const [id,command] of [['install','install_vscode'],['verify-browser','open_
     finally{button.textContent=label;if(isLaunch){launching=false;updateLaunchButtons();}else button.disabled=false;}
   });
 }
-function sendVerifierAppearance(){
-  const frame=document.getElementById('verifier-frame');if(!frame||frame.hidden||!frame.getAttribute('src'))return;
-  try{const url=new URL(frame.src);if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port)return;
-    frame.contentWindow?.postMessage({type:'workproof:appearance',theme:document.documentElement.dataset.theme,reduceMotion:document.documentElement.dataset.reduceMotion==='true'||matchMedia('(prefers-reduced-motion: reduce)').matches},url.origin);
-  }catch{}
-}
-const verifierFrame=document.getElementById('verifier-frame'),verifyButton=document.getElementById('verify');
+function sendVerifierAppearance(){window.dispatchEvent(new Event('workproof:appearance-changed'));}
+const verifyButton=document.getElementById('verify'),verifierRoot=document.getElementById('desktop-verifier-root');
 const verifierIntro=document.getElementById('verification-intro'),verifierControls=document.getElementById('verifier-controls');
 const verifierFeedback=document.getElementById('verification-load-status');
-let verifierLoadTimer=null;
-function resetVerifier(message=''){
-  clearTimeout(verifierLoadTimer);verifierLoadTimer=null;
-  verifierFrame.hidden=true;verifierFrame.removeAttribute('src');
-  verifierControls.hidden=true;verifierIntro.hidden=false;verifyButton.disabled=false;
-  verifierFeedback.textContent=message;
-}
-verifierFrame.addEventListener('load',sendVerifierAppearance);
-window.addEventListener('message',event=>{
-  if(event.source!==verifierFrame.contentWindow||event.data?.type!=='workproof:verifier-ready'||!verifierFrame.getAttribute('src'))return;
-  if(event.origin!==new URL(verifierFrame.src).origin)return;
-  sendVerifierAppearance();
-  if(verifierLoadTimer===null)return;
-  clearTimeout(verifierLoadTimer);verifierLoadTimer=null;
-  verifierControls.hidden=false;verifierIntro.hidden=true;verifyButton.disabled=false;
-  verifierFeedback.textContent='';
-  if(document.body.dataset.view==='verification')document.getElementById('verifier-heading').focus({preventScroll:true});
-});
-matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',sendVerifierAppearance);
+let unmountVerifier=null;
 verifyButton.addEventListener('click',async()=>{
   if(verifyButton.disabled)return;
-  verifyButton.disabled=true;verifierFeedback.textContent='正在打开本机核验页…';
+  verifyButton.disabled=true;verifierFeedback.textContent='正在加载本机核验工具…';
   try{
-    const url=new URL(await window.__TAURI__.core.invoke('verifier_url'));
-    if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port||url.username||url.password)throw new Error('核验地址无效，请更新完整安装包。');
-    url.searchParams.set('embedded','1');url.searchParams.set('parentOrigin',window.location.origin);
-    verifierLoadTimer=setTimeout(()=>resetVerifier('内嵌核验页未能打开。请重试，或在浏览器中打开。'),15000);
-    verifierFrame.src=url.href;verifierFrame.hidden=false;
-  }catch(error){resetVerifier(errorText(error));}
+    const {mountNativeVerifier}=await import('../frontend/native-verifier.tsx');
+    unmountVerifier=mountNativeVerifier(verifierRoot);verifierRoot.hidden=false;
+    verifierControls.hidden=false;verifierIntro.hidden=true;verifierFeedback.textContent='';
+    document.getElementById('verifier-heading').focus({preventScroll:true});
+  }catch{verifierFeedback.textContent='核验组件未能加载，请更新完整安装包或在浏览器中核验。';}
+  finally{verifyButton.disabled=false;}
 });
-document.getElementById('close-verifier').addEventListener('click',()=>{resetVerifier();verifyButton.focus();});
+document.getElementById('close-verifier').addEventListener('click',()=>{
+  unmountVerifier?.();unmountVerifier=null;verifierRoot.hidden=true;
+  verifierControls.hidden=true;verifierIntro.hidden=false;verifyButton.focus();
+});
 
 const navPreference=document.getElementById('navigation-mode'),motionPreference=document.getElementById('reduce-motion');
 const narrowNavigation=matchMedia('(max-width:640px)');
