@@ -68,7 +68,7 @@ test('failed desktop revocation keeps the connection and offers retry',async({pa
 
 test('desktop starts with Word and shows only the chosen software steps',async({page})=>{
   await desktop(page);await page.setViewportSize({width:420,height:600});
-  await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('word');
+  await expect(page.locator('#creation-tool')).toHaveValue('word');
   const steps=page.getByRole('list',{name:'开始记录的三个步骤'});
   await expect(steps.getByRole('listitem')).toHaveCount(3);
   await expect(page.getByRole('button',{name:'打开 Word 并开始记录'})).toBeVisible();
@@ -142,7 +142,7 @@ test('desktop remembers software and keeps the workbench readable at desktop and
   await selectChoice(page,'#creation-tool','powerpoint');
   await page.reload();
   await page.getByRole('button',{name:'应用连接',exact:true}).click();
-  await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('powerpoint');
+  await expect(page.locator('#creation-tool')).toHaveValue('powerpoint');
   await expect(page.getByRole('button',{name:'打开 PowerPoint 并开始记录'})).toBeVisible();
   await expect(page.locator('#tool-requirement')).toContainText('PowerPoint 原生加载项');
   await expect(page.locator('.host-totals')).toContainText('累计记录');
@@ -205,7 +205,7 @@ test('desktop navigation switches bounded workspaces and preserves recording inp
   await page.getByRole('button',{name:'应用连接',exact:true}).click();
   await expect(page.getByRole('region',{name:'允许连接的软件'})).toBeVisible();
   await page.getByRole('button',{name:'应用连接',exact:true}).click();
-  await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('powerpoint');
+  await expect(page.locator('#creation-tool')).toHaveValue('powerpoint');
   expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight)).toBe(true);
   await page.screenshot({path:testInfo.outputPath('pc-creation.png')});
 });
@@ -216,7 +216,7 @@ test('application rail shows actual grants and appearance persists with system c
   await expect(page.locator('[data-connection=word]')).toHaveText('已允许');
   await expect(page.locator('[data-connection=powerpoint]')).toHaveText('未允许');
   await page.getByRole('button',{name:'选择 PowerPoint',exact:true}).click();
-  await expect(page.getByLabel('你用什么软件创作？')).toHaveValue('powerpoint');
+  await expect(page.locator('#creation-tool')).toHaveValue('powerpoint');
   await expect(page.locator('#selected-connection')).toContainText('尚未连接');
   await page.setViewportSize({width:1100,height:780});
   await page.screenshot({path:testInfo.outputPath('host-rail-dark.png')});

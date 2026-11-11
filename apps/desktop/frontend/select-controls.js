@@ -1,6 +1,12 @@
 import '@fluentui/web-components/dropdown.js';
 import '@fluentui/web-components/listbox.js';
 import '@fluentui/web-components/option.js';
+import {css} from '@microsoft/fast-element';
+
+// Fluent's default 160px internal minimum otherwise overflows compact font-size
+// fields and intercepts adjacent formatting buttons. Add a size variant through
+// FAST's style controller, preserving the official template and interaction.
+const compactStyles=css`.control{min-width:0;max-width:100%}`;
 
 // Keep the existing HTML select as the form/state contract; only the visible
 // control changes. All editor and settings handlers keep their original events.
@@ -12,6 +18,7 @@ export function initializeSelectControls(){
     enhanced.add(source);
     if(!source.id)source.id='workproof-select-'+(++sequence);
     const dropdown=document.createElement('fluent-dropdown'),listbox=document.createElement('fluent-listbox');
+    dropdown.$fastController.addStyles(compactStyles);
     dropdown.className='wp-select';dropdown.dataset.nativeSelect=source.id;
     dropdown.id=source.id+'-fluent';listbox.setAttribute('role','listbox');dropdown.append(listbox);
     const label=source.getAttribute('aria-label')||[...source.labels].map(label=>label.textContent.trim()).join(' ')||source.id;
