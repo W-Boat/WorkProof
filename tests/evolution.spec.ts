@@ -80,4 +80,7 @@ test('selective certificate only authorizes structures in disclosed events',asyn
   await expect(page.getByLabel('选择结构记录',{exact:true}).getByRole('option')).toHaveCount(1);
   await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles(fixture+'essay.md.wproof');
   await expect(page.getByRole('list',{name:'已核验的对象层级'})).toHaveCount(0);
+  await expect(page.getByRole('region',{name:'进一步检查 AI 线索',exact:true})).toBeVisible();
+  await expect(page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'文件属性',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'图层与结构',exact:true})).toBeDisabled();
 });

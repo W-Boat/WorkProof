@@ -41,7 +41,7 @@ export default function Page(){
   const [expectedId,setExpectedId]=useState(''),[shareMessage,setShareMessage]=useState('');
   function stopVerification(){const active=worker.current;worker.current=null;active?.terminate();}
   useEffect(()=>()=>{demoRequest.current?.abort();demoRequest.current=null;stopVerification();const active=disclosureWorker.current;disclosureWorker.current=null;active?.terminate();},[]);
-  const invalidate=()=>{demoRequest.current?.abort();demoRequest.current=null;setDemoBusy(false);setShareMessage('');stopVerification();disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');setSelection('');setResult(null);setStage('idle');setError('');setPhase('');setProgress(0);};
+  const invalidate=()=>{setTool(current=>current==='metadata'||current==='embedded'?current:'metadata');demoRequest.current?.abort();demoRequest.current=null;setDemoBusy(false);setShareMessage('');stopVerification();disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');setSelection('');setResult(null);setStage('idle');setError('');setPhase('');setProgress(0);};
   function verify(a=artifact,p=proofFile,expected=expectedId){
     if(!a||!p)return;setView('report');disclosureWorker.current?.terminate();disclosureWorker.current=null;setDisclosureBusy(false);setDisclosureError('');stopVerification();setResult(null);setError('');setProgress(0);setPhase('');setStage('working');
     setShareMessage('');
