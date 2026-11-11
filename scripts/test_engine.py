@@ -91,6 +91,30 @@ with tempfile.TemporaryDirectory(prefix='workproof-test-') as tmp:
         native_certificate=state/'native.wproof';native_certificate.write_text(json.dumps(native_proof),encoding='utf-8')
         assert subprocess.run([exe,'verify',str(native),str(native_certificate)],capture_output=True).returncode==0
         checks.append('native file sealing binds bytes, preserves signed metrics and retries idempotently')
+        # Synthetic Word observations traverse the same event and export routes
+        # as the add-in. No installed Word or user document is involved.
+        revision_metrics = [
+            {'word_revision_tracking':1,'word_revision_total':2,'word_revision_insert':1,'word_revision_delete':1,'word_revision_format':0,'word_revision_other':0},
+            {'word_revision_tracking':1,'word_revision_total':4,'word_revision_insert':2,'word_revision_delete':1,'word_revision_format':1,'word_revision_other':0},
+            {'word_revision_tracking':0,'word_revision_total':3,'word_revision_insert':1,'word_revision_delete':1,'word_revision_format':1,'word_revision_other':0},
+        ]
+        revision_id=request('/v1/sessions',{'file_name':'essay.md','started_at':'2026-11-11T00:00:00Z','source':'word','demo':True})['session_id']
+        revision_endpoint='/v1/sessions/'+revision_id
+        revision_events=[]
+        for index,(kind,metrics) in enumerate(zip(('start','interaction','save'),revision_metrics)):
+            revision_events.append(dict(initial,seq=index,elapsed_ms=index*1500,kind=kind,
+                checkpoint=proof['manifest']['artifact_hash'] if kind=='save' else '',metrics=metrics))
+        assert request(revision_endpoint+'/events',{'events':revision_events})['next_seq']==3
+        revision_proof=request(revision_endpoint+'/export',{'artifact_hash':proof['manifest']['artifact_hash'],'artifact_bytes':proof['manifest']['artifact_bytes']})
+        assert revision_proof['manifest']['source']=='word'
+        assert [entry['event']['metrics'] for entry in revision_proof['records']]==revision_metrics
+        revision_cert=state/'word-revision.wproof'
+        revision_cert.write_text(json.dumps(revision_proof),encoding='utf-8')
+        assert subprocess.run([exe,'verify',str(fixture/'essay.md'),str(revision_cert)],capture_output=True).returncode==0
+        browser_fixture=os.environ.get('WORKPROOF_WORD_REVISION_FIXTURE')
+        if browser_fixture:
+            pathlib.Path(browser_fixture).write_bytes(revision_cert.read_bytes())
+        checks.append('Word revision observations are preserved by the real collector and verified after signing')
     finally:
         if proc.poll() is None:proc.terminate();proc.wait(timeout=10)
 (root/'test-engine-results.json').write_text(json.dumps({'passed':checks},indent=2),encoding='utf-8')
