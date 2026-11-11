@@ -1,0 +1,31 @@
+name: DetectorScope frozen input eligibility
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/detectorscope-coverage.yml'
+      - 'tools/ai-assessment/detectorscope_coverage.py'
+permissions:
+  contents: read
+jobs:
+  coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the evaluation tokenizer runtime only
+        run: python -m pip install transformers==5.22.1 tokenizers==0.23.3 huggingface-hub==2.4.0 safetensors==0.8.0
+      - name: Verify all four frozen partitions and count eligible inputs
+        run: |
+          python tools/ai-assessment/prepare_detectorscope_data.py --output "$RUNNER_TEMP/workproof-detectorscope-inputs"
+          python tools/ai-assessment/detectorscope_coverage.py --inputs "$RUNNER_TEMP/workproof-detectorscope-inputs"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: detectorscope-frozen-tokenizer-coverage
+          path: detectorscope-tokenizer-coverage.json
+          if-no-files-found: error
