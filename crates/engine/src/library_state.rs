@@ -43,6 +43,7 @@ mod tests{
     fn archive_trash_and_restore_preserve_document_content(){
         let root=std::env::temp_dir().join(format!("workproof-library-{}",crate::random_hex(16)));
         std::fs::create_dir(&root).unwrap();
+        std::fs::write(root.join("signing-key.bin"),[7u8;32]).unwrap();
         let document=crate::editor::create(&root,"保留原文","2026-11-12T00:00:00Z","word").unwrap();
         let id=document["id"].as_str().unwrap().to_string();
         let before=crate::editor::load(&root,&id).unwrap();
