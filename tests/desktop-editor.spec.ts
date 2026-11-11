@@ -194,7 +194,11 @@ test('undo redo and cancelled export preserve the document and do not show a cer
 
 test('settings use upright icons and equal window buttons with reduced motion',async({page},info)=>{
   await desktop(page);await page.evaluate(()=>document.body.dataset.platform='windows');
-  await page.getByRole('button',{name:'设置',exact:true}).click();await page.locator('fluent-radio[value=dark]').click();
+  await page.setViewportSize({width:1280,height:800});
+  await page.getByRole('button',{name:'设置',exact:true}).click();
+  await page.locator('fluent-radio[value=light]').click();
+  await page.screenshot({path:info.outputPath('fluent-settings-light.png')});
+  await page.locator('fluent-radio[value=dark]').click();
   await expect(page.locator('#settings-page .settings-group')).toHaveCount(4);
   await expect(page.locator('#settings-page .settings-surface')).toHaveCount(3);
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
@@ -202,7 +206,13 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   expect(await page.locator('#settings-page').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
   const sizes=await page.locator('.window-controls button').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));expect(sizes).toEqual([{w:46,h:36},{w:46,h:36},{w:46,h:36}]);
   expect(await page.locator('.workspace-nav .wp-icon svg').first().evaluate(n=>getComputedStyle(n).transform)).toBe('none');
-  for(const width of [1280,960,420,360]){await page.setViewportSize({width,height:780});if(width<640&&!await page.locator('body').evaluate(n=>n.classList.contains('compact-nav')))await page.locator('#collapse-nav').click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+  for(const width of [1280,960,420,360]){
+    await page.setViewportSize({width,height:780});
+    if(width<640&&!await page.locator('body').evaluate(n=>n.classList.contains('compact-nav')))await page.locator('#collapse-nav').click();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    expect(await page.locator('#settings-page').evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);
+    if(width===420)await page.screenshot({path:info.outputPath('fluent-settings-narrow.png')});
+  }
   await page.setViewportSize({width:1280,height:800});await page.screenshot({path:info.outputPath('fluent-settings-dark.png')});
 });
 

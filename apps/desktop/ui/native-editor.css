@@ -118,7 +118,6 @@ fluent-button.icon-button::part(control){min-width:32px;padding:4px}
 #action-route button[data-type=erase],#action-route button[data-type=cut]{--flow-color:var(--danger)}
 #action-route button[data-type=paste],#action-route button[data-type=import]{--flow-color:var(--positive)}
 #action-route button[data-type=undo],#action-route button[data-type=redo]{border-top-style:dashed}
-#flow-detail:not(:empty){padding:18px 20px;margin-bottom:28px;background:var(--shell);border:1px solid var(--stroke);border-radius:6px;animation:page-enter 180ms var(--ease)}
 #flow-detail pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;font:13px/1.8 Consolas,monospace}
 @media(forced-colors:active){#action-route button[aria-pressed=true]{outline:2px solid Highlight}#action-route button{border-top-color:ButtonText}}
 @media(max-width:1150px){#write-panel{--outline-width:190px;--inspector-width:250px}}
@@ -416,7 +415,7 @@ body[data-view=verification] #verification:has(#verifier-frame:not([hidden])){di
 .document-kind-choice>strong,.document-kind-choice>span:not(.wp-icon){grid-column:2}
 .document-kind-choice>span:not(.wp-icon){font-size:14px;line-height:1.6}
 .document-kind-choice:hover{border-color:var(--accent)}
-#flow-detail{padding:16px;margin-block:12px 20px;border:1px solid var(--stroke);border-radius:var(--surface-radius);background:var(--content);animation:page-enter var(--motion-enter) var(--ease) both}
+#flow-detail{list-style:none;padding:16px;margin-block:12px 20px;border:1px solid var(--stroke);border-radius:var(--surface-radius);background:var(--content);animation:page-enter var(--motion-enter) var(--ease) both}
 #flow-detail>.event-item{padding-bottom:0}
 @media(max-width:860px){.settings-surface>.setting-row{padding:16px}.library-filters{flex-basis:100%}.library-filters fluent-text-input{max-width:none}.library-actions{margin-left:0}}
 @media(max-width:540px){.library-filters fluent-text-input{flex-basis:100%}.library-filters select{flex:1 1 120px;min-width:0}.library-actions{width:100%}.settings-surface .setting-row>select{grid-column:2;justify-self:start;max-width:100%}}
