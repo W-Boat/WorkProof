@@ -158,12 +158,13 @@ html[data-theme=dark] .behavior-range[data-review=true]>div>span{color:#ff9ba7}h
 @media(forced-colors:active){.behavior-radar svg polygon,.behavior-radar svg line{stroke:CanvasText}.behavior-radar svg circle{fill:CanvasText}.behavior-range-track .range-marker{background:CanvasText}.threshold-mark{border-color:CanvasText}}
 
 .proof-assurance{margin-top:22px;border-top:1px solid var(--line);padding-top:20px}.proof-assurance h3{font-size:17px;font-weight:600;margin:0 0 16px}.proof-assurance dl{margin:0;display:grid;gap:18px}.proof-assurance dl>div{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px}.proof-assurance dt{font-size:14px;color:var(--ink-muted);line-height:1.6}.proof-assurance dd{margin:0;min-width:0;font-size:15px;line-height:1.6}.proof-assurance dd strong{font-weight:600}.proof-assurance dd p{font-size:14px;line-height:1.7;margin:5px 0 0;color:var(--ink-muted)}.proof-assurance code{overflow-wrap:anywhere}@media(max-width:640px){.proof-assurance dl>div{grid-template-columns:minmax(0,1fr);gap:4px}}
-.fluent-verifier .wp-content{width:min(1180px,100%);margin-inline:auto;padding:clamp(16px,3vw,32px);display:grid;gap:16px}
+.fluent-verifier .wp-content{width:min(1180px,100%);margin-inline:auto;padding:clamp(16px,3vw,32px);display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 .fluent-verifier .fluent-panel{background:var(--colorNeutralBackground1,var(--surface-solid));border:1px solid var(--colorNeutralStroke2,var(--line));border-radius:8px;box-shadow:none}
 .fluent-verifier fluent-button{max-width:100%}
 .fluent-verifier fluent-button::part(control){gap:6px}
 .fluent-verifier .fluent-upload{display:block;width:100%;padding:0;min-height:96px}
-.fluent-verifier .fluent-upload::part(control){width:100%;min-height:96px;justify-content:stretch;padding:12px}
+.fluent-verifier .fluent-upload::part(control){width:100%;min-height:96px;justify-content:flex-start;padding:12px}
+.fluent-verifier .fluent-upload .upload-copy{flex:1;text-align:left}
 .fluent-verifier fluent-text-input{width:100%}
 .fluent-verifier .chart-choices,.fluent-verifier .diagnosis-summary,.fluent-verifier .diagnosis-summary>div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .fluent-verifier .diagnosis-summary{justify-content:space-between;margin-bottom:12px}

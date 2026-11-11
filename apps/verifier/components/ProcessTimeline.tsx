@@ -2,8 +2,12 @@
 import {useState} from 'react';
 import {type RecordEntry,type BehaviorSignal,time,labels,metricLabels,shorten} from '../lib/evidence';
 import {ActionBreakdown} from './ActionBreakdown';
+import {Button} from './button';
+import {Checkbox} from './institution-ui';
+import {FluentElement,useEmbeddedFluent} from './fluent-embedded';
 export function Timeline({records,signals=[],selectedSeq,onSelect}:{records:RecordEntry[];signals?:BehaviorSignal[];selectedSeq?:number|null;onSelect?:(seq:number)=>void}){
   const [selected,setSelected]=useState(0);
+  const embedded=useEmbeddedFluent();
   const [showChanges,setShowChanges]=useState(true),[showRate,setShowRate]=useState(true);
   const structured=records.some(r=>r.event.metrics?.vertices!==undefined||r.event.metrics?.layers!==undefined);
   const [metric,setMetric]=useState(records.some(r=>r.event.metrics?.vertices!==undefined)?'vertices':records.some(r=>r.event.metrics?.layers!==undefined)?'layers':'chars');
@@ -35,7 +39,7 @@ export function Timeline({records,signals=[],selectedSeq,onSelect}:{records:Reco
   const index=Math.max(0,Math.min(focused>=0?focused:selected,records.length-1));const active=records[index];
   const choose=(next:number)=>{setSelected(next);if(records[next])onSelect?.(records[next].event.seq);};
   return <section className="timeline-panel panel m-surface"><div className="section-top"><div><h2 className="section-label">过程轨迹</h2></div><label className="quiet-label"><select aria-label="过程指标" value={metric} onChange={e=>setMetric(e.target.value)}>{available.map(k=><option key={k} value={k}>{metricLabels[k]}</option>)}</select></label></div>
-    {!structured&&<div className="behavior-layers"><label><input type="checkbox" checked={showChanges} onChange={event=>setShowChanges(event.target.checked)}/>新增与删除</label><label><input type="checkbox" checked={showRate} onChange={event=>setShowRate(event.target.checked)}/>写入速率</label></div>}
+    {!structured&&<div className="behavior-layers"><Checkbox checked={showChanges} onChange={setShowChanges}>新增与删除</Checkbox><Checkbox checked={showRate} onChange={setShowRate}>写入速率</Checkbox></div>}
     <div className="process-legend" aria-label="图表图例"><span><i className="legend-quantity"/>内容量</span>{!structured&&<><span><i className="legend-add"/>新增字符</span><span><i className="legend-delete"/>删除字符</span><span><i className="legend-rate"/>写入速率</span></>}<span><i className="legend-notice"/>需要复核的时间</span></div>
     <div className="process-chart-scroll" role="region" aria-label="编辑过程图表，可横向滚动" tabIndex={0}><svg className="process-chart" viewBox={`0 0 940 ${chartHeight}`} role="img" aria-label="同一时间轴上的内容量、每段新增删除与写入速率，均附单位和刻度">
       <text x="16" y="22" className="chart-section-title">{metricLabels[metric]||metric}</text>
@@ -48,8 +52,8 @@ export function Timeline({records,signals=[],selectedSeq,onSelect}:{records:Reco
       {active&&<line x1={x(active.event.elapsed_ms)} x2={x(active.event.elapsed_ms)} y1="40" y2={chartHeight-32} className="selected-event-line"/>}
       {[0,.25,.5,.75,1].map(fraction=><text key={fraction} x={x(total*fraction)} y={chartHeight-10} textAnchor={fraction===0?'start':fraction===1?'end':'middle'}>{time(total*fraction)}</text>)}
     </svg></div>
-    {signals.length>0&&<div className="behavior-chart-markers">{signals.map((signal,i)=><button key={`${signal.code}-${i}`} onClick={()=>choose(records.findIndex(record=>record.event.seq>=signal.first_seq))}>提醒 {i+1} · {time(signal.start_ms)}</button>)}</div>}
-    <label className="scrub"><span>浏览事件</span><input aria-label="浏览事件" type="range" min="0" max={Math.max(0,records.length-1)} value={index} onChange={e=>choose(Number(e.target.value))}/></label>
+    {signals.length>0&&<div className="behavior-chart-markers">{signals.map((signal,i)=><Button variant="ghost" key={`${signal.code}-${i}`} onClick={()=>choose(records.findIndex(record=>record.event.seq>=signal.first_seq))}>提醒 {i+1} · {time(signal.start_ms)}</Button>)}</div>}
+    <label className="scrub"><span>浏览事件</span>{embedded?<FluentElement tag="fluent-slider" aria-label="浏览事件" min="0" max={String(Math.max(1,records.length-1))} value={String(index)} disabled={records.length<2} onChange={(event:Event)=>choose(Number((event.target as HTMLInputElement).value))}/>:<input aria-label="浏览事件" type="range" min="0" max={Math.max(0,records.length-1)} value={index} onChange={e=>choose(Number(e.target.value))}/>}</label>
     {active&&<div className="event-detail"><span>#{String(active.event.seq+1).padStart(4,'0')}</span><strong>{labels[active.event.kind]||active.event.kind}</strong><span>{metric==='chars'?`+${active.event.inserted} / −${active.event.deleted}`:`${metricLabels[metric]}：${value(active)??'未采集'}`}</span><span>{time(active.event.elapsed_ms)}</span><code>{shorten(active.hash)}</code></div>}
     <p className="caption">曲线表示已采集事件中的{metricLabels[metric]}，不展示作品内容。空白时段不等同于思考或劳动；不同指标不能互相换算，未采集指标留空而非按零绘制。</p>
     <p className="caption">绿色向上柱为每段新增字符，红色向下柱为删除字符。橙色速率点按该段已知时间计算，各分区单独标注刻度。缺少相邻记录或时间差时留空；图表最多汇总约 240 段，滑块仍逐条查看原始记录。</p>

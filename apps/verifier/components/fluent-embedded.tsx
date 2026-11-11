@@ -13,6 +13,7 @@ export async function loadEmbeddedFluent(dark: boolean) {
     import('@fluentui/web-components/text-input.js'),
     import('@fluentui/web-components/checkbox.js'),
     import('@fluentui/web-components/progress-bar.js'),
+    import('@fluentui/web-components/slider.js'),
   ]).catch(error => {registration=undefined;throw error;});
   await registration;
   const [{setTheme},{webDarkTheme,webLightTheme}] = await Promise.all([

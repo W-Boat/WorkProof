@@ -31,7 +31,7 @@ function summarize(records:RecordEntry[]) {
   const events=records.map(row=>row.event);
   const duration=events.reduce((max,event)=>Math.max(max,event.elapsed_ms),0);
   const width=Math.max(1,Math.ceil((duration+1)/Math.min(36,Math.max(1,events.length))));
-  const buckets=Array.from({length:Math.floor(duration/width)+1},(_,i)=>({label:`${Number((i*width/1000).toFixed(2))} 秒`,count:0,inserted:0,deleted:0,chars:null as number|null}));
+  const buckets=Array.from({length:Math.floor(duration/width)+1},(_,i)=>({label:`${Number((i*width/1000).toFixed(3))} 秒`,count:0,inserted:0,deleted:0,chars:null as number|null,gap:false}));
   const counts=new Map<string,number>();
   const heat=new Map<string,Map<number,number>>();
   const gaps:number[]=[];
@@ -49,7 +49,7 @@ function summarize(records:RecordEntry[]) {
     counts.set(name,(counts.get(name)??0)+1);
     const series=heat.get(name)??new Map<number,number>();
     series.set(index,(series.get(index)??0)+1);heat.set(name,series);
-    if(event.kind==='gap')lastWrite=undefined;
+    if(event.kind==='gap'){bucket.gap=true;lastWrite=undefined;}
     if(event.inserted>0){
       writes.push([event.elapsed_ms/1000,event.inserted]);
       bands[Math.floor((event.inserted-1)/bandWidth)].value++;
@@ -66,6 +66,7 @@ export default function VerificationCharts({records,partial,reduced}:{records:Re
   const [dark,setDark]=useState(false);
   const root=useRef<HTMLDivElement>(null);
   const data=useMemo(()=>summarize(records),[records]);
+  const structured=useMemo(()=>records.some(({event})=>event.metrics?.vertices!==undefined||event.metrics?.layers!==undefined),[records]);
   const current=charts.find(([id])=>id===selected)!;
   const empty=records.length===0||(selected==='box'&&data.gaps.length<2)||(selected==='scatter'&&data.writes.length===0)||(selected==='histogram'&&data.writes.length===0);
   useEffect(()=>{
@@ -85,10 +86,10 @@ export default function VerificationCharts({records,partial,reduced}:{records:Re
     switch(selected){
       case 'activity':option={...axis(labels,'事件'),series:[{type:'bar',name:'事件数量',data:data.buckets.map(b=>b.count)}]};break;
       case 'changes':option={...axis(labels,'字符'),legend:{data:['新增','删除'],textStyle:{color}},series:[{type:'bar',name:'新增',data:data.buckets.map(b=>b.inserted)},{type:'bar',name:'删除',data:data.buckets.map(b=>b.deleted)}]};break;
-      case 'length':option={...axis(labels,'字符'),series:[{type:'line',name:'记录长度',connectNulls:false,data:data.buckets.map(b=>b.chars)}]};break;
+      case 'length':option={...axis(labels,'字符'),series:[{type:'line',name:'记录长度',connectNulls:false,data:data.buckets.map(b=>b.gap?null:b.chars)}]};break;
       case 'area':{
         let total=0;
-        option={...axis(labels,'字符'),series:[{type:'line',name:'累计新增',areaStyle:{opacity:.2},data:data.buckets.map(b=>total+=b.inserted)}]};break;
+        option={...axis(labels,'字符'),series:[{type:'line',name:'累计新增',connectNulls:false,areaStyle:{opacity:.2},data:data.buckets.map(b=>{total+=b.inserted;return b.gap?null:total;})}]};break;
       }
       case 'scatter':{
         const stride=Math.max(1,Math.ceil(data.writes.length/500));
@@ -115,9 +116,10 @@ export default function VerificationCharts({records,partial,reduced}:{records:Re
 
   return <Panel title="统计图" className="verification-charts">
     <div className="chart-choices" role="group" aria-label="选择统计图">
-      {charts.map(([id,label])=><Button key={id} variant={id===selected?'primary':'ghost'} aria-pressed={id===selected} disabled={partial&&!categoryCharts.includes(id)} onClick={()=>setSelected(id)}>{label}</Button>)}
+      {charts.map(([id,label])=><Button key={id} variant={id===selected?'primary':'ghost'} aria-pressed={id===selected} disabled={(partial&&!categoryCharts.includes(id))||(structured&&!['activity','donut','tree','heatmap'].includes(id))} onClick={()=>setSelected(id)}>{label}</Button>)}
     </div>
     {partial&&<p>这份证书只披露部分事件，可查看构成和分布。</p>}
+    {structured&&<p>图层或三维结构证据可查看操作分布。结构指标位于过程轨迹中。</p>}
     <h3>{current[1]}</h3><p>{current[2]}{selected==='scatter'&&data.writes.length>500?'。图中按顺序抽样展示最多 500 条。':''}</p>
     {empty?<p role="status">可用数据不足，暂时无法绘图。</p>:<div className="verification-chart" ref={root} role="img" aria-label={`${current[1]}，${current[2]}`}/>}
     <details><summary>查看操作数量</summary><dl className="chart-counts">{data.categories.map(row=><div key={row.name}><dt>{row.name}</dt><dd>{row.value.toLocaleString()} 条</dd></div>)}</dl></details>
