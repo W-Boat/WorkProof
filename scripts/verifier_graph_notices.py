@@ -41,7 +41,8 @@ while pending:
         target=destination/relative;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
         package_files[relative]=hashlib.sha256(data).hexdigest()
     supplemental_sources=None
-    if not any(pathlib.PurePosixPath(name).name.lower().startswith(('license','licence','copying')) for name in package_files):
+    license_found=any(pathlib.PurePosixPath(name).name.lower().startswith(('license','licence','copying')) for name in package_files)
+    if not license_found:
         package_destination=destination/key.removeprefix('node_modules/')
         evidence,supplemental_sources=supplemental_notices(
             {'ecosystem':'npm','name':manifest['name'],'version':manifest['version'],'integrity':entry.get('integrity')},
@@ -49,7 +50,9 @@ while pending:
         for notice_file in evidence:
             saved=package_destination.parent.parent/notice_file['file']
             package_files[saved.relative_to(destination).as_posix()]=notice_file['sha256']
-    if not manifest.get('license') or not package_files:
+        license_found=any(pathlib.PurePosixPath(row['original_relative_path']).name.lower().startswith(
+            ('license','licence','copying')) for row in evidence)
+    if not manifest.get('license') or not license_found:
         raise RuntimeError('Full graph package license missing: '+key)
     inventory.append({'name':manifest['name'],'version':manifest['version'],'license':manifest['license'],
                       'integrity':entry.get('integrity'),'files':package_files,'supplemental_sources':supplemental_sources})
