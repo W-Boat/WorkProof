@@ -1,5 +1,5 @@
 """Actions-only real installed Linux WebView. No mocked IPC or browser engine."""
-import base64,datetime,json,os,pathlib,signal,subprocess,sys,tempfile,time,tomllib,urllib.request,urllib.error
+import base64,datetime,json,os,pathlib,signal,subprocess,sys,tempfile,time,urllib.request,urllib.error
 
 assert os.environ.get('GITHUB_ACTIONS')=='true' and sys.platform=='linux'
 evidence=pathlib.Path('test-results/embedded-webview');evidence.mkdir(parents=True,exist_ok=True)
@@ -139,7 +139,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             assert execute("const status=document.getElementById('status');return status?.dataset.state==='ready'||status?.textContent.includes('可以开始记录')"),'Workbench engine did not become ready'
         wait(ready);workbench=handles()[0];screenshot('workbench.png')
         if os.environ.get('WORKPROOF_EXPECT_BUILD_METADATA')=='1':
-            expected_version=tomllib.loads(pathlib.Path('apps/desktop/src-tauri/Cargo.toml').read_text())['package']['version']
+            expected_version=json.loads(pathlib.Path('apps/desktop/src-tauri/tauri.conf.json').read_text())['version']
             def build_metadata_ready():
                 value=execute("return {version:document.getElementById('app-version')?.textContent,build:document.getElementById('app-build')?.textContent,source:document.getElementById('app-build')?.title,built_at:document.getElementById('app-built-at')?.title}")
                 assert value['version']==expected_version
