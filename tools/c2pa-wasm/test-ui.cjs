@@ -40,6 +40,8 @@ const server=http.createServer((req,res)=>{
     await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles(path.join(demo,'structure-demo.txt.wproof'));
     await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
     await page.getByText('证据核验通过',{exact:true}).waitFor({timeout:30000});
+    await page.getByRole('navigation',{name:'核验页面'}).getByRole('button',{name:'辅助检查',exact:true}).click();
+    await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'图层与结构',exact:true}).click();
     await page.getByText('收到 .wgraph 结构文件？查看对象和图层怎样变化',{exact:true}).click();
     await page.getByLabel('选择 .wgraph 结构文件',{exact:true}).setInputFiles(path.join(demo,'structure-demo.wgraph'));
     await page.getByRole('button',{name:'核验并查看结构',exact:true}).click();
@@ -50,6 +52,7 @@ const server=http.createServer((req,res)=>{
     await page.getByLabel('选择结构记录',{exact:true}).selectOption('1');
     await graph.locator('.react-flow__edge[data-id="2-3"]').waitFor();
     assert.equal(await graph.locator('.react-flow__edge[data-id="1-3"]').count(),0);
+    await page.getByRole('navigation',{name:'选择辅助检查'}).getByRole('button',{name:'图片与 PDF 证书',exact:true}).click();
     const panel=page.getByRole('region',{name:'检查作品内嵌的创作证书'});
     await panel.getByText('作品中已经包含证书？从这里检查',{exact:true}).click();
     await panel.getByLabel('1. 选择带证书的作品',{exact:true}).setInputFiles(path.join(fixtures,embeddedAsset));
