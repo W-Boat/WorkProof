@@ -788,7 +788,7 @@ test('library sorting persists and source search reports the matching count',asy
   await expect(page.locator('#document-list .document-row strong')).toHaveText(['Alpha 2','Beta 1']);
   await page.reload();await expect(page.getByRole('combobox',{name:'文档排序'})).toHaveValue('title');
   await page.locator('#document-search input').fill('Beta');
-  await expect(page.locator('#library-summary')).toHaveText('找到 1 份，共 2 份文档');
+  await expect(page.locator('#library-summary')).toHaveText('我的文档 · 1 份，本分组共 2 份');
   await expect(page.locator('#document-list .document-row strong')).toHaveText(['Beta 1']);
 });
 
@@ -818,4 +818,23 @@ test('archive trash and restore retain the saved document across a reload',async
   await page.locator('#library-state-filter').selectOption('active');
   await page.getByRole('button',{name:'继续编辑 未命名文档',exact:true}).click();
   await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('归档和回收站都保留这段正文');
+});
+
+test('external Markdown opens as a new editable copy and grouped sessions archive together',async({page})=>{
+  await desktop(page);await page.evaluate(()=>{
+    const w=window as any,base={title:'外部笔记.md',source:'vscode',started_at:'2026-11-01T08:00:00Z',event_count:1,last_elapsed_ms:0,file_available:true,can_open:true,demo:false,local_path:'C:/作品/外部笔记.md'};
+    w.editorHarness.externalDocuments=[{...base,id:'copy-new',recent_order:2},{...base,id:'copy-old',recent_order:1}];
+    const invoke=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(command:string,args:any)=>command==='external_document_read'?Promise.resolve({name:'外部笔记.md',bytes:[...new TextEncoder().encode('# 原文件标题\n\n从外部软件读取的正文')]}):invoke(command,args);
+  });
+  await page.locator('#reload-documents').click();
+  await page.getByRole('button',{name:'在内置编辑器打开副本 外部笔记.md',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('从外部软件读取的正文');
+  await page.locator('#back-library').click();
+  await page.getByRole('button',{name:'归档 外部笔记.md',exact:true}).click();
+  await expect(page.getByRole('button',{name:'查看记录 外部笔记.md',exact:true})).toHaveCount(0);
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('library.states')||'{}'))).toMatchObject({'external:copy-new':'archived','external:copy-old':'archived'});
+  await page.locator('#library-state-filter').selectOption('archived');
+  await page.getByRole('button',{name:'恢复到我的文档 外部笔记.md',exact:true}).click();
+  await page.locator('#library-state-filter').selectOption('active');
+  await expect(page.getByRole('button',{name:'查看记录 外部笔记.md',exact:true})).toBeVisible();
 });
