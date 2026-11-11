@@ -28,4 +28,6 @@
 
 ## 后续执行顺序
 
+2026-11-11 补查 Telescope。作者仓库将其标注为 ICML 2026 的 token 重复概率检测方法。固定提交 `ca51f651695a05d7b8f5a4a783734eada9b2f02b` 的根许可采用 CC-BY-NC-SA-4.0，包含非商业限制；现阶段商业产品接入未获放行。已经核对固定版本的许可、说明和包元数据摘要，见[来源记录](telescope-2026-license-review.json)。本次只做来源审查，未引入算法代码或执行模型。[作者仓库](https://github.com/ChrisNassif/Telescope/tree/ca51f651695a05d7b8f5a4a783734eada9b2f02b)、[固定许可](https://github.com/ChrisNassif/Telescope/blob/ca51f651695a05d7b8f5a4a783734eada9b2f02b/LICENSE.md)。
+
 优先继续核查已有 DetectorScope 的固定权重和许可材料，其次处理 NTS 的授权与资源约束；PAWN++ 单独审查代码/模型条款。实际推理通过后才进入新的中英文校准及未观察留出集，公开误报、漏报、覆盖和资源消耗。未通过的方法保持关闭，不把一次合成运行或论文年份当成可靠性认证。

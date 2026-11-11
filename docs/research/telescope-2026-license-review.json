@@ -1,0 +1,26 @@
+{
+  "repository": "ChrisNassif/Telescope",
+  "source_commit": "ca51f651695a05d7b8f5a4a783734eada9b2f02b",
+  "files": {
+    "LICENSE.md": {
+      "url": "https://raw.githubusercontent.com/ChrisNassif/Telescope/ca51f651695a05d7b8f5a4a783734eada9b2f02b/LICENSE.md",
+      "sha256": "d15b489b154e34ad33c1dadd12405a2d645d0a751c30e600ce700c8f0e91da1e",
+      "size": 19152
+    },
+    "README.md": {
+      "url": "https://raw.githubusercontent.com/ChrisNassif/Telescope/ca51f651695a05d7b8f5a4a783734eada9b2f02b/README.md",
+      "sha256": "eac5d7613d9bf27d2f0e924c2f2cbc34660c4f01df9dba2f2173325986da07ce",
+      "size": 13519
+    },
+    "pyproject.toml": {
+      "url": "https://raw.githubusercontent.com/ChrisNassif/Telescope/ca51f651695a05d7b8f5a4a783734eada9b2f02b/pyproject.toml",
+      "sha256": "95837e08b5784379e73ec8e8ae95d5e8a9337e0c2586505d54c2eac98ff28d7b",
+      "size": 677
+    }
+  },
+  "software_license": "CC-BY-NC-SA-4.0",
+  "commercial_distribution_review": "not approved under the observed noncommercial grant",
+  "code_imported": false,
+  "model_downloaded": false,
+  "inference_executed": false
+}

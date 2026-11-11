@@ -1,0 +1,28 @@
+{
+  "test_source_commit": "603ea7c99dfb39b07b62cc1d20442563c6a708fd",
+  "application_source_commit": "603ea7c99dfb39b07b62cc1d20442563c6a708fd",
+  "scope": "Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.",
+  "result_flow_checked": true,
+  "workspace_iframe_checked": true,
+  "url": "http://127.0.0.1:41621/",
+  "checks": [
+    "workbench IPC status",
+    "native embedded page",
+    "real demo Wasm verification",
+    "filesystem file input via WebDriver",
+    "selected-file Wasm verification",
+    "tampered file rejection",
+    "original file reselection",
+    "narrow layout and PageDown scrolling",
+    "no workbench command access",
+    "navigation restriction",
+    "window reuse",
+    "workspace iframe opens without another window",
+    "workspace iframe native viewport pointer activation",
+    "workspace iframe demo Wasm verification",
+    "workspace iframe command isolation",
+    "result focus on pass and failure",
+    "view completed result",
+    "clear restores file selection focus"
+  ]
+}
