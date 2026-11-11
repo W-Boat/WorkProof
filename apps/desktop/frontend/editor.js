@@ -250,7 +250,8 @@ function renderLibrary(){
   const entries=documents.map(doc=>({type:'editor',doc,source:'editor',time:Number(doc.modified)})).concat(groupExternalDocuments(externalDocuments));
   entries.sort((a,b)=>librarySort.value==='title'?titleOrder.compare(a.doc.title,b.doc.title):((b.time??0)-(a.time??0))||titleOrder.compare(a.doc.title,b.doc.title));
   const selectedState=$('library-state-filter').value;
-  const filtered=entries.filter(entry=>(libraryStates[entry.type+':'+entry.doc.id]||'active')===selectedState).filter(entry=>(selectedSource==='all'||selectedSource===entry.source)&&`${entry.doc.title} ${sourceLabel(entry.source)} ${entry.source}`.toLocaleLowerCase().includes(query));
+  const stateEntries=entries.filter(entry=>(libraryStates[entry.type+':'+entry.doc.id]||'active')===selectedState);
+  const filtered=stateEntries.filter(entry=>(selectedSource==='all'||selectedSource===entry.source)&&`${entry.doc.title} ${sourceLabel(entry.source)} ${entry.source}`.toLocaleLowerCase().includes(query));
   for(const entry of filtered){
     const {doc}=entry,row=element('div','document-row');row.setAttribute('role','listitem');row.dataset.documentKey=`${entry.type}:${doc.id}`;row.dataset.source=entry.source;
     const label=element('div'),description=entry.type==='editor'?`${doc.revision+1} 个保存版本`:`${entry.sessions.length} 次记录 · ${entry.sessions.reduce((sum,session)=>sum+Number(session.event_count),0).toLocaleString()} 条记录${doc.demo?' · 演示记录':''}`;
@@ -294,9 +295,9 @@ function renderLibrary(){
   }
   list.replaceChildren(rows);
   if(focusKey&&document.body.dataset.view==='library')(restoreFocus??$('document-search')).focus({preventScroll:true});
-  $('library-empty').hidden=entries.length>0;
-  librarySummary.textContent=query||selectedSource!=='all'?`找到 ${filtered.length} 份，共 ${entries.length} 份文档`:`${entries.length} 份文档 · 正文与记录保存在本机`;
-  $('library-error').textContent=libraryLoadError||(!filtered.length&&entries.length?'没有找到符合条件的文档。':'');
+  $('library-empty').hidden=entries.length>0||selectedState!=='active';
+  librarySummary.textContent=`${selectedState==='archived'?'已归档':selectedState==='trash'?'回收站':'我的文档'} · ${filtered.length} 份${query||selectedSource!=='all'?`，本分组共 ${stateEntries.length} 份`:''}`;
+  $('library-error').textContent=libraryLoadError||(!filtered.length&&(entries.length||selectedState!=='active')?(stateEntries.length?'没有找到符合条件的文档。':selectedState==='archived'?'还没有已归档文档。':selectedState==='trash'?'回收站为空。':'还没有文档。'):'');
 }
 let listing=false,libraryRefreshPending=false,lastLibraryRefresh=0,catalogRefreshTimer=null,lastCatalogStamp='',lastSessionCount=null;
 async function loadLibrary(){
@@ -305,7 +306,7 @@ async function loadLibrary(){
   try{
     libraryLoadError='';
     for(const [index,result] of results.entries()){
-      if(index===2){if(result.status==='fulfilled'&&result.value&&typeof result.value==='object'&&!Array.isArray(result.value))libraryStates=result.value;continue;}
+      if(index===2){if(result.status==='fulfilled'&&result.value&&typeof result.value==='object'&&!Array.isArray(result.value))libraryStates=result.value;else libraryLoadError+='归档与回收站状态暂未读取，请点击刷新重试。';continue;}
       if(result.status==='fulfilled'&&Array.isArray(result.value)){if(index===0)documents=result.value;else externalDocuments=result.value;}
       else libraryLoadError+=(index===0?'内置文档':'外部应用文档')+'暂未读取，请点击刷新重试。';
     }

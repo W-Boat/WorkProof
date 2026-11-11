@@ -201,8 +201,8 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
                 with urllib.request.urlopen(native_url.rstrip('/')+'/demo/'+name,timeout=10) as response:body=response.read(262145)
                 assert len(body)<=262144
                 (native_files/name).write_bytes(body)
-            upload('input[aria-label="1 · 最终作品"]',native_files/'essay.md')
-            upload('input[aria-label="2 · WorkProof 证书"]',native_files/'essay.md.wproof')
+            select_file('input[aria-label="1 · 最终作品"]',native_files/'essay.md')
+            select_file('input[aria-label="2 · WorkProof 证书"]',native_files/'essay.md.wproof')
             click_text('开始核验')
             def native_verified():assert execute("return document.querySelector('.nv-verdict')?.dataset.valid==='true'")
             wait(native_verified);screenshot('workbench-native-verified.png')
