@@ -84,7 +84,7 @@ if (-not $SkipProbe) {
     & $actionProbe
     if ($LASTEXITCODE -ne 0) { throw 'editor command classification failed' }
     $probe = Join-Path $OutDir 'test_addin.exe'
-    & cl @common (Join-Path $source 'test_addin.cpp') "/Fo$probeDir\" "/Fe$probe" 'oleaut32.lib' 'ole32.lib' 'user32.lib' 'uuid.lib'
+    & cl @common (Join-Path $source 'test_addin.cpp') "/Fo$probeDir\" "/Fe$probe" 'oleaut32.lib' 'ole32.lib' 'user32.lib' 'gdi32.lib' 'uuid.lib'
     if ($LASTEXITCODE -ne 0) { throw 'compile failed: test_addin.cpp' }
     Assert-PeArchitecture $probe
     & $probe $dll
