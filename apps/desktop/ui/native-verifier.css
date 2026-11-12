@@ -19,3 +19,5 @@ body[data-view=verification]:has(#desktop-verifier-root:not([hidden])) .global-h
 @media(prefers-reduced-motion:reduce){.native-verifier *{animation:none!important;transition:none!important}}html[data-reduce-motion=true] .native-verifier *{animation:none!important;transition:none!important}
 
 .native-verifier .nv-expected{display:grid;gap:8px;margin-top:20px;max-width:760px}.native-verifier .nv-expected fluent-text-input{width:100%}.native-verifier .nv-expected p{margin:0}.native-verifier .nv-expected label{font-weight:600}
+
+.native-verifier .metadata-findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:12px;margin:16px 0}.native-verifier .metadata-finding{padding:16px;border:1px solid var(--line);border-radius:6px;overflow-wrap:anywhere}.native-verifier .metadata-source-list{padding-left:24px;overflow-wrap:anywhere}

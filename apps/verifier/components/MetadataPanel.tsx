@@ -65,7 +65,7 @@ function documentProperties(parts:{name:string;text:string}[],skipped:number){
   }
   return {findings,skipped};
 }
-export function MetadataPanel({file}:{file:File|null}){
+export function MetadataPanel({file,title='进一步检查 AI 线索',expanded=false}:{file:File|null;title?:string;expanded?:boolean}){
   const active=useRef<Worker|null>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setResult]=useState<{file:File;findings:Finding[];skipped:number;format?:'docx'|'pptx'|'jpeg'|'png'}|null>(null);
   const result=saved?.file===file?saved:null;
@@ -82,7 +82,7 @@ export function MetadataPanel({file}:{file:File|null}){
       timer.current=setTimeout(()=>fail('检查耗时过长，已停止。'),15000);worker.postMessage({file});
     }catch{stop();setBusy(false);setError('检查工具无法启动，请重试。');}
   }
-  return <Panel title="进一步检查 AI 线索" className="timestamp-panel"><Details label="查看作品的文件属性（可选）">
+  return <Panel title={title} className="timestamp-panel"><Details label="查看作品的文件属性（可选）" expanded={expanded}>
     <p>读取作品里保存的软件名称、说明或生成参数，不会上传作品。支持 PNG、JPEG、DOCX 和 PPTX；属性可能包含姓名和提示词，检查后会显示在这里。</p>
     {file&&<p className="metadata-selected-file">检查对象：<strong>{file.name}</strong></p>}
     <Button disabled={!file||busy} onClick={scan}>{busy?'正在检查文件属性…':'检查文件属性'}</Button>

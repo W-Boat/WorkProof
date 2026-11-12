@@ -64,3 +64,8 @@ const wasmCandidates=['apps/desktop/src-tauri/resources/verifier/wasm','apps/ver
 const nativeWasm=wasmCandidates.map(p=>path.join(root,p)).find(p=>fs.existsSync(path.join(p,'workproof_protocol_bg.wasm')));
 if(nativeWasm)fs.cpSync(nativeWasm,path.join(nativeUi,'wasm'),{recursive:true});
 else if(fs.existsSync(path.join(root,'apps/desktop/src-tauri/resources/verifier/index.html')))throw new Error('Packaged native verifier is missing the protocol Wasm runtime');
+
+for(const name of ['metadata-worker.js','metadata-common.js','docx-metadata.js','jpeg-metadata.js']){
+  fs.copyFileSync(path.join(root,'apps/verifier/public',name),path.join(nativeUi,name));
+}
+fs.copyFileSync(path.join(root,'apps/verifier/public/notices/iptc-newscodes.txt'),path.join(nativeUi,'notices/iptc-newscodes.txt'));

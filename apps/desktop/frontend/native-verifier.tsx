@@ -5,11 +5,13 @@ import {BehaviorReport} from '../../verifier/components/BehaviorReport';
 import {WordRevisionSummary} from '../../verifier/components/WordRevisionSummary';
 import {VerificationProgress,TextInput} from '../../verifier/components/institution-ui';
 import {type Result,type Stage,labels,time,download} from '../../verifier/lib/evidence';
+const Metadata=lazy(()=>import('../../verifier/components/MetadataPanel').then(module=>({default:module.MetadataPanel})));
 const Charts=lazy(()=>import('../../verifier/components/VerificationCharts'));
 
 function NativeVerifier(){
   const [artifact,setArtifact]=useState<File|null>(null),[proof,setProof]=useState<File|null>(null);
   const [stage,setStage]=useState<Stage>('idle'),[result,setResult]=useState<Result|null>(null),[error,setError]=useState('');
+  const [showMetadata,setShowMetadata]=useState(false);
   const [expectedId,setExpectedId]=useState(''),[shareMessage,setShareMessage]=useState('');
   const [progress,setProgress]=useState({phase:'准备核验',progress:0});
   const [tab,setTab]=useState('report'),[ready,setReady]=useState(false),[eventPage,setEventPage]=useState(0);
@@ -60,7 +62,8 @@ function NativeVerifier(){
       </label>)}
     </section>
     <div className="nv-expected"><label id="nv-expected-label">发送者提供的证书指纹（可选）</label><TextInput aria-label="发送者提供的证书指纹（可选）" aria-describedby="nv-expected-help" value={expectedId} maxLength={64} placeholder="粘贴收到的 64 位证书指纹" onChange={event=>{cancel();setExpectedId(event.target.value);}}/><p id="nv-expected-help">只有收到对方另行提供的指纹时才需要填写，用来确认这正是对方指定的证书。</p></div>
-    <div className="nv-actions"><FluentElement tag="fluent-button" appearance="primary" disabled={!ready||!artifact||!proof||stage==='working'} onClick={verify}>开始核验</FluentElement><FluentElement tag="fluent-button" appearance="subtle" disabled={!artifact&&!proof} onClick={()=>{cancel();setArtifact(null);setProof(null);setExpectedId('');setEventPage(0);}}>清空文件</FluentElement><span>文件不会上传</span></div>
+    <div className="nv-actions"><FluentElement tag="fluent-button" appearance="primary" disabled={!ready||!artifact||!proof||stage==='working'} onClick={verify}>开始核验</FluentElement><FluentElement tag="fluent-button" appearance="subtle" disabled={!artifact&&!proof} onClick={()=>{cancel();setArtifact(null);setProof(null);setExpectedId('');setEventPage(0);}}>清空文件</FluentElement><FluentElement tag="fluent-button" appearance="subtle" disabled={!artifact} aria-expanded={showMetadata} onClick={()=>setShowMetadata(value=>!value)}>{showMetadata?'收起元数据':'查看元数据'}</FluentElement><span>文件不会上传</span></div>
+    {showMetadata&&<Suspense fallback={<p role="status">正在加载元数据工具…</p>}><Metadata file={artifact} title="文件元数据" expanded/></Suspense>}
     {stage==='working'&&<div className="nv-working"><VerificationProgress {...progress}/><FluentElement tag="fluent-button" appearance="subtle" onClick={cancel}>取消核验</FluentElement></div>}
     {error&&<p className="nv-error" role="alert">{error}</p>}
     {result&&<><section className="nv-verdict" data-valid={valid} role="status"><h3>{valid?'文件与证书一致':'核验未通过'}</h3>{valid&&result.proof.manifest.demo&&<FluentElement tag="fluent-badge" appearance="tint">演示证书 · 仅用于体验</FluentElement>}<p>{valid?'文件指纹、已披露记录与签名核对通过。签名有效不等于官方背书，也不能单独证明全部内容由人类创作。':'请检查作品是否是导出证书时的最终文件，以及证书是否完整。'}</p>{valid&&result.certificateMatch===true&&<p>指定证书指纹一致。</p>}<ul>{result.report.errors.map((item,i)=><li key={i}>{item}</li>)}</ul></section>

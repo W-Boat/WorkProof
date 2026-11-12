@@ -888,3 +888,18 @@ test('preparing the recording service dims and blocks the home page until ready'
   await page.evaluate(()=>{(window as any).editorHarness.engineStatus={ready:true};});
   await expect(page.locator('#engine-loading')).toBeHidden();await expect(page.locator('main')).not.toHaveAttribute('inert','');
 });
+
+test('native metadata reads local file properties and clears them when the artifact changes',async({page})=>{
+  await desktop(page);await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1sAAAAASUVORK5CYII=','base64');
+  const text=Buffer.from('prompt\0editable <script>fixture</script>'),data=Buffer.concat([Buffer.from('tEXt'),text]);let crc=0xffffffff;
+  for(const byte of data){crc^=byte;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}
+  const length=Buffer.alloc(4),checksum=Buffer.alloc(4);length.writeUInt32BE(text.length);checksum.writeUInt32BE((crc^0xffffffff)>>>0);
+  const image=Buffer.concat([png.subarray(0,33),length,data,checksum,png.subarray(33)]);
+  await page.getByLabel('1 · 最终作品',{exact:true}).setInputFiles({name:'properties.png',mimeType:'image/png',buffer:image});
+  await page.getByRole('button',{name:'查看元数据',exact:true}).click();
+  const panel=page.getByRole('region',{name:'文件元数据',exact:true});await panel.getByRole('button',{name:'检查文件属性',exact:true}).click();
+  await expect(panel.getByRole('status')).toContainText('editable <script>fixture</script>');await expect(panel.locator('script')).toHaveCount(0);
+  await page.getByLabel('1 · 最终作品',{exact:true}).setInputFiles({name:'new.md',mimeType:'text/markdown',buffer:Buffer.from('new artifact')});
+  await expect(panel.getByText('editable <script>fixture</script>',{exact:true})).toHaveCount(0);
+});

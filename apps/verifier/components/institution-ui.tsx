@@ -40,11 +40,11 @@ export function EmptyState({title,desc,icon}:{title:string;desc:string;icon:Reac
   return <div className="empty"><span className="empty-ico m-groove">{icon}</span><h2 className="empty-title">{title}</h2><p>{desc}</p></div>;
 }
 
-export function Details({label,className,children}:{label:string;className?:string;children:ReactNode}){
+export function Details({label,className,children,expanded=false}:{label:string;className?:string;children:ReactNode;expanded?:boolean}){
   const embedded=useEmbeddedFluent();
-  if(!embedded)return <details className={className}><summary>{label}</summary>{children}</details>;
+  if(!embedded)return <details className={className} open={expanded}><summary>{label}</summary>{children}</details>;
   return <FluentElement tag="fluent-accordion" className={className}>
-    <FluentElement tag="fluent-accordion-item" heading-level={3}>
+    <FluentElement tag="fluent-accordion-item" heading-level={3} expanded={expanded}>
       <span slot="heading">{label}</span>
       <div className="fluent-disclosure-content">{children}</div>
     </FluentElement>
