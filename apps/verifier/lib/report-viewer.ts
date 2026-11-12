@@ -56,9 +56,15 @@ function render(model:ReportPackage,root:HTMLElement){
   function paint(){before.disabled=page===0;after.disabled=(page+1)*200>=records.length;label.textContent=`${page+1} / ${Math.max(1,Math.ceil(records.length/200))}`;content.replaceChildren(table(['序号','经过时间（毫秒）','动作','新增','删除','文档字符','记录哈希'],records.slice(page*200,(page+1)*200).map(({event,hash})=>[event.seq,event.elapsed_ms,event.kind,event.inserted,event.deleted,event.chars,hash])));content.append(details('本页完整事件字段（含指标和检查点）',records.slice(page*200,(page+1)*200)));}paint();
   if(report.valid&&proof.manifest.source==='word'){
     const observations=records.filter(({event})=>event.metrics?.word_revision_total!==undefined||event.metrics?.word_revision_tracking!==undefined),last=observations.at(-1);
-    if(last){const word=section('word-revisions','Word 修订记录采样');word.append(el('p',`共 ${observations.length} 次可见采样，最后一次在 ${last.event.elapsed_ms} 毫秒。只表示采样时保留的修订标记。`),details('初次采样',observations[0]),details('最后采样',last));}
+    if(last){const word=section('word-revisions','Word 修订记录采样');word.append(el('p',`共 ${observations.length} 次可见采样，最后一次在 ${last.event.elapsed_ms} 毫秒。只表示采样时保留的修订标记。`),details('初次可见采样',observations[0]),details('最后采样',last));}
   }
-  const metadata=section('metadata','文件属性与辅助检查');metadata.append(details('文件属性完整检查结果',model.metadata),details('生成时已显示的辅助检查内容',model.auxiliary_text||'没有其他辅助检查结果。'));
+  const metadata=section('metadata','文件属性与辅助检查'),meta=model.metadata as {status?:string;error?:string;skipped?:number;findings?:{field:string;value:string;location:string;explanation?:string;hint?:boolean}[]}|null;
+  const metadataStates:{[key:string]:string}={not_run:'未执行',running:'尚未完成',done:'已完成',error:'未能完成'};
+  metadata.append(el('p','文件属性检查：'+(metadataStates[meta?.status||'']||'未提供结果')));
+  if(meta?.error)metadata.append(el('p',meta.error,'error'));
+  if(meta?.findings?.length)metadata.append(table(['字段','读取值','所在位置','提示'],meta.findings.map(item=>[item.field,item.explanation||item.value,item.location,item.hint?'请核对来源':'文件中填写的信息'])));
+  if(meta?.skipped)metadata.append(el('p',`${meta.skipped} 项属性因解析范围、大小或格式限制未检查。`,'note'));
+  metadata.append(details('文件属性完整检查结果',model.metadata),details('生成时已显示的辅助检查内容',model.auxiliary_text||'没有其他辅助检查结果。'));
   const files=section('files','原始附件与完整数据'),actions=el('div',undefined,'actions');
   actions.append(command('下载原始证书',()=>download(model.certificate.name,fromBase64(model.certificate.base64),model.certificate.type)),command('下载未加密的完整数据 JSON',()=>download('WorkProof-report-data.json',JSON.stringify(model,null,2),'application/json')));
   files.append(el('p','原作品另附，未封装在此 HTML 中。下方附件下载后是未加密的原始文件。','note'));
