@@ -8,12 +8,13 @@ import {createEncryptedReport} from '../lib/encrypted-report';
 
 type Saved={file_name:string;md5:string;sha256:string;bytes:number;native:boolean;source_certificate_id:string};
 const bridge=()=> (window as unknown as {__TAURI__?:{core:{invoke:(name:string,args?:unknown)=>Promise<any>}}}).__TAURI__?.core;
-export function ReportExport({result,artifact,proof,metadata,native=false,auxiliaryText}:{result:Result;artifact:File|null;proof:File|null;metadata?:MetadataReport|null;native?:boolean;auxiliaryText?:()=>string}){
+export function ReportExport({result,artifact,proof,metadata,native=false,auxiliaryText,expectedCertificateId}:{result:Result;artifact:File|null;proof:File|null;metadata?:MetadataReport|null;native?:boolean;auxiliaryText?:()=>string;expectedCertificateId?:string}){
   const embedded=useEmbeddedFluent(),[open,setOpen]=useState(false),[password,setPassword]=useState(''),[confirmation,setConfirmation]=useState('');
   const [busy,setBusy]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState<Saved|null>(null);
+  const [copyNote,setCopyNote]=useState('');
   const dialog=useRef<HTMLDialogElement>(null),task=useRef<AbortController|null>(null),alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;task.current?.abort();};},[]);
-  useEffect(()=>{if(open){setSaved(null);setError('');dialog.current?.showModal();}else{task.current?.abort();setPassword('');setConfirmation('');}},[open]);
+  useEffect(()=>{if(open){setSaved(null);setError('');setCopyNote('');dialog.current?.showModal();}else{task.current?.abort();setPassword('');setConfirmation('');}},[open]);
   function close(){if(saving)return;task.current?.abort();dialog.current?.close();setOpen(false);}
   async function generate(){
     if(busy||!artifact||!proof)return;
@@ -24,7 +25,7 @@ export function ReportExport({result,artifact,proof,metadata,native=false,auxili
     try{
       const application=native?await bridge()?.invoke('app_info'):null;
       const snapshot=metadata?.file===artifact?{...metadata,file:undefined}:{status:'not_run'};
-      const bundle=await createEncryptedReport({result,artifact,proof,metadata:snapshot,application,auxiliaryText:auxiliaryText?.()||''},password,controller.signal);
+      const bundle=await createEncryptedReport({result,artifact,proof,metadata:snapshot,application,auxiliaryText:auxiliaryText?.()||'',expectedCertificateId},password,controller.signal);
       if(!alive.current||controller.signal.aborted)return;
       let fileName=`WorkProof-report-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.html`;
       if(native){
@@ -53,6 +54,7 @@ export function ReportExport({result,artifact,proof,metadata,native=false,auxili
       </>:<div className="report-export-saved" role="status">
         <p>{saved.native?'HTML 与配套校验文件已保存。':'已发起 HTML 下载，请再保存配套校验文件。'}</p><p>{saved.file_name}</p>
         <label>这份 HTML 的 MD5<code data-selectable="true" tabIndex={0}>{saved.md5}</code></label>
+        <Button variant="ghost" aria-label="复制 HTML 报告 MD5" onClick={async()=>{try{await navigator.clipboard.writeText(saved.md5);setCopyNote('已复制 MD5。');}catch{setCopyNote('未能复制，请选择上方 MD5 手动复制。');}}}>复制 MD5</Button>{copyNote&&<p>{copyNote}</p>}
         <details><summary>SHA-256 与证书关联</summary><code data-selectable="true" tabIndex={0}>{saved.sha256}</code><p>原证书指纹：<code data-selectable="true">{saved.source_certificate_id}</code></p><p>报告大小：{saved.bytes.toLocaleString()} 字节</p></details>
         {!saved.native&&<div className="report-export-actions"><Button onClick={saveChecksums}>保存 MD5 校验文件</Button><Button onClick={()=>download(new Blob([JSON.stringify({schema:'workproof-report-files/1',file:saved.file_name,md5:saved.md5,sha256:saved.sha256,bytes:saved.bytes,source_certificate_id:saved.source_certificate_id},null,2)],{type:'application/json'}),saved.file_name+'.report.json')}>保存关联清单</Button></div>}
       </div>}

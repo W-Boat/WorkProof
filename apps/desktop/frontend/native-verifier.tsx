@@ -28,7 +28,7 @@ function NativeVerifier(){
   function choose(file:File|null,kind:'artifact'|'proof'){
     cancel();setEventPage(0);setTab('report');
     if(kind==='proof'&&file&&file.size>32*1024*1024){setProof(null);setError('证书超过 32 MB，请选择完整安装包支持范围内的证书。');return;}
-    if(kind==='artifact'){setMetadata(null);setMetadataOpened(false);setShowMetadata(false);}
+    if(kind==='artifact')setMetadata(null);
     (kind==='proof'?setProof:setArtifact)(file);
   }
   function verify(){
@@ -71,7 +71,7 @@ function NativeVerifier(){
     {stage==='working'&&<div className="nv-working"><VerificationProgress {...progress}/><FluentElement tag="fluent-button" appearance="subtle" onClick={cancel}>取消核验</FluentElement></div>}
     {error&&<p className="nv-error" role="alert">{error}</p>}
     {result&&<><section className="nv-verdict" data-valid={valid} role="status"><h3>{valid?'文件与证书一致':'核验未通过'}</h3>{valid&&result.proof.manifest.demo&&<FluentElement tag="fluent-badge" appearance="tint">演示证书 · 仅用于体验</FluentElement>}<p>{valid?'文件指纹、已披露记录与签名核对通过。签名有效不等于官方背书，也不能单独证明全部内容由人类创作。':'请检查作品是否是导出证书时的最终文件，以及证书是否完整。'}</p>{valid&&result.certificateMatch===true&&<p>指定证书指纹一致。</p>}<ul>{result.report.errors.map((item,i)=><li key={i}>{item}</li>)}</ul></section>
-      <div className="nv-actions"><ReportExport result={result} artifact={artifact} proof={proof} metadata={metadata} native auxiliaryText={()=>document.querySelector('.nv-result')?.textContent||''}/></div>
+      <div className="nv-actions"><ReportExport result={result} expectedCertificateId={expectedId} artifact={artifact} proof={proof} metadata={metadata} native auxiliaryText={()=>document.querySelector('.nv-result')?.textContent||''}/></div>
       {valid&&<div className="nv-actions" aria-label="分享已核验证书"><FluentElement tag="fluent-button" appearance="secondary" onClick={copyFingerprint}>复制证书指纹</FluentElement><FluentElement tag="fluent-button" appearance="subtle" onClick={()=>{if(proof)download(proof,proof.name);}}>保存原始证书</FluentElement><span>{result.report.scope==='selective'?'仅含已披露记录':'含完整记录，请先确认分享范围'}</span></div>}
       {shareMessage&&<p role="status">{shareMessage}</p>}
       <nav className="nv-tabs" aria-label="核验结果视图">{tabs.map(([id,label])=><FluentElement key={id} tag="fluent-button" appearance={tab===id?'primary':'subtle'} aria-pressed={tab===id} onClick={()=>setTab(id)}>{label}</FluentElement>)}</nav>

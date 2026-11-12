@@ -2,6 +2,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..');
 let notices='WorkProof report viewer\n'+fs.readFileSync(path.join(root,'LICENSE'),'utf8')+'\n';
+notices+='\nIPTC source-type descriptions\n'+fs.readFileSync(path.join(root,'apps/verifier/public/notices/iptc-newscodes.txt'),'utf8')+'\n';
 for(const name of ['echarts','zrender']){
   let directory=path.dirname(require.resolve(name,{paths:[path.join(root,'apps/verifier'),root]}));
   while(true){const file=path.join(directory,'package.json');if(fs.existsSync(file)&&JSON.parse(fs.readFileSync(file,'utf8')).name===name)break;const parent=path.dirname(directory);if(parent===directory)throw new Error('Missing report dependency metadata: '+name);directory=parent;}

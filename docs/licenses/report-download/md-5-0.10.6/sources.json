@@ -1,0 +1,17 @@
+{
+  "crate": "md-5",
+  "version": "0.10.6",
+  "license": "MIT OR Apache-2.0",
+  "source": "https://static.crates.io/crates/md-5/md-5-0.10.6.crate",
+  "crate_sha256": "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf",
+  "files": [
+    {
+      "name": "LICENSE-MIT",
+      "sha256": "b4eb00df6e2a4d22518fcaa6a2b4646f249b3a3c9814509b22bd2091f1392ff1"
+    },
+    {
+      "name": "LICENSE-APACHE",
+      "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+    }
+  ]
+}
