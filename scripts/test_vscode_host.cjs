@@ -42,7 +42,12 @@ async function main(){
       execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command','Expand-Archive -LiteralPath $env:WORKPROOF_HOST_ARCHIVE -DestinationPath $env:WORKPROOF_HOST_DEST -ErrorAction Stop'],{env:{...process.env,WORKPROOF_HOST_ARCHIVE:archivePath,WORKPROOF_HOST_DEST:installation},windowsHide:true,timeout:120000});
       executable=path.join(installation,'Code.exe');
     }else{
-      execFileSync('/usr/bin/ditto',['-xk',archivePath,temporary]);installation=path.join(temporary,'Visual Studio Code.app','Contents');executable=path.join(installation,'MacOS','Electron');
+      execFileSync('/usr/bin/ditto',['-xk',archivePath,temporary]);
+      const bundles=(await fs.readdir(temporary)).filter(name=>name.endsWith('.app'));assert.equal(bundles.length,1);
+      installation=path.join(temporary,bundles[0],'Contents');
+      const binary=execFileSync('/usr/bin/plutil',['-extract','CFBundleExecutable','raw','-o','-',path.join(installation,'Info.plist')],{encoding:'utf8'}).trim();
+      assert(binary&&!binary.includes('/')&&!binary.includes('..'));
+      executable=path.join(installation,'MacOS',binary);
     }
     await fs.access(executable);
     const userData=path.join(temporary,'user'),extensions=path.join(temporary,'extensions'),workspace=path.join(temporary,'workspace'),data=path.join(temporary,'engine');
@@ -62,7 +67,14 @@ async function main(){
     // Match Microsoft's code.cmd on Windows: invoke the packaged CLI with
     // ELECTRON_RUN_AS_NODE, without shelling out through a batch file.
     const cli=platform==='win32'?executable:path.join(installation,platform==='darwin'?'Resources/app/bin':'bin','code');
-    const cliPrefix=platform==='win32'?[path.join(installation,'resources','app','out','cli.js')]:[];
+    let cliPrefix=[];
+    if(platform==='win32'){
+      // Follow the entry script shipped by the exact downloaded release rather
+      // than assuming its JS layout is unchanged across VS Code versions.
+      const batch=await fs.readFile(path.join(installation,'bin','code.cmd'),'utf8');
+      const entry=batch.match(/"%~dp0\.\.\\([^"\r\n]+\.m?js)"/i);assert(entry,'Official code.cmd JS entry point');
+      const script=path.resolve(installation,...entry[1].split('\\'));assert(script.startsWith(installation+path.sep));await fs.access(script);cliPrefix=[script];
+    }
     const cliEnvironment=platform==='win32'?{...environment,ELECTRON_RUN_AS_NODE:'1',VSCODE_DEV:''}:environment;
     execFileSync(cli,[...cliPrefix,...common,'--install-extension',vsix,'--force'],{env:cliEnvironment,stdio:'pipe',windowsHide:true,timeout:60000});
     const installed=execFileSync(cli,[...cliPrefix,...common,'--list-extensions','--show-versions'],{env:cliEnvironment,encoding:'utf8',windowsHide:true,timeout:60000});
