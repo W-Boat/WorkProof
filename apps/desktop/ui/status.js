@@ -2,12 +2,17 @@ import {adapterIcon} from '../frontend/adapter-icons.js';
 import {connectionConsent} from '../frontend/connection-consent.js';
 // Independent owners must not release one another's interaction freeze.
 const interactionLocks=new Set();
+function syncInteractionLocks(){
+  const blocked=interactionLocks.size>0;
+  document.querySelector('main').inert=blocked;
+  document.querySelector('.workspace-nav').inert=blocked||document.body.classList.contains('simple-writing');
+}
 function setInteractionLock(reason,locked){
   if(locked)interactionLocks.add(reason);else interactionLocks.delete(reason);
-  const blocked=interactionLocks.size>0;
-  document.querySelector('main').inert=blocked;document.querySelector('.workspace-nav').inert=blocked;
+  syncInteractionLocks();
 }
 window.workproofSetInteractionLock=setInteractionLock;
+window.workproofSyncInteractionLocks=syncInteractionLocks;
 setInteractionLock('engine',true);
 let last=-1;
 let refreshing=false,engineReady=false,launching=false;

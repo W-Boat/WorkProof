@@ -23,7 +23,8 @@ export function initializePaneLayout() {
     document.body.classList.toggle('simple-writing',value);
     document.dispatchEvent(new CustomEvent('workproof:simple-writing',{detail:value}));
     exitButton.hidden=!value;
-    for(const element of document.querySelectorAll('.workspace-nav,.doc-head,.document-tabs,.writing-chrome'))element.inert=value;
+    for(const element of document.querySelectorAll('.doc-head,.document-tabs,.writing-chrome'))element.inert=value;
+    window.workproofSyncInteractionLocks();
     render();
     (value?exitButton:focusButton)?.focus({preventScroll:true});
   }

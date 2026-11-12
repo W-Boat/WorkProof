@@ -690,6 +690,8 @@ test('simple writing fills the window and restores pane choices navigation and t
   const before=await page.evaluate(()=>({compact:document.body.classList.contains('compact-nav'),preferences:['ribbon','outline','inspector'].map(name=>localStorage.getItem(`workproof.pane.${name}`))}));
   await ensureToolsOpen(page);await page.locator('#focus-writing').click();await expect(page.locator('body')).toHaveClass(/simple-writing/);await expect(page.locator('#exit-simple-writing')).toBeVisible();
   await expect(page.locator('.workspace-nav')).toHaveAttribute('inert','');await expect(page.locator('.doc-head')).toHaveAttribute('inert','');
+  await page.evaluate(()=>(window as any).workproofSetInteractionLock('engine',false));
+  await expect(page.locator('.workspace-nav')).toHaveAttribute('inert','');await expect(page.locator('main')).not.toHaveAttribute('inert','');
   await expect.poll(()=>page.locator('.editor-canvas').evaluate(element=>{const rectangle=element.getBoundingClientRect();return rectangle.width*rectangle.height/(innerWidth*innerHeight);})).toBeGreaterThanOrEqual(.7);
   await page.screenshot({path:info.outputPath('typora-simple-dark.png')});
   await page.keyboard.press('Escape');await expect(page.locator('body')).not.toHaveClass(/simple-writing/);await expect(page.locator('#exit-simple-writing')).toBeHidden();
