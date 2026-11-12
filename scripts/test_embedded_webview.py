@@ -119,8 +119,8 @@ def failure_dom_diagnostics():
 def screenshot(name):
     data=call('GET',f'/session/{session}/screenshot');(evidence/name).write_bytes(base64.b64decode(data))
 def open_native_verifier():
-    # The workspace opens an iframe. The separately shipped native-window
-    # command remains covered here for its navigation and reuse guarantees.
+    # The current workspace mounts Fluent directly; older packages use an
+    # iframe. The separate window still has navigation and reuse guarantees.
     result=call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];window.__TAURI__.core.invoke('open_verifier').then(()=>done(true),()=>done(false));",'args':[]})
     assert result is True,'Native verifier command failed'
 
@@ -192,7 +192,8 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             call('POST',f'/session/{session}/frame',{'id':None})
             assert len(handles())==1,'Workspace verification created an extra window'
             open_native_verifier()
-        if execute("return !!document.getElementById('desktop-verifier-root')"):
+        native_mode=execute("return !!document.getElementById('desktop-verifier-root')")
+        if native_mode:
             def native_ready():assert execute("return !!document.querySelector('.native-verifier input[type=file]')")
             wait(native_ready)
             native_url=call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];window.__TAURI__.core.invoke('verifier_url').then(done);",'args':[]})
@@ -206,6 +207,15 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             click_text('开始核验')
             def native_verified():assert execute("return document.querySelector('.nv-verdict')?.dataset.valid==='true'")
             wait(native_verified);screenshot('workbench-native-verified.png')
+            native_changed=pathlib.Path(temporary)/'native-changed';native_changed.mkdir(mode=0o700)
+            (native_changed/'essay.md').write_bytes((native_files/'essay.md').read_bytes()+b'\nchanged by native acceptance fixture\n')
+            select_file('input[aria-label="1 · 最终作品"]',native_changed/'essay.md')
+            click_text('开始核验')
+            def native_rejected():assert execute("return document.querySelector('.nv-verdict')?.dataset.valid==='false'")
+            wait(native_rejected);screenshot('workbench-native-rejected.png')
+            assert execute("return !document.querySelector('.nv-certificate') && !Array.from(document.querySelectorAll('.native-verifier fluent-button')).some(b=>b.textContent.includes('保存原始证书'))"),'Failed verification exposed a valid-certificate action'
+            select_file('input[aria-label="1 · 最终作品"]',native_files/'essay.md')
+            click_text('开始核验');wait(native_verified)
             assert len(handles())==1,'Native verification created an extra window'
             open_native_verifier()
         def second():
@@ -262,10 +272,10 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         assert call('GET',f'/session/{session}/url')==url,'Navigation escaped verifier origin'
         screenshot('verifier.png')
         switch(workbench)
-        if iframe_mode:open_native_verifier()
+        if iframe_mode or native_mode:open_native_verifier()
         else:click('#verify')
         assert len(handles())==2,'Repeated open created another verifier'
-        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'workspace_iframe_checked':iframe_mode,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['workspace iframe opens without another window','workspace iframe native viewport pointer activation','workspace iframe demo Wasm verification','workspace iframe command isolation'] if iframe_mode else [])+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
+        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'workspace_iframe_checked':iframe_mode,'workspace_native_fluent_checked':native_mode,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['workspace iframe opens without another window','workspace iframe native viewport pointer activation','workspace iframe demo Wasm verification','workspace iframe command isolation'] if iframe_mode else [])+(['native Fluent workspace filesystem input','native Fluent workspace Wasm verification','native Fluent workspace tamper rejection','native Fluent invalid certificate action isolation','native Fluent original file reselection'] if native_mode else [])+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
         print('PASS: installed native WebView verifies filesystem input, rejects changed bytes, scrolls and reuses the local verifier; workbench commands unavailable')
     except Exception as error:
         if session:

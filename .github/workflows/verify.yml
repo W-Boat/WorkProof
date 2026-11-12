@@ -236,6 +236,10 @@ jobs:
           $process=Start-Process -FilePath $installer.FullName -ArgumentList @('/S',('/D='+$destination)) -WindowStyle Hidden -PassThru
           if(-not $process.WaitForExit(120000)){throw 'NSIS acceptance exceeded two minutes'}
           if($process.ExitCode -ne 0){throw 'NSIS installation failed'}
+          # Tauri patches the reserved bundle-type marker in the NSIS payload.
+          # Every other executable byte must match the exact-source build.
+          python -c "import pathlib,sys; a=pathlib.Path('target/release/workproof-desktop.exe').read_bytes(); b=pathlib.Path(sys.argv[1]).read_bytes(); marker=b'__TAURI_BUNDLE_TYPE_VAR_UNK'; assert a==b or (a.count(marker)==1 and a.replace(marker,b'__TAURI_BUNDLE_TYPE_VAR_NSS')==b), 'Installed desktop executable differs from its build'; print('PASS installed desktop executable byte equivalence, allowing only Tauri NSIS marker')" (Join-Path $destination 'workproof-desktop.exe')
+          if($LASTEXITCODE -ne 0){throw 'Installed executable verification failed'}
           $payload=Join-Path $destination 'office'
           $source='apps/desktop/src-tauri/resources/office'
           foreach($file in (Get-ChildItem -LiteralPath $source -Recurse -File -Force)){
