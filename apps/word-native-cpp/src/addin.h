@@ -39,6 +39,7 @@ void TraceHresult(const wchar_t* step, long result);
 void TraceIid(const wchar_t* step, const GUID& value);
 
 std::wstring RibbonXml();
+HRESULT RibbonImage(VARIANT* result);
 std::wstring EnginePath();
 
 } // namespace workproof

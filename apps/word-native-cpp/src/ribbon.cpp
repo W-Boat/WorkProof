@@ -1,13 +1,32 @@
 #include "addin.h"
+#include <olectl.h>
+#include <cstring>
+#include "brand_icon.h"
 
 namespace workproof {
+
+HRESULT RibbonImage(VARIANT* result) {
+    if(!result)return E_POINTER;
+    VariantInit(result);
+    BITMAPINFO info{};info.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);info.bmiHeader.biWidth=32;info.bmiHeader.biHeight=-32;
+    info.bmiHeader.biPlanes=1;info.bmiHeader.biBitCount=32;info.bmiHeader.biCompression=BI_RGB;
+    void* pixels=nullptr;
+    HBITMAP bitmap=CreateDIBSection(nullptr,&info,DIB_RGB_COLORS,&pixels,nullptr,0);
+    if(!bitmap||!pixels){if(bitmap)DeleteObject(bitmap);return E_OUTOFMEMORY;}
+    memcpy(pixels,kBrandBgra,sizeof(kBrandBgra));
+    PICTDESC description{};description.cbSizeofstruct=sizeof(description);description.picType=PICTYPE_BITMAP;description.bmp.hbitmap=bitmap;
+    IPictureDisp* picture=nullptr;
+    HRESULT hr=OleCreatePictureIndirect(&description,IID_IPictureDisp,TRUE,reinterpret_cast<void**>(&picture));
+    if(FAILED(hr)){DeleteObject(bitmap);return hr;}
+    result->vt=VT_DISPATCH;result->pdispVal=picture;return S_OK;
+}
 
 std::wstring RibbonXml() {
     // Single quotes keep the markup a plain string literal; Office accepts this form.
     return std::wstring(
         LR"(<customUI xmlns='http://schemas.microsoft.com/office/2009/07/customui'><ribbon><tabs>)"
         LR"(<tab id='workproofTab' label='WorkProof'><group id='workproofGroup' label='创作过程记录'>)"
-        LR"(<button id='workproofOpen' label='打开创作记录' size='large' onAction='OpenRecorder' )"
+        LR"(<button id='workproofOpen' label='打开创作记录' size='large' getImage='GetRibbonImage' onAction='OpenRecorder' )"
         LR"(screentip='记录当前作品的创作过程' )"
 #ifdef WORKPROOF_POWERPOINT
         LR"(supertip='只记录幻灯片和对象数量、时间及文件摘要；不读取文字、图片和备注，也无法追踪同数量的内容替换。'/>)"

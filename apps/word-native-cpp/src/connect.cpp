@@ -416,8 +416,9 @@ STDMETHODIMP CConnect::Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPARAMS*, 
             PaneExport();
             return S_OK;
         case CommandRibbonLoad:
-        case CommandImage:
             return S_OK;
+        case CommandImage:
+            return RibbonImage(result);
         default:
             return DISP_E_MEMBERNOTFOUND;
     }

@@ -1,6 +1,7 @@
 #include "addin.h"
 #include <cstdio>
 #include <ocidl.h>
+#include <olectl.h>
 #include <initializer_list>
 #include <string>
 
@@ -136,7 +137,7 @@ int wmain(int argc, wchar_t** argv) {
     identity->Release();ribbonIdentity->Release();extensionIdentity->Release();ribbonDispatch->Release();
 
     for (const wchar_t* token : {L"customUI", L"id='workproofTab'", L"OpenRecorder", L"StartRecording",
-                                 L"TogglePause", L"ExportRecord"}) {
+                                 L"TogglePause", L"ExportRecord", L"getImage='GetRibbonImage'"}) {
         if (xml.find(token) == std::wstring::npos) return Fail("ribbon markup is missing a required element");
     }
 
@@ -148,6 +149,19 @@ int wmain(int argc, wchar_t** argv) {
             return Fail("a ribbon callback name does not resolve through IDispatch");
         }
     }
+
+    OLECHAR* imageName=const_cast<OLECHAR*>(L"GetRibbonImage");DISPID imageId=DISPID_UNKNOWN;
+    if(FAILED(connect->GetIDsOfNames(IID_NULL,&imageName,1,LOCALE_USER_DEFAULT,&imageId)))return Fail("brand image callback missing");
+    DISPPARAMS imageArgs{};VARIANT image;VariantInit(&image);
+    if(FAILED(connect->Invoke(imageId,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_METHOD,&imageArgs,&image,nullptr,nullptr))||image.vt!=VT_DISPATCH||!image.pdispVal)return Fail("brand image callback did not return an Office picture");
+    IPicture* picture=nullptr;
+    if(FAILED(image.pdispVal->QueryInterface(IID_IPicture,reinterpret_cast<void**>(&picture))))return Fail("brand picture interface unavailable");
+    OLE_HANDLE handle=0;picture->get_Handle(&handle);BITMAP bitmap{};
+    if(!GetObjectW(reinterpret_cast<HGDIOBJ>(static_cast<ULONG_PTR>(handle)),sizeof(bitmap),&bitmap)||bitmap.bmWidth!=32||bitmap.bmHeight!=32||!bitmap.bmBits)return Fail("brand bitmap dimensions invalid");
+    const auto* pixels=static_cast<const unsigned char*>(bitmap.bmBits);bool visible=false;
+    for(int i=0;i<32*32;i++)if(pixels[i*4+3]&&pixels[i*4+1]>pixels[i*4+2]){visible=true;break;}
+    picture->Release();VariantClear(&image);
+    if(!visible)return Fail("brand bitmap is blank or missing its green palette");
 
     DISPID unknown = DISPID_UNKNOWN;
     OLECHAR* missing[1] = {const_cast<OLECHAR*>(L"NotAWorkProofCallback")};

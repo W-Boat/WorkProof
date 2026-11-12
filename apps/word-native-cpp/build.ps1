@@ -39,9 +39,27 @@ $probeDir = Join-Path $OutDir 'obj-probe'
 New-Item -ItemType Directory -Force -Path $objectDir | Out-Null
 New-Item -ItemType Directory -Force -Path $probeDir | Out-Null
 
+# Reuse the approved ImageGen brand asset; embed a small premultiplied bitmap so
+# Office has no runtime PNG decoder, extra DLL or external image path to load.
+Add-Type -AssemblyName System.Drawing
+$brandSource=[Drawing.Image]::FromFile((Join-Path $PSScriptRoot '../../assets/brand/workproof-icon.png'))
+$brandBitmap=[Drawing.Bitmap]::new(32,32,[Drawing.Imaging.PixelFormat]::Format32bppArgb)
+$brandGraphics=[Drawing.Graphics]::FromImage($brandBitmap)
+try {
+    $brandGraphics.InterpolationMode=[Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $brandGraphics.DrawImage($brandSource,0,0,32,32)
+    $brandBytes=[Collections.Generic.List[byte]]::new()
+    for($y=0;$y -lt 32;$y++){for($x=0;$x -lt 32;$x++){
+        $pixel=$brandBitmap.GetPixel($x,$y)
+        $brandBytes.Add([byte](($pixel.B*$pixel.A)/255));$brandBytes.Add([byte](($pixel.G*$pixel.A)/255));$brandBytes.Add([byte](($pixel.R*$pixel.A)/255));$brandBytes.Add($pixel.A)
+    }}
+    $brandHeader="#pragma once`nnamespace workproof { inline constexpr unsigned char kBrandBgra[]={"+($brandBytes -join ',')+"}; }`n"
+    [IO.File]::WriteAllText((Join-Path $OutDir 'brand_icon.h'),$brandHeader,[Text.Encoding]::ASCII)
+} finally {$brandGraphics.Dispose();$brandBitmap.Dispose();$brandSource.Dispose()}
+
 $common = @(
     '/nologo', '/std:c++17', '/EHsc', '/W4', '/O2', '/guard:cf', '/utf-8',
-    '/DUNICODE', '/D_UNICODE', '/DWIN32_LEAN_AND_MEAN', '/MT', "/I$source"
+    '/DUNICODE', '/D_UNICODE', '/DWIN32_LEAN_AND_MEAN', '/MT', "/I$source", "/I$OutDir"
 )
 if ($PowerPoint) { $common += '/DWORKPROOF_POWERPOINT' }
 $libraries = @('winhttp.lib', 'shell32.lib', 'ole32.lib', 'oleaut32.lib', 'user32.lib', 'gdi32.lib', 'comctl32.lib', 'advapi32.lib', 'uuid.lib')
