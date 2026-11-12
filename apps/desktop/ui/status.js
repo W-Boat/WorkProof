@@ -185,7 +185,7 @@ async function refresh(){
     document.getElementById('events').textContent=s.events.toLocaleString();
     document.querySelector('.trace').classList.toggle('active',last>=0&&s.events>last);last=s.events;
     const [requests,connections]=await Promise.all([window.__TAURI__.core.invoke('pending_adapters'),window.__TAURI__.core.invoke('adapter_connections')]);
-    showConnections(connections);latestRequests=requests;pairingInbox.hidden=!requests.length;pairingInbox.textContent='连接申请 · '+requests.length;pairingInbox.setAttribute('aria-label','查看连接申请 · '+requests.length);
+    showConnections(connections);latestRequests=requests;if(pairingInbox.dataset.count!==String(requests.length)){pairingInbox.dataset.count=String(requests.length);pairingInbox.hidden=!requests.length;pairingInbox.textContent='连接申请 · '+requests.length;pairingInbox.setAttribute('aria-label','查看连接申请 · '+requests.length);}
     let region=document.getElementById('adapter-requests');
     if(!region){region=document.createElement('section');region.id='adapter-requests';document.getElementById('message').after(region);}
     const signature=JSON.stringify(requests);

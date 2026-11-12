@@ -15,7 +15,7 @@ async function desktop(page:import('@playwright/test').Page,fail=false,nativeWor
   });
   await page.addInitScript(({fail,nativeWord})=>{
     let pending=nativeWord?[{ticket:'native-word',origin:'',source:'word',channel:'native'}]:[];
-    const harness=(window as any).connectionHarness={notice:null,events:{},decisions:[]};
+    const harness:any=(window as any).connectionHarness={notice:null,events:{},decisions:[]};
     let connections=[{ticket:'word-ticket',origin:'https://school.example',source:'word',channel:'browser',expires_in_seconds:1800,sessions:2},{ticket:'wps-ticket',origin:'https://wps.example',source:'wps',channel:'browser',expires_in_seconds:3600,sessions:1}];
     (window as any).__TAURI__={event:{listen:async(name:string,callback:any)=>{harness.events[name]=callback;return ()=>delete harness.events[name];}},core:{invoke:async(command:string,args?:{ticket?:string;action?:string})=>{
       if(command==='window_action'&&args?.action==='ready')return null;

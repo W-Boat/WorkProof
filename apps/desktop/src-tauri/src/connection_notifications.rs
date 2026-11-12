@@ -53,7 +53,7 @@ mod windows_toasts{
                 let pending=workproof_engine::pairing::pending();
                 let live:HashSet<String>=pending.iter().map(|request|request.ticket.clone()).collect();
                 announced.retain(|ticket|live.contains(ticket));
-                active.retain(|ticket,toast|{if live.contains(ticket){true}else{if let Some(notifier)=&notifier{let _:windows::core::Result<()>=ToastNotifier::Hide(notifier,toast);}false}});
+                active.retain(|ticket,toast|{if live.contains(ticket){true}else{if let Some(notifier)=&notifier{let _:windows::core::Result<()>=ToastNotifier::Hide(notifier,&*toast);}false}});
                 for request in pending{
                     if !announced.insert(request.ticket.clone()){continue;}
                     // Load the Windows notification stack only on the first
