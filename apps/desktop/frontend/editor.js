@@ -256,6 +256,7 @@ function confirmLibraryDeletion(doc,kind){
   deletionDialog.returnValue='';deletionDialog.showModal();deletionDialog.querySelector('fluent-button').focus();
   return new Promise(resolve=>deletionDialog.addEventListener('close',()=>resolve(deletionDialog.returnValue==='delete'),{once:true}));
 }
+let libraryRowsSignature='';
 function renderLibrary(){
   const list=$('document-list'),focusKey=document.activeElement?.closest('[data-document-key]')?.dataset.documentKey;
   const query=($('document-search').value||'').trim().toLocaleLowerCase();
@@ -267,6 +268,15 @@ function renderLibrary(){
   const selectedState=$('library-state-filter').value;
   const stateEntries=entries.filter(entry=>(libraryStates[entry.type+':'+entry.doc.id]||'active')===selectedState);
   const filtered=stateEntries.filter(entry=>(selectedSource==='all'||selectedSource===entry.source)&&`${entry.doc.title} ${sourceLabel(entry.source)} ${entry.source}`.toLocaleLowerCase().includes(query));
+  // Engine readiness and catalog refreshes can deliver identical data between
+  // pointer-down and pointer-up. Keep existing controls alive in that case;
+  // replacing them cancels an otherwise valid click and loses keyboard focus.
+  // Only summarize row metadata, never serialize the document body here.
+  const signature=JSON.stringify([selectedState,filtered.map(({type,doc,source,time,sessions})=>
+    [type,doc.id,doc.title,source,time,doc.revision,doc.demo,sessions?.map(session=>[session.id,session.event_count])]
+  )]);
+  const rowsChanged=signature!==libraryRowsSignature;
+  if(rowsChanged){
   for(const entry of filtered){
     const {doc}=entry,row=element('div','document-row');row.setAttribute('role','listitem');row.dataset.documentKey=`${entry.type}:${doc.id}`;row.dataset.source=entry.source;
     const label=element('div'),description=entry.type==='editor'?`${doc.revision+1} 个保存版本`:`${entry.sessions.length} 次记录 · ${entry.sessions.reduce((sum,session)=>sum+Number(session.event_count),0).toLocaleString()} 条记录${doc.demo?' · 演示记录':''}`;
@@ -315,7 +325,9 @@ function renderLibrary(){
     row.append(entry.type==='external'?adapterIcon(entry.source):icon('document_text'),label,actions);rows.append(row);
   }
   list.replaceChildren(rows);
+  libraryRowsSignature=signature;
   if(focusKey&&document.body.dataset.view==='library')(restoreFocus??$('document-search')).focus({preventScroll:true});
+  }
   $('library-empty').hidden=entries.length>0||selectedState!=='active';
   librarySummary.textContent=`${selectedState==='archived'?'已归档':selectedState==='trash'?'回收站':'我的文档'} · ${filtered.length} 份${query||selectedSource!=='all'?`，本分组共 ${stateEntries.length} 份`:''}`;
   $('library-error').textContent=libraryLoadError||(!filtered.length&&(entries.length||selectedState!=='active')?(stateEntries.length?'没有找到符合条件的文档。':selectedState==='archived'?'还没有已归档文档。':selectedState==='trash'?'回收站为空。':'还没有文档。'):'');

@@ -73,7 +73,13 @@ async function desktop(page:Page){
 async function selectKind(page:Page,kind:'word'|'markdown'){await page.locator(`#document-kind-dialog button[value=${kind}]`).click();}
 async function create(page:Page,kind:'word'|'markdown'='word'){await page.getByRole('button',{name:'新建文档',exact:true}).click();await selectKind(page,kind);await expect(page.getByRole('textbox',{name:'文档正文'})).toBeVisible();await expect(page.locator('#new-document')).toBeEnabled();return page.getByRole('textbox',{name:'文档正文'});}
 async function ensureToolsOpen(page:Page){
+  // Automatic pane decisions follow the native shell's resize animations. A
+  // toggle observed as closed before that resize can be open by pointer-up.
+  await expect.poll(()=>page.evaluate(()=>!document.getAnimations().some(animation=>
+    animation.playState==='running'&&animation.effect?.getComputedTiming().iterations!==Infinity
+  ))).toBe(true);
   if(await page.locator('#write-panel').getAttribute('data-ribbon-open')!=='true')await page.locator('#toggle-ribbon').click();
+  await expect(page.locator('#write-panel')).toHaveAttribute('data-ribbon-open','true');
   // A child can have a stable rectangle while its animated parent still clips
   // it. Wait for actual usable space before asking WebKit to scroll/click it.
   await expect.poll(()=>page.locator('#editor-tools').evaluate(element=>{
@@ -827,6 +833,22 @@ test('a save failure prevents a template from replacing the current document',as
   await expect(body).toHaveText('必须保留的未保存内容');
   await expect.poll(()=>page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('test.editor.documents')||'{}')).length)).toBe(1);
   await expect(page.locator('#save-state')).toHaveAttribute('data-state','error');
+});
+
+test('an unchanged catalog refresh preserves the document button during a click',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('刷新时仍可继续编辑');
+  await page.locator('#back-library').click();
+  const open=page.getByRole('button',{name:'继续编辑 未命名文档',exact:true});
+  const original=await open.elementHandle();
+  const box=await open.boundingBox();if(!box)throw new Error('Document action is not visible');
+  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
+  await page.evaluate(async()=>{
+    document.getElementById('reload-documents')!.click();
+    await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
+  });
+  expect(await original!.evaluate(element=>element.isConnected)).toBe(true);
+  await page.mouse.up();
+  await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('刷新时仍可继续编辑');
 });
 
 test('archive restores saved content and permanent deletion requires confirmation',async({page})=>{
