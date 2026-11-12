@@ -74,12 +74,18 @@ async function selectKind(page:Page,kind:'word'|'markdown'){await page.locator(`
 async function create(page:Page,kind:'word'|'markdown'='word'){await page.getByRole('button',{name:'新建文档',exact:true}).click();await selectKind(page,kind);await expect(page.getByRole('textbox',{name:'文档正文'})).toBeVisible();await expect(page.locator('#new-document')).toBeEnabled();return page.getByRole('textbox',{name:'文档正文'});}
 async function ensureToolsOpen(page:Page){
   if(await page.locator('#write-panel').getAttribute('data-ribbon-open')!=='true')await page.locator('#toggle-ribbon').click();
+  // A child can have a stable rectangle while its animated parent still clips
+  // it. Wait for actual usable space before asking WebKit to scroll/click it.
+  await expect.poll(()=>page.locator('#editor-tools').evaluate(element=>{
+    const chrome=element.querySelector('.writing-chrome') as HTMLElement;
+    return element.clientHeight>1&&element.clientHeight>=chrome.scrollHeight-1;
+  })).toBe(true);
 }
 async function ensureRibbonOpen(page:Page){
   await expect(page.locator('#write-panel')).toHaveAttribute('data-panes-initialized','true');
   // Selecting a tool tab explicitly expands its page even if automatic layout
   // changes between the preceding observation and this user interaction.
-  if(await page.locator('#write-panel').getAttribute('data-ribbon-open')!=='true')await page.locator('#toggle-ribbon').click();
+  await ensureToolsOpen(page);
   await page.locator('#toolbar-home').click();
   await expect(page.locator('#write-panel')).toHaveAttribute('data-ribbon-open','true');
   await expect(page.locator('#writing-ribbon')).not.toHaveAttribute('inert','');
