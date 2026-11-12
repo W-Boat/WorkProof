@@ -1,6 +1,6 @@
 # 全阶段实施与验收
 
-2026-11-12：Windows 开发版已升级到 `126a289`，新增过程回放与完整加密 HTML 报告，MD5/SHA-256 和证书指纹关联清单配套保存；原作品另附。保留六个 ImageGen 插件图标、Windows 连接通知和客户端元数据查看。安装摘要、验证范围与尚未验收的部分见 [本次桌面交付](DESKTOP-DELIVERY-2026-11-12.md)。
+2026-11-12：Windows 开发版已升级到 `4d25f8e`：分页内框居中、外部打开方式可设置、核验统计回放及图例布局修正，308 项界面检查成功；保留内置编辑器正文快照回放和完整加密 HTML 报告，MD5/SHA-256 和证书指纹关联清单配套保存，原作品另附。保留六个 ImageGen 插件图标、Windows 连接通知和客户端元数据查看。安装摘要、验证范围与尚未验收的部分见 [本次桌面交付](DESKTOP-DELIVERY-2026-11-12.md)。
 
 ## 当前范围索引（2026-11-11）
 
@@ -8,7 +8,7 @@
 
 - **品牌与桌面**：生成品牌资源已在桌面、站点和 Windows 图标中接入。内置编辑器新建时选择 Word 或 Markdown，内嵌核验页使用 Fluent UI，支持 10 种统计视图及按需复核筛选。[桌面回归](https://github.com/W-Boat/WorkProof/actions/runs/42998876162) 186 项通过，[核验回归](https://github.com/W-Boat/WorkProof/actions/runs/42947420732) 119 项通过、4 项跳过。[Windows x64 安装包](https://github.com/W-Boat/WorkProof/actions/runs/42946722609/artifacts/13824680724) 已下载并核对外层 SHA-256。内置编辑器动作记录、导出与特定环境性能见[编辑器](DESKTOP-EDITOR.md)和[长文压测](EDITOR-STRESS-RESULTS.md)。
 - **跨平台构建**：[cbc6554 完整回归](https://github.com/W-Boat/WorkProof/actions/runs/42947619619)六项成功，包含 Windows x64、macOS Intel/ARM、Linux x64 开发包。Linux 的实际安装及原生 WebView 已通过本地 Wasm 核验、换件拒绝、重新核验和命令隔离。后续 `603ea7c` 的 [Linux 任务](https://github.com/W-Boat/WorkProof/actions/runs/42951065832/job/130298128114)已通过 DEB 中文字体依赖安装、字体匹配检查和原生核验。已核对完整原生界面产物的 GitHub 摘要，并查看[真实截图](evidence/embedded-native-603ea7c/workbench-frame-verified.png)确认中文可读，原始[验收记录](evidence/embedded-native-603ea7c/acceptance.json)一并保留。
-- **VS Code 安装包**：[已验收 VSIX 和报告](https://github.com/W-Boat/WorkProof/actions/runs/42990475206/artifacts/13840979089)在官方 VS Code 1.145.3 的隔离 Linux 用户环境中完成真实安装、编辑、暂停、导出、独立核验及篡改拒绝，下载后已核对 VSIX 摘要。Windows/macOS 真实宿主安装与 Marketplace 发布仍未据此完成。
+- **VS Code 安装包**：[已验收 VSIX 和报告](https://github.com/W-Boat/WorkProof/actions/runs/42990475206/artifacts/13840979089)在官方 VS Code 1.145.3 的隔离 Linux 用户环境中完成真实安装、编辑、暂停、导出、独立核验及篡改拒绝，下载后已核对 VSIX 摘要。后续 [cc0b733 跨平台验收](https://github.com/W-Boat/WorkProof/actions/runs/43234076573) 已在 Windows x64、Linux x64、macOS Intel/ARM 的官方 VS Code 1.146.0 中分别安装本次 VSIX，完成同一真实操作链路。四项任务全部成功，四份下载包的外层与 VSIX 摘要均已核对，报告见 [逐平台证据](evidence/vscode-cross-platform-cc0b733/)。这不代表 Marketplace 发布或所有历史宿主版本完成验收。
 - **宿主适配**：VS Code、Word/PowerPoint、WPS、Photoshop、Blender 均有对应源码和验收边界。Word/PPT 原生加载项与 Office.js/WPS 加载项是不同分发路径。WPS 工具许可和真实版本覆盖尚有缺口。见[Word 原生](WORD-NATIVE.md)、[Office 服务](OFFICE-SERVER.md)及 `apps/photoshop`、`apps/blender` 的宿主说明。Blender 扩展 0.3.0 在 Linux 的 Blender 4.2.0 和 5.0.1 中使用同一个 ZIP，通过安装、重启自动加载、真实工程记录、导出及核验。已下载并核对交付 ZIP、两份报告中的摘要与提交中的 6 个文件。该验收使用 Blender 后台模式。 [Blender 验收](https://github.com/W-Boat/WorkProof/actions/runs/42989882657) · [扩展和验收报告](https://github.com/W-Boat/WorkProof/actions/runs/42989882657/artifacts/13840654090)
 - **证据互操作**：PNG/JPEG/受限 PDF 的原生和浏览器 C2PA 路径已分项验收，见[C2PA](C2PA.md)；RFC 3161 手工及可选直接申请路径见[时间凭据](TIMESTAMPS.md)。独立信任根、公共服务鉴权/CORS、吊销和长期验证仍有边界，不提供自动公共身份认证。
 - **机构底座与交付**：继续采用 scaffold-master 的权限、审计和统一 Vue 组件，通过受控原生进程复用 Rust 核验。最新已下载核对的 Linux amd64 服务器包通过 16 项服务器检查，外层、29 个清单文件和镜像配置均已核对。可在同一次维护窗口生成并发布配套部署及签发密钥备份。签发和 AI 均需明确配置。[最新服务器包](INSTITUTION-DELIVERY-b6789ba.md)

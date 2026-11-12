@@ -1,0 +1,25 @@
+{
+  "source_commit": "7f20af0",
+  "actions_run": 43236629186,
+  "artifact_id": 13953276758,
+  "artifact_sha256": "39a267e7de8cdaeacb4a09dba698d2c8259f9b996cfa8dba89f681213bb2798a",
+  "scope": "Synthetic CI fixture in Windows Edge. Source 7f20af0 screenshots; later 4d25f8e preserves layout and adds clock continuity and recorded-command labels. Not user document content.",
+  "files": [
+    {
+      "file": "verified-chart-legend.png",
+      "sha256": "74dc59530c89c9b5bef7147d3bcc49fa432b84c0345c9aec8795348da6c1c053"
+    },
+    {
+      "file": "verified-process-replay.png",
+      "sha256": "9de093c6e93ca7d8a0695cd1ca0b6f069c7f626d470c4901d77615ee450c0ef7"
+    },
+    {
+      "file": "centered-word-1000.png",
+      "sha256": "2399af6e83f55f501c3e4631642c8c35530a330c1e656bd4c48b68caddf650a0"
+    },
+    {
+      "file": "centered-word-1280.png",
+      "sha256": "b290f0a4c8dcb0441096af7d9210f2f8dbeda2566015b3bb5caa1fb79ebf50b5"
+    }
+  ]
+}

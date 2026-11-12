@@ -18,4 +18,4 @@
 
 `vscode-host.yml` 已扩展到 Windows x64、Linux x64、macOS Intel 和 ARM，使用微软稳定版原始归档并核对官方 SHA-256。每项任务在新建的临时用户目录中安装本次打包的 VSIX，实际操作命令面板、确认记录、编辑和暂停导出，再用 Rust 引擎独立核验原件并拒绝篡改。Windows 通过官方 `code.cmd` 同等的 Electron Node CLI 方式安装，不调用已有系统 VS Code，不修改本机用户设置。
 
-此增量尚待对应 Actions 通过，不能仅因工作流包含某个平台便称已支持该平台的全部版本。报告记录实际宿主版本、架构、归档摘要、扩展摘要和源码提交；只有成功的任务才发布对应“tested-vsix”产物。微软 VS Code 仅用于 CI 宿主，不作为 WorkProof 安装包的再分发组件。
+[跨平台验收 43234076573](https://github.com/W-Boat/WorkProof/actions/runs/43234076573) 的四项任务已全部成功，实际宿主均为 VS Code 1.146.0；下载后已逐个核对四份 VSIX 的 SHA-256。不能据此称已支持各平台的全部历史版本。报告记录实际宿主版本、架构、归档摘要、扩展摘要和源码提交；只有成功的任务才发布对应“tested-vsix”产物。微软 VS Code 仅用于 CI 宿主，不作为 WorkProof 安装包的再分发组件。

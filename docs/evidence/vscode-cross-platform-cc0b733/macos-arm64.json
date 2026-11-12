@@ -1,0 +1,27 @@
+{
+  "source_commit": "cc0b733d5b8a9fa3aeb0c07df0b7d4d3c4ab3a3a",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "update_target": "darwin-arm64",
+  "vscode_version": "1.146.0",
+  "vscode_commit": "69047191fc427f2f92828279aae1d90d8eeda7ab",
+  "extension": {
+    "id": "workproof-local.workproof-vscode@0.1.0",
+    "file": "workproof-vscode-0.1.0.vsix",
+    "sha256": "5096f4e96e718007f8da88b1e7657e22badb89baf2e211ff5b331febca10b47e"
+  },
+  "archive_sha256": "6e8d27ee0c5a8f2aa3c43e373407eecd11c270c3fe7f46100ef682aac14bb648",
+  "scope": "Official stable VS Code on darwin/arm64; installed VSIX in a disposable profile; actual UI confirmation, editor, pause and simple save dialog; real Rust verification and tamper refusal. No mocked VS Code APIs. Only the exact host version recorded here, not all historical versions.",
+  "checks": [
+    "official archive SHA-256",
+    "exact installed VSIX version",
+    "user confirmation",
+    "real editor change",
+    "pause persists through export",
+    "paused content absent from records",
+    "original file independently verifies",
+    "modified file rejected",
+    "VSIX bytes unchanged"
+  ],
+  "outer_zip_sha256": "8ce10b17793f9bc2f43a6af0ced63d0e9e2232273e6ff5b97417df275dadbf11"
+}
