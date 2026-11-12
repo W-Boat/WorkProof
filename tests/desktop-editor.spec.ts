@@ -608,12 +608,13 @@ test('native verification uses real Wasm, renders all report views and rejects a
   await page.screenshot({path:testInfo.outputPath('native-verification-report.png')});
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'统计图',exact:true}).click();
   await expect(page.locator('.verification-chart')).toBeVisible();
+  await page.getByRole('combobox',{name:'选择统计图',exact:true}).click();await page.getByRole('option',{name:'新增与删除',exact:true}).click();await expect(page.locator('#verification-charts h3')).toHaveText('新增与删除');await page.locator('#verification-charts').screenshot({path:testInfo.outputPath('verified-chart-legend.png')});
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'过程回放',exact:true}).click();
-  const replay=page.getByRole('region',{name:'过程回放',exact:true});await expect(replay).toContainText('证书不含历史正文');
+  const replay=page.getByRole('region',{name:'过程回放',exact:true});await expect(replay).toContainText('证书不含历史正文');await expect(replay.getByRole('button',{name:'播放过程',exact:true}).locator('svg')).toBeVisible();
   const position=replay.getByRole('slider',{name:'核验过程回放位置'});await expect(position).toHaveValue('0');
   const last=await position.getAttribute('max');await position.fill(last!);await expect(replay.getByRole('button',{name:'下一个动作',exact:true})).toBeDisabled();
   await replay.getByRole('button',{name:'上一个动作',exact:true}).click();await expect(position).toHaveValue(String(Number(last)-1));
-  await replay.getByRole('button',{name:'播放过程',exact:true}).click();await expect(replay.getByRole('button',{name:'暂停回放',exact:true})).toBeVisible();await replay.getByRole('button',{name:'暂停回放',exact:true}).click();
+  await replay.getByRole('button',{name:'播放过程',exact:true}).click();await expect(replay.getByRole('button',{name:'暂停回放',exact:true})).toBeVisible();await replay.getByRole('button',{name:'暂停回放',exact:true}).click();await replay.screenshot({path:testInfo.outputPath('verified-process-replay.png')});
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'操作记录',exact:true}).click();await expect(page.locator('.nv-table tbody tr').first()).toBeVisible();
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'证书信息',exact:true}).click();await expect(page.locator('.nv-certificate')).toContainText('essay.md');
   const certificateId=await page.locator('.nv-certificate > div').filter({hasText:'证书指纹'}).locator('dd').innerText();
@@ -1039,7 +1040,7 @@ test('native metadata reads local file properties and clears them when the artif
 });
 
 
-test('paginated Word paper is centered inside its shell at wide and compact widths',async({page})=>{
+test('paginated Word paper is centered inside its shell at wide and compact widths',async({page},testInfo)=>{
   await desktop(page);await create(page);
   for(const width of [1280,1000]){
     await page.setViewportSize({width,height:800});
@@ -1047,6 +1048,7 @@ test('paginated Word paper is centered inside its shell at wide and compact widt
       const inner=node.getBoundingClientRect(),outer=node.parentElement!.getBoundingClientRect();
       return Math.abs((inner.left-outer.left)-(outer.right-inner.right))<2;
     })).toBe(true);
+    await page.screenshot({path:testInfo.outputPath('centered-word-'+width+'.png')});
   }
 });
 

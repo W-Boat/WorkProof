@@ -283,7 +283,7 @@ function renderLibrary(){
   // replacing them cancels an otherwise valid click and loses keyboard focus.
   // Only summarize row metadata, never serialize the document body here.
   const signature=JSON.stringify([selectedState,filtered.map(({type,doc,source,time,sessions})=>
-    [type,doc.id,doc.title,source,time,doc.revision,doc.demo,sessions?.map(session=>[session.id,session.event_count])]
+    [type,doc.id,doc.title,source,time,doc.revision,doc.demo,doc.local_path,doc.file_available,doc.can_open,sessions?.map(session=>[session.id,session.event_count])]
   )]);
   const rowsChanged=signature!==libraryRowsSignature;
   if(rowsChanged){

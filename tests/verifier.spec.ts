@@ -10,7 +10,7 @@ test('real Wasm verifies fixture, declares trust boundaries, and exports PNG',as
   await expect(page.getByText('证据核验通过',{exact:true})).toBeVisible();
   await expect(page.getByText('演示数据',{exact:true})).toBeVisible();
   await expect(page.getByText('未提供外部时间凭据',{exact:false})).toBeVisible();
-  await page.getByRole('slider').fill('30');
+  await page.getByRole('slider',{name:'浏览事件',exact:true}).fill('30');
   const download=page.waitForEvent('download');await page.getByRole('button',{name:'保存证书图片'}).click();
   expect((await download).suggestedFilename()).toBe('WorkProof-certificate.png');
   await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:'test-results/verified-desktop.png',fullPage:true});
@@ -62,6 +62,7 @@ test('browser exports selected evidence with original signature and verifies it 
   await expect(page.locator('.certificate-disclaimer')).toContainText('未核验完整记录链');
   await expect(page.getByText('记录链完整',{exact:true})).toHaveCount(0);
   await expect(page.getByRole('slider')).toHaveCount(0);
+  const replay=page.getByRole('region',{name:'过程回放',exact:true});await expect(replay).toContainText('不播放连续时间轴');await expect(replay.getByRole('button',{name:'播放过程',exact:true})).toBeDisabled();await replay.getByRole('button',{name:'下一个动作',exact:true}).click();await expect(replay).toContainText('已披露动作 2 / 5');
   await expect(page.getByRole('region',{name:'已披露的事件'}).locator('.event-detail')).toHaveCount(5);
   await expect(page.getByRole('button',{name:'导出部分证据'})).toHaveCount(0);
   const image=page.waitForEvent('download');await page.getByRole('button',{name:'保存证书图片'}).click();
