@@ -29,11 +29,12 @@ pub fn start(app:tauri::AppHandle){
 #[cfg(windows)]
 mod windows_toasts{
     use std::{collections::{HashMap,HashSet},time::Duration};
-    use windows::{core::HSTRING,Data::Xml::Dom::XmlDocument,Foundation::TypedEventHandler,UI::Notifications::{ToastNotification,ToastNotificationManager,ToastNotifier},Win32::System::WinRT::{RoInitialize,RO_INIT_MULTITHREADED}};
+    use windows::{core::HSTRING,Data::Xml::Dom::XmlDocument,Foundation::TypedEventHandler,UI::Notifications::{NotificationSetting,ToastNotification,ToastNotificationManager,ToastNotifier},Win32::System::WinRT::{RoInitialize,RO_INIT_MULTITHREADED}};
 
     fn label(source:&str)->&'static str{match source{"word"=>"Word","powerpoint"=>"PowerPoint","wps"=>"WPS","vscode"=>"VS Code","photoshop"=>"Photoshop","blender"=>"Blender",_=>"应用"}}
 
     fn notify(notifier:&ToastNotifier,app:&tauri::AppHandle,ticket:&str,source:&str)->windows::core::Result<ToastNotification>{
+        if notifier.Setting()?!=NotificationSetting::Enabled{return Err(windows::core::Error::from_hresult(windows::core::HRESULT(0x80070005u32 as i32)));}
         let xml=XmlDocument::new()?;
         xml.LoadXml(&HSTRING::from(format!("<toast><visual><binding template='ToastGeneric'><text>{} 请求连接 WorkProof</text><text>点击查看来源并决定是否允许。未获允许前不会开始记录。</text></binding></visual><audio silent='true'/></toast>",label(source))))?;
         let toast=ToastNotification::CreateToastNotification(&xml)?;
