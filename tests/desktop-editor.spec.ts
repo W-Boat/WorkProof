@@ -627,9 +627,8 @@ test('native verification uses real Wasm, renders all report views and rejects a
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'操作记录',exact:true}).click();await expect(page.locator('.nv-table tbody tr').first()).toBeVisible();
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'证书信息',exact:true}).click();await expect(page.locator('.nv-certificate')).toContainText('essay.md');
   const certificateId=await page.locator('.nv-certificate > div').filter({hasText:'证书指纹'}).locator('dd').innerText();
-  const downloadEvent=page.waitForEvent('download');await page.getByRole('button',{name:'保存原始证书',exact:true}).click();
-  const saved=await downloadEvent;expect(saved.suggestedFilename()).toBe('essay.md.wproof');
-  expect(fs.readFileSync((await saved.path())!)).toEqual(fs.readFileSync('apps/verifier/public/demo/essay.md.wproof'));
+  await page.getByRole('button',{name:'保存原始证书',exact:true}).click();await expect.poll(()=>certificateSaves.length).toBe(3);
+  expect(certificateSaves[2].certificateId).toBe(certificateId);expect(Buffer.from(certificateSaves[2].certificate)).toEqual(fs.readFileSync('apps/verifier/public/demo/essay.md.wproof'));
   const expected=page.locator('.nv-expected input');await expected.fill('0'.repeat(64));await expect(page.locator('.nv-certificate')).toHaveCount(0);
   await page.getByRole('button',{name:'开始核验',exact:true}).click();await expect(page.locator('.nv-verdict')).toContainText('证书指纹不一致');
   await expect(page.getByRole('button',{name:'保存原始证书',exact:true})).toHaveCount(0);

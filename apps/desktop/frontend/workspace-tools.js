@@ -16,12 +16,12 @@ export function initializeWorkspaceTools({commands,canOpen,onError,getEditor,onS
   dialog.append(heading,input,list,empty,note);document.body.append(dialog);
   let previous=null,busy=false,restoreFocus=true;
   const available=()=>commands().filter(command=>command.enabled!==false);
-  function close(restore=true){restoreFocus=restore;if(dialog.open)dialog.close();}
+  function close(restore=true){restoreFocus=restore;if(!dialog.open)return Promise.resolve();return window.workproofCloseDialog?window.workproofCloseDialog(dialog):Promise.resolve(dialog.close());}
   async function run(id){
     if(busy||!canOpen())return;
     const command=available().find(item=>item.id===id);if(!command)return;
-    close(false);busy=true;
-    try{await command.run();}catch(error){onError(error);}finally{busy=false;}
+    busy=true;
+    try{await close(false);await command.run();}catch(error){onError(error);}finally{busy=false;}
   }
   function render(){
     const query=input.value.trim().toLocaleLowerCase();list.replaceChildren();
