@@ -396,7 +396,7 @@ $('open-process-replay').addEventListener('click',async()=>{
     await flush();const doc=await ipc('editor_load',{id});
     const {openProcessReplay}=await import('./process-replay.js');
     if(active?.id!==id||document.body.dataset.view!=='document'||closing)return;
-    openProcessReplay({document:doc,invoke:ipc,renderContent:content=>editorRuntime.generateHTML(content,editorRuntime.editorExtensions())});
+    openProcessReplay({document:doc,invoke:ipc,returnFocus:button,renderContent:content=>editorRuntime.generateHTML(content,editorRuntime.editorExtensions())});
   }catch(error){reportError(error);}finally{button.disabled=false;}
 });
 function renderProcess(){

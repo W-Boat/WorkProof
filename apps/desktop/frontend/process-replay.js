@@ -6,8 +6,8 @@ const clock=ms=>{const seconds=Math.floor(Math.max(0,ms)/1000);return `${Math.fl
 function command(label,glyph,run){const button=node('fluent-button','replay-command');button.setAttribute('appearance','subtle');button.setAttribute('aria-label',label);button.title=label;button.append(icon(glyph));button.addEventListener('click',run);return button;}
 function stepText(value){if(!value||typeof value!=='object')return '';if(typeof value.text==='string')return value.text;return Array.isArray(value.content)?value.content.map(stepText).join(''):'';}
 
-export function openProcessReplay({document:doc,invoke,renderContent}){
-  const previousFocus=document.activeElement,dialog=node('dialog','process-replay');dialog.id='process-replay';dialog.setAttribute('aria-labelledby','replay-title');
+export function openProcessReplay({document:doc,invoke,renderContent,returnFocus}){
+  const previousFocus=returnFocus||document.activeElement,dialog=node('dialog','process-replay');dialog.id='process-replay';dialog.setAttribute('aria-labelledby','replay-title');
   let alive=true,playing=false,animation=0,request=0,index=-1,position=0,duration=1,speed=1,frames=[],mode='activity',current=null;
   const cache=new Map();
   const header=node('header','replay-header'),heading=node('div'),title=node('h2','',doc.title);title.id='replay-title';heading.append(node('p','replay-eyebrow','过程回放'),title);
