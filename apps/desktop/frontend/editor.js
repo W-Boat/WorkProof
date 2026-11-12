@@ -1,3 +1,4 @@
+import {adapterIcon} from './adapter-icons.js';
 import {initializeWritingWorkspace} from './writing-workspace.js';
 import {groupActions} from './action-flow.mjs';
 import {externalRecords,sourceLabel,groupExternalDocuments,displayTime} from './external-records.js';
@@ -311,7 +312,7 @@ function renderLibrary(){
         }catch(error){ui.showMessage(errorText(error),'error');}finally{manage.disabled=false;}
       });actions.append(manage);
     }
-    row.append(icon('document_text'),label,actions);rows.append(row);
+    row.append(entry.type==='external'?adapterIcon(entry.source):icon('document_text'),label,actions);rows.append(row);
   }
   list.replaceChildren(rows);
   if(focusKey&&document.body.dataset.view==='library')(restoreFocus??$('document-search')).focus({preventScroll:true});

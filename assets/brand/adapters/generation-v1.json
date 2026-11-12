@@ -1,0 +1,43 @@
+{
+  "schema": "workproof-adapter-icons/1",
+  "generator": "built-in image_gen",
+  "created": "2026-11-12",
+  "assets": [
+    {
+      "name": "word",
+      "generated_file": "exec-df530765-0d75-469b-80d5-b2a490497f9a.png",
+      "asset": "assets/brand/adapters/word-v1.png",
+      "prompt": "Use case: logo-brand. Create ONE square production-ready desktop app adapter icon for the WorkProof application. This belongs to a coherent six-icon family. Style: straight-on, perfectly upright dark evergreen rounded-square tile (#102420), with a very subtle satin rim and soft top-left illumination. A large pale mint (#b9f3d1) folded-ribbon glyph, with a restrained mint highlight and a single darker green fold, matches WorkProof's mint ribbon W brand icon. Elegant Windows desktop software quality, very simple, crisp, recognizable at 32 pixels. Tile occupies 86% of the square canvas, generous identical transparent outer margin, corner radius about 22% of tile width. No tilted tile, no perspective, no scene, no pedestal, no drop shadow outside the tile, no ornamental text, no watermark, no multiple icons, no mockup. The area OUTSIDE the rounded square must be genuinely transparent. Subject: Microsoft Word adapter. Glyph: one simple upright paper sheet with a folded upper-right corner and a clear capital W centered on the sheet. The W must be distinct and legible, with minimal extra detail."
+    },
+    {
+      "name": "powerpoint",
+      "generated_file": "exec-e26719f5-ab9c-4040-b927-612b774a8d72.png",
+      "asset": "assets/brand/adapters/powerpoint-v1.png",
+      "prompt": "Use case: logo-brand. Create ONE square production-ready desktop app adapter icon for the WorkProof application. This belongs to a coherent six-icon family. Style: straight-on, perfectly upright dark evergreen rounded-square tile (#102420), with a very subtle satin rim and soft top-left illumination. A large pale mint (#b9f3d1) folded-ribbon glyph, with a restrained mint highlight and a single darker green fold, matches WorkProof's mint ribbon W brand icon. Elegant Windows desktop software quality, very simple, crisp, recognizable at 32 pixels. Tile occupies 86% of the square canvas, generous identical transparent outer margin, corner radius about 22% of tile width. No tilted tile, no perspective, no scene, no pedestal, no drop shadow outside the tile, no ornamental text, no watermark, no multiple icons, no mockup. The area OUTSIDE the rounded square must be genuinely transparent. Subject: Microsoft PowerPoint adapter. Glyph: one simple upright presentation slide frame with a clear capital P and a small pie-chart shape. Keep the silhouette bold, quiet and legible."
+    },
+    {
+      "name": "wps",
+      "generated_file": "exec-d881fc37-52ea-4201-ba1e-8fad0501089e.png",
+      "asset": "assets/brand/adapters/wps-v1.png",
+      "prompt": "Use case: logo-brand. Create ONE square production-ready desktop app adapter icon for the WorkProof application. This belongs to a coherent six-icon family. Style: straight-on, perfectly upright dark evergreen rounded-square tile (#102420), with a very subtle satin rim and soft top-left illumination. A large pale mint (#b9f3d1) folded-ribbon glyph, with a restrained mint highlight and a single darker green fold, matches WorkProof's mint ribbon W brand icon. Elegant Windows desktop software quality, very simple, crisp, recognizable at 32 pixels. Tile occupies 86% of the square canvas, generous identical transparent outer margin, corner radius about 22% of tile width. No tilted tile, no perspective, no scene, no pedestal, no drop shadow outside the tile, no ornamental text, no watermark, no multiple icons, no mockup. The area OUTSIDE the rounded square must be genuinely transparent. Subject: WPS Office adapter. Glyph: three softly overlapping upright paper sheets with the concise WPS lettering clearly centered. Distinct from the Word single-page icon; simplify the paper silhouette."
+    },
+    {
+      "name": "vscode",
+      "generated_file": "exec-0a4bde21-4acf-4ded-9b6c-c71c2c4c6ee2.png",
+      "asset": "assets/brand/adapters/vscode-v1.png",
+      "prompt": "Use case: logo-brand. Create ONE square production-ready desktop app adapter icon for the WorkProof application. This belongs to a coherent six-icon family. Style: straight-on, perfectly upright dark evergreen rounded-square tile (#102420), with a very subtle satin rim and soft top-left illumination. A large pale mint (#b9f3d1) folded-ribbon glyph, with a restrained mint highlight and a single darker green fold, matches WorkProof's mint ribbon W brand icon. Elegant Windows desktop software quality, very simple, crisp, recognizable at 32 pixels. Tile occupies 86% of the square canvas, generous identical transparent outer margin, corner radius about 22% of tile width. No tilted tile, no perspective, no scene, no pedestal, no drop shadow outside the tile, no ornamental text, no watermark, no multiple icons, no mockup. The area OUTSIDE the rounded square must be genuinely transparent. Subject: Visual Studio Code adapter. Glyph: the familiar open angular code ribbon/bracket shape, recolored mint, rendered as one folded band. No letters or tiny details."
+    },
+    {
+      "name": "photoshop",
+      "generated_file": "exec-fc643bcd-2578-45c0-81e7-6d455e8c16a7.png",
+      "asset": "assets/brand/adapters/photoshop-v1.png",
+      "prompt": "Use case: logo-brand. Create ONE square production-ready desktop app adapter icon for the WorkProof application. This belongs to a coherent six-icon family. Style: straight-on, perfectly upright dark evergreen rounded-square tile (#102420), with a very subtle satin rim and soft top-left illumination. A large pale mint (#b9f3d1) folded-ribbon glyph, with a restrained mint highlight and a single darker green fold, matches WorkProof's mint ribbon W brand icon. Elegant Windows desktop software quality, very simple, crisp, recognizable at 32 pixels. Tile occupies 86% of the square canvas, generous identical transparent outer margin, corner radius about 22% of tile width. No tilted tile, no perspective, no scene, no pedestal, no drop shadow outside the tile, no ornamental text, no watermark, no multiple icons, no mockup. The area OUTSIDE the rounded square must be genuinely transparent. Subject: Adobe Photoshop adapter. Glyph: the clear letters Ps, uppercase P and lowercase s, in a clean substantial contemporary sans-serif shape made from mint satin material. No surrounding secondary frame inside the tile."
+    },
+    {
+      "name": "blender",
+      "generated_file": "exec-4b22d73a-1754-45f4-adf7-6be66faa5798.png",
+      "asset": "assets/brand/adapters/blender-v1.png",
+      "prompt": "Use case: logo-brand. Create ONE square production-ready desktop app adapter icon for the WorkProof application. This belongs to a coherent six-icon family. Style: straight-on, perfectly upright dark evergreen rounded-square tile (#102420), with a very subtle satin rim and soft top-left illumination. A large pale mint (#b9f3d1) folded-ribbon glyph, with a restrained mint highlight and a single darker green fold, matches WorkProof's mint ribbon W brand icon. Elegant Windows desktop software quality, very simple, crisp, recognizable at 32 pixels. Tile occupies 86% of the square canvas, generous identical transparent outer margin, corner radius about 22% of tile width. No tilted tile, no perspective, no scene, no pedestal, no drop shadow outside the tile, no ornamental text, no watermark, no multiple icons, no mockup. The area OUTSIDE the rounded square must be genuinely transparent. Subject: Blender adapter. Glyph: a recognizable stylized Blender orbital mark: one round central eye/ring and the three sweeping arms leading into it. Mint folded-band treatment, strong silhouette, no text."
+    }
+  ]
+}

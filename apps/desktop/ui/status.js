@@ -1,3 +1,4 @@
+import {adapterIcon} from '../frontend/adapter-icons.js';
 // Independent owners must not release one another's interaction freeze.
 const interactionLocks=new Set();
 function setInteractionLock(reason,locked){
@@ -160,7 +161,7 @@ function showConnections(connections){
           await refresh();
         }catch(error){showMessage(errorText(error),'error');button.disabled=false;}
       });
-      card.append(title,origin,expiry,button);connectionCards.set(connection.ticket,card);region.append(card);
+      const heading=document.createElement('div');heading.className='connection-card-heading';heading.append(adapterIcon(connection.source),title);card.append(heading,origin,expiry,button);connectionCards.set(connection.ticket,card);region.append(card);
     }
     const minutes=Math.ceil(connection.expires_in_seconds/60);
     card.querySelector('.connection-expiry').textContent=`已开始 ${connection.sessions} 份记录 · ${minutes>0?'约 '+minutes+' 分钟后需重新允许':'即将需要重新允许'}`;

@@ -69,3 +69,19 @@ for(const name of ['metadata-worker.js','metadata-common.js','docx-metadata.js',
   fs.copyFileSync(path.join(root,'apps/verifier/public',name),path.join(nativeUi,name));
 }
 fs.copyFileSync(path.join(root,'apps/verifier/public/notices/iptc-newscodes.txt'),path.join(nativeUi,'notices/iptc-newscodes.txt'));
+
+// Build-time only: ship small high-DPI WebP icons, not six 1.4 MB originals.
+// sharp is locked in this monorepo's existing Next.js build dependency graph.
+(async()=>{
+  const sharp=require('sharp'),destination=path.join(nativeUi,'adapter-icons');fs.mkdirSync(destination,{recursive:true});
+  const names=['word','powerpoint','wps','vscode','photoshop','blender'];
+  const entries=await Promise.all(names.map(async name=>{
+    const source=path.join(root,'assets/brand/adapters',name+'-v1.png');
+    const metadata=await sharp(source).metadata();if(!metadata.hasAlpha)throw new Error('Adapter icon must preserve alpha: '+name);
+    const corner=await sharp(source).ensureAlpha().extract({left:0,top:0,width:1,height:1}).raw().toBuffer();if(corner[3]!==0)throw new Error('Adapter icon corner must be transparent: '+name);
+    const target=path.join(destination,name+'.webp');await sharp(source).resize(128,128,{fit:'contain'}).webp({quality:90,alphaQuality:100}).toFile(target);
+    const bytes=fs.readFileSync(target);if(bytes.length>32768)throw new Error('Adapter icon exceeds its lightweight size budget: '+name);
+    return {name,width:128,height:128,bytes:bytes.length,source_sha256:crypto.createHash('sha256').update(fs.readFileSync(source)).digest('hex'),sha256:crypto.createHash('sha256').update(bytes).digest('hex')};
+  }));
+  fs.writeFileSync(path.join(destination,'manifest.json'),JSON.stringify({schema:'workproof-adapter-icons-build/1',entries},null,2));
+})().catch(error=>{process.stderr.write(String(error)+'\n');process.exitCode=1;});
