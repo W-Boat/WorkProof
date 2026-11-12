@@ -19,3 +19,4 @@ docs/licenses/office-npm-supplemental/** -text -whitespace
 docs/licenses/c2pa-supplemental/** -text -whitespace
 docs/licenses/c2pa-sdk/** -text -whitespace
 docs/licenses/qwen3-0.6b-base/** -text -whitespace
+docs/licenses/report-download/** -text -whitespace
