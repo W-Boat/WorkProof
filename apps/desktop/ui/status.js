@@ -1,4 +1,5 @@
 import {adapterIcon} from '../frontend/adapter-icons.js';
+import {connectionConsent} from '../frontend/connection-consent.js';
 // Independent owners must not release one another's interaction freeze.
 const interactionLocks=new Set();
 function setInteractionLock(reason,locked){
@@ -31,6 +32,7 @@ async function performWindowAction(action){
   return closeTask;
 }
 window.workproofTrayListeners=Promise.all([
+  window.__TAURI__?.event?.listen('workproof-pairing-requested',()=>consent.checkNotice()),
   window.__TAURI__?.event?.listen('workproof-close-requested',()=>performWindowAction('close')),
   window.__TAURI__?.event?.listen('workproof-quit-requested',()=>performWindowAction('quit')),
   window.__TAURI__?.event?.listen('workproof-tray-view',event=>{
@@ -40,10 +42,10 @@ window.workproofTrayListeners=Promise.all([
 for(const button of document.querySelectorAll('[data-window]'))button.addEventListener('click',()=>performWindowAction(button.dataset.window));
 const titlebar=document.querySelector('.app-header');
 titlebar.addEventListener('mousedown',event=>{
-  if(document.body.dataset.platform==='windows'&&event.button===0&&event.detail===1&&!event.target.closest('button,a,input,select'))performWindowAction('drag');
+  if(document.body.dataset.platform==='windows'&&event.button===0&&event.detail===1&&!event.target.closest('button,fluent-button,fluent-dropdown,a,input,select'))performWindowAction('drag');
 });
 titlebar.addEventListener('dblclick',event=>{
-  if(document.body.dataset.platform==='windows'&&!event.target.closest('button,a,input,select'))performWindowAction('maximize');
+  if(document.body.dataset.platform==='windows'&&!event.target.closest('button,fluent-button,fluent-dropdown,a,input,select'))performWindowAction('maximize');
 });
 const appearance=document.getElementById('appearance-mode'),systemAppearance=matchMedia('(prefers-color-scheme: dark)');
 let appearanceMode='system';
@@ -137,7 +139,10 @@ for(const button of document.querySelectorAll('[data-tool]'))button.addEventList
   const select=document.getElementById('creation-tool');select.value=button.dataset.tool;select.dispatchEvent(new Event('change'));void requestView('connections');
 });
 const connectionCards=new Map();
-const adapterName=source=>({word:'Word',powerpoint:'PowerPoint',wps:'WPS',photoshop:'Photoshop'}[source]||source);
+const adapterName=source=>({word:'Word',powerpoint:'PowerPoint',wps:'WPS',vscode:'VS Code',photoshop:'Photoshop',blender:'Blender'}[source]||source);
+const consent=connectionConsent({nameOf:adapterName,showMessage,onDecision:()=>refresh()});
+const pairingInbox=document.createElement('fluent-button');pairingInbox.id='pairing-inbox';pairingInbox.dataset.keepLabel='true';pairingInbox.dataset.icon='plug_connected';pairingInbox.setAttribute('appearance','subtle');pairingInbox.hidden=true;document.getElementById('status').before(pairingInbox);
+let latestRequests=[];pairingInbox.addEventListener('click',()=>{if(latestRequests.length)void consent.open(latestRequests[0].ticket);});
 function showConnections(connections){
   visibleConnections=connections;connectionsKnown=true;updateConnectionBadges();
   const region=document.getElementById('adapter-connections');
@@ -180,7 +185,7 @@ async function refresh(){
     document.getElementById('events').textContent=s.events.toLocaleString();
     document.querySelector('.trace').classList.toggle('active',last>=0&&s.events>last);last=s.events;
     const [requests,connections]=await Promise.all([window.__TAURI__.core.invoke('pending_adapters'),window.__TAURI__.core.invoke('adapter_connections')]);
-    showConnections(connections);
+    showConnections(connections);latestRequests=requests;pairingInbox.hidden=!requests.length;pairingInbox.textContent='连接申请 · '+requests.length;pairingInbox.setAttribute('aria-label','查看连接申请 · '+requests.length);
     let region=document.getElementById('adapter-requests');
     if(!region){region=document.createElement('section');region.id='adapter-requests';document.getElementById('message').after(region);}
     const signature=JSON.stringify(requests);
@@ -191,7 +196,8 @@ async function refresh(){
         const native=request.channel==='native';
         title.textContent=`${adapterName(request.source)} 想连接 WorkProof`;origin.textContent=native?'插件称自己来自本机，尚未确认发布者。':request.origin;
         const note=document.createElement('p');note.textContent=native?`请只允许你刚在 ${adapterName(request.source)} 中发起的连接。这次允许只用于提交和导出它自己的记录，不允许通过 WorkProof 读取本机文件。`:'请确认下面的网址属于你刚打开的加载项。这次允许只用于提交和导出它自己的记录，不允许通过 WorkProof 读取本机文件。';
-        card.append(title,origin,note);
+        const heading=document.createElement('div');heading.className='connection-card-heading';heading.append(adapterIcon(request.source),title);card.append(heading,origin,note);
+        const details=document.createElement('fluent-button');details.dataset.keepLabel='true';details.textContent='查看连接申请';details.setAttribute('aria-label','查看 '+adapterName(request.source)+' 连接申请');details.addEventListener('click',()=>void consent.open(request.ticket));card.append(details);
         for(const [text,approve] of [['允许连接',true],['拒绝',false]]){
           const button=document.createElement('fluent-button');button.textContent=text;
           button.addEventListener('click',async()=>{
@@ -203,6 +209,7 @@ async function refresh(){
         region.append(card);
       }
     }
+    await consent.checkNotice();
   }catch{document.body.dataset.engineLoading='false';setInteractionLock('engine',false);document.getElementById('engine-loading').hidden=true;engineReady=false;connectionsKnown=false;updateLaunchButtons();updateConnectionBadges();const status=document.getElementById('status');status.dataset.state='error';status.textContent='暂时无法连接记录服务。请退出并重新打开 WorkProof。';}
   finally{refreshing=false;}
 }

@@ -14,12 +14,16 @@ async function desktop(page:import('@playwright/test').Page,fail=false,nativeWor
     return route.fulfill({contentType:chunk?'application/javascript':types[name],body:fs.readFileSync('apps/desktop/ui/'+asset)});
   });
   await page.addInitScript(({fail,nativeWord})=>{
+    let pending=nativeWord?[{ticket:'native-word',origin:'',source:'word',channel:'native'}]:[];
+    const harness=(window as any).connectionHarness={notice:null,events:{},decisions:[]};
     let connections=[{ticket:'word-ticket',origin:'https://school.example',source:'word',channel:'browser',expires_in_seconds:1800,sessions:2},{ticket:'wps-ticket',origin:'https://wps.example',source:'wps',channel:'browser',expires_in_seconds:3600,sessions:1}];
-    (window as any).__TAURI__={core:{invoke:async(command:string,args?:{ticket?:string;action?:string})=>{
+    (window as any).__TAURI__={event:{listen:async(name:string,callback:any)=>{harness.events[name]=callback;return ()=>delete harness.events[name];}},core:{invoke:async(command:string,args?:{ticket?:string;action?:string})=>{
       if(command==='window_action'&&args?.action==='ready')return null;
       if(command==='app_info')return {version:'0.1.0',build_number:'1234',source:'0123456789abcdef0123456789abcdef01234567',built_at:'1794384000'};
       if(command==='engine_status')return {ready:true,sessions:3,events:12};
-      if(command==='pending_adapters')return nativeWord?[{ticket:'native-word',origin:'',source:'word',channel:'native'}]:[];
+      if(command==='pending_adapters')return pending;
+      if(command==='take_pairing_notice'){const ticket=harness.notice;harness.notice=null;return ticket;}
+      if(command==='decide_adapter'){harness.decisions.push(args);pending=pending.filter(request=>request.ticket!==args?.ticket);return null;}
       if(command==='adapter_connections')return connections;
       if(command==='revoke_adapter'){
         if(fail)throw new Error('撤销失败，请重试');
@@ -330,4 +334,15 @@ test('all six application adapters use the generated WorkProof icon family',asyn
   }
   const manifest=JSON.parse(fs.readFileSync('apps/desktop/ui/adapter-icons/manifest.json','utf8'));
   expect(manifest.entries).toHaveLength(6);expect(manifest.entries.every((entry:any)=>entry.bytes<=32768)).toBe(true);
+});
+
+test('notification activation opens a consent dialog and never approves a plugin by itself',async({page})=>{
+  await desktop(page,false,true);await expect(page.locator('#pairing-inbox')).toBeVisible();await expect(page.locator('#connection-consent')).toHaveCount(0);
+  await page.evaluate(()=>{const harness=(window as any).connectionHarness;harness.notice='native-word';harness.events['workproof-pairing-requested']({payload:null});});
+  const dialog=page.getByRole('dialog',{name:'允许 Word 连接？',exact:true});await expect(dialog).toBeVisible();await expect(dialog).toContainText('发布者尚未认证');
+  expect(await page.evaluate(()=>(window as any).connectionHarness.decisions)).toEqual([]);
+  await dialog.getByRole('button',{name:'稍后处理',exact:true}).click();await expect(dialog).toBeHidden();
+  await page.locator('#pairing-inbox').click();await expect(dialog).toBeVisible();await dialog.getByRole('button',{name:'允许连接',exact:true}).click();
+  await expect(dialog).toBeHidden();expect(await page.evaluate(()=>(window as any).connectionHarness.decisions)).toEqual([{ticket:'native-word',approve:true}]);
+  await expect(page.locator('#pairing-inbox')).toBeHidden();
 });

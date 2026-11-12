@@ -4583,6 +4583,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tokio",
+ "windows",
  "workproof-engine",
 ]
 
