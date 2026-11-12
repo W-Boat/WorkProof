@@ -3,6 +3,7 @@ import {useEffect,useRef,useState} from 'react';
 import {Panel,Tag,Details} from './institution-ui';
 import {Button} from './button';
 type Finding={field:string;location:string;value:string;hint:boolean;explanation?:string};
+export type MetadataReport={file:File|null;status:'not_run'|'running'|'done'|'error';findings:Finding[];skipped:number;format?:string;error?:string};
 const fieldLabels:Record<string,string>={software:'编辑软件',application:'编辑软件',creatortool:'创建工具',usercomment:'图片注释',comment:'文件注释',imagedescription:'图片说明',artist:'作者署名',creator:'作者署名',lastmodifiedby:'最后修改者',copyright:'版权说明',title:'标题',subject:'主题',description:'说明',keywords:'关键词',created:'创建时间',modified:'修改时间',prompt:'提示词',workflow:'工作流程',parameters:'生成参数',aigenerator:'生成工具',revision:'文档修订次数',pages:'页数',slides:'幻灯片数',words:'字数',company:'单位',manager:'负责人',totaltime:'编辑时长记录',template:'文档模板'};
 function fieldLabel(field:string){const key=field.toLowerCase();return Object.prototype.hasOwnProperty.call(fieldLabels,key)?fieldLabels[key]:field;}
 // Adapted Chinese summaries: IPTC NewsCodes, Copyright 2024 IPTC, CC BY 4.0.
@@ -65,10 +66,11 @@ function documentProperties(parts:{name:string;text:string}[],skipped:number){
   }
   return {findings,skipped};
 }
-export function MetadataPanel({file,title='进一步检查 AI 线索',expanded=false}:{file:File|null;title?:string;expanded?:boolean}){
+export function MetadataPanel({file,title='进一步检查 AI 线索',expanded=false,onReport}:{file:File|null;title?:string;expanded?:boolean;onReport?:(report:MetadataReport)=>void}){
   const active=useRef<Worker|null>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setResult]=useState<{file:File;findings:Finding[];skipped:number;format?:'docx'|'pptx'|'jpeg'|'png'}|null>(null);
   const result=saved?.file===file?saved:null;
+  useEffect(()=>{onReport?.({file,status:busy?'running':result?'done':error?'error':'not_run',findings:result?.findings||[],skipped:result?.skipped||0,format:result?.format,error:error||undefined});},[file,busy,result,error,onReport]);
   function stop(){active.current?.terminate();active.current=null;if(timer.current)clearTimeout(timer.current);timer.current=null;}
   useEffect(()=>{setResult(null);setError('');setBusy(false);return stop;},[file]);
   function scan(){

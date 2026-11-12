@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../components/report-export.css";
 /* One source of truth: institution design-system CSS, imported without copying. */
 @import "../../../services/institution/scaffold-vue/src/styles/tokens.css";
 @import "../../../services/institution/scaffold-vue/src/styles/base.css";

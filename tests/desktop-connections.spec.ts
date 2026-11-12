@@ -6,7 +6,7 @@ async function desktop(page:import('@playwright/test').Page,fail=false,nativeWor
   await page.route('**/desktop-status/**',route=>{
     const asset=new URL(route.request().url()).pathname.slice('/desktop-status/'.length)||'index.html';
     const name=asset.split('/').at(-1)!;
-    const types:Record<string,string>={'word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','fluent-workbench.css':'text/css','native-editor.css':'text/css','brand.png':'image/png'};
+    const types:Record<string,string>={'word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','fluent-workbench.css':'text/css','native-editor.css':'text/css','report-export.css':'text/css','brand.png':'image/png'};
     const hostIcon=/^adapter-icons\/(word|powerpoint|wps|vscode|photoshop|blender)\.webp$/.test(asset);
     if(hostIcon)return route.fulfill({contentType:'image/webp',body:fs.readFileSync('apps/desktop/ui/'+asset)});
     const chunk=/^chunks\/[A-Za-z0-9_-]+\.js$/.test(asset);

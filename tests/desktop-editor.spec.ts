@@ -1,6 +1,7 @@
 import {selectChoice} from './desktop-select';
 import {test,expect,Page} from '@playwright/test';
 import fs from 'node:fs';
+import {createHash,createDecipheriv,pbkdf2Sync} from 'node:crypto';
 
 // Browser tests exercise the real bundled Tiptap. Only native storage IPC is a
 // fixture; engine editor::tests cover actual SQLite and Ed25519 separately.
@@ -8,7 +9,7 @@ async function desktop(page:Page){
   await page.route('**/desktop-status/**',route=>{
     const asset=new URL(route.request().url()).pathname.slice('/desktop-status/'.length);
     const name=asset.split('/').at(-1)!;
-    const type:Record<string,string>={'index.html':'text/html','word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','theme.css':'text/css','native-editor.css':'text/css','native-verifier.css':'text/css','verify-worker.js':'application/javascript','brand.png':'image/png'};
+    const type:Record<string,string>={'index.html':'text/html','word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','theme.css':'text/css','native-editor.css':'text/css','report-export.css':'text/css','report-viewer.js':'application/javascript','native-verifier.css':'text/css','verify-worker.js':'application/javascript','brand.png':'image/png'};
     const headers=name==='index.html'?{'Content-Security-Policy':JSON.parse(fs.readFileSync('apps/desktop/src-tauri/tauri.conf.json','utf8')).app.security.csp}:{};
     const hostIcon=/^adapter-icons\/(word|powerpoint|wps|vscode|photoshop|blender)\.webp$/.test(asset);
     if(hostIcon)return route.fulfill({contentType:'image/webp',body:fs.readFileSync('apps/desktop/ui/'+asset)});
@@ -25,6 +26,7 @@ async function desktop(page:Page){
     w.__TAURI__={event:{listen:async(name:string,listener:any)=>{w.editorHarness.listeners[name]=listener;return ()=>delete w.editorHarness.listeners[name];}},core:{invoke:async(command:string,args:any)=>{
       const docs=read();
       if(command==='app_info')return {version:'0.1.0',build_number:'1234',source:'0123456789abcdef0123456789abcdef01234567',built_at:'1794384000'};
+      if(command==='save_report'){if(w.nativeReportSave)return w.nativeReportSave(args);throw new Error('Native report saver is not configured for this test');}
       if(command==='engine_status')return {ready:true,sessions:0,events:0,...(w.editorHarness.engineStatus||{})};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
       if(command==='editor_list')return Object.values(docs);
@@ -557,6 +559,41 @@ test('native verification shares client theme and closes without leaving stale r
   await page.locator('#reduce-motion').click();await expect(page.locator('html')).toHaveAttribute('data-reduce-motion','true');
   await page.getByRole('button',{name:'文件核验',exact:true}).click();
   await page.getByRole('button',{name:'关闭本次核验'}).click();await expect(root).toHaveCount(0);await expect(page.locator('#verify')).toBeFocused();
+});
+
+test('encrypted report saves through native IPC, includes every record and certificate, and opens offline without the original artifact',async({page,context},testInfo)=>{
+  test.setTimeout(60000);let generated='',savedCertificate='';
+  await page.exposeFunction('nativeReportSave',({html,certificateId}:{html:string;certificateId:string})=>{
+    generated=html;savedCertificate=certificateId;const bytes=Buffer.from(html,'utf8');
+    return {cancelled:false,file_name:'WorkProof-report.html',md5:createHash('md5').update(bytes).digest('hex'),sha256:createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length};
+  });
+  await desktop(page);await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
+  await page.getByLabel('1 · 最终作品',{exact:true}).setInputFiles('apps/verifier/public/demo/essay.md');
+  await page.getByLabel('2 · WorkProof 证书',{exact:true}).setInputFiles('apps/verifier/public/demo/essay.md.wproof');
+  await page.getByRole('button',{name:'开始核验',exact:true}).click();await expect(page.getByRole('heading',{name:'文件与证书一致',exact:true})).toBeVisible({timeout:20000});
+  await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'证书信息',exact:true}).click();
+  await page.getByRole('button',{name:'下载加密 HTML 报告',exact:true}).click();const dialog=page.getByRole('dialog',{name:'保存完整核验报告'});
+  const password='WorkProof-test-report-secret-123';await dialog.getByLabel('设置报告密码',{exact:true}).fill(password);await dialog.getByLabel('再次输入报告密码',{exact:true}).fill(password);
+  await dialog.getByRole('button',{name:'生成并保存',exact:true}).click();await expect(dialog.locator('.report-export-saved')).toContainText('HTML 与配套校验文件已保存',{timeout:20000});
+  const bytes=Buffer.from(generated,'utf8');await expect(dialog.locator('.report-export-saved')).toContainText(createHash('md5').update(bytes).digest('hex'));
+  expect(generated).not.toContain(password);const rawProof=fs.readFileSync('apps/verifier/public/demo/essay.md.wproof'),original=JSON.parse(rawProof.toString());expect(generated).not.toContain(original.signature);
+  const envelopeText=generated.match(/id="report-envelope">([^<]+)<\/script>/)![1],pack=JSON.parse(envelopeText);
+  expect(createHash('sha256').update(Buffer.from(pack.viewer,'base64')).digest('hex')).toBe(pack.viewer_sha256);
+  const cipher=Buffer.from(pack.ciphertext,'base64'),key=pbkdf2Sync(password,Buffer.from(pack.salt,'base64'),600000,32,'sha256'),decoder=createDecipheriv('aes-256-gcm',key,Buffer.from(pack.iv,'base64'));
+  decoder.setAAD(Buffer.from('workproof-encrypted-report/1:'+pack.viewer_sha256));decoder.setAuthTag(cipher.subarray(-16));
+  const model=JSON.parse(Buffer.concat([decoder.update(cipher.subarray(0,-16)),decoder.final()]).toString('utf8'));
+  expect(model.result.proof.records).toEqual(original.records);expect(model.result.certificateId).toBe(savedCertificate);expect(Buffer.from(model.certificate.base64,'base64')).toEqual(rawProof);
+  expect(Object.keys(model.artifact).sort()).toEqual(['bytes','name','type']);expect(model.metadata.status).toBe('not_run');
+  fs.writeFileSync(testInfo.outputPath('encrypted-report.html'),generated);
+  const viewer=await context.newPage();await viewer.route('**/report-output.html',route=>route.fulfill({contentType:'text/html',body:generated}));await viewer.goto(new URL('/report-output.html',page.url()).href);
+  await viewer.getByLabel('报告密码',{exact:true}).fill('incorrect-password');await viewer.getByRole('button',{name:'打开报告',exact:true}).click();await expect(viewer.getByRole('status')).toContainText('密码不正确');
+  const requests:string[]=[];viewer.on('request',request=>{if(/^https?:/.test(request.url()))requests.push(request.url());});
+  await viewer.getByLabel('报告密码',{exact:true}).fill(password);await viewer.getByRole('button',{name:'打开报告',exact:true}).click();await expect(viewer.getByRole('heading',{name:'作品核验报告',exact:true})).toBeVisible({timeout:20000});
+  await expect(viewer.locator('.chart-card')).toHaveCount(10);await expect(viewer.locator('#report-records')).toContainText(`共 ${original.records.length.toLocaleString()} 条`);await expect(viewer.locator('#report-files')).toContainText('原作品另附');expect(requests).toEqual([]);
+  const proofDownload=viewer.waitForEvent('download');await viewer.getByRole('button',{name:'下载原始证书',exact:true}).click();expect(fs.readFileSync((await (await proofDownload).path())!)).toEqual(rawProof);
+  await viewer.screenshot({path:testInfo.outputPath('decrypted-report.png'),fullPage:true});
+  const changed=Buffer.from(cipher);changed[changed.length-1]^=1;const tampered=generated.replace(envelopeText,JSON.stringify({...pack,ciphertext:changed.toString('base64')}));expect(createHash('md5').update(tampered).digest('hex')).not.toBe(createHash('md5').update(bytes).digest('hex'));
+  await viewer.route('**/report-changed.html',route=>route.fulfill({contentType:'text/html',body:tampered}));await viewer.goto(new URL('/report-changed.html',page.url()).href);await viewer.getByLabel('报告密码',{exact:true}).fill(password);await viewer.getByRole('button',{name:'打开报告',exact:true}).click();await expect(viewer.getByRole('status')).toContainText('报告已损坏');await expect(viewer.locator('#report-root')).toHaveCount(0);await viewer.close();
 });
 
 test('native verification uses real Wasm, renders all report views and rejects a changed artifact',async({page},testInfo)=>{

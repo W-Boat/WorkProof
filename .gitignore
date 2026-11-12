@@ -39,4 +39,7 @@ apps/desktop/ui/FOLIO-LICENSE.txt
 apps/desktop/ui/notices/
 apps/verifier/public/c2pa/
 apps/verifier/public/notices/graph/
+apps/verifier/public/report-viewer.js
+apps/desktop/ui/report-viewer.js
+apps/desktop/ui/report-export.css
 

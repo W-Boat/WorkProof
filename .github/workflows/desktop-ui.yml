@@ -2,7 +2,7 @@ name: Desktop workbench UI
 on:
   workflow_dispatch:
   push:
-    paths: ['assets/brand/adapters/**', 'apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'apps/desktop/src-tauri/tauri.conf.json', 'crates/engine/src/editor.rs', 'crates/engine/src/catalog.rs', 'crates/engine/src/lib.rs', 'crates/engine/src/pairing.rs', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'scripts/test_editor_flows.cjs', 'tests/desktop-*.spec.ts', 'tests/desktop-select.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
+    paths: ['apps/verifier/components/**', 'apps/verifier/lib/**', 'scripts/build_report_viewer.cjs', 'assets/brand/adapters/**', 'apps/desktop/ui/**', 'apps/desktop/frontend/**', 'apps/desktop/package.json', 'apps/desktop/src-tauri/tauri.conf.json', 'crates/engine/src/editor.rs', 'crates/engine/src/catalog.rs', 'crates/engine/src/lib.rs', 'crates/engine/src/pairing.rs', 'package-lock.json', 'scripts/stage_desktop_ui.cjs', 'scripts/test_editor_flows.cjs', 'tests/desktop-*.spec.ts', 'tests/desktop-select.ts', 'playwright.desktop.config.ts', '.github/workflows/desktop-ui.yml']
 permissions:
   contents: read
 jobs:
