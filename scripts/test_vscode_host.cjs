@@ -12,7 +12,10 @@ async function until(action,description){
   throw new Error(description+': '+String(last));
 }
 async function main(){
-  assert.equal(process.env.GITHUB_ACTIONS,'true');assert.equal(process.platform,'linux');
+  assert.equal(process.env.GITHUB_ACTIONS,'true');assert(['linux','win32','darwin'].includes(process.platform));
+  assert(['x64','arm64'].includes(process.arch));
+  const platform=process.platform,modifier=platform==='darwin'?'Meta':'Control';
+  const updateTarget=platform==='win32'?'win32-x64-archive':platform==='darwin'?(process.arch==='arm64'?'darwin-arm64':'darwin'):'linux-x64';
   const temporary=await fs.mkdtemp(path.join(os.tmpdir(),'workproof-vscode-host-'));
   const evidence=path.resolve('test-results/vscode-host');await fs.mkdir(evidence,{recursive:true});
   const engine=path.resolve(process.argv[2]);
@@ -22,15 +25,26 @@ async function main(){
   const vsixDigest=createHash('sha256').update(await fs.readFile(vsix)).digest('hex');
   let recorder,code,browser,page;
   try{
-    const metadata=await fetch('https://update.code.visualstudio.com/api/update/linux-x64/stable/latest');assert(metadata.ok);
+    const metadata=await fetch(`https://update.code.visualstudio.com/api/update/${updateTarget}/stable/latest`);assert(metadata.ok);
     const release=await metadata.json();assert.match(release.sha256hash,/^[a-f0-9]{64}$/i);
     assert.equal(new URL(release.url).protocol,'https:');
     const download=await fetch(release.url);assert(download.ok);
     const archive=Buffer.from(await download.arrayBuffer());
     assert.equal(createHash('sha256').update(archive).digest('hex'),release.sha256hash.toLowerCase());
-    const archivePath=path.join(temporary,'vscode.tar.gz');await fs.writeFile(archivePath,archive);
-    execFileSync('tar',['-xzf',archivePath,'-C',temporary]);
-    const installation=path.join(temporary,'VSCode-linux-x64');
+    const archivePath=path.join(temporary,platform==='linux'?'vscode.tar.gz':'vscode.zip');await fs.writeFile(archivePath,archive);
+    let installation,executable;
+    if(platform==='linux'){
+      execFileSync('tar',['-xzf',archivePath,'-C',temporary]);installation=path.join(temporary,'VSCode-linux-x64');executable=path.join(installation,'code');
+    }else if(platform==='win32'){
+      installation=path.join(temporary,'vscode');await fs.mkdir(installation);
+      // Static PowerShell program, literal paths from process environment. No
+      // cmd.exe argument interpolation and no modification of an installed host.
+      execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command','Expand-Archive -LiteralPath $env:WORKPROOF_HOST_ARCHIVE -DestinationPath $env:WORKPROOF_HOST_DEST -ErrorAction Stop'],{env:{...process.env,WORKPROOF_HOST_ARCHIVE:archivePath,WORKPROOF_HOST_DEST:installation},windowsHide:true,timeout:120000});
+      executable=path.join(installation,'Code.exe');
+    }else{
+      execFileSync('/usr/bin/ditto',['-xk',archivePath,temporary]);installation=path.join(temporary,'Visual Studio Code.app','Contents');executable=path.join(installation,'MacOS','Electron');
+    }
+    await fs.access(executable);
     const userData=path.join(temporary,'user'),extensions=path.join(temporary,'extensions'),workspace=path.join(temporary,'workspace'),data=path.join(temporary,'engine');
     await fs.mkdir(path.join(userData,'User'),{recursive:true});await fs.mkdir(workspace);await fs.mkdir(data);
     await fs.writeFile(path.join(userData,'User','settings.json'),JSON.stringify({
@@ -45,17 +59,22 @@ async function main(){
     // The disposable CI profile has no desktop keyring; do not require or modify
     // a user's OS credential service. This profile is never uploaded.
     const common=['--no-sandbox','--password-store=basic','--user-data-dir',userData,'--extensions-dir',extensions];
-    execFileSync(path.join(installation,'bin','code'),[...common,'--install-extension',vsix,'--force'],{env:environment,stdio:'pipe',timeout:60000});
-    const installed=execFileSync(path.join(installation,'bin','code'),[...common,'--list-extensions','--show-versions'],{env:environment,encoding:'utf8',timeout:60000});
+    // Match Microsoft's code.cmd on Windows: invoke the packaged CLI with
+    // ELECTRON_RUN_AS_NODE, without shelling out through a batch file.
+    const cli=platform==='win32'?executable:path.join(installation,platform==='darwin'?'Resources/app/bin':'bin','code');
+    const cliPrefix=platform==='win32'?[path.join(installation,'resources','app','out','cli.js')]:[];
+    const cliEnvironment=platform==='win32'?{...environment,ELECTRON_RUN_AS_NODE:'1',VSCODE_DEV:''}:environment;
+    execFileSync(cli,[...cliPrefix,...common,'--install-extension',vsix,'--force'],{env:cliEnvironment,stdio:'pipe',windowsHide:true,timeout:60000});
+    const installed=execFileSync(cli,[...cliPrefix,...common,'--list-extensions','--show-versions'],{env:cliEnvironment,encoding:'utf8',windowsHide:true,timeout:60000});
     assert(installed.trim().split(/\r?\n/).includes(extensionId),'Expected the exact WorkProof extension version');
     const reservation=net.createServer();await new Promise(resolve=>reservation.listen(0,'127.0.0.1',resolve));const port=reservation.address().port;await new Promise(resolve=>reservation.close(resolve));
-    code=spawn(path.join(installation,'code'),[...common,'--disable-gpu','--disable-workspace-trust','--skip-welcome','--skip-release-notes','--locale=en',`--remote-debugging-port=${port}`,'--remote-debugging-address=127.0.0.1',workspace,file],{env:environment,stdio:'ignore'});
+    code=spawn(executable,[...common,'--disable-gpu','--disable-workspace-trust','--skip-welcome','--skip-release-notes','--locale=en',`--remote-debugging-port=${port}`,'--remote-debugging-address=127.0.0.1',workspace,file],{env:environment,stdio:'ignore'});
     browser=await until(()=>chromium.connectOverCDP('http://127.0.0.1:'+port),'VS Code workbench CDP');
     page=await until(async()=>{const p=browser.contexts().flatMap(context=>context.pages()).find(p=>p.url().includes('workbench'));assert(p);return p;},'Workbench window');
     page.setDefaultTimeout(30000);
     await page.locator('.monaco-workbench').waitFor();
     async function command(title){
-      await page.keyboard.press('Control+Shift+P');
+      await page.keyboard.press(modifier+'+Shift+P');
       const input=page.locator('.quick-input-widget input').filter({visible:true});
       await input.fill('>'+title);
       await page.locator('.quick-input-list .monaco-list-row').filter({hasText:title}).first().waitFor();
@@ -67,11 +86,11 @@ async function main(){
     await command('WorkProof: 记录当前文件');
     await page.getByRole('button',{name:'开始记录',exact:true}).click();
     await until(async()=>assert((await status.allTextContents()).join('').includes('记录中')),'Recording state');
-    await page.locator('.monaco-editor').first().click();await page.keyboard.press('Control+End');
+    await page.locator('.monaco-editor').first().click();await page.keyboard.press(platform==='darwin'?'Meta+ArrowDown':'Control+End');
     await page.keyboard.insertText('Observed edit in the actual editor.\n');
     await command('WorkProof: 暂停 / 继续记录');
     await until(async()=>assert((await status.allTextContents()).join('').includes('已暂停')),'Paused state');
-    await page.locator('.monaco-editor').first().click();await page.keyboard.press('Control+End');
+    await page.locator('.monaco-editor').first().click();await page.keyboard.press(platform==='darwin'?'Meta+ArrowDown':'Control+End');
     await page.keyboard.insertText('PRIVATE_PAUSED_FIXTURE\n');
     await command('WorkProof: 导出过程证书');
     const save=page.locator('.quick-input-widget input').filter({visible:true});await save.waitFor();
@@ -91,17 +110,21 @@ async function main(){
     assert.equal(createHash('sha256').update(await fs.readFile(vsix)).digest('hex'),vsixDigest);
     await page.screenshot({path:path.join(evidence,'paused-export.png')});
     await fs.writeFile(path.join(evidence,'acceptance.json'),JSON.stringify({
-      source_commit:process.env.GITHUB_SHA,vscode_version:release.productVersion,vscode_commit:release.version,
+      source_commit:process.env.GITHUB_SHA,platform,architecture:process.arch,update_target:updateTarget,vscode_version:release.productVersion,vscode_commit:release.version,
       extension:{id:extensionId,file:path.basename(vsix),sha256:vsixDigest},
-      archive_sha256:release.sha256hash,scope:'Official Linux stable VS Code; installed VSIX; actual UI confirmation, editor, pause and simple save dialog; real Rust verification and tamper refusal. No mocked VS Code APIs. Not Windows/macOS or all historical versions.',
+      archive_sha256:release.sha256hash,scope:`Official stable VS Code on ${platform}/${process.arch}; installed VSIX in a disposable profile; actual UI confirmation, editor, pause and simple save dialog; real Rust verification and tamper refusal. No mocked VS Code APIs. Only the exact host version recorded here, not all historical versions.`,checks:['official archive SHA-256','exact installed VSIX version','user confirmation','real editor change','pause persists through export','paused content absent from records','original file independently verifies','modified file rejected','VSIX bytes unchanged'],
     },null,2));
     console.log('PASS: actual VS Code installed VSIX, editor events, paused export and independent Rust verification');
   }finally{
     if(page)await page.screenshot({path:path.join(evidence,'last-ui.png')}).catch(()=>{});
     if(browser)await browser.close().catch(()=>{});
-    for(const child of [code,recorder])if(child&&child.exitCode===null)child.kill('SIGTERM');
+    for(const child of [code,recorder])if(child&&child.exitCode===null){
+      if(platform==='win32'){try{execFileSync('taskkill.exe',['/PID',String(child.pid),'/T','/F'],{stdio:'ignore',windowsHide:true,timeout:10000});}catch{}}
+      else child.kill('SIGTERM');
+    }
     // Only the newly-created test directory; no real user profile is used.
-    assert(temporary.startsWith(path.join(os.tmpdir(),'workproof-vscode-host-')));
+    assert(path.resolve(temporary).startsWith(path.resolve(os.tmpdir())+path.sep+'workproof-vscode-host-'));
+    assert.notEqual(path.resolve(temporary),path.resolve(os.tmpdir()));
     await fs.rm(temporary,{recursive:true,force:true,maxRetries:3}).catch(()=>{});
   }
 }

@@ -6,8 +6,20 @@ on:
 permissions:
   contents: read
 jobs:
-  linux-stable:
-    runs-on: ubuntu-24.04
+  official-host:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            name: linux-x64
+          - runner: windows-latest
+            name: windows-x64
+          - runner: macos-15-intel
+            name: macos-x64
+          - runner: macos-15
+            name: macos-arm64
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -23,12 +35,23 @@ jobs:
       - run: npm run package -w workproof-vscode
       - run: cargo build --locked --release -p workproof-engine --bin workproof-engine
       - name: Install Linux desktop libraries for the isolated official host
+        if: runner.os == 'Linux'
         run: npx playwright install-deps chromium
-      - name: Exercise the installed extension through the real workbench UI
+      - name: Exercise the installed extension through the real Linux workbench UI
+        if: runner.os == 'Linux'
         run: xvfb-run -a node scripts/test_vscode_host.cjs target/release/workproof-engine apps/extension/workproof-vscode-*.vsix
+      - name: Exercise the installed extension through the real Windows or macOS workbench UI
+        if: runner.os != 'Linux'
+        shell: pwsh
+        run: |
+          $engine=if($IsWindows){'target/release/workproof-engine.exe'}else{'target/release/workproof-engine'}
+          $vsix=@(Get-ChildItem -LiteralPath apps/extension -Filter 'workproof-vscode-*.vsix')
+          if($vsix.Count -ne 1){throw 'Exactly one packaged VSIX is required'}
+          node scripts/test_vscode_host.cjs $engine $vsix[0].FullName
+          if($LASTEXITCODE -ne 0){throw 'Real host acceptance failed'}
       - uses: actions/upload-artifact@v4
         with:
-          name: workproof-vscode-tested-vsix
+          name: workproof-vscode-tested-vsix-${{ matrix.name }}
           path: |
             apps/extension/workproof-vscode-*.vsix
             test-results/vscode-host/acceptance.json
@@ -36,6 +59,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: vscode-linux-stable-acceptance
+          name: vscode-${{ matrix.name }}-stable-acceptance
           path: test-results/vscode-host/
           if-no-files-found: warn
