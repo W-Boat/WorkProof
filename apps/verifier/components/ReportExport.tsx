@@ -15,7 +15,12 @@ export function ReportExport({result,artifact,proof,metadata,native=false,auxili
   const dialog=useRef<HTMLDialogElement>(null),task=useRef<AbortController|null>(null),alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;task.current?.abort();};},[]);
   useEffect(()=>{if(open){setSaved(null);setError('');setCopyNote('');dialog.current?.showModal();}else{task.current?.abort();setPassword('');setConfirmation('');}},[open]);
-  function close(){if(saving)return;task.current?.abort();dialog.current?.close();setOpen(false);}
+  async function close(){
+    if(saving)return;task.current?.abort();
+    const element=dialog.current,closeDialog=(window as unknown as {workproofCloseDialog?:(element:HTMLDialogElement)=>Promise<void>}).workproofCloseDialog;
+    if(element){if(closeDialog)await closeDialog(element);else element.close();}
+    if(alive.current)setOpen(false);
+  }
   async function generate(){
     if(busy||!artifact||!proof)return;
     if(Array.from(password).length<8){setError('请设置至少 8 个字符的密码。');return;}
@@ -43,7 +48,7 @@ export function ReportExport({result,artifact,proof,metadata,native=false,auxili
   function saveChecksums(){if(!saved)return;download(new Blob([`${saved.md5}  ${saved.file_name}\n`],{type:'text/plain;charset=utf-8'}),saved.file_name+'.md5');}
   return <>
     <Button disabled={!artifact||!proof} onClick={()=>setOpen(true)} aria-label="下载加密 HTML 报告">下载报告</Button>
-    {open&&<dialog ref={dialog} className={`report-export-dialog ${embedded?'report-export-fluent':''}`} aria-labelledby="report-export-title" onCancel={event=>{if(saving)event.preventDefault();else close();}} onClose={()=>{task.current?.abort();setOpen(false);}}>
+    {open&&<dialog ref={dialog} className={`report-export-dialog ${embedded?'report-export-fluent':''}`} aria-labelledby="report-export-title" data-close-blocked={saving?'true':undefined} onCancel={event=>{if(saving)event.preventDefault();else close();}} onClose={()=>{task.current?.abort();setOpen(false);}}>
       <h2 id="report-export-title">保存完整核验报告</h2>
       <p>生成带密码的独立 HTML，包含全部已披露记录、检验单、十种统计图、已完成的文件属性检查和原始证书。文件留在本机。</p>
       {!saved?<>
@@ -59,7 +64,7 @@ export function ReportExport({result,artifact,proof,metadata,native=false,auxili
         {!saved.native&&<div className="report-export-actions"><Button onClick={saveChecksums}>保存 MD5 校验文件</Button><Button onClick={()=>download(new Blob([JSON.stringify({schema:'workproof-report-files/1',file:saved.file_name,md5:saved.md5,sha256:saved.sha256,bytes:saved.bytes,source_certificate_id:saved.source_certificate_id},null,2)],{type:'application/json'}),saved.file_name+'.report.json')}>保存关联清单</Button></div>}
       </div>}
       {error&&<p className="report-export-error" role="alert">{error}</p>}
-      <div className="report-export-actions"><Button variant="ghost" disabled={saving} onClick={close}>{saved?'完成':'取消'}</Button>{!saved&&<Button variant="primary" disabled={busy||!artifact||!proof} onClick={()=>void generate()}>生成并保存</Button>}</div>
+      <div className="report-export-actions"><Button variant="ghost" disabled={saving} onClick={()=>void close()}>{saved?'完成':'取消'}</Button>{!saved&&<Button variant="primary" disabled={busy||!artifact||!proof} onClick={()=>void generate()}>生成并保存</Button>}</div>
     </dialog>}
   </>;
 }

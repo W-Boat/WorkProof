@@ -26,6 +26,7 @@ async function desktop(page:Page){
     w.__TAURI__={event:{listen:async(name:string,listener:any)=>{w.editorHarness.listeners[name]=listener;return ()=>delete w.editorHarness.listeners[name];}},core:{invoke:async(command:string,args:any)=>{
       const docs=read();
       if(command==='app_info')return {version:'0.1.0',build_number:'1234',source:'0123456789abcdef0123456789abcdef01234567',built_at:'1794384000'};
+      if(command==='save_certificate'){if(w.nativeCertificateSave)return w.nativeCertificateSave(args);throw new Error('Native certificate saver is not configured for this test');}
       if(command==='save_report'){if(w.nativeReportSave)return w.nativeReportSave(args);throw new Error('Native report saver is not configured for this test');}
       if(command==='engine_status')return {ready:true,sessions:0,events:0,...(w.editorHarness.engineStatus||{})};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
@@ -597,12 +598,20 @@ test('encrypted report saves through native IPC, includes every record and certi
 });
 
 test('native verification uses real Wasm, renders all report views and rejects a changed artifact',async({page},testInfo)=>{
+  const certificateSaves:any[]=[];await page.exposeFunction('nativeCertificateSave',(args:any)=>{
+    certificateSaves.push(args);if(certificateSaves.length===1)return {cancelled:true};
+    const bytes=Buffer.from(args.certificate);return {cancelled:false,file_name:'original-copy.wproof',bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),source_certificate_id:args.certificateId};
+  });
   await desktop(page);await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
   await page.getByLabel('1 · 最终作品', {exact:true}).setInputFiles('apps/verifier/public/demo/essay.md');
   await page.getByLabel('2 · WorkProof 证书', {exact:true}).setInputFiles('apps/verifier/public/demo/essay.md.wproof');
   await page.getByRole('button',{name:'开始核验',exact:true}).click();
   await expect(page.getByRole('heading',{name:'文件与证书一致',exact:true})).toBeVisible({timeout:20000});
   await expect(page.getByRole('heading',{name:'编辑过程检验单',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'保存原始证书',exact:true}).click();await expect(page.locator('.native-verifier')).toContainText('已取消保存，可以重新选择位置。');
+  await page.getByRole('button',{name:'保存原始证书',exact:true}).click();await expect(page.locator('.native-verifier')).toContainText('原始证书已保存：original-copy.wproof。');
+  expect(certificateSaves).toHaveLength(2);expect(Buffer.from(certificateSaves[1].certificate)).toEqual(fs.readFileSync('apps/verifier/public/demo/essay.md.wproof'));
+  expect(certificateSaves[1].sha256).toBe(createHash('sha256').update(Buffer.from(certificateSaves[1].certificate)).digest('hex'));
   await expect(page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'检验单',exact:true})).toContainText('检验单');
   await expect(page.locator('.nv-tabs [icon-only]')).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath('native-verification-report.png')});
@@ -1066,4 +1075,25 @@ test('external files default to their associated software and an explicit prefer
   await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('副本中的正文');
   expect(await page.evaluate(()=>(window as any).editorHarness.externalReads)).toBe(1);
   await page.reload();await page.getByRole('button',{name:'设置',exact:true}).click();await expect(page.locator('#external-opening')).toHaveValue('internal');
+});
+
+
+test('all app dialogs share rounded surfaces and finish closing before close handlers run',async({page})=>{
+  await desktop(page);await page.getByRole('button',{name:'新建文档',exact:true}).click();
+  const dialog=page.locator('#document-kind-dialog');await expect(dialog).toBeVisible();
+  expect(await dialog.evaluate(node=>getComputedStyle(node).borderTopLeftRadius)).toBe('12px');
+  const result=await dialog.evaluate(async(node:any)=>{
+    let closed=false;node.addEventListener('close',()=>{closed=true;},{once:true});
+    const pending=(window as any).workproofCloseDialog(node,'cancel');
+    const during={open:node.open,closing:node.dataset.dialogClosing,closed};await pending;
+    return {during,open:node.open,value:node.returnValue};
+  });
+  expect(result).toMatchObject({during:{open:true,closing:'true',closed:false},open:false,value:'cancel'});
+  await page.getByRole('button',{name:'新建文档',exact:true}).click();await page.keyboard.press('Escape');await expect(dialog).toBeHidden();
+  await page.evaluate(()=>document.documentElement.dataset.reduceMotion='true');
+  // Reopening a dialog with reduced motion must not reuse an already-resolved
+  // close promise and leave the native modal permanently open.
+  for(let i=0;i<2;i++){
+    await page.getByRole('button',{name:'新建文档',exact:true}).click();await expect(dialog).toBeVisible();await page.keyboard.press('Escape');await expect(dialog).toBeHidden();
+  }
 });

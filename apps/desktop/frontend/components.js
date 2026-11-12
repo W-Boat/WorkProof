@@ -11,6 +11,7 @@ import {setTheme} from '@fluentui/web-components/theme/set-theme.js';
 import {webLightTheme,webDarkTheme} from '@fluentui/tokens';
 import './icon-controls.js';
 import './native-interactions.js';
+import './dialog-motion.js';
 import './adapter-icons.js';
 
 const applyTheme=()=>setTheme(document.documentElement.dataset.theme==='dark'?webDarkTheme:webLightTheme);

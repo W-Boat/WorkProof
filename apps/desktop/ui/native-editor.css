@@ -520,3 +520,15 @@ body[data-engine-loading=true] main,body[data-engine-loading=true] .workspace-na
 
 /* The pagination extension fixes the inner paper width; center that page inside the wider shell. */
 #write-panel[data-edit-mode=word] .editor-paper>.tiptap.rm-with-pagination{margin-inline:auto}
+
+/* Shared Fluent dialog surface; dimensions remain specific to each task. */
+:root{--workproof-dialog-radius:12px}
+body dialog{border-radius:var(--workproof-dialog-radius)!important;border:1px solid var(--stroke);color:var(--text);background:var(--content);padding:24px;box-shadow:0 16px 48px #0004;max-height:calc(100dvh - 32px);max-width:calc(100vw - 32px)}
+body dialog[open]{animation:workproof-dialog-enter 180ms cubic-bezier(.1,.9,.2,1)!important}
+body dialog::backdrop{background:#0005;transition:background 140ms ease}
+body dialog[data-dialog-closing=true]::backdrop{background:#0000}
+@keyframes workproof-dialog-enter{from{opacity:0;transform:translateY(6px) scale(.99)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){body dialog[open]{animation:none!important}body dialog::backdrop{transition:none}}
+:root[data-reduce-motion=true] body dialog[open]{animation:none!important}:root[data-reduce-motion=true] body dialog::backdrop{transition:none}
+
+@starting-style{body dialog[open]::backdrop{background:#0000}}

@@ -4,7 +4,7 @@ import {EmbeddedFluent,FluentElement,loadEmbeddedFluent} from '../../verifier/co
 import {BehaviorReport} from '../../verifier/components/BehaviorReport';
 import {WordRevisionSummary} from '../../verifier/components/WordRevisionSummary';
 import {VerificationProgress,TextInput} from '../../verifier/components/institution-ui';
-import {type Result,type Stage,labels,time,download} from '../../verifier/lib/evidence';
+import {type Result,type Stage,labels,time} from '../../verifier/lib/evidence';
 import {icons as nativeIcons} from './icons.js';
 import {ProcessReplay} from '../../verifier/components/ProcessReplay';
 import {ReportExport} from '../../verifier/components/ReportExport';
@@ -17,6 +17,7 @@ function NativeVerifier(){
   const [stage,setStage]=useState<Stage>('idle'),[result,setResult]=useState<Result|null>(null),[error,setError]=useState('');
   const [showMetadata,setShowMetadata]=useState(false);
   const [metadataOpened,setMetadataOpened]=useState(false),[metadata,setMetadata]=useState<MetadataReport|null>(null);
+  const [certificateSaving,setCertificateSaving]=useState(false);
   const [expectedId,setExpectedId]=useState(''),[shareMessage,setShareMessage]=useState('');
   const [progress,setProgress]=useState({phase:'准备核验',progress:0});
   const [tab,setTab]=useState('report'),[ready,setReady]=useState(false),[eventPage,setEventPage]=useState(0);
@@ -50,6 +51,23 @@ function NativeVerifier(){
       task.postMessage({artifact,proof,expectedCertificateId:expectedId});
     }catch{setError('无法启动本机核验引擎，请重启客户端后重试。');setStage('error');}
   }
+  async function saveOriginalCertificate(){
+    if(!proof||!result?.report.valid||certificateSaving)return;
+    const source=proof,certificateId=result.certificateId,request=generation.current;setCertificateSaving(true);setShareMessage('请选择证书保存位置…');
+    try{
+      const bytes=new Uint8Array(await source.arrayBuffer());
+      const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));const sha256=Array.from(digest,n=>n.toString(16).padStart(2,'0')).join('');
+      if(request!==generation.current)return;
+      const bridge=(window as unknown as {__TAURI__?:{core:{invoke:(name:string,args:unknown)=>Promise<any>}}}).__TAURI__?.core;
+      if(!bridge)throw new Error('原生保存接口未加载，请更新完整客户端。');
+      const saved=await bridge.invoke('save_certificate',{certificate:Array.from(bytes),certificateId,sha256});
+      if(request!==generation.current)return;
+      if(saved.cancelled){setShareMessage('已取消保存，可以重新选择位置。');return;}
+      if(saved.bytes!==bytes.length||saved.sha256!==sha256||saved.source_certificate_id!==certificateId)throw new Error('保存结果与原始证书不一致，请重新核验后保存。');
+      setShareMessage('原始证书已保存：'+saved.file_name+'。');
+    }catch(cause){if(request===generation.current)setShareMessage(cause instanceof Error?cause.message:String(cause));}
+    finally{setCertificateSaving(false);}
+  }
   async function copyFingerprint(){
     if(!result?.report.valid)return;
     const request=generation.current;
@@ -74,7 +92,7 @@ function NativeVerifier(){
     {error&&<p className="nv-error" role="alert">{error}</p>}
     {result&&<><section className="nv-verdict" data-valid={valid} role="status"><h3>{valid?'文件与证书一致':'核验未通过'}</h3>{valid&&result.proof.manifest.demo&&<FluentElement tag="fluent-badge" appearance="tint">演示证书 · 仅用于体验</FluentElement>}<p>{valid?'文件指纹、已披露记录与签名核对通过。签名有效不等于官方背书，也不能单独证明全部内容由人类创作。':'请检查作品是否是导出证书时的最终文件，以及证书是否完整。'}</p>{valid&&result.certificateMatch===true&&<p>指定证书指纹一致。</p>}<ul>{result.report.errors.map((item,i)=><li key={i}>{item}</li>)}</ul></section>
       <div className="nv-actions"><ReportExport result={result} expectedCertificateId={expectedId} artifact={artifact} proof={proof} metadata={metadata} native auxiliaryText={()=>document.querySelector('.nv-result')?.textContent||''}/></div>
-      {valid&&<div className="nv-actions" aria-label="分享已核验证书"><FluentElement tag="fluent-button" appearance="secondary" onClick={copyFingerprint}>复制证书指纹</FluentElement><FluentElement tag="fluent-button" appearance="subtle" onClick={()=>{if(proof)download(proof,proof.name);}}>保存原始证书</FluentElement><span>{result.report.scope==='selective'?'仅含已披露记录':'含完整记录，请先确认分享范围'}</span></div>}
+      {valid&&<div className="nv-actions" aria-label="分享已核验证书"><FluentElement tag="fluent-button" appearance="secondary" onClick={copyFingerprint}>复制证书指纹</FluentElement><FluentElement tag="fluent-button" appearance="subtle" disabled={certificateSaving} aria-busy={certificateSaving} onClick={()=>void saveOriginalCertificate()}>保存原始证书</FluentElement><span>{result.report.scope==='selective'?'仅含已披露记录':'含完整记录，请先确认分享范围'}</span></div>}
       {shareMessage&&<p role="status">{shareMessage}</p>}
       <nav className="nv-tabs" aria-label="核验结果视图">{tabs.map(([id,label])=><FluentElement key={id} tag="fluent-button" appearance={tab===id?'primary':'subtle'} aria-pressed={tab===id} onClick={()=>setTab(id)}>{label}</FluentElement>)}</nav>
       <div className="nv-result" key={tab}>
