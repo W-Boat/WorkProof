@@ -49,6 +49,14 @@ async function desktop(page:Page){
       }
       if(command==='editor_load')return docs[args.id];
       if(command==='editor_version')return docs[args.id].snapshots[args.revision];
+      if(command==='editor_history'){
+        (w.editorHarness.historyRequests||=[]).push({...args});
+        const frames=docs[args.id].versions.filter((frame:any)=>frame.revision<=args.through&&(args.after===null||frame.revision>args.after)).sort((a:any,b:any)=>a.revision-b.revision).map((frame:any)=>{
+          const actions=docs[args.id].actions.filter((item:any)=>item.revision===frame.revision).map((item:any)=>item.action);
+          return {...frame,count:actions.length,pastes:actions.filter((a:any)=>a.kind==='paste').length,inserted:actions.reduce((n:number,a:any)=>n+(a.inserted||0),0),deleted:actions.reduce((n:number,a:any)=>n+(a.deleted||0),0)};
+        });return {frames:frames.slice(0,128),has_more:frames.length>128,next_after:frames.length>128?frames[127].revision:null};
+      }
+      if(command==='editor_replay_frame'){(w.editorHarness.frameRequests||=[]).push({...args});return {revision:args.revision,saved:docs[args.id].versions.find((frame:any)=>frame.revision===args.revision).saved,content:docs[args.id].snapshots[args.revision],actions:docs[args.id].actions.filter((item:any)=>item.revision===args.revision).map((item:any)=>item.action).reverse()};}
       if(command==='editor_save'){
         w.editorHarness.saves.push(args.input);
         if(w.editorHarness.failNext){w.editorHarness.failNext=false;throw new Error('磁盘暂时无法写入，请重试。');}
@@ -849,6 +857,56 @@ test('an unchanged catalog refresh preserves the document button during a click'
   expect(await original!.evaluate(element=>element.isConnected)).toBe(true);
   await page.mouse.up();
   await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('刷新时仍可继续编辑');
+});
+
+test('process replay pages the complete history, seeks real snapshots and locates paste actions safely',async({page})=>{
+  await desktop(page);await create(page);await page.locator('#back-library').click();
+  await page.evaluate(()=>{
+    const docs=JSON.parse(localStorage.getItem('test.editor.documents')||'{}'),doc:any=Object.values(docs)[0];
+    doc.revision=130;doc.title='回放示例';doc.versions=[];doc.snapshots={};doc.actions=[];
+    const unsafe='<script>window.replayInjected=true</script>';
+    for(let revision=0;revision<=130;revision++){
+      const text=revision===67?unsafe:`保存内容 ${revision}`;
+      const content={type:'doc',content:[{type:'paragraph',content:[{type:'text',text}]}]};
+      doc.snapshots[revision]=content;doc.versions.unshift({revision,saved:doc.created+revision*10000,count:1});
+      const base={elapsed_ms:revision*10000,inserted:0,deleted:0,chars:text.length,steps:[],selection:{},detail:null};
+      doc.actions.unshift({revision,action:{...base,kind:revision===67?'paste':'copy'}});
+      if(revision===67)doc.actions.unshift({revision,action:{...base,kind:'edit',elapsed_ms:revision*10000+1,inserted:300,steps:[{slice:{content:[{type:'text',text:unsafe}]}}]}});
+    }
+    doc.content=doc.snapshots[130];localStorage.setItem('test.editor.documents',JSON.stringify(docs));
+  });
+  await page.reload();await page.getByRole('button',{name:'继续编辑 回放示例',exact:true}).click();
+  await page.locator('#tab-process').click();await page.locator('#open-process-replay').click();
+  const replay=page.getByRole('dialog',{name:'回放示例'});
+  await expect(replay.locator('.replay-paper')).toContainText('保存内容 130');
+  expect((await page.evaluate(()=>(window as any).editorHarness.historyRequests)).length).toBeGreaterThan(1);
+  expect((await page.evaluate(()=>(window as any).editorHarness.frameRequests)).length).toBe(1);
+  await replay.getByRole('button',{name:'版本 68 · 1 次粘贴',exact:true}).click();
+  await expect(replay.locator('.replay-paper')).toHaveText('<script>window.replayInjected=true</script>');
+  await replay.getByRole('button',{name:'查看粘贴与修改线索',exact:true}).click();
+  await expect(replay.locator('.replay-activity')).toContainText('大段粘贴');
+  expect(await page.evaluate(()=>(window as any).replayInjected)).toBeUndefined();
+  await expect(replay.locator('script')).toHaveCount(0);
+  await replay.getByRole('button',{name:'收起分析侧栏',exact:true}).click();await expect(replay.locator('.replay-inspector')).toHaveAttribute('inert','');
+  await replay.getByRole('button',{name:'展开分析侧栏',exact:true}).click();
+  await replay.getByRole('slider',{name:'回放进度'}).focus();await page.keyboard.press('Home');
+  await expect(replay.locator('.replay-paper')).toHaveText('保存内容 0');
+  await replay.getByRole('button',{name:'下一个保存版本',exact:true}).click();await expect(replay.locator('.replay-paper')).toHaveText('保存内容 1');
+  await selectChoice(page,'.process-replay select[aria-label="回放速度"]','4');
+  await replay.getByRole('button',{name:'播放保存过程',exact:true}).click();await expect(replay.getByRole('button',{name:'暂停回放',exact:true})).toHaveAttribute('aria-pressed','true');
+  await replay.getByRole('button',{name:'暂停回放',exact:true}).click();
+  await page.screenshot({path:test.info().outputPath('process-replay.png')});
+  await page.keyboard.press('Escape');await expect(replay).toHaveCount(0);await expect(page.locator('#open-process-replay')).toBeFocused();
+});
+
+test('process replay shows frame failures, closes cleanly and fits a narrow desktop window',async({page})=>{
+  await desktop(page);await create(page);await page.locator('#tab-process').click();
+  await page.evaluate(()=>{const w=window as any,invoke=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(command:string,args:any)=>command==='editor_replay_frame'?Promise.reject(new Error('版本暂时无法读取')):invoke(command,args);});
+  await page.setViewportSize({width:480,height:720});await page.locator('#open-process-replay').click();
+  const replay=page.locator('#process-replay');await expect(replay.locator('.replay-paper')).toContainText('版本暂时无法读取');
+  expect(await replay.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+  await replay.getByRole('button',{name:'关闭过程回放',exact:true}).click();await expect(replay).toHaveCount(0);
+  await expect(page.locator('#document-workspace')).toBeVisible();
 });
 
 test('archive restores saved content and permanent deletion requires confirmation',async({page})=>{

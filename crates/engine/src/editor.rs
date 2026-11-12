@@ -92,6 +92,31 @@ pub fn load(root:&Path,id:&str)->Result<Value>{
     let count:u64=db.query_row("SELECT COUNT(*) FROM editor_events WHERE document=?1",[id],|r|r.get(0)).map_err(storage)?;
     Ok(json!({"id":id,"title":title,"created":created,"revision":revision,"content":content,"kind":kind,"versions":versions,"actions":actions,"event_count":count}))
 }
+/// Bounded, content-free index for the local replay viewer. `through` pins the
+/// view to the revision opened by the user while new saves may arrive.
+pub fn history(root:&Path,id:&str,after:Option<u64>,through:u64)->Result<Value>{
+    if !valid_id(id){return Err("文档编号无效。".into());}
+    let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
+    let _:u64=db.query_row("SELECT revision FROM documents WHERE id=?1",[id],|row|row.get(0)).map_err(storage)?;
+    let mut stmt=db.prepare("SELECT revision,saved,actions FROM revisions WHERE document=?1 AND revision>COALESCE(?2,-1) AND revision<=?3 ORDER BY revision LIMIT 129").map_err(storage)?;
+    let rows=stmt.query_map(params![id,after,through],|row|Ok((row.get::<_,u64>(0)?,row.get::<_,u64>(1)?,row.get::<_,String>(2)?))).map_err(storage)?;
+    let mut frames=vec![];
+    for row in rows{
+        let (revision,saved,actions)=row.map_err(storage)?;
+        let actions:Vec<Action>=serde_json::from_str(&actions).map_err(storage)?;
+        frames.push(json!({"revision":revision,"saved":saved,"count":actions.len(),"inserted":actions.iter().map(|a|a.inserted).sum::<u64>(),"deleted":actions.iter().map(|a|a.deleted).sum::<u64>(),"pastes":actions.iter().filter(|a|a.kind=="paste").count()}));
+    }
+    let has_more=frames.len()>128;frames.truncate(128);
+    let next=if has_more{frames.last().map(|frame|frame["revision"].clone())}else{None};
+    Ok(json!({"frames":frames,"has_more":has_more,"next_after":next}))
+}
+pub fn replay_frame(root:&Path,id:&str,revision:u64)->Result<Value>{
+    if !valid_id(id){return Err("文档编号无效。".into());}
+    let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
+    let (saved,content,actions):(u64,String,String)=db.query_row("SELECT saved,content,actions FROM revisions WHERE document=?1 AND revision=?2",params![id,revision],|row|Ok((row.get(0)?,row.get(1)?,row.get(2)?))).map_err(storage)?;
+    let actions:Vec<Action>=serde_json::from_str(&actions).map_err(storage)?;
+    Ok(json!({"revision":revision,"saved":saved,"content":parse(content)?,"actions":actions}))
+}
 pub fn version(root:&Path,id:&str,revision:u64)->Result<Value>{
     if !valid_id(id){return Err("文档编号无效。".into());}let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
     let content:String=db.query_row("SELECT content FROM revisions WHERE document=?1 AND revision=?2",params![id,revision],|r|r.get(0)).map_err(storage)?;parse(content)
@@ -228,6 +253,22 @@ mod tests {
     struct Temp(std::path::PathBuf);impl Drop for Temp{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
     fn root()->Temp{let p=std::env::temp_dir().join(format!("wp-editor-{}",super::super::random_hex(12)));std::fs::create_dir_all(&p).unwrap();std::fs::write(p.join("signing-key.bin"),[7u8;32]).unwrap();Temp(p)}
     fn save_input(id:&str)->Save{Save{id:id.into(),expected_revision:0,request_id:"a".repeat(32),title:"课程论文".into(),content:json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"你好 <script>"}]}]}),actions:vec![Action{kind:"edit".into(),elapsed_ms:30,inserted:11,deleted:0,chars:11,steps:vec![json!({"stepType":"replace"})],selection:json!({"from":1,"to":1}),detail:Value::Null,metrics:BTreeMap::new()}]}}
+    #[test]
+    fn replay_pages_cover_history_and_frames_stay_bound_to_the_document(){
+        let root=root();let doc=create(&root.0,"回放","","word").unwrap();let id=doc["id"].as_str().unwrap();
+        for revision in 0..130{
+            let mut input=save_input(id);input.expected_revision=revision;input.request_id=format!("{:032x}",revision+1);
+            input.actions[0].kind="copy".into();input.actions[0].elapsed_ms=(revision+1)*100;input.actions[0].inserted=0;
+            save(&root.0,input).unwrap();
+        }
+        let first=history(&root.0,id,None,130).unwrap();assert_eq!(first["frames"].as_array().unwrap().len(),128);assert_eq!(first["has_more"],true);assert_eq!(first["next_after"],127);
+        assert!(first["frames"][0].get("content").is_none());assert!(first["frames"][0].get("actions").is_none());
+        let second=history(&root.0,id,Some(127),130).unwrap();assert_eq!(second["frames"].as_array().unwrap().len(),3);assert_eq!(second["frames"][0]["revision"],128);assert_eq!(second["has_more"],false);
+        let pinned=history(&root.0,id,None,1).unwrap();assert_eq!(pinned["frames"].as_array().unwrap().len(),2);
+        let frame=replay_frame(&root.0,id,130).unwrap();assert_eq!(frame["revision"],130);assert_eq!(frame["actions"][0]["kind"],"copy");assert_eq!(frame["content"]["content"][0]["content"][0]["text"],"你好 <script>");
+        let other=create(&root.0,"另一份文档","","markdown").unwrap();assert!(replay_frame(&root.0,other["id"].as_str().unwrap(),130).is_err());
+        assert!(history(&root.0,"../bad",None,130).is_err());assert!(replay_frame(&root.0,id,131).is_err());
+    }
     #[test]
     fn desktop_export_uses_saved_type_and_rejects_cross_format_payloads(){
         let root=root();

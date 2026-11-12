@@ -389,6 +389,16 @@ function selectTab(tab){
 const tabs=[...document.querySelectorAll('[data-tab]')];tabs.forEach((b,i)=>{b.addEventListener('click',()=>selectTab(b.dataset.tab));b.addEventListener('keydown',e=>{let n;if(e.key==='ArrowRight')n=(i+1)%tabs.length;else if(e.key==='ArrowLeft')n=(i+tabs.length-1)%tabs.length;else if(e.key==='Home')n=0;else if(e.key==='End')n=tabs.length-1;else return;e.preventDefault();selectTab(tabs[n].dataset.tab);tabs[n].focus();});});
 $('view-process').addEventListener('click',()=>{selectTab('process');$('tab-process').focus();});
 $('back-write').addEventListener('click',()=>{selectTab('write');$('tab-write').focus();});
+$('open-process-replay').addEventListener('click',async()=>{
+  if(!active||opening||exporting||closing||document.querySelector('#process-replay'))return;
+  const button=$('open-process-replay'),id=active.id;button.disabled=true;
+  try{
+    await flush();const doc=await ipc('editor_load',{id});
+    const {openProcessReplay}=await import('./process-replay.js');
+    if(active?.id!==id||document.body.dataset.view!=='document'||closing)return;
+    openProcessReplay({document:doc,invoke:ipc,renderContent:content=>editorRuntime.generateHTML(content,editorRuntime.editorExtensions())});
+  }catch(error){reportError(error);}finally{button.disabled=false;}
+});
 function renderProcess(){
   if(!active)return;const versions=[...(active.versions||[])].reverse(),actions=allActions();
   $('process-summary').textContent=`${active.revision+1} 个保存版本 · ${active.event_count} 条已保存记录（含起点与保存检查点）`;

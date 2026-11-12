@@ -14,6 +14,10 @@ pub async fn editor_save(window:WebviewWindow,input:Value)->Result<Value,String>
 #[tauri::command]
 pub async fn editor_version(window:WebviewWindow,id:String,revision:u64)->Result<Value,String>{let dir=root(&window)?;tauri::async_runtime::spawn_blocking(move||store::version(&dir,&id,revision)).await.map_err(|_|"历史版本未能读取。")?}
 #[tauri::command]
+pub async fn editor_history(window:WebviewWindow,id:String,after:Option<u64>,through:u64)->Result<Value,String>{let dir=root(&window)?;tauri::async_runtime::spawn_blocking(move||store::history(&dir,&id,after,through)).await.map_err(|_|"版本时间轴未能读取。")?}
+#[tauri::command]
+pub async fn editor_replay_frame(window:WebviewWindow,id:String,revision:u64)->Result<Value,String>{let dir=root(&window)?;tauri::async_runtime::spawn_blocking(move||store::replay_frame(&dir,&id,revision)).await.map_err(|_|"回放版本未能读取。")?}
+#[tauri::command]
 pub async fn editor_export(window:WebviewWindow,id:String,docx:Option<Vec<u8>>,markdown:Option<String>)->Result<Value,String>{
     let dir=root(&window)?;
     tauri::async_runtime::spawn_blocking(move||{
