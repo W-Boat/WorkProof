@@ -151,6 +151,32 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
             assert build_information['source']==os.environ['GITHUB_SHA'],'Installed package source does not match the checkout'
             assert build_information['build'].startswith(os.environ['GITHUB_RUN_NUMBER']+' · '),'Installed package build number does not match this run'
             assert datetime.datetime.fromisoformat(build_information['built_at'].replace('Z','+00:00')).timestamp()<=time.time()+60
+        replay_checked=False
+        if execute("return !!document.getElementById('open-process-replay')"):
+            # Seed a synthetic document through the real protected IPC, then
+            # open the actual viewer with native pointer input. No IPC mocks.
+            replay_seed=call('POST',f'/session/{session}/execute/async',{'script':r"""
+              const done=arguments[arguments.length-1],invoke=window.__TAURI__.core.invoke;
+              (async()=>{
+                const title='原生回放验收',text='这份文档用于检查本机保存与过程回放。回放读取实际保存的版本，正文留在本机。粘贴记录用于定位内容加入的位置，不判断作者身份。';
+                const doc=await invoke('editor_create',{title,started:new Date().toISOString(),kind:'word'});
+                const n=Array.from(text).length;
+                const base={elapsed_ms:10,inserted:0,deleted:0,chars:n,steps:[],selection:{},detail:{},metrics:{}};
+                const saved=await invoke('editor_save',{input:{id:doc.id,title,expected_revision:doc.revision,request_id:crypto.randomUUID().replaceAll('-',''),content:{type:'doc',content:[{type:'paragraph',content:[{type:'text',text}]}]},actions:[{...base,kind:'paste'},{...base,kind:'edit',inserted:n}]}});
+                const index=await invoke('editor_history',{id:doc.id,after:null,through:saved.revision});
+                const frame=await invoke('editor_replay_frame',{id:doc.id,revision:saved.revision});
+                done({ok:index.frames.length===2&&!index.has_more&&index.frames.every(f=>!('content' in f)&&!('actions' in f))&&frame.actions.length===2&&frame.content.content[0].content[0].text===text});
+              })().catch(error=>done({ok:false,error:String(error)}));
+            """,'args':[]})
+            assert replay_seed.get('ok') is True,'Real replay IPC failed: '+str(replay_seed.get('error','index/frame mismatch'))
+            click('#reload-documents');click_text('继续编辑 原生回放验收');click('#tab-process');click('#open-process-replay')
+            def replay_ready():
+                assert execute("return document.querySelector('#process-replay .replay-paper')?.textContent.includes('这份文档用于检查本机保存与过程回放')")
+                assert execute("const input=document.querySelector('#process-replay .replay-seek');return !!input&&!input.disabled&&input.getAttribute('role')!=='button'")
+            wait(replay_ready);screenshot('workbench-process-replay.png')
+            click_text('关闭过程回放')
+            def replay_closed():assert execute("return !document.getElementById('process-replay')")
+            wait(replay_closed);replay_checked=True
         # The PC shell keeps verification in its own workspace. Exercise the
         # real navigation before opening the embedded verifier window.
         # The separate historical milestone also runs this script against an
@@ -275,7 +301,7 @@ with tempfile.TemporaryDirectory(prefix='workproof-native-webview-') as temporar
         if iframe_mode or native_mode:open_native_verifier()
         else:click('#verify')
         assert len(handles())==2,'Repeated open created another verifier'
-        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'workspace_iframe_checked':iframe_mode,'workspace_native_fluent_checked':native_mode,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['workspace iframe opens without another window','workspace iframe native viewport pointer activation','workspace iframe demo Wasm verification','workspace iframe command isolation'] if iframe_mode else [])+(['native Fluent workspace filesystem input','native Fluent workspace Wasm verification','native Fluent workspace tamper rejection','native Fluent invalid certificate action isolation','native Fluent original file reselection'] if native_mode else [])+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
+        (evidence/'acceptance.json').write_text(json.dumps({'test_source_commit':os.environ['GITHUB_SHA'],'application_source_commit':os.environ.get('WORKPROOF_APPLICATION_COMMIT',os.environ['GITHUB_SHA']),'scope':'Installed Linux package and native WebKit WebView; real open/reuse, demo Wasm, filesystem file input, tamper rejection, narrow keyboard scrolling and IPC/navigation rejection. OS file chooser UI, download and printing not covered.','result_flow_checked':result_flow,'workspace_iframe_checked':iframe_mode,'workspace_native_fluent_checked':native_mode,'process_replay_checked':replay_checked,'url':url,'checks':['workbench IPC status','native embedded page','real demo Wasm verification','filesystem file input via WebDriver','selected-file Wasm verification','tampered file rejection','original file reselection','narrow layout and PageDown scrolling','no workbench command access','navigation restriction','window reuse']+(['workspace iframe opens without another window','workspace iframe native viewport pointer activation','workspace iframe demo Wasm verification','workspace iframe command isolation'] if iframe_mode else [])+(['real protected replay index and frame IPC','native process replay viewer opens and closes'] if replay_checked else [])+(['native Fluent workspace filesystem input','native Fluent workspace Wasm verification','native Fluent workspace tamper rejection','native Fluent invalid certificate action isolation','native Fluent original file reselection'] if native_mode else [])+(['result focus on pass and failure','view completed result','clear restores file selection focus'] if result_flow else [])},indent=2),encoding='utf-8')
         print('PASS: installed native WebView verifies filesystem input, rejects changed bytes, scrolls and reuses the local verifier; workbench commands unavailable')
     except Exception as error:
         if session:
