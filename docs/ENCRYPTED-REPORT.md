@@ -33,4 +33,6 @@ HTML 不把自己的 MD5 写回自身，否则写入摘要又会改变文件。M
 
 原生保存代码 `ac98b93` 的[完整构建 43159430116](https://github.com/W-Boat/WorkProof/actions/runs/43159430116)已全部成功，包含 Windows、Linux 和 macOS 两种架构；新增检查核对真实保存字节、MD5/SHA-256、证书指纹关联，以及配套文件冲突后的回滚和原文件保留。
 
-完整前端、加密和阅读器从 `50c7d31` 开始验证：[桌面与三浏览器](https://github.com/W-Boat/WorkProof/actions/runs/43219894833)、[完整构建](https://github.com/W-Boat/WorkProof/actions/runs/43219894681)。新增浏览器检查使用真实 Wasm 核验结果，通过独立 Node.js 加密库解密后逐项比对所有事件与原始证书字节，再检查错误密码、密文改动、MD5、十种图表、零网络解密和网页下载关联。当前状态以运行终态及后续修复为准；未通过前不称已交付，也未升级用户正在使用的客户端。
+完整前端、加密和阅读器从 `50c7d31` 开始验证：[桌面与三浏览器](https://github.com/W-Boat/WorkProof/actions/runs/43219894833)、[完整构建](https://github.com/W-Boat/WorkProof/actions/runs/43219894681)。新增浏览器检查使用真实 Wasm 核验结果，通过独立 Node.js 加密库解密后逐项比对所有事件与原始证书字节，再检查错误密码、密文改动、MD5、十种图表、零网络解密和网页下载关联。上述两轮均已全部成功；后续 `a64e892` 的完整构建 [43222519080](https://github.com/W-Boat/WorkProof/actions/runs/43222519080) 也全部成功。用户确认只封装完整报告、全部已披露记录和原始证书，原作品另附。最终安装版本另记在桌面交付记录，不能将代码提交等同于客户端已升级。
+
+用户 Windows 客户端已升级到 `126a289` 并启动，见[桌面交付记录](DESKTOP-DELIVERY-2026-11-12.md)。报告加密与导出功能的自动检查全部在 Actions 完成；本机只安装并确认启动及记录服务状态。
