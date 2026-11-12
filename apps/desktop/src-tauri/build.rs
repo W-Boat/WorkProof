@@ -11,7 +11,7 @@ fn main() {
     println!("cargo:warning=WorkProof build source={source} number={number} epoch={epoch}");
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
-            "window_action","office_setup","engine_status","app_info","pending_adapters","take_pairing_notice","decide_adapter",
+            "window_action","office_setup","engine_status","app_info","pending_adapters","take_pairing_notice","decide_adapter","save_report",
             "adapter_connections","revoke_adapter","open_verifier","open_verifier_browser","verifier_url",
             "install_vscode","open_word","open_powerpoint","verify_image","embed_image",
             "editor_list","editor_create","editor_load","editor_save","editor_version","editor_history","editor_replay_frame","editor_export",

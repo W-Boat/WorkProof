@@ -253,6 +253,8 @@ jobs:
           Write-Output 'PASS actual NSIS installation and all embedded Office resource hashes; no Office registration or real host launch performed'
       - name: Desktop image report compatibility and process limits
         run: cargo test --release --locked -p workproof-desktop c2pa::tests
+      - name: Encrypted report file and checksum transaction
+        run: cargo test --release --locked -p workproof-desktop report_download::tests
       - name: Embedded verifier navigation and command isolation
         run: cargo test --release --locked -p workproof-desktop embedded_tests
       - name: Start real tray binary
@@ -395,6 +397,8 @@ jobs:
       - run: npm run ${{ matrix.build }} -w @workproof/desktop
       - name: Desktop image report compatibility and process limits
         run: cargo test --release --locked -p workproof-desktop c2pa::tests
+      - name: Encrypted report file and checksum transaction
+        run: cargo test --release --locked -p workproof-desktop report_download::tests
       - name: Embedded verifier navigation and command isolation
         run: cargo test --release --locked -p workproof-desktop embedded_tests
       - name: Install and start the real Linux package under a virtual display
