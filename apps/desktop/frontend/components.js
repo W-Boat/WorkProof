@@ -19,6 +19,9 @@ new MutationObserver(applyTheme).observe(document.documentElement,{attributes:tr
 // Expose the same state to assistive technology that does not yet consume
 // ElementInternals ARIA. This also applies to dynamically inserted grants.
 function accessibleButton(button){
+  // Disabled changes are observed across the document. Preserve the native
+  // roles of sliders, file pickers, text fields and selects.
+  if(!button.matches('fluent-button'))return;
   button.setAttribute('role','button');
   button.setAttribute('aria-disabled',String(button.hasAttribute('disabled')));
 }

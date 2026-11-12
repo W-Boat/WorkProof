@@ -891,6 +891,7 @@ test('process replay pages the complete history, seeks real snapshots and locate
   await expect(replay.locator('script')).toHaveCount(0);
   await replay.getByRole('button',{name:'收起分析侧栏',exact:true}).click();await expect(replay.locator('.replay-inspector')).toHaveAttribute('inert','');
   await replay.getByRole('button',{name:'展开分析侧栏',exact:true}).click();
+  await expect(replay.locator('.replay-seek')).not.toHaveAttribute('role','button');
   await replay.getByRole('slider',{name:'回放进度'}).focus();await page.keyboard.press('Home');
   await expect(replay.locator('.replay-paper')).toHaveText('保存内容 0');
   await replay.getByRole('button',{name:'下一个保存版本',exact:true}).click();await expect(replay.locator('.replay-paper')).toHaveText('保存内容 1');
