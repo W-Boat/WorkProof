@@ -237,8 +237,8 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   await page.locator('main').evaluate(node=>node.scrollTop=0);
   await page.screenshot({path:info.outputPath('fluent-settings-light.png')});
   await page.locator('fluent-radio[value=dark]').click();
-  await expect(page.locator('#settings-page .settings-group')).toHaveCount(5);
-  await expect(page.locator('#settings-page .settings-surface')).toHaveCount(4);
+  await expect(page.locator('#settings-page .settings-group')).toHaveCount(6);
+  await expect(page.locator('#settings-page .settings-surface')).toHaveCount(5);
   await expect(page.locator('#app-version')).toHaveText('0.1.0');
   await expect(page.locator('#app-build')).toHaveText('1234 · 0123456789ab');
   await expect(page.locator('#app-build')).toHaveAttribute('title','0123456789abcdef0123456789abcdef01234567');
@@ -608,6 +608,12 @@ test('native verification uses real Wasm, renders all report views and rejects a
   await page.screenshot({path:testInfo.outputPath('native-verification-report.png')});
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'统计图',exact:true}).click();
   await expect(page.locator('.verification-chart')).toBeVisible();
+  await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'过程回放',exact:true}).click();
+  const replay=page.getByRole('region',{name:'过程回放',exact:true});await expect(replay).toContainText('证书不含历史正文');
+  const position=replay.getByRole('slider',{name:'核验过程回放位置'});await expect(position).toHaveValue('0');
+  const last=await position.getAttribute('max');await position.fill(last!);await expect(replay.getByRole('button',{name:'下一个动作',exact:true})).toBeDisabled();
+  await replay.getByRole('button',{name:'上一个动作',exact:true}).click();await expect(position).toHaveValue(String(Number(last)-1));
+  await replay.getByRole('button',{name:'播放过程',exact:true}).click();await expect(replay.getByRole('button',{name:'暂停回放',exact:true})).toBeVisible();await replay.getByRole('button',{name:'暂停回放',exact:true}).click();
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'操作记录',exact:true}).click();await expect(page.locator('.nv-table tbody tr').first()).toBeVisible();
   await page.getByRole('navigation',{name:'核验结果视图'}).getByRole('button',{name:'证书信息',exact:true}).click();await expect(page.locator('.nv-certificate')).toContainText('essay.md');
   const certificateId=await page.locator('.nv-certificate > div').filter({hasText:'证书指纹'}).locator('dd').innerText();
@@ -1030,4 +1036,32 @@ test('native metadata reads local file properties and clears them when the artif
   await expect(panel.getByRole('status')).toContainText('editable <script>fixture</script>');await expect(panel.locator('script')).toHaveCount(0);
   await page.getByLabel('1 · 最终作品',{exact:true}).setInputFiles({name:'new.md',mimeType:'text/markdown',buffer:Buffer.from('new artifact')});
   await expect(panel.getByText('editable <script>fixture</script>',{exact:true})).toHaveCount(0);
+});
+
+
+test('paginated Word paper is centered inside its shell at wide and compact widths',async({page})=>{
+  await desktop(page);await create(page);
+  for(const width of [1280,1000]){
+    await page.setViewportSize({width,height:800});
+    await expect.poll(()=>page.locator('.editor-paper>.tiptap.rm-with-pagination').evaluate(node=>{
+      const inner=node.getBoundingClientRect(),outer=node.parentElement!.getBoundingClientRect();
+      return Math.abs((inner.left-outer.left)-(outer.right-inner.right))<2;
+    })).toBe(true);
+  }
+});
+
+test('external files default to their associated software and an explicit preference imports a copy',async({page})=>{
+  await desktop(page);await page.evaluate(()=>{
+    const w=window as any;w.editorHarness.externalDocuments=[{id:'open-policy',title:'打开方式.md',source:'vscode',started_at:'2026-11-01T08:00:00Z',event_count:1,last_elapsed_ms:0,file_available:true,can_open:true,demo:false,local_path:'C:/作品/打开方式.md'}];
+    const invoke=w.__TAURI__.core.invoke;w.__TAURI__.core.invoke=(command:string,args:any)=>{if(command==='external_document_read'){w.editorHarness.externalReads=(w.editorHarness.externalReads||0)+1;return Promise.resolve({name:'打开方式.md',bytes:[...new TextEncoder().encode('# 保留原件\n\n副本中的正文')]});}return invoke(command,args);};
+  });
+  await page.locator('#reload-documents').click();await page.getByRole('button',{name:'打开文件 打开方式.md',exact:true}).click();
+  expect(await page.evaluate(()=>(window as any).editorHarness.openedExternalIds)).toEqual(['open-policy']);expect(await page.evaluate(()=>(window as any).editorHarness.externalReads||0)).toBe(0);
+  await expect(page.locator('body')).toHaveAttribute('data-view','library');
+  await page.getByRole('button',{name:'设置',exact:true}).click();await selectChoice(page,'#external-opening','internal');
+  expect(await page.evaluate(()=>localStorage.getItem('workproof.external-opening'))).toBe('internal');
+  await page.getByRole('button',{name:'我的文档',exact:true}).first().click();await page.getByRole('button',{name:'打开文件 打开方式.md',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'文档正文'})).toContainText('副本中的正文');
+  expect(await page.evaluate(()=>(window as any).editorHarness.externalReads)).toBe(1);
+  await page.reload();await page.getByRole('button',{name:'设置',exact:true}).click();await expect(page.locator('#external-opening')).toHaveValue('internal');
 });

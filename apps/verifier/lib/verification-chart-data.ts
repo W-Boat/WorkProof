@@ -86,11 +86,11 @@ export function chartOption(selected:ChartId,data:ReturnType<typeof summarize>,d
     const color=dark?'#eee':'#242424';
     const labels=data.buckets.map(bucket=>bucket.label);
     const base:EChartsCoreOption={animation:!reduced,animationDuration:220,color:dark?['#75b6ed','#ffad98','#9ad5a2','#d2b1eb','#f6ce70']:['#0f6cbd','#b73c26','#107c41','#7854a4','#927115'],textStyle:{color,fontFamily:'Segoe UI, Microsoft YaHei, sans-serif',fontSize:13},tooltip:{trigger:'item',renderMode:'richText',confine:true},grid:{left:66,right:38,bottom:44,top:48}};
-    const axis=(category:string[],unit:string)=>({xAxis:{type:'category',data:category,axisLabel:{color,hideOverlap:true}},yAxis:{type:'value',name:unit,axisLabel:{color}}});
+    const axis=(category:string[],unit:string)=>({xAxis:{type:'category',data:category,axisLabel:{color,hideOverlap:true,margin:12},axisTick:{alignWithLabel:true}},yAxis:{type:'value',name:unit,axisLabel:{color}}});
     let option:EChartsCoreOption;
     switch(selected){
       case 'activity':option={...axis(labels,'事件'),series:[{type:'bar',name:'事件数量',data:data.buckets.map(b=>b.count)}]};break;
-      case 'changes':option={...axis(labels,'字符'),legend:{data:['新增','删除'],textStyle:{color}},series:[{type:'bar',name:'新增',data:data.buckets.map(b=>b.inserted)},{type:'bar',name:'删除',data:data.buckets.map(b=>b.deleted)}]};break;
+      case 'changes':option={...axis(labels,'字符'),legend:{data:['新增','删除'],top:4,left:'center',textStyle:{color},itemWidth:14,itemHeight:10,itemGap:24},grid:{left:66,right:38,bottom:48,top:62},series:[{type:'bar',name:'新增',data:data.buckets.map(b=>b.inserted)},{type:'bar',name:'删除',data:data.buckets.map(b=>b.deleted)}]};break;
       case 'length':option={...axis(labels,'字符'),series:[{type:'line',name:'记录长度',connectNulls:false,data:data.buckets.map(b=>b.gap?null:b.chars)}]};break;
       case 'area':option={...axis(labels,'字符'),series:[{type:'line',name:'累计新增',connectNulls:false,areaStyle:{opacity:.2},data:data.buckets.map((b,i)=>b.gap?null:data.cumulative[i])}]};break;
       case 'scatter':option={xAxis:{type:'value',name:'秒',axisLabel:{color}},yAxis:{type:'value',name:'新增字符',axisLabel:{color}},series:[{type:'scatter',name:'单次新增量',data:data.plottedWrites}]};break;
@@ -98,7 +98,7 @@ export function chartOption(selected:ChartId,data:ReturnType<typeof summarize>,d
       case 'heatmap':{
         const names=data.categories.map(c=>c.name),points:[number,number,number][]=[];
         names.forEach((name,row)=>data.heat.get(name)?.forEach((count,column)=>points.push([column,row,count])));
-        option={grid:{left:100,right:22,top:28,bottom:78},xAxis:{type:'category',data:labels,axisLabel:{color,hideOverlap:true}},yAxis:{type:'category',data:names,axisLabel:{color}},visualMap:{min:0,max:Math.max(1,...points.map(point=>point[2])),orient:'horizontal',left:'center',bottom:5,textStyle:{color},inRange:{color:dark?['#273c4f','#75b6ed']:['#e5f1fc','#0f6cbd']}},series:[{type:'heatmap',data:points}]};break;
+        option={grid:{left:100,right:22,top:28,bottom:78},xAxis:{type:'category',data:labels,axisLabel:{color,hideOverlap:true,margin:12},axisTick:{alignWithLabel:true}},yAxis:{type:'category',data:names,axisLabel:{color}},visualMap:{min:0,max:Math.max(1,...points.map(point=>point[2])),orient:'horizontal',left:'center',bottom:5,textStyle:{color},inRange:{color:dark?['#273c4f','#75b6ed']:['#e5f1fc','#0f6cbd']}},series:[{type:'heatmap',data:points}]};break;
       }
       case 'box':option={...axis(['相邻写入间隔'],'秒'),series:[{type:'boxplot',data:[data.quantiles]}]};break;
       case 'tree':option={series:[{type:'treemap',roam:false,nodeClick:false,breadcrumb:{show:false},label:{formatter:'{b}'},data:data.categories}]};break;

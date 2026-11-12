@@ -256,6 +256,16 @@ function confirmLibraryDeletion(doc,kind){
   deletionDialog.returnValue='';deletionDialog.showModal();deletionDialog.querySelector('fluent-button').focus();
   return new Promise(resolve=>deletionDialog.addEventListener('close',()=>resolve(deletionDialog.returnValue==='delete'),{once:true}));
 }
+const externalOpening=document.getElementById('external-opening');
+try{const saved=localStorage.getItem('workproof.external-opening');if(['external','internal','records'].includes(saved))externalOpening.value=saved;}catch{}
+externalOpening.addEventListener('change',()=>{try{localStorage.setItem('workproof.external-opening',externalOpening.value);}catch{}libraryRowsSignature='';renderLibrary();});
+async function importExternalCopy(doc){
+  const result=await ipc('external_document_read',{id:doc.id});
+  if(!result||!Array.isArray(result.bytes)||typeof result.name!=='string')throw new Error('原文件未能读取。');
+  const target=/\.docx$/i.test(result.name)?$('word-file'):$('markdown-file');
+  const transfer=new DataTransfer();transfer.items.add(new File([new Uint8Array(result.bytes)],result.name));
+  target.files=transfer.files;openingLibraryEntry=false;target.dispatchEvent(new Event('change',{bubbles:true}));
+}
 let libraryRowsSignature='';
 function renderLibrary(){
   const list=$('document-list'),focusKey=document.activeElement?.closest('[data-document-key]')?.dataset.documentKey;
@@ -281,23 +291,28 @@ function renderLibrary(){
     const {doc}=entry,row=element('div','document-row');row.setAttribute('role','listitem');row.dataset.documentKey=`${entry.type}:${doc.id}`;row.dataset.source=entry.source;
     const label=element('div'),description=entry.type==='editor'?`${doc.revision+1} 个保存版本`:`${entry.sessions.length} 次记录 · ${entry.sessions.reduce((sum,session)=>sum+Number(session.event_count),0).toLocaleString()} 条记录${doc.demo?' · 演示记录':''}`;
     label.append(element('strong','',doc.title),element('p','',`${sourceLabel(entry.source)} · ${displayTime(entry.time)} · ${description}`));
-    const action=entry.type==='editor'?'继续编辑':'查看记录',open=element('fluent-button','',action);open.setAttribute('aria-label',`${action} ${doc.title}`);open.dataset.icon=entry.type==='external'?'text_bullet_list_ltr':'document_text';
+    const action=entry.type==='editor'?'继续编辑':'打开文件',open=element('fluent-button','',action);open.setAttribute('aria-label',`${action} ${doc.title}`);open.dataset.icon='document_text';
     open.addEventListener('click',async()=>{if(closing||openingLibraryEntry||creating||importing||opening||exporting)return;openingLibraryEntry=true;open.disabled=true;try{
-      if(entry.type==='external')await externalLibrary.open(doc,entry.sessions);else{await flush();await openDocument(await ipc('editor_load',{id:doc.id}));}
+      if(entry.type==='external'){
+        const preference=externalOpening.value;
+        if(preference==='records'||!doc.can_open)await externalLibrary.open(doc,entry.sessions);
+        else if(preference==='internal'&&/\.(docx|md|markdown|txt)$/i.test(doc.local_path||doc.title))await importExternalCopy(doc);
+        else await ipc('external_document_open',{id:doc.id});
+      }else{await flush();await openDocument(await ipc('editor_load',{id:doc.id}));}
     }catch(error){ui.showMessage(errorText(error),'error');}finally{openingLibraryEntry=false;open.disabled=false;}});
     if(row.dataset.documentKey===focusKey)restoreFocus=open;
     const actions=element('div','library-row-actions');actions.append(open);
-    if(entry.type==='external'&&/\.(docx|md|markdown|txt)$/i.test(doc.title)){
+    if(entry.type==='external'){
+      const records=element('fluent-button','','查看记录');records.dataset.icon='text_bullet_list_ltr';records.setAttribute('aria-label','查看记录 '+doc.title);
+      records.addEventListener('click',async()=>{if(openingLibraryEntry||opening||creating||importing||exporting||closing)return;openingLibraryEntry=true;records.disabled=true;try{await externalLibrary.open(doc,entry.sessions);}catch(error){ui.showMessage(errorText(error),'error');}finally{openingLibraryEntry=false;records.disabled=false;}});actions.append(records);
+    }
+    if(entry.type==='external'&&/\.(docx|md|markdown|txt)$/i.test(doc.local_path||doc.title)){
       const copy=element('fluent-button','','编辑副本');copy.setAttribute('aria-label','在内置编辑器打开副本 '+doc.title);copy.dataset.icon='document_text';
       copy.addEventListener('click',async()=>{
         if(importing||opening||closing||creating||exporting||openingLibraryEntry)return;
         copy.disabled=true;openingLibraryEntry=true;
         try{
-          const result=await ipc('external_document_read',{id:doc.id});
-          if(!result||!Array.isArray(result.bytes)||typeof result.name!=='string')throw new Error('原文件未能读取。');
-          const target=/\.docx$/i.test(result.name)?$('word-file'):$('markdown-file');
-          const transfer=new DataTransfer();transfer.items.add(new File([new Uint8Array(result.bytes)],result.name));
-          target.files=transfer.files;openingLibraryEntry=false;target.dispatchEvent(new Event('change',{bubbles:true}));
+          await importExternalCopy(doc);
         }catch(error){ui.showMessage(errorText(error),'error');}finally{openingLibraryEntry=false;copy.disabled=false;}
       });actions.append(copy);
     }

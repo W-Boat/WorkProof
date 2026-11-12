@@ -517,3 +517,6 @@ body[data-engine-loading=true] main,body[data-engine-loading=true] .workspace-na
 @media(max-width:850px){.replay-layout{grid-template-columns:minmax(0,1fr) 280px}.replay-preview{padding:12px}.replay-paper.history-paper{padding:24px}.replay-analysis{padding:16px}.replay-transport{padding:12px}.replay-local{display:none}}
 @media(max-width:640px){.process-replay{inset:38px 0 0;width:100vw;height:calc(100dvh - 38px);border-radius:0}.replay-layout{display:flex;flex-direction:column;overflow:auto}.replay-main{flex:none;height:65dvh;min-height:380px}.replay-inspector{flex:none;border-left:0;border-top:1px solid var(--stroke);overflow:visible}.replay-activity{max-height:360px}.process-replay.inspector-collapsed .replay-inspector{display:none}.replay-header{padding:10px 14px}.replay-paper.history-paper{padding:20px}.replay-totals{max-width:360px}}
 @media(prefers-reduced-motion:reduce){.process-replay[open]{animation:none}.replay-layout{transition:none}}html[data-reduce-motion=true] .process-replay[open]{animation:none}html[data-reduce-motion=true] .replay-layout{transition:none}
+
+/* The pagination extension fixes the inner paper width; center that page inside the wider shell. */
+#write-panel[data-edit-mode=word] .editor-paper>.tiptap.rm-with-pagination{margin-inline:auto}

@@ -5,6 +5,7 @@ import {BehaviorReport} from '../../verifier/components/BehaviorReport';
 import {WordRevisionSummary} from '../../verifier/components/WordRevisionSummary';
 import {VerificationProgress,TextInput} from '../../verifier/components/institution-ui';
 import {type Result,type Stage,labels,time,download} from '../../verifier/lib/evidence';
+import {ProcessReplay} from '../../verifier/components/ProcessReplay';
 import {ReportExport} from '../../verifier/components/ReportExport';
 import type {MetadataReport} from '../../verifier/components/MetadataPanel';
 const Metadata=lazy(()=>import('../../verifier/components/MetadataPanel').then(module=>({default:module.MetadataPanel})));
@@ -56,7 +57,7 @@ function NativeVerifier(){
   }
   const valid=!!result?.report.valid;
   const records=valid?result!.proof.records:[];
-  const tabs=[['report','检验单'],['charts','统计图'],['events','操作记录'],['certificate','证书信息']];
+  const tabs=[['report','检验单'],['charts','统计图'],['replay','过程回放'],['events','操作记录'],['certificate','证书信息']];
   return <EmbeddedFluent.Provider value={ready}><div className="native-verifier" aria-label="客户端文件核验">
     <header className="nv-heading"><div><h2>作品核验</h2><p>放入最终作品和对应证书，在本机核对文件、记录链与签名。</p></div><FluentElement tag="fluent-button" appearance="subtle" onClick={()=>document.getElementById('verify-browser')?.click()}>在浏览器打开</FluentElement></header>
     <section className="nv-files" aria-label="选择核验文件">
@@ -78,6 +79,7 @@ function NativeVerifier(){
       <div className="nv-result" key={tab}>
         {tab==='report'&&<><div className="nv-checks">{[['作品指纹',result.report.file_match],['记录链',result.report.chain_valid],['数字签名',result.report.signature_valid]].map(([name,ok])=><div key={String(name)}><span>{name}</span><strong data-ok={!!ok}>{ok?'通过':'未通过'}</strong></div>)}</div><BehaviorReport assessment={result.behavior} valid={valid}/>{valid&&result.proof.manifest.source==='word'&&<WordRevisionSummary records={records} partial={result.report.scope==='selective'}/>}</>}
         {tab==='charts'&&(valid?<Suspense fallback={<p role="status">正在加载统计图…</p>}><Charts records={records} partial={result.report.scope==='selective'} reduced={document.documentElement.dataset.reduceMotion==='true'||matchMedia('(prefers-reduced-motion: reduce)').matches}/></Suspense>:<p>核验通过后才能展示可信的过程统计。</p>)}
+        {tab==='replay'&&(valid?<ProcessReplay records={records} partial={result.report.scope==='selective'}/>:<p>核验通过后才能回放可信的过程记录。</p>)}
         {tab==='events'&&(valid?<section><h3>已核验操作记录</h3><p>共 {records.length.toLocaleString()} 条；每页显示 50 条，原始证据保持完整。</p><div className="nv-table"><table><thead><tr><th>序号</th><th>经过时间</th><th>动作</th><th>新增</th><th>删除</th><th>文档字符</th></tr></thead><tbody>{records.slice(eventPage*50,(eventPage+1)*50).map(({event})=><tr key={event.seq}><td>{event.seq}</td><td>{time(event.elapsed_ms)}</td><td>{labels[event.kind]||event.kind}</td><td>{event.inserted}</td><td>{event.deleted}</td><td>{event.chars}</td></tr>)}</tbody></table></div><div className="nv-actions"><FluentElement tag="fluent-button" disabled={eventPage===0} onClick={()=>setEventPage(n=>n-1)}>上一页</FluentElement><span>{eventPage+1} / {Math.max(1,Math.ceil(records.length/50))}</span><FluentElement tag="fluent-button" disabled={(eventPage+1)*50>=records.length} onClick={()=>setEventPage(n=>n+1)}>下一页</FluentElement></div></section>:<p>核验通过后才能展示可信的操作记录。</p>)}
         {tab==='certificate'&&(valid?<dl className="nv-certificate">{[['作品名称',result.proof.manifest.file_name],['记录来源',result.proof.manifest.source],['记录数量',result.report.total_events],['核验范围',result.report.scope==='full'?'完整记录':'仅已披露记录'],['证书指纹',result.certificateId],['签名公钥',result.proof.manifest.public_key],['作品指纹',result.fingerprint]].map(([name,value])=><div key={String(name)}><dt>{name}</dt><dd>{String(value)}</dd></div>)}</dl>:<p>这份证书尚未通过核验，不能作为有效证书展示。</p>)}
       </div></>}

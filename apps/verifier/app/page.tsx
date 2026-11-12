@@ -1,4 +1,5 @@
 'use client';
+import {ProcessReplay} from '../components/ProcessReplay';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {motion} from 'motion/react';
 import {ArrowDownToLine,ArrowUpRight,ShieldCheck,X,AlertTriangle,RotateCcw,LoaderCircle,FileText,Activity,LockKeyhole,Fingerprint} from 'lucide-react';
@@ -154,6 +155,7 @@ export default function Page(){
       <BehaviorReport assessment={result.behavior} valid={r.valid}
         checks={<><VerificationChecks inline proof={result.proof} report={r} behavior={result.behavior}/>{r.valid&&m.source==='word'&&<WordRevisionSummary records={records} partial={partial}/>}</>}
         reminders={<BehaviorPanel inline assessment={result.behavior} valid={r.valid} onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}/>}/>
+      {r.valid&&<ProcessReplay key={'replay-'+result.certificateId} records={records} partial={partial}/>}
       {r.valid&&<EmbeddedVerificationCharts key={result.certificateId} records={records} partial={partial} reduced={reduced}/>}
       {r.valid&&r.chain_valid&&<Timeline key={result.certificateId+String(proofFile?.lastModified)} records={records} signals={result.behavior?.signals} selectedSeq={focusedEventSeq} onSelect={setFocusedEventSeq}/>}
       {result.certificateMatch===false&&<p className="error-box" role="alert">证书指纹不一致：这不是发送者指定的证书。请向发送者确认，勿作为有效交付凭据。</p>}
