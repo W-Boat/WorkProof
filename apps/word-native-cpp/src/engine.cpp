@@ -69,6 +69,10 @@ bool PresentationText(IDispatch* slides,long slideCount,long long shapeCount,Doc
     if(shapeCount>4096)return false;
     const auto began=GetTickCount64();long visited=0;long long characters=0;long paragraphs=0;
     std::wstring data=L"workproof-ppt-text-v1;";
+    std::wstring formatting=L"workproof-ppt-format-v1;";
+    ULONGLONG formatTime=0;
+    bool formatComplete=true;
+    auto textTime=[&](){return GetTickCount64()-began-formatTime;};
     auto dispatch=[](IDispatch* object,const wchar_t* name,Variant& out){
         return SUCCEEDED(GetProperty(object,name,out.get()))&&out.value.vt==VT_DISPATCH&&out.value.pdispVal;
     };
@@ -87,8 +91,42 @@ bool PresentationText(IDispatch* slides,long slideCount,long long shapeCount,Doc
         if(FAILED(GetProperty(object,L"Count",value.get()))||value.value.vt!=VT_I4||value.value.lVal<0)return false;
         count=value.value.lVal;return true;
     };
+    auto formatRange=[&](IDispatch* range){
+        if(!formatComplete)return;
+        const auto started=GetTickCount64();
+        auto append=[&](IDispatch* object,const wchar_t* property){
+            if(formatTime+GetTickCount64()-started>=50)return false;
+            Variant value;
+            if(FAILED(GetProperty(object,property,value.get())))return false;
+            if(value.value.vt==VT_BSTR){
+                const auto length=SysStringLen(value.value.bstrVal);
+                if(length>256)return false;
+                formatting+=std::to_wstring(length)+L":";
+                if(length)formatting.append(value.value.bstrVal,length);
+            }else{
+                Variant number;
+                if(FAILED(VariantChangeType(number.get(),value.get(),0,VT_R8))||!std::isfinite(number.value.dblVal))return false;
+                formatting+=std::to_wstring(number.value.dblVal);
+            }
+            formatting+=L";";return true;
+        };
+        Variant font,paragraph;
+        formatComplete=dispatch(range,L"Font",font)&&dispatch(range,L"ParagraphFormat",paragraph);
+        if(formatComplete){
+            for(auto property:{L"Name",L"Size",L"Bold",L"Italic"}){
+                if(!append(font.value.pdispVal,property)){formatComplete=false;break;}
+            }
+        }
+        if(formatComplete){
+            for(auto property:{L"Alignment",L"SpaceBefore",L"SpaceAfter",L"SpaceWithin"}){
+                if(!append(paragraph.value.pdispVal,property)){formatComplete=false;break;}
+            }
+        }
+        formatTime+=GetTickCount64()-started;
+        if(formatTime>=50)formatComplete=false;
+    };
     auto textFrame=[&](IDispatch* object,const wchar_t* property){
-        if(GetTickCount64()-began>=100)return false;
+        if(textTime()>=100)return false;
         Variant frame,range,text;
         if(!dispatch(object,property,frame)||!dispatch(frame.value.pdispVal,L"TextRange",range)||
            FAILED(GetProperty(range.value.pdispVal,L"Text",text.get()))||text.value.vt!=VT_BSTR)return false;
@@ -99,7 +137,9 @@ bool PresentationText(IDispatch* slides,long slideCount,long long shapeCount,Doc
             data.append(text.value.bstrVal,length);++paragraphs;
             for(UINT j=0;j<length;++j)if(text.value.bstrVal[j]==L'\r')++paragraphs;
         }
-        data+=L";";return true;
+        data+=L";";
+        if(length)formatRange(range.value.pdispVal);
+        return true;
     };
     auto tableText=[&](IDispatch* object){
         Variant table,rows,columns;long rowCount=0,columnCount=0;
@@ -110,7 +150,7 @@ bool PresentationText(IDispatch* slides,long slideCount,long long shapeCount,Doc
         // Merged cells may resolve to the same shape; count that text once.
         std::set<long> cellIds;
         for(long row=1;row<=rowCount;++row)for(long column=1;column<=columnCount;++column){
-            if(GetTickCount64()-began>=100)return false;
+            if(textTime()>=100)return false;
             ++visited;
             Variant cell,shape,id;
             if(!indexed(table.value.pdispVal,L"Cell",row,column,cell)||!dispatch(cell.value.pdispVal,L"Shape",shape)||
@@ -125,7 +165,7 @@ bool PresentationText(IDispatch* slides,long slideCount,long long shapeCount,Doc
            !countOf(nodes.value.pdispVal,count)||count>4096-visited)return false;
         data+=L"smartart="+std::to_wstring(count)+L";";
         for(long n=1;n<=count;++n){
-            if(GetTickCount64()-began>=100)return false;
+            if(textTime()>=100)return false;
             ++visited;Variant node;
             if(!item(nodes.value.pdispVal,n,node)||!textFrame(node.value.pdispVal,L"TextFrame2"))return false;
         }
@@ -136,7 +176,7 @@ bool PresentationText(IDispatch* slides,long slideCount,long long shapeCount,Doc
         if(depth>32)return false;
         Variant count;if(FAILED(GetProperty(collection,L"Count",count.get()))||count.value.vt!=VT_I4||count.value.lVal<0||count.value.lVal>4096-visited)return false;
         for(long n=1;n<=count.value.lVal;++n){
-            if(GetTickCount64()-began>=100||++visited>4096)return false;
+            if(textTime()>=100||++visited>4096)return false;
             Variant shape,type,has,number;if(!item(collection,n,shape)||FAILED(GetProperty(shape.value.pdispVal,L"Type",type.get()))||FAILED(VariantChangeType(number.get(),type.get(),0,VT_I4)))return false;
             if(number.value.lVal==6){Variant group;if(FAILED(GetProperty(shape.value.pdispVal,L"GroupItems",group.get()))||group.value.vt!=VT_DISPATCH||!group.value.pdispVal||!collect(group.value.pdispVal,depth+1))return false;continue;}
             if(number.value.lVal==19){if(!tableText(shape.value.pdispVal))return false;continue;}
@@ -147,13 +187,15 @@ bool PresentationText(IDispatch* slides,long slideCount,long long shapeCount,Doc
         return true;
     };
     for(long n=1;n<=slideCount;++n){
-        if(GetTickCount64()-began>=100)return false;
+        if(textTime()>=100)return false;
         Variant slide,shapes;if(!item(slides,n,slide)||FAILED(GetProperty(slide.value.pdispVal,L"Shapes",shapes.get()))||shapes.value.vt!=VT_DISPATCH||!shapes.value.pdispVal||!collect(shapes.value.pdispVal,0))return false;
     }
-    if(GetTickCount64()-began>=100)return false;
+    if(textTime()>=100)return false;
     unsigned char digest[32]{};if(BCryptHash(BCRYPT_SHA256_ALG_HANDLE,nullptr,0,reinterpret_cast<PUCHAR>(data.data()),static_cast<ULONG>(data.size()*sizeof(wchar_t)),digest,sizeof(digest))<0)return false;
     const wchar_t* hex=L"0123456789abcdef";std::wstring result;for(auto byte:digest){result+=hex[byte>>4];result+=hex[byte&15];}
-    snapshot.characters=characters;snapshot.paragraphs=paragraphs;snapshot.textSignature=result;return true;
+    snapshot.characters=characters;snapshot.paragraphs=paragraphs;snapshot.textSignature=result;
+    if(formatComplete)snapshot.formatSignature=std::move(formatting);
+    return true;
 }
 // Optional bounded structure sampling. Never read text, names, pixels or notes.
 std::wstring PresentationStructure(IDispatch* slides,long slideCount,long long shapeCount){

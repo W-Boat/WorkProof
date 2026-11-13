@@ -462,7 +462,12 @@ void Sample() {
         PauseAfterSampleError(error);return;
     }
     const bool layoutChanged=!g.layoutSignature.empty()&&!snapshot.layoutSignature.empty()&&g.layoutSignature!=snapshot.layoutSignature;
-    const bool formatChanged=g.selectionStart>=0&&g.selectionStart==snapshot.selectionStart&&g.selectionEnd==snapshot.selectionEnd&&
+    const bool formatChanged=
+#ifdef WORKPROOF_POWERPOINT
+        snapshot.textSampled&&g.textSampled&&snapshot.textSignature==g.textSignature&&
+#else
+        g.selectionStart>=0&&g.selectionStart==snapshot.selectionStart&&g.selectionEnd==snapshot.selectionEnd&&
+#endif
         !g.formatSignature.empty()&&!snapshot.formatSignature.empty()&&g.formatSignature!=snapshot.formatSignature;
     // Advance each baseline only after its own event is acknowledged. If the
     // second event fails, retrying cannot erase it or duplicate the first event.
