@@ -701,3 +701,30 @@ saveReconnect.addEventListener('click', async () => {
     saveReconnect.disabled = false;
   }
 });
+
+const autoStartSettings = $('office-auto-start-settings');
+const autoStartStatus = $('office-auto-start-status');
+const autoStartFields = [['word', $('auto-start-word')], ['powerpoint', $('auto-start-powerpoint')]];
+window.addEventListener('workproof-view', async event => {
+  if (event.detail !== 'settings' || document.body.dataset.platform !== 'windows' || !autoStartSettings.hidden) return;
+  try {
+    const settings = await Promise.all(autoStartFields.map(([host]) => ipc('office_auto_start', {host, enabled:null})));
+    autoStartFields.forEach(([, field], index) => field.checked = settings[index]);
+    autoStartSettings.hidden = false;
+  } catch (error) {
+    ui.showMessage(errorText(error), 'error');
+  }
+});
+for (const [host, field] of autoStartFields) field.addEventListener('change', async () => {
+  const enabled = field.checked;
+  field.disabled = true;
+  try {
+    field.checked = await ipc('office_auto_start', {host, enabled});
+    autoStartStatus.textContent = '已保存设置。';
+  } catch (error) {
+    field.checked = !enabled;
+    autoStartStatus.textContent = errorText(error);
+  } finally {
+    field.disabled = false;
+  }
+});

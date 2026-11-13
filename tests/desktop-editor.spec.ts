@@ -30,6 +30,7 @@ async function desktop(page:Page){
       if(command==='save_report'){if(w.nativeReportSave)return w.nativeReportSave(args);throw new Error('Native report saver is not configured for this test');}
       if(command==='engine_status')return {ready:true,sessions:0,events:0,...(w.editorHarness.engineStatus||{})};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
+      if(command==='office_auto_start'){const key='test.auto-start.'+args.host;if(args.enabled!==null)localStorage.setItem(key,String(args.enabled));return localStorage.getItem(key)==='true';}
       if(command==='office_reconnect')return {seconds:5,attempts:3};
       if(command==='recording_limit')return Number(localStorage.getItem('test.recording-limit'))||null;
       if(command==='set_recording_limit'){localStorage.setItem('test.recording-limit',String(args.limit??''));return null;}

@@ -101,3 +101,34 @@ pub async fn set_office_reconnect(window: WebviewWindow, seconds: u32, attempts:
     #[cfg(not(windows))]
     Err("当前平台不支持原生 Office 重连设置。".into())
 }
+
+#[tauri::command]
+pub async fn office_auto_start(window: WebviewWindow, host: String, enabled: Option<bool>) -> Result<bool, String> {
+    super::workbench_only(&window)?;
+    let setting = match host.as_str() {
+        "word" => "WordAutoStart",
+        "powerpoint" => "PowerPointAutoStart",
+        _ => return Err("无法识别 Office 应用。".into()),
+    };
+    #[cfg(windows)]
+    return tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
+        let key = r"HKCU\Software\WorkProof";
+        if let Some(enabled) = enabled {
+            let value = if enabled { "1" } else { "0" };
+            let output = office_registry().args(["add", key, "/v", setting, "/t", "REG_DWORD", "/d", value, "/f"])
+                .output().map_err(|_| "无法保存自动开始设置。")?;
+            if !output.status.success() { return Err("无法保存自动开始设置。".into()); }
+            return Ok(enabled);
+        }
+        let output = office_registry().args(["query", key, "/v", setting]).output()
+            .map_err(|_| "无法读取自动开始设置。")?;
+        Ok(String::from_utf8_lossy(&output.stdout).lines().any(|line| {
+            line.split_once("REG_DWORD").is_some_and(|(name,value)| name.trim()==setting && value.trim()=="0x1")
+        }))
+    }).await.map_err(|_| "无法读取或保存自动开始设置。")?;
+    #[cfg(not(windows))]
+    {
+        let _ = (setting, enabled);
+        Err("当前平台不支持原生 Office 自动开始。".into())
+    }
+}

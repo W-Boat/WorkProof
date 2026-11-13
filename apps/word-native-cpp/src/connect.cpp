@@ -253,7 +253,7 @@ STDMETHODIMP CExtensibility::Invoke(DISPID id, REFIID, LCID, WORD flags, DISPPAR
         case DispOnConnection: return OnConnection(application, connectMode, addInInstance, nullptr);
         case DispOnDisconnection: return OnDisconnection(0, nullptr);
         case DispOnAddInsUpdate: return S_OK;
-        case DispOnStartupComplete: return S_OK;
+        case DispOnStartupComplete: return OnStartupComplete(nullptr);
         case DispOnBeginShutdown: return OnBeginShutdown(nullptr);
         default: return DISP_E_MEMBERNOTFOUND;
     }
@@ -272,6 +272,7 @@ HRESULT __stdcall CExtensibility::OnConnection(IDispatch* application, int conne
             TraceHresult(L"Publish automation Object",addInInstance->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_PROPERTYPUT,&args,nullptr,nullptr,nullptr));
         }
     }
+    if(application)PaneEnableAutoStartWatch();
     Trace(L"OnConnection completed");
     return S_OK;
 }
@@ -284,7 +285,7 @@ HRESULT __stdcall CExtensibility::OnDisconnection(int removeMode, SAFEARRAY** cu
 }
 
 HRESULT __stdcall CExtensibility::OnAddInsUpdate(SAFEARRAY** custom) { return S_OK; }
-HRESULT __stdcall CExtensibility::OnStartupComplete(SAFEARRAY** custom) { return S_OK; }
+HRESULT __stdcall CExtensibility::OnStartupComplete(SAFEARRAY** custom) { PaneEnableAutoStartWatch();return S_OK; }
 HRESULT __stdcall CExtensibility::OnBeginShutdown(SAFEARRAY** custom) {
     Trace(L"OnBeginShutdown entered");
     PaneClose();

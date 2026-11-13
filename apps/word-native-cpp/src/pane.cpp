@@ -49,6 +49,12 @@ struct State {
     IDispatch* factory = nullptr;
     IDispatch* taskPane = nullptr;
     bool launchFeedback = false;
+    UINT_PTR autoStartTimer = 0;
+    bool autoStarting = false;
+    bool autoPairing = false;
+    bool localPathBinding = false;
+    std::wstring autoAttemptedIdentity;
+
     int scroll=0;
     HWND heading=nullptr, intro=nullptr, privacy=nullptr;
     HWND status = nullptr;
@@ -336,12 +342,23 @@ void ClosePane() {
     DestroyWindow(g.window);
 }
 
+bool AutoStartEnabled() {
+#ifdef WORKPROOF_POWERPOINT
+    const wchar_t* key = L"PowerPointAutoStart";
+#else
+    const wchar_t* key = L"WordAutoStart";
+#endif
+    DWORD enabled=0, bytes=sizeof(enabled);
+    return RegGetValueW(HKEY_CURRENT_USER,L"Software\\WorkProof",key,RRF_RT_REG_DWORD,nullptr,&enabled,&bytes)==ERROR_SUCCESS&&enabled==1;
+}
+
 void BeginPairing() {
     DocSnapshot snapshot;
     std::wstring error;
     if (!ReadDocument(g.word, snapshot, error)) { SetStatus(error); return; }
     if (!g.session.empty()) return;
     g.pairing = true;
+    g.autoPairing = g.autoStarting;
     g.cancelPairing = false;
     g.documentName = snapshot.name;
     g.identity = snapshot.identity;
@@ -353,8 +370,11 @@ void BeginPairing() {
 
 void ShowLaunchFeedback();
 
+
 void FinishPairing(PairResult* result) {
     g.pairing = false;
+    const bool automatic = g.autoStarting || g.autoPairing;
+    g.autoPairing = false;
     if (!result) { PaintState(); return; }
     if (result->token.empty()) {
         SetStatus(result->error.empty() ? L"连接未完成，请重试。" : result->error);
@@ -364,11 +384,16 @@ void FinishPairing(PairResult* result) {
     }
     g.token = result->token;
     const bool localPathBinding=result->localPathBinding;
+    g.localPathBinding=localPathBinding;
     delete result;
+    if (automatic && !AutoStartEnabled()) { SetStatus(L"自动开始已关闭。");PaintState();return; }
 
     DocSnapshot snapshot;
     std::wstring error;
     if (!ReadDocument(g.word, snapshot, error)) { SetStatus(error); PaintState(); return; }
+    if (automatic && snapshot.readOnly) {
+        SetStatus(L"当前文档只读，自动记录未开始。");PaintState();return;
+    }
     if(snapshot.identity!=g.identity){
         SetStatus(L"等待连接期间切换了文档，尚未开始记录。请切回原文档后重新开始。");
         g.launchFeedback=false;PaintState();return;
@@ -380,6 +405,7 @@ void FinishPairing(PairResult* result) {
     body+="}";
     std::string response;
     if (!Call(L"POST", L"/v1/sessions", body, true, response, error)) { SetStatus(error); PaintState(); return; }
+    g.autoAttemptedIdentity = snapshot.identity;
     g.session = Utf8ToWide(JsonField(response, "session_id"));
     if (g.session.empty()) { SetStatus(L"桌面端没有返回记录编号，本次开始未完成。"); PaintState(); return; }
     g.identity = snapshot.identity;
@@ -1027,29 +1053,82 @@ bool PaneCreated() { return g.window != nullptr; }
 void PaneSetFactory(IDispatch* factory){
     if(factory)factory->AddRef();if(g.factory)g.factory->Release();g.factory=factory;
 }
-void PaneShow() {
+void ShowPane(bool automatic) {
     if(!g.taskPane){
-        if(!g.factory){MessageBoxW(nullptr,L"Word 尚未提供侧栏接口。请重启 Word 后重试。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;}
+        if(!g.factory){if(!automatic)MessageBoxW(nullptr,L"Word 尚未提供侧栏接口。请重启 Word 后重试。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;}
         VARIANT args[3];for(auto& value:args)VariantInit(&value);
         // Bind to the actual document window; relying on Office's implicit
         // ActiveWindow can fail during the new-document startup transition.
         HRESULT windowResult=Dispatch(g.word,L"ActiveWindow",DISPATCH_PROPERTYGET,nullptr,0,&args[0]);
         if(FAILED(windowResult)||args[0].vt!=VT_DISPATCH||!args[0].pdispVal){
             VariantClear(&args[0]);
-            MessageBoxW(nullptr,L"请先在 Word 中打开或新建一份文档，再打开创作记录。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;
+            if(!automatic)MessageBoxW(nullptr,L"请先在 Word 中打开或新建一份文档，再打开创作记录。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;
         }
         args[1].vt=VT_BSTR;args[1].bstrVal=SysAllocString(L"WorkProof · 创作记录");
         args[2].vt=VT_BSTR;args[2].bstrVal=SysAllocString(kTaskPaneProgId);
         VARIANT result;VariantInit(&result);HRESULT hr=Dispatch(g.factory,L"CreateCTP",DISPATCH_METHOD,args,3,&result);
         for(auto& value:args)VariantClear(&value);TraceHresult(L"CreateCTP",hr);
         if(SUCCEEDED(hr)&&result.vt==VT_DISPATCH){g.taskPane=result.pdispVal;g.taskPane->AddRef();}VariantClear(&result);
-        if(!g.taskPane){MessageBoxW(nullptr,L"Word 未能打开记录侧栏。请先保存当前文档后重试；若仍失败，请保留当前文档并反馈此提示。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;}
+        if(!g.taskPane){if(!automatic)MessageBoxW(nullptr,L"Word 未能打开记录侧栏。请先保存当前文档后重试；若仍失败，请保留当前文档并反馈此提示。",L"WorkProof",MB_OK|MB_ICONINFORMATION);return;}
         VARIANT setting;VariantInit(&setting);setting.vt=VT_I4;setting.lVal=2;
         Dispatch(g.taskPane,L"DockPosition",DISPATCH_PROPERTYPUT,&setting,1);setting.lVal=360;Dispatch(g.taskPane,L"Width",DISPATCH_PROPERTYPUT,&setting,1);
     }
     VARIANT visible;VariantInit(&visible);visible.vt=VT_BOOL;visible.boolVal=VARIANT_TRUE;
     TraceHresult(L"Show task pane",Dispatch(g.taskPane,L"Visible",DISPATCH_PROPERTYPUT,&visible,1));
 }
+void PaneShow() { ShowPane(false); }
+
+static std::wstring ActiveDocumentIdentity() {
+#ifdef WORKPROOF_POWERPOINT
+    const wchar_t* property=L"ActivePresentation";
+#else
+    const wchar_t* property=L"ActiveDocument";
+#endif
+    VARIANT doc={},name={};
+    std::wstring identity;
+    if(SUCCEEDED(Dispatch(g.word,property,DISPATCH_PROPERTYGET,nullptr,0,&doc))&&doc.vt==VT_DISPATCH&&doc.pdispVal&&
+       SUCCEEDED(Dispatch(doc.pdispVal,L"FullName",DISPATCH_PROPERTYGET,nullptr,0,&name))&&name.vt==VT_BSTR&&name.bstrVal)
+        identity.assign(name.bstrVal,SysStringLen(name.bstrVal));
+    VariantClear(&name);VariantClear(&doc);
+    return identity;
+}
+
+static void CALLBACK AutoStartTick(HWND,UINT,UINT_PTR,DWORD) {
+    if(!g.word||!g.factory||g.pairing||g.writing||g.autoStarting||g.reconnectRemaining)return;
+    if(!AutoStartEnabled()){g.autoAttemptedIdentity.clear();return;}
+    if(!g.session.empty()&&!g.paused)return;
+    const auto identity=ActiveDocumentIdentity();
+    if(identity.empty()||(!g.session.empty()&&identity==g.identity)||identity==g.autoAttemptedIdentity)return;
+    const bool absolute=(identity.size()>2&&identity[1]==L':'&&(identity[2]==L'\\'||identity[2]==L'/'))||identity.rfind(L"\\\\",0)==0;
+    if(!absolute)return;
+    const DWORD attributes=GetFileAttributesW(identity.c_str());
+    if(attributes==INVALID_FILE_ATTRIBUTES||(attributes&FILE_ATTRIBUTE_DIRECTORY))return;
+    DocSnapshot snapshot;std::wstring error;
+    if(!ReadDocument(g.word,snapshot,error)||snapshot.identity!=identity||snapshot.readOnly)return;
+    g.autoAttemptedIdentity=identity;
+    g.autoStarting=true;
+    ShowPane(true);
+    if(g.window){
+        const auto token=g.token;
+        const bool localPathBinding=g.localPathBinding;
+        if(g.session.empty()||ResetPausedRecording()){
+            if(token.empty())BeginPairing();
+            else {
+                g.identity=identity;
+                auto* approved=new PairResult();approved->token=token;approved->localPathBinding=localPathBinding;
+                FinishPairing(approved);
+                // Revoked/expired approval needs a new explicit desktop decision.
+                if(g.session.empty()&&g.token.empty())BeginPairing();
+            }
+        }
+    }
+    g.autoStarting=false;
+}
+
+void PaneEnableAutoStartWatch() {
+    if(g.word&&!g.autoStartTimer)g.autoStartTimer=SetTimer(nullptr,0,3000,AutoStartTick);
+}
+
 HWND PaneCreateChild(HWND parent,const RECT& rect){
     if(!parent||!EnsureClass())return nullptr;
     if(g.window)return GetParent(g.window)==parent?g.window:nullptr;
@@ -1063,6 +1142,8 @@ void PaneLaunchRecording(){PaneShow();if(g.window){g.launchFeedback=true;PostMes
 void PaneTogglePause() { PaneShow(); if(g.window)TogglePause(); }
 void PaneExport() { PaneShow(); if(g.window)Export(); }
 void PaneClose() {
+    if(g.autoStartTimer){KillTimer(nullptr,g.autoStartTimer);g.autoStartTimer=0;}
+    g.autoAttemptedIdentity.clear();
     if(g.editorHook){UnhookWindowsHookEx(g.editorHook);g.editorHook=nullptr;}
     g.actions.Clear();
     ClosePane();
