@@ -92,7 +92,11 @@ async function ensureToolsOpen(page:Page){
   await expect.poll(()=>page.evaluate(()=>!document.getAnimations().some(animation=>
     animation.playState==='running'&&animation.effect?.getComputedTiming().iterations!==Infinity
   ))).toBe(true);
-  if(await page.locator('#write-panel').getAttribute('data-ribbon-open')!=='true')await page.locator('#toggle-ribbon').click();
+  // Dedicated interaction tests exercise pointer input. Here establish the
+  // precondition in one task so resize observers cannot reverse the toggle.
+  await page.locator('#toggle-ribbon').evaluate(button=>{
+    if(document.getElementById('write-panel')?.dataset.ribbonOpen!=='true')(button as HTMLElement).click();
+  });
   await expect(page.locator('#write-panel')).toHaveAttribute('data-ribbon-open','true');
   // A child can have a stable rectangle while its animated parent still clips
   // it. Wait for actual usable space before asking WebKit to scroll/click it.
