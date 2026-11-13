@@ -200,7 +200,7 @@ std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long i
                       const std::string& checkpoint,const std::string& actions=std::string()) {
     wchar_t buffer[512];
 #ifdef WORKPROOF_POWERPOINT
-    swprintf_s(buffer,L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":%lld,\"deleted\":%lld,\"chars\":%lld,\"checkpoint\":\"%S\",\"metrics\":{\"slides\":%ld,\"shapes\":%lld}}",g.sequence,ElapsedMs(),kind,inserted,deleted,snapshot.textSampled?snapshot.characters:0,checkpoint.c_str(),snapshot.slides,snapshot.shapes);
+    swprintf_s(buffer,L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":%lld,\"deleted\":%lld,\"chars\":%lld,\"checkpoint\":\"%S\",\"metrics\":{\"slides\":%ld,\"shapes\":%lld}}",g.sequence,ElapsedMs(),kind,snapshot.textSampled?inserted:0,snapshot.textSampled?deleted:0,snapshot.textSampled?snapshot.characters:0,checkpoint.c_str(),snapshot.slides,snapshot.shapes);
 #else
     swprintf_s(buffer, L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":%lld,\"deleted\":%lld,"
                        L"\"chars\":%lld,\"checkpoint\":\"%S\",\"metrics\":{\"characters\":%lld,\"paragraphs\":%ld}}",
@@ -774,7 +774,7 @@ void CreateControls(HWND window) {
     g.cancelButton=create(L"BUTTON",L"取消连接",BS_PUSHBUTTON|WS_TABSTOP);
     g.verifierLink=create(L"BUTTON",L"核验已有证书",BS_PUSHBUTTON|WS_TABSTOP);
 #ifdef WORKPROOF_POWERPOINT
-    g.privacy=create(L"STATIC",L"记录幻灯片数、对象变化、时间与保存摘要。文件位置仅在本机保存，方便从文档列表打开。\n\n数量不变的文字、图片和样式修改可能无法识别。记录不能单独证明作者身份或原创性。",SS_LEFT);
+    g.privacy=create(L"STATIC",L"在本机统计文字并计算变化摘要，不保存或发送正文。另记录幻灯片、对象、时间与文件摘要。文件位置仅保存在本机。\n\n复杂页面文字和部分样式可能漏采；记录不能单独证明作者身份或原创性。",SS_LEFT);
 #else
     g.privacy=create(L"STATIC",L"不采集正文。记录编辑数量、段落数、时间与文件摘要。开启 Word 修订后，文档本身可能保留被删除的文字，分享前请检查 Word 的审阅标记。文件位置仅在本机保存，方便从文档列表打开。\n\n记录可能遗漏修改，不能单独证明作者身份或原创性。关闭侧栏后仍可通过 WorkProof 菜单暂停记录。",SS_LEFT);
 #endif
