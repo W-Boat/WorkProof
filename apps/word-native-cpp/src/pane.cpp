@@ -73,6 +73,7 @@ struct State {
     std::wstring session;
     std::string pendingEvent;
     bool transportFailed = false;
+    bool recordLimitRejected = false;
     unsigned reconnectRemaining = 0;
 
     std::wstring identity;
@@ -239,6 +240,7 @@ std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long i
 bool Call(const std::wstring& method, const std::wstring& path, const std::string& body, bool authorized,
           std::string& response, std::wstring& error) {
     g.transportFailed = false;
+    g.recordLimitRejected = false;
     long status = 0;
     if (!HttpJson(method, path, body, authorized ? g.token : std::wstring(), response, status)) {
         g.transportFailed = true;
@@ -246,7 +248,9 @@ bool Call(const std::wstring& method, const std::wstring& path, const std::strin
         return false;
     }
     if (status != 200) {
-        error = DescribeEngineError(JsonField(response, "error"));
+        const std::string code = JsonField(response, "error");
+        g.recordLimitRejected = status == 400 && code == "RECORD_LIMIT_REACHED";
+        error = DescribeEngineError(code);
         if (status == 401 || status == 403) {
             g.paused = true;
             g.token.clear();
@@ -628,6 +632,21 @@ bool WriteAll(const std::wstring& path, const std::string& body) {
     return ok;
 }
 
+bool PrepareExportHistory(const DocSnapshot& snapshot, std::wstring& error) {
+    if (FlushPending(error) && FlushActions(snapshot, error)) return true;
+    if (!g.recordLimitRejected) return false;
+    g.paused = true;
+    KillTimer(g.window, kSampleTimer);
+    const int choice = MessageBoxW(g.window,
+        L"记录已达到上限，还有操作没有保存。可以取消导出，先在 WorkProof 设置里提高上限。\n\n继续导出会在证书中标记采集缺口。是否继续？",
+        L"导出已有记录", MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2);
+    if (choice != IDYES) return false;
+    // An explicit collector rejection guarantees these bytes did not consume a sequence number.
+    g.pendingEvent.clear();
+    g.actions.Clear();
+    return SendEvent("gap", snapshot, 0, 0, std::string(), error);
+}
+
 void Export() {
     if (g.session.empty() || g.pairing || g.writing) return;
     KillTimer(g.window, kReconnectTimer);
@@ -658,6 +677,7 @@ void Export() {
         SetStatus(L"选择目录期间切换了文档，已停止导出。请切回开始记录的文档后重试。");
         g.writing=false;PaintState();return;
     }
+    if (!PrepareExportHistory(selected, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
     if (!SaveDocument(g.word, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
     DocSnapshot saved;
     if (!ReadDocument(g.word, saved, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
@@ -694,7 +714,7 @@ void Export() {
 #ifndef WORKPROOF_POWERPOINT
     check.revisions=ReadWordRevisions(g.word,g.identity);
 #endif
-    if (!FlushActions(check,error)||!SendEvent("save", check, 0, 0, hash, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
+    if (!SendEvent("save", check, 0, 0, hash, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
 
     std::string body = "{\"artifact_hash\":\"" + hash + "\",\"artifact_bytes\":" + std::to_string(bytes) + "}";
     std::string response;
@@ -725,7 +745,7 @@ void Export() {
 
     // A modal success dialog used to keep g.writing true and suppress every
     // sampling timer until the user dismissed it. Report delivery inline instead.
-    SetStatus(verified ? L"导出并核验通过。请一起交付作品和同名证书；记录仍在继续。\n保存位置："+folder
+    SetStatus(verified ? (g.paused ? L"导出并核验通过。请一起交付作品和同名证书；记录已暂停。\n保存位置：" : L"导出并核验通过。请一起交付作品和同名证书；记录仍在继续。\n保存位置：")+folder
                        : L"已导出，但核验未通过。请不要交付这份证书，重新导出后再检查。");
     g.writing = false;
     PaintState();

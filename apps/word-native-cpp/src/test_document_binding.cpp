@@ -9,18 +9,23 @@
 
 namespace {
 bool loseNextEventResponse=false;
+bool rejectNextRecordAtLimit=false;
+int confirmLimitExport=IDNO;
 std::vector<std::string> eventBodies;
 int folderCalls=0,copyCalls=0,saveCalls=0,httpCalls=0,sessionCalls=0,eventCalls=0;
 workproof::DocSnapshot current={L"C:\\fixture\\A.docx",L"A.docx",80,2,false,true};
 HRESULT FixtureCoCreate(REFCLSID,LPUNKNOWN,DWORD,REFIID,LPVOID* object){
     ++folderCalls;if(object)*object=nullptr;return E_ABORT;
 }
+int WINAPI FixtureMessageBox(HWND,LPCWSTR,LPCWSTR,UINT){return confirmLimitExport;}
 BOOL WINAPI FixtureCopy(LPCWSTR,LPCWSTR,BOOL){++copyCalls;return FALSE;}
 }
 // Instrument only the actual OS side effects of Export; production branch logic is unchanged.
 #define CoCreateInstance FixtureCoCreate
 #define CopyFileW FixtureCopy
+#define MessageBoxW FixtureMessageBox
 #include "pane.cpp"
+#undef MessageBoxW
 #undef CopyFileW
 #undef CoCreateInstance
 
@@ -38,11 +43,13 @@ bool HttpJson(const std::wstring&,const std::wstring& path,const std::string& bo
     if(path==L"/v1/sessions"){++sessionCalls;response="{\"session_id\":\"fixture-session\"}";}
     else if(path.find(L"/events")!=std::wstring::npos){
         ++eventCalls;eventBodies.push_back(body);
+        if(rejectNextRecordAtLimit){rejectNextRecordAtLimit=false;status=400;response="{\"error\":\"RECORD_LIMIT_REACHED\"}";return true;}
         if(loseNextEventResponse){loseNextEventResponse=false;return false;}
     }
     return true;
 }
 std::string JsonField(const std::string& json,const char* key){
+    if(std::string(key)=="error"&&json.find("RECORD_LIMIT_REACHED")!=std::string::npos)return "RECORD_LIMIT_REACHED";
     return std::string(key)=="session_id"&&json.find("fixture-session")!=std::string::npos?"fixture-session":"";
 }
 bool RunEngine(const std::wstring&,std::string&,std::wstring&){return false;}
@@ -82,6 +89,15 @@ int main(){
        eventBodies.back().find("\"seq\":"+std::to_string(sequenceBefore+1)+",")==std::string::npos){
         std::puts("FAIL: next event did not use the following sequence");return 1;
     }
+    const auto beforeLimit=g.sequence;
+    rejectNextRecordAtLimit=true;
+    if(SendEvent("edit",current,1,0,"",retryError)||g.pendingEvent.empty()){std::puts("FAIL: record cap must retain pending data");return 1;}
+    const auto cappedEvent=g.pendingEvent;
+    rejectNextRecordAtLimit=true;
+    if(PrepareExportHistory(current,retryError)||g.pendingEvent!=cappedEvent||g.sequence!=beforeLimit){std::puts("FAIL: canceled cap export lost pending data");return 1;}
+    confirmLimitExport=IDYES;rejectNextRecordAtLimit=true;
+    if(!PrepareExportHistory(current,retryError)||!g.pendingEvent.empty()||g.sequence!=beforeLimit+1||eventBodies.back().find("\"kind\":\"gap\"")==std::string::npos){std::puts("FAIL: confirmed cap export did not record the gap");return 1;}
+    g.paused=false;confirmLimitExport=IDNO;
     // A single sample must preserve both independently observed changes.
     g.layoutSignature=L"old-layout";g.formatSignature=L"old-format";
     g.selectionStart=current.selectionStart=4;g.selectionEnd=current.selectionEnd=9;
