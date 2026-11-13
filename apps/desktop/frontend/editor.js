@@ -671,3 +671,33 @@ saveRecordLimit.addEventListener('click', async () => {
     recordLimit.disabled = saveRecordLimit.disabled = false;
   }
 });
+
+const officeReconnect = $('office-reconnect-settings');
+const reconnectSeconds = $('office-reconnect-seconds');
+const reconnectAttempts = $('office-reconnect-attempts');
+const reconnectStatus = $('office-reconnect-status');
+const saveReconnect = $('save-office-reconnect');
+window.addEventListener('workproof-view', async event => {
+  if (event.detail !== 'settings' || document.body.dataset.platform !== 'windows' || !officeReconnect.hidden) return;
+  try {
+    const settings = await ipc('office_reconnect');
+    if (!settings) return;
+    reconnectSeconds.value = String(settings.seconds);
+    reconnectAttempts.value = String(settings.attempts);
+    officeReconnect.hidden = false;
+  } catch (error) {
+    ui.showMessage(errorText(error), 'error');
+  }
+});
+saveReconnect.addEventListener('click', async () => {
+  if (!reconnectSeconds.reportValidity() || !reconnectAttempts.reportValidity()) return;
+  saveReconnect.disabled = true;
+  try {
+    await ipc('set_office_reconnect', {seconds: reconnectSeconds.valueAsNumber, attempts: reconnectAttempts.valueAsNumber});
+    reconnectStatus.textContent = '已保存。下次断线时生效。';
+  } catch (error) {
+    reconnectStatus.textContent = errorText(error);
+  } finally {
+    saveReconnect.disabled = false;
+  }
+});

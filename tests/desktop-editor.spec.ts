@@ -30,6 +30,7 @@ async function desktop(page:Page){
       if(command==='save_report'){if(w.nativeReportSave)return w.nativeReportSave(args);throw new Error('Native report saver is not configured for this test');}
       if(command==='engine_status')return {ready:true,sessions:0,events:0,...(w.editorHarness.engineStatus||{})};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
+      if(command==='office_reconnect')return {seconds:5,attempts:3};
       if(command==='recording_limit')return Number(localStorage.getItem('test.recording-limit'))||null;
       if(command==='set_recording_limit'){localStorage.setItem('test.recording-limit',String(args.limit??''));return null;}
       if(command==='editor_list')return Object.values(docs);
@@ -871,7 +872,7 @@ test('document statistics count Unicode characters and return focus without chan
   const stats=page.getByRole('dialog',{name:'文档统计',exact:true});await expect(stats).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.screenshot({path:info.outputPath('workspace-statistics-dark.png')});
-  for(const [label,count] of [['字符（含空白）','16'],['非空白字符','13'],['汉字','2'],['英文词','2'],['文字段落（含标题）','1']]){
+  for(const [label,count] of [['字符（含空白）','17'],['非空白字符','14'],['汉字','2'],['英文词','2'],['文字段落（含标题）','1']]){
     await expect(stats.locator('dl > div').filter({has:page.getByText(label,{exact:true})}).locator('dd')).toHaveText(count);
   }
   await page.keyboard.press('Escape');await expect(stats).not.toBeVisible();

@@ -25,6 +25,7 @@ const wchar_t* kTaskPaneProgId=L"WorkProof.WordNative.TaskPane";
 
 const wchar_t kClassName[] = L"WorkProofWordPane";
 const UINT kSampleTimer = 1;
+const UINT kReconnectTimer = 2;
 const UINT WM_APP_PAIRED = WM_APP + 1;
 const UINT WM_APP_LAUNCH = WM_APP + 2;
 const int kSampleIntervalMs = 1500;
@@ -71,6 +72,9 @@ struct State {
     std::wstring token;
     std::wstring session;
     std::string pendingEvent;
+    bool transportFailed = false;
+    unsigned reconnectRemaining = 0;
+
     std::wstring identity;
     std::wstring documentName;
     long long sequence = 0;
@@ -234,8 +238,10 @@ std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long i
 
 bool Call(const std::wstring& method, const std::wstring& path, const std::string& body, bool authorized,
           std::string& response, std::wstring& error) {
+    g.transportFailed = false;
     long status = 0;
     if (!HttpJson(method, path, body, authorized ? g.token : std::wstring(), response, status)) {
+        g.transportFailed = true;
         error = L"连不上桌面端 WorkProof（127.0.0.1:43127）。请先打开 WorkProof 桌面程序再试。";
         return false;
     }
@@ -401,6 +407,28 @@ void FinishPairing(PairResult* result) {
     if(g.launchFeedback){g.launchFeedback=false;ShowLaunchFeedback();}
 }
 
+DWORD ReconnectPreference() {
+    DWORD value = (3u << 16) | 5u;
+    DWORD bytes = sizeof(value);
+    DWORD stored = 0;
+    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\WorkProof", L"OfficeReconnect", RRF_RT_REG_DWORD, nullptr, &stored, &bytes) == ERROR_SUCCESS &&
+        HIWORD(stored) <= 10 && LOWORD(stored) >= 1 && LOWORD(stored) <= 60) value = stored;
+    return value;
+}
+
+void PauseAfterSampleError(const std::wstring& error) {
+    g.paused = true;
+    KillTimer(g.window, kSampleTimer);
+    SetStatus(error);
+    if (g.transportFailed && !g.pendingEvent.empty() && !g.token.empty()) {
+        const DWORD preference = ReconnectPreference();
+        g.reconnectRemaining = HIWORD(preference);
+        if (g.reconnectRemaining && !SetTimer(g.window, kReconnectTimer, LOWORD(preference) * 1000u, nullptr)) g.reconnectRemaining = 0;
+        if (g.reconnectRemaining) SetStatus(L"连接中断，正在等待重试。未确认记录已保留。");
+    }
+    PaintState();
+}
+
 void Sample() {
     if (g.paused || g.session.empty() || g.writing) return;
     DocSnapshot snapshot;
@@ -425,11 +453,13 @@ void Sample() {
 #endif
     long long now = ElapsedMs();
     if (g.lastSampleMs != 0 && now - g.lastSampleMs > 15000) {
-        SendEvent("gap", snapshot, 0, 0, std::string(), error);
+        if (!SendEvent("gap", snapshot, 0, 0, std::string(), error)) {
+            PauseAfterSampleError(error);return;
+        }
     }
     g.lastSampleMs = now;
     if(!FlushActions(snapshot,error)){
-        g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+        PauseAfterSampleError(error);return;
     }
     const bool layoutChanged=!g.layoutSignature.empty()&&!snapshot.layoutSignature.empty()&&g.layoutSignature!=snapshot.layoutSignature;
     const bool formatChanged=g.selectionStart>=0&&g.selectionStart==snapshot.selectionStart&&g.selectionEnd==snapshot.selectionEnd&&
@@ -438,13 +468,13 @@ void Sample() {
     // second event fails, retrying cannot erase it or duplicate the first event.
     if(layoutChanged){
         if(!SendEvent("layout",snapshot,0,0,std::string(),error)){
-            g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+            PauseAfterSampleError(error);return;
         }
         g.layoutSignature=snapshot.layoutSignature;
     }
     if(formatChanged){
         if(!SendEvent("format",snapshot,0,0,std::string(),error)){
-            g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+            PauseAfterSampleError(error);return;
         }
         g.formatSignature=snapshot.formatSignature;
     }
@@ -454,7 +484,7 @@ void Sample() {
     g.editorWindow=snapshot.editorWindow;
 #ifdef WORKPROOF_POWERPOINT
     if(snapshot.textSampled!=g.textSampled&&!SendEvent("gap",snapshot,0,0,std::string(),error)){
-        g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+        PauseAfterSampleError(error);return;
     }
 #endif
     const bool textChanged=snapshot.textSampled&&g.textSampled&&snapshot.textSignature!=g.textSignature;
@@ -466,16 +496,14 @@ void Sample() {
         if(!snapshot.textSampled||!g.textSampled)inserted=deleted=0;
 #endif
         if (!SendEvent("edit", snapshot, inserted, deleted, std::string(), error)) {
-            g.paused = true;
-            KillTimer(g.window, kSampleTimer);
-            SetStatus(error);PaintState();return;
+            PauseAfterSampleError(error);return;
         }
     }
 #ifndef WORKPROOF_POWERPOINT
     if(!(snapshot.revisions==g.lastRevisions)){
         if(!changed&&(snapshot.revisions.tracking>=0||snapshot.revisions.total>=0)&&
            !SendEvent("interaction",snapshot,0,0,std::string(),error)){
-            g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+            PauseAfterSampleError(error);return;
         }
         if(g.lastRevisions.tracking==1&&snapshot.revisions.tracking==0)SetStatus(L"记录中 · Word 修订已关闭，后续修改可能没有修订标记。");
         if(g.lastRevisions.tracking==0&&snapshot.revisions.tracking==1)SetStatus(L"记录中 · Word 修订已开启。");
@@ -493,6 +521,8 @@ void Sample() {
 }
 
 void TogglePause() {
+    KillTimer(g.window, kReconnectTimer);
+    g.reconnectRemaining = 0;
     std::wstring error;
     if (g.session.empty()) return;
     if (!g.paused) {
@@ -533,13 +563,30 @@ void TogglePause() {
     PaintState();
 }
 
+void RetryRecordingConnection() {
+    if (g.writing || g.pairing) return;
+    KillTimer(g.window, kReconnectTimer);
+    if (!g.paused || !g.reconnectRemaining || g.session.empty() || g.token.empty()) return;
+    const unsigned remaining = g.reconnectRemaining - 1;
+    g.transportFailed = false;
+    TogglePause(); // Resume validates document identity, flushes pending bytes and records the gap.
+    if (!g.paused || !g.transportFailed) return;
+    if (remaining && SetTimer(g.window, kReconnectTimer, LOWORD(ReconnectPreference()) * 1000u, nullptr)) {
+        g.reconnectRemaining = remaining;
+        SetStatus(L"连接仍未恢复，剩余重试次数：" + std::to_wstring(remaining));
+    } else {
+        SetStatus(L"自动重试已结束。请检查桌面端，然后点击继续记录。");
+    }
+    PaintState();
+}
+
 // Called only after explicit user confirmation. A failed acknowledgement must
 // retain the previous session and its exact pending bytes so it remains retryable.
 bool ResetPausedRecording(){
     if(g.session.empty()||!g.paused||g.pairing||g.writing)return false;
     std::wstring error;
     if(!FlushPending(error)){SetStatus(L"旧记录还有操作未保存，暂时不能开始另一份。"+error);PaintState();return false;}
-    KillTimer(g.window,kSampleTimer);
+    KillTimer(g.window,kSampleTimer);KillTimer(g.window,kReconnectTimer);g.reconnectRemaining=0;
     g.token.clear();g.session.clear();g.pendingEvent.clear();g.identity.clear();g.documentName.clear();
     g.actions.Clear();g.editorWindow=nullptr;g.layoutSignature.clear();g.formatSignature.clear();g.structureSignature.clear();
     g.sequence=0;g.lastSampleMs=0;g.lastCharacters=-1;g.lastParagraphs=-1;g.lastSlides=-1;g.lastShapes=-1;
@@ -578,6 +625,8 @@ bool WriteAll(const std::wstring& path, const std::string& body) {
 
 void Export() {
     if (g.session.empty() || g.pairing || g.writing) return;
+    KillTimer(g.window, kReconnectTimer);
+    g.reconnectRemaining = 0;
     g.writing = true;
     PaintState();
     std::wstring error;
@@ -850,6 +899,7 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
         }
         case WM_TIMER:
             if (wParam == kSampleTimer) Sample();
+            else if (wParam == kReconnectTimer) RetryRecordingConnection();
             return 0;
         case WM_COMMAND: {
             HWND source = (HWND)lParam;
@@ -891,7 +941,7 @@ LRESULT CALLBACK PaneProc(HWND window, UINT message, WPARAM wParam, LPARAM lPara
             ShowWindow(window, SW_HIDE);
             return 0;
         case WM_DESTROY:
-            KillTimer(window,kSampleTimer);g.paused=true;g.cancelPairing=true;++g.pairingGeneration;g.pairing=false;
+            KillTimer(window,kSampleTimer);KillTimer(window,kReconnectTimer);g.reconnectRemaining=0;g.paused=true;g.cancelPairing=true;++g.pairingGeneration;g.pairing=false;
             MSG pending;while(PeekMessageW(&pending,window,WM_APP_PAIRED,WM_APP_PAIRED,PM_REMOVE))delete (PairResult*)pending.lParam;
             if (g.background) DeleteObject(g.background);
             if (g.cardBrush) DeleteObject(g.cardBrush);

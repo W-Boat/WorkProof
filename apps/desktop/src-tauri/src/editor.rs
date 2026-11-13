@@ -56,3 +56,48 @@ pub async fn set_recording_limit(window: WebviewWindow, limit: Option<u64>) -> R
     tauri::async_runtime::spawn_blocking(move || workproof_engine::recording_settings::save(&dir, limit))
         .await.map_err(|_| "无法保存记录设置。")?
 }
+
+#[cfg(windows)]
+fn office_registry() -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    let mut command = std::process::Command::new("reg.exe");
+    command.creation_flags(0x08000000);
+    command
+}
+
+#[tauri::command]
+pub async fn office_reconnect(window: WebviewWindow) -> Result<Value, String> {
+    super::workbench_only(&window)?;
+    #[cfg(windows)]
+    return tauri::async_runtime::spawn_blocking(|| {
+        let output = office_registry().args(["query", r"HKCU\Software\WorkProof", "/v", "OfficeReconnect"]).output()
+            .map_err(|_| "无法读取 Office 重连设置。")?;
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let packed = raw.lines().find_map(|line| {
+            let (name, value) = line.split_once("REG_DWORD")?;
+            if name.trim() != "OfficeReconnect" { return None; }
+            u32::from_str_radix(value.trim().strip_prefix("0x")?, 16).ok()
+        }).filter(|value| (1..=60).contains(&(value & 0xffff)) && (value >> 16) <= 10)
+          .unwrap_or((3 << 16) | 5);
+        Ok(json!({"seconds": packed & 0xffff, "attempts": packed >> 16}))
+    }).await.map_err(|_| "无法读取 Office 重连设置。")?;
+    #[cfg(not(windows))]
+    Ok(Value::Null)
+}
+
+#[tauri::command]
+pub async fn set_office_reconnect(window: WebviewWindow, seconds: u32, attempts: u32) -> Result<(), String> {
+    super::workbench_only(&window)?;
+    if !(1..=60).contains(&seconds) || attempts > 10 {
+        return Err("重连间隔须为 1 至 60 秒，重试次数须为 0 至 10 次。".into());
+    }
+    #[cfg(windows)]
+    return tauri::async_runtime::spawn_blocking(move || {
+        let value = ((attempts << 16) | seconds).to_string();
+        let status = office_registry().args(["add", r"HKCU\Software\WorkProof", "/v", "OfficeReconnect", "/t", "REG_DWORD", "/d", &value, "/f"])
+            .output().map_err(|_| "无法保存 Office 重连设置。")?;
+        if status.status.success() { Ok(()) } else { Err("无法保存 Office 重连设置。".into()) }
+    }).await.map_err(|_| "无法保存 Office 重连设置。")?;
+    #[cfg(not(windows))]
+    Err("当前平台不支持原生 Office 重连设置。".into())
+}
