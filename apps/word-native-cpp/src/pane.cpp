@@ -641,10 +641,16 @@ bool PrepareExportHistory(const DocSnapshot& snapshot, std::wstring& error) {
         L"记录已达到上限，还有操作没有保存。可以取消导出，先在 WorkProof 设置里提高上限。\n\n继续导出会在证书中标记采集缺口。是否继续？",
         L"导出已有记录", MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2);
     if (choice != IDYES) return false;
+    DocSnapshot current;
+    if (!ReadDocument(g.word, current, error)) return false;
+    if (current.identity != g.identity) {
+        error = L"确认期间切换了文档。请切回开始记录的文档后重试。";
+        return false;
+    }
     // An explicit collector rejection guarantees these bytes did not consume a sequence number.
     g.pendingEvent.clear();
     g.actions.Clear();
-    return SendEvent("gap", snapshot, 0, 0, std::string(), error);
+    return SendEvent("gap", current, 0, 0, std::string(), error);
 }
 
 void Export() {
@@ -670,7 +676,6 @@ void Export() {
     wchar_t suffix[64];
     swprintf_s(suffix, L"WorkProof-%04d%02d%02d-%02d%02d%02d", now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond);
     std::wstring folder = parent + L"\\" + suffix;
-    if(!CreateDirectoryW(folder.c_str(), nullptr)){SetStatus(L"交付目录未能新建，请稍后重试或选择其他目录；没有覆盖文件。");g.writing=false;PaintState();return;}
 
     DocSnapshot selected;
     if(!ReadDocument(g.word,selected,error)||selected.identity!=g.identity){
@@ -687,6 +692,8 @@ void Export() {
         PaintState();
         return;
     }
+
+    if(!CreateDirectoryW(folder.c_str(), nullptr)){SetStatus(L"交付目录未能新建，请稍后重试或选择其他目录；没有覆盖文件。");g.writing=false;PaintState();return;}
 
     std::wstring artifact = folder + L"\\" + g.documentName;
     if (!CopyFileW(saved.identity.c_str(), artifact.c_str(), TRUE)) {
@@ -741,7 +748,6 @@ void Export() {
     std::string verify;
     std::wstring verifyError;
     bool verified = RunEngine(L"verify \"" + artifact + L"\" \"" + certificate + L"\"", verify, verifyError);
-    SetStatus(verified ? L"已导出，本地独立核验通过。" : L"已导出，但本地独立核验未通过，请重新导出。");
 
     // A modal success dialog used to keep g.writing true and suppress every
     // sampling timer until the user dismissed it. Report delivery inline instead.

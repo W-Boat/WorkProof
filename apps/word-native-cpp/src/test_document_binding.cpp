@@ -11,13 +11,14 @@ namespace {
 bool loseNextEventResponse=false;
 bool rejectNextRecordAtLimit=false;
 int confirmLimitExport=IDNO;
+bool switchDuringLimitConfirmation=false;
 std::vector<std::string> eventBodies;
 int folderCalls=0,copyCalls=0,saveCalls=0,httpCalls=0,sessionCalls=0,eventCalls=0;
 workproof::DocSnapshot current={L"C:\\fixture\\A.docx",L"A.docx",80,2,false,true};
 HRESULT FixtureCoCreate(REFCLSID,LPUNKNOWN,DWORD,REFIID,LPVOID* object){
     ++folderCalls;if(object)*object=nullptr;return E_ABORT;
 }
-int WINAPI FixtureMessageBox(HWND,LPCWSTR,LPCWSTR,UINT){return confirmLimitExport;}
+int WINAPI FixtureMessageBox(HWND,LPCWSTR,LPCWSTR,UINT){if(switchDuringLimitConfirmation)current.identity=L"C:\\fixture\\switched.docx";return confirmLimitExport;}
 BOOL WINAPI FixtureCopy(LPCWSTR,LPCWSTR,BOOL){++copyCalls;return FALSE;}
 }
 // Instrument only the actual OS side effects of Export; production branch logic is unchanged.
@@ -95,7 +96,9 @@ int main(){
     const auto cappedEvent=g.pendingEvent;
     rejectNextRecordAtLimit=true;
     if(PrepareExportHistory(current,retryError)||g.pendingEvent!=cappedEvent||g.sequence!=beforeLimit){std::puts("FAIL: canceled cap export lost pending data");return 1;}
-    confirmLimitExport=IDYES;rejectNextRecordAtLimit=true;
+    confirmLimitExport=IDYES;rejectNextRecordAtLimit=true;switchDuringLimitConfirmation=true;
+    if(PrepareExportHistory(current,retryError)||g.pendingEvent!=cappedEvent||g.sequence!=beforeLimit){std::puts("FAIL: changed document lost pending data after confirmation");return 1;}
+    switchDuringLimitConfirmation=false;current.identity=g.identity;rejectNextRecordAtLimit=true;
     if(!PrepareExportHistory(current,retryError)||!g.pendingEvent.empty()||g.sequence!=beforeLimit+1||eventBodies.back().find("\"kind\":\"gap\"")==std::string::npos){std::puts("FAIL: confirmed cap export did not record the gap");return 1;}
     g.paused=false;confirmLimitExport=IDNO;
     // A single sample must preserve both independently observed changes.
