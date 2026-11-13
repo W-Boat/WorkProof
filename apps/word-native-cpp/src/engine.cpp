@@ -9,6 +9,7 @@
 #include <vector>
 #include <initializer_list>
 #include <functional>
+#include <set>
 
 #pragma comment(lib, "winhttp.lib")
 
@@ -68,11 +69,67 @@ bool PresentationText(IDispatch* slides,long slideCount,long long shapeCount,Doc
     if(shapeCount>4096)return false;
     const auto began=GetTickCount64();long visited=0;long long characters=0;long paragraphs=0;
     std::wstring data=L"workproof-ppt-text-v1;";
-    auto item=[](IDispatch* collection,long index,Variant& out){
-        LPOLESTR name=const_cast<LPOLESTR>(L"Item");DISPID id=0;
-        if(FAILED(collection->GetIDsOfNames(IID_NULL,&name,1,LOCALE_USER_DEFAULT,&id)))return false;
-        VARIANT arg={};arg.vt=VT_I4;arg.lVal=index;DISPPARAMS params={&arg,nullptr,1,0};
-        return SUCCEEDED(collection->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_METHOD|DISPATCH_PROPERTYGET,&params,out.get(),nullptr,nullptr))&&out.value.vt==VT_DISPATCH&&out.value.pdispVal;
+    auto dispatch=[](IDispatch* object,const wchar_t* name,Variant& out){
+        return SUCCEEDED(GetProperty(object,name,out.get()))&&out.value.vt==VT_DISPATCH&&out.value.pdispVal;
+    };
+    auto indexed=[](IDispatch* object,const wchar_t* name,long first,long second,Variant& out){
+        LPOLESTR member=const_cast<LPOLESTR>(name);DISPID id=0;
+        if(FAILED(object->GetIDsOfNames(IID_NULL,&member,1,LOCALE_USER_DEFAULT,&id)))return false;
+        // IDispatch receives arguments in reverse order.
+        VARIANT args[2]={};args[0].vt=VT_I4;args[0].lVal=second?second:first;
+        args[1].vt=VT_I4;args[1].lVal=first;
+        DISPPARAMS params={args,nullptr,second?2u:1u,0};
+        return SUCCEEDED(object->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_METHOD|DISPATCH_PROPERTYGET,&params,out.get(),nullptr,nullptr))&&out.value.vt==VT_DISPATCH&&out.value.pdispVal;
+    };
+    auto item=[&](IDispatch* object,long index,Variant& out){return indexed(object,L"Item",index,0,out);};
+    auto countOf=[](IDispatch* object,long& count){
+        Variant value;
+        if(FAILED(GetProperty(object,L"Count",value.get()))||value.value.vt!=VT_I4||value.value.lVal<0)return false;
+        count=value.value.lVal;return true;
+    };
+    auto textFrame=[&](IDispatch* object,const wchar_t* property){
+        if(GetTickCount64()-began>=100)return false;
+        Variant frame,range,text;
+        if(!dispatch(object,property,frame)||!dispatch(frame.value.pdispVal,L"TextRange",range)||
+           FAILED(GetProperty(range.value.pdispVal,L"Text",text.get()))||text.value.vt!=VT_BSTR)return false;
+        const UINT length=SysStringLen(text.value.bstrVal);
+        if(length>8000000-characters)return false;
+        characters+=length;data+=std::to_wstring(length)+L":";
+        if(length){
+            data.append(text.value.bstrVal,length);++paragraphs;
+            for(UINT j=0;j<length;++j)if(text.value.bstrVal[j]==L'\r')++paragraphs;
+        }
+        data+=L";";return true;
+    };
+    auto tableText=[&](IDispatch* object){
+        Variant table,rows,columns;long rowCount=0,columnCount=0;
+        if(!dispatch(object,L"Table",table)||!dispatch(table.value.pdispVal,L"Rows",rows)||!dispatch(table.value.pdispVal,L"Columns",columns)||
+           !countOf(rows.value.pdispVal,rowCount)||!countOf(columns.value.pdispVal,columnCount)||
+           static_cast<long long>(rowCount)*columnCount>4096-visited)return false;
+        data+=L"table="+std::to_wstring(rowCount)+L","+std::to_wstring(columnCount)+L";";
+        // Merged cells may resolve to the same shape; count that text once.
+        std::set<long> cellIds;
+        for(long row=1;row<=rowCount;++row)for(long column=1;column<=columnCount;++column){
+            if(GetTickCount64()-began>=100)return false;
+            ++visited;
+            Variant cell,shape,id;
+            if(!indexed(table.value.pdispVal,L"Cell",row,column,cell)||!dispatch(cell.value.pdispVal,L"Shape",shape)||
+               FAILED(GetProperty(shape.value.pdispVal,L"Id",id.get()))||id.value.vt!=VT_I4)return false;
+            if(cellIds.insert(id.value.lVal).second&&!textFrame(shape.value.pdispVal,L"TextFrame"))return false;
+        }
+        return true;
+    };
+    auto smartArtText=[&](IDispatch* object){
+        Variant art,nodes;long count=0;
+        if(!dispatch(object,L"SmartArt",art)||!dispatch(art.value.pdispVal,L"AllNodes",nodes)||
+           !countOf(nodes.value.pdispVal,count)||count>4096-visited)return false;
+        data+=L"smartart="+std::to_wstring(count)+L";";
+        for(long n=1;n<=count;++n){
+            if(GetTickCount64()-began>=100)return false;
+            ++visited;Variant node;
+            if(!item(nodes.value.pdispVal,n,node)||!textFrame(node.value.pdispVal,L"TextFrame2"))return false;
+        }
+        return true;
     };
     std::function<bool(IDispatch*,unsigned)> collect;
     collect=[&](IDispatch* collection,unsigned depth){
@@ -82,16 +139,10 @@ bool PresentationText(IDispatch* slides,long slideCount,long long shapeCount,Doc
             if(GetTickCount64()-began>=100||++visited>4096)return false;
             Variant shape,type,has,number;if(!item(collection,n,shape)||FAILED(GetProperty(shape.value.pdispVal,L"Type",type.get()))||FAILED(VariantChangeType(number.get(),type.get(),0,VT_I4)))return false;
             if(number.value.lVal==6){Variant group;if(FAILED(GetProperty(shape.value.pdispVal,L"GroupItems",group.get()))||group.value.vt!=VT_DISPATCH||!group.value.pdispVal||!collect(group.value.pdispVal,depth+1))return false;continue;}
-            // Table and SmartArt text require dedicated traversal, not a zero count.
-            if(number.value.lVal==19||number.value.lVal==24)return false;
+            if(number.value.lVal==19){if(!tableText(shape.value.pdispVal))return false;continue;}
+            if(number.value.lVal==24){if(!smartArtText(shape.value.pdispVal))return false;continue;}
             if(FAILED(GetProperty(shape.value.pdispVal,L"HasTextFrame",has.get()))||FAILED(VariantChangeType(number.get(),has.get(),0,VT_I4)))return false;
-            if(!number.value.lVal)continue;
-            Variant frame,range,text;
-            if(FAILED(GetProperty(shape.value.pdispVal,L"TextFrame",frame.get()))||frame.value.vt!=VT_DISPATCH||!frame.value.pdispVal||
-               FAILED(GetProperty(frame.value.pdispVal,L"TextRange",range.get()))||range.value.vt!=VT_DISPATCH||!range.value.pdispVal||
-               FAILED(GetProperty(range.value.pdispVal,L"Text",text.get()))||text.value.vt!=VT_BSTR)return false;
-            const UINT length=SysStringLen(text.value.bstrVal);if(length>8000000-characters)return false;
-            characters+=length;data+=std::to_wstring(length)+L":";if(length){data.append(text.value.bstrVal,length);++paragraphs;for(UINT j=0;j<length;++j)if(text.value.bstrVal[j]==L'\r')++paragraphs;}data+=L";";
+            if(number.value.lVal&&!textFrame(shape.value.pdispVal,L"TextFrame"))return false;
         }
         return true;
     };

@@ -7,8 +7,8 @@
 #include <cwchar>
 namespace workproof { std::wstring EnginePath(){return L"unused.exe";} }
 namespace {
-enum Property {ActivePresentation=1,Path,Name,FullName,Slides,Count,Item,Shapes,ReadOnly,Saved,Save,FileDialog,Show,Execute,ActiveWindow,Hwnd,PageSetup,SlideWidth,SlideHeight,SlideId,ShapeId,ShapeType,Left,Top,Width,Height,Rotation,ZOrder,HasTextFrame,TextFrame,TextRange,Text};
-enum Role {Application,Presentation,SlideList,Slide,ShapeList,Dialog,DocumentWindow,Page,Shape,Frame,Range};
+enum Property {ActivePresentation=1,Path,Name,FullName,Slides,Count,Item,Shapes,ReadOnly,Saved,Save,FileDialog,Show,Execute,ActiveWindow,Hwnd,PageSetup,SlideWidth,SlideHeight,SlideId,ShapeId,ShapeType,Left,Top,Width,Height,Rotation,ZOrder,HasTextFrame,TextFrame,TextRange,Text,TableProperty,Rows,Columns,Cell,CellShape,SmartArt,AllNodes,TextFrame2};
+enum Role {Application,Presentation,SlideList,Slide,ShapeList,Dialog,DocumentWindow,Page,Shape,Frame,Range,TableObject,RowList,ColumnList,CellObject,CellShapeObject,ArtObject,NodeList,ArtNode};
 struct Fixture;
 class Object final:public IDispatch {
 public:
@@ -25,6 +25,9 @@ public:
 struct Fixture {
     Object application{this,Application},presentation{this,Presentation},slides{this,SlideList},slide{this,Slide},shapes{this,ShapeList};
     Object dialog{this,Dialog},window{this,DocumentWindow},page{this,Page},shape{this,Shape},frame{this,Frame},range{this,Range};
+    Object table{this,TableObject},rows{this,RowList},columns{this,ColumnList},cell{this,CellObject},cellShape{this,CellShapeObject};
+    Object smartArt{this,ArtObject},nodes{this,NodeList},node{this,ArtNode};
+    long shapeType=1,cellColumn=0;
     bool textEnabled=false;std::wstring text=L"hello";
     long activeSlide=0,activeShape=0;double shapeLeft=12;bool reverseShapes=false;int shapeCalls=0;
     bool unsaved=false,executeFailure=false,executeNoPath=false,showFailure=false,saveFailure=false;
@@ -32,12 +35,12 @@ struct Fixture {
     LONG slideCount=3,shapeCount=4;
     Role failRole=Application;DISPID failProperty=0;bool wrongType=false;
     int forbiddenAccess=0,itemCalls=0,saveCalls=0;
-    bool balanced(){return application.refs==1&&presentation.refs==1&&slides.refs==1&&slide.refs==1&&shapes.refs==1&&dialog.refs==1&&window.refs==1&&page.refs==1&&shape.refs==1&&frame.refs==1&&range.refs==1;}
+    bool balanced(){return application.refs==1&&presentation.refs==1&&slides.refs==1&&slide.refs==1&&shapes.refs==1&&dialog.refs==1&&window.refs==1&&page.refs==1&&shape.refs==1&&frame.refs==1&&range.refs==1&&table.refs==1&&rows.refs==1&&columns.refs==1&&cell.refs==1&&cellShape.refs==1&&smartArt.refs==1&&nodes.refs==1&&node.refs==1;}
 };
 STDMETHODIMP Object::GetIDsOfNames(REFIID,LPOLESTR* names,UINT n,LCID,DISPID* ids){
-    const wchar_t* keys[]={L"",L"ActivePresentation",L"Path",L"Name",L"FullName",L"Slides",L"Count",L"Item",L"Shapes",L"ReadOnly",L"Saved",L"Save",L"FileDialog",L"Show",L"Execute",L"ActiveWindow",L"HWND",L"PageSetup",L"SlideWidth",L"SlideHeight",L"SlideID",L"Id",L"Type",L"Left",L"Top",L"Width",L"Height",L"Rotation",L"ZOrderPosition",L"HasTextFrame",L"TextFrame",L"TextRange",L"Text"};
+    const wchar_t* keys[]={L"",L"ActivePresentation",L"Path",L"Name",L"FullName",L"Slides",L"Count",L"Item",L"Shapes",L"ReadOnly",L"Saved",L"Save",L"FileDialog",L"Show",L"Execute",L"ActiveWindow",L"HWND",L"PageSetup",L"SlideWidth",L"SlideHeight",L"SlideID",L"Id",L"Type",L"Left",L"Top",L"Width",L"Height",L"Rotation",L"ZOrderPosition",L"HasTextFrame",L"TextFrame",L"TextRange",L"Text",L"Table",L"Rows",L"Columns",L"Cell",L"Shape",L"SmartArt",L"AllNodes",L"TextFrame2"};
     if(!names||!ids)return E_POINTER;
-    for(UINT i=0;i<n;++i){ids[i]=DISPID_UNKNOWN;for(int k=1;k<=Text;++k)if(!wcscmp(names[i],keys[k])){ids[i]=k;break;}if(ids[i]==DISPID_UNKNOWN){++fixture->forbiddenAccess;return DISP_E_UNKNOWNNAME;}}
+    for(UINT i=0;i<n;++i){ids[i]=DISPID_UNKNOWN;for(int k=1;k<=TextFrame2;++k)if(!wcscmp(names[i],keys[k])){ids[i]=k;break;}if(ids[i]==DISPID_UNKNOWN){++fixture->forbiddenAccess;return DISP_E_UNKNOWNNAME;}}
     return S_OK;
 }
 STDMETHODIMP Object::Invoke(DISPID id,REFIID,LCID,WORD flags,DISPPARAMS* params,VARIANT* out,EXCEPINFO*,UINT*){
@@ -65,14 +68,28 @@ STDMETHODIMP Object::Invoke(DISPID id,REFIID,LCID,WORD flags,DISPPARAMS* params,
         fixture->activeShape=params->rgvarg[0].lVal;++fixture->shapeCalls;object=&fixture->shape;
     }
     if(role==Shape&&id==HasTextFrame){out->vt=VT_I4;out->lVal=fixture->textEnabled?-1:0;return S_OK;}
-    if(role==Shape&&id==TextFrame)object=&fixture->frame;
+    if((role==Shape||role==CellShapeObject)&&id==TextFrame)object=&fixture->frame;
+    if(role==Shape&&id==TableProperty)object=&fixture->table;
+    if(role==TableObject&&id==Rows)object=&fixture->rows;
+    if(role==TableObject&&id==Columns)object=&fixture->columns;
+    if((role==RowList||role==ColumnList||role==NodeList)&&id==Count){out->vt=VT_I4;out->lVal=role==ColumnList?2:1;return S_OK;}
+    if(role==TableObject&&id==Cell){
+        if(!params||params->cArgs!=2||params->rgvarg[0].vt!=VT_I4||params->rgvarg[1].vt!=VT_I4||params->rgvarg[1].lVal!=1||params->rgvarg[0].lVal<1||params->rgvarg[0].lVal>2)return DISP_E_BADINDEX;
+        fixture->cellColumn=params->rgvarg[0].lVal;object=&fixture->cell;
+    }
+    if(role==CellObject&&id==CellShape)object=&fixture->cellShape;
+    if(role==CellShapeObject&&id==ShapeId){out->vt=VT_I4;out->lVal=fixture->cellColumn;return S_OK;}
+    if(role==Shape&&id==SmartArt)object=&fixture->smartArt;
+    if(role==ArtObject&&id==AllNodes)object=&fixture->nodes;
+    if(role==NodeList&&id==Item)object=&fixture->node;
+    if(role==ArtNode&&id==TextFrame2)object=&fixture->frame;
     if(role==Frame&&id==TextRange)object=&fixture->range;
     if(role==Range&&id==Text){out->vt=VT_BSTR;out->bstrVal=SysAllocString(fixture->text.c_str());return S_OK;}
     if(role==Shape){
         out->vt=VT_R8;
         switch(id){
             case ShapeId:out->dblVal=fixture->activeSlide*10000+(fixture->reverseShapes?fixture->shapeCount+1-fixture->activeShape:fixture->activeShape);return S_OK;
-            case ShapeType:out->dblVal=1;return S_OK;
+            case ShapeType:out->dblVal=fixture->shapeType;return S_OK;
             case Left:out->dblVal=fixture->shapeLeft;return S_OK;
             case Top:case Width:case Height:out->dblVal=30;return S_OK;
             case Rotation:out->dblVal=0;return S_OK;
@@ -107,6 +124,11 @@ int main(){
     f.failRole=Range;f.failProperty=Text;
     if(!workproof::ReadDocument(&f.application,secondText,structureError)||secondText.textSampled||!secondText.textSignature.empty()||!f.balanced()){std::puts("FAIL: incomplete text became an empty-document baseline");return 1;}
     f.failProperty=0;f.textEnabled=false;
+    f.shapeType=19;
+    if(!workproof::ReadDocument(&f.application,secondText,structureError)||!secondText.textSampled||secondText.characters!=120||!f.balanced()){std::puts("FAIL: PowerPoint table cells were not counted");return 1;}
+    f.shapeType=24;
+    if(!workproof::ReadDocument(&f.application,secondText,structureError)||!secondText.textSampled||secondText.characters!=60||!f.balanced()){std::puts("FAIL: PowerPoint SmartArt nodes were not counted");return 1;}
+    f.shapeType=1;
     f.shapeLeft+=20;
     if(!workproof::ReadDocument(&f.application,moved,structureError)||moved.structureSignature==baseline.structureSignature||moved.shapes!=baseline.shapes){std::puts("FAIL: same-count geometry change missed");return 1;}
     f.reverseShapes=true;
