@@ -60,7 +60,7 @@ export function initializeWorkspaceTools({commands,canOpen,onError,getEditor,onS
   const stats=node('dialog','workspace-statistics');stats.id='document-statistics';stats.setAttribute('aria-labelledby','statistics-title');
   const statsTitle=node('h2','','文档统计');statsTitle.id='statistics-title';const values=node('dl','statistics-values');
   const done=node('fluent-button');done.setAttribute('appearance','primary');done.setAttribute('data-keep-label','true');done.textContent='完成';
-  stats.append(statsTitle,values,node('p','statistics-note','只统计当前正文，字符数不计段落分隔符。'),done);document.body.append(stats);
+  stats.append(statsTitle,values,node('p','statistics-note','只统计当前正文，不计段落分隔符。字符数与过程记录一致，部分表情按 2 个字符计算。'),done);document.body.append(stats);
   done.addEventListener('click',()=>stats.close());stats.addEventListener('close',()=>$('editor-word-count')?.focus({preventScroll:true}));
   function showStatistics(){
     const editor=getEditor();if(!editor||!canOpen()||document.querySelector('dialog[open]'))return;
@@ -68,7 +68,7 @@ export function initializeWorkspaceTools({commands,canOpen,onError,getEditor,onS
     const text=doc.textBetween(0,doc.content.size,'');
     const words=doc.textBetween(0,doc.content.size,'\n');
     let characters=0,nonblank=0,han=0,paragraphs=0;
-    for(const character of text){characters++;if(!/\s/u.test(character))nonblank++;if(/\p{Script=Han}/u.test(character))han++;}
+    for(const character of text){characters+=character.length;if(!/\s/u.test(character))nonblank+=character.length;if(/\p{Script=Han}/u.test(character))han++;}
     editor.state.doc.descendants(item=>{if(['paragraph','heading'].includes(item.type.name)&&item.textContent.trim())paragraphs++;});
     const rows=[['字符（含空白）',characters],['非空白字符',nonblank],['汉字',han],['英文词',(words.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g)||[]).length],['文字段落（含标题）',paragraphs]];
     values.replaceChildren(...rows.map(([label,count])=>{const row=node('div');row.append(node('dt','',label),node('dd','',count.toLocaleString()));return row;}));stats.showModal();done.focus();

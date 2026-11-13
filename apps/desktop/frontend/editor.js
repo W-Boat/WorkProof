@@ -534,9 +534,9 @@ for(const [label,glyph,direction] of [['缩小编辑页面','zoom_out',-1],['放
 zoomControls.insertBefore(zoomSelect,zoomControls.lastChild);$('editor-word-count').after(zoomControls);
 $('editor-word-count').title='字数统计：汉字、英文词、字符和段落';
 zoomSelect.setAttribute('aria-label','编辑页面缩放比例');
-try{const value=localStorage.getItem('workproof.writing-zoom');if(zoomValues.includes(Number(value))){zoomSelect.value=value;$('tiptap-editor').style.zoom=value;}}catch{}
+try{const value=localStorage.getItem('workproof.writing-zoom');if(zoomValues.includes(Number(value))){zoomSelect.value=value;$('tiptap-editor').style.zoom=value;$('markdown-source').style.zoom=value;}}catch{}
 zoomSelect.addEventListener('change',()=>{try{localStorage.setItem('workproof.writing-zoom',zoomSelect.value);}catch{}});
-$('writing-zoom').addEventListener('change',event=>{$('tiptap-editor').style.zoom=event.target.value;addAction('layout',{detail:{zoom:Number(event.target.value)}});});
+$('writing-zoom').addEventListener('change',event=>{$('tiptap-editor').style.zoom=event.target.value;$('markdown-source').style.zoom=event.target.value;addAction('layout',{detail:{zoom:Number(event.target.value)}});});
 function restorePageLayout(){
   const layout=editor?.state.doc.attrs.pageLayout||{size:'A4',orientation:'portrait',margin:'normal'};
   $('page-size').value=layout.size;$('page-orientation').value=layout.orientation;$('page-margin').value=layout.margin;

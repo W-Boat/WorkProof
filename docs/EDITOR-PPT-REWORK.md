@@ -8,7 +8,7 @@
 
 ## PPT 源码中已确认的缺口
 
-- `apps/word-native-cpp/src/engine.cpp` 的 PowerPoint 分支统计幻灯片和对象数，当前没有遍历文本框来计算演示文稿字符数量。
+- `apps/word-native-cpp/src/engine.cpp` 的 PowerPoint 分支统计幻灯片和对象数，当前没有遍历文本框来计算演示文稿字符数量；`pane.cpp` 的 PPT `EventJson` 分支还把 `inserted/deleted/chars` 固定写为 0，必须与采样端一同修复。
 - `PresentationStructure` 只摘要对象 ID、类型、位置、尺寸、旋转、层级与幻灯片顺序，不含文字或字体样式。因此不改对象数量/几何的文字替换和格式变化无法靠该摘要识别。
 - 整体结构扫描有 75ms 预算，任何未能完整读取的可选属性也会使摘要为空。实际文件中必须明确区分采样不完整与没有动作，不能静默把空摘要当成稳定状态。
 - `pane.cpp` 中格式选区读取只在 Word 分支实现，PPT 需要对应的文字选区/对象选择适配及真实宿主验收。API 模拟检查不等同于真实 PowerPoint 运行。
