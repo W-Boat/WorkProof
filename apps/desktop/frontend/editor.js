@@ -520,6 +520,22 @@ $('image-file').addEventListener('change',async event=>{
     hint('format');editor.chain().focus().setImage({src,alt:file.name}).run();
   }catch(error){ui.showMessage(errorText(error),'error');}
 });
+// Keep view controls visible even when the writing ribbon is folded.
+const zoomSelect=$('writing-zoom'),zoomControls=element('div','footer-zoom');
+zoomControls.setAttribute('role','group');zoomControls.setAttribute('aria-label','编辑器缩放');
+for(const value of [.5,.6,1.5,1.75,2]){const option=element('option','',Math.round(value*100)+'%');option.value=String(value);zoomSelect.append(option);}
+for(const option of [...zoomSelect.options].sort((a,b)=>Number(a.value)-Number(b.value)))zoomSelect.append(option);
+const zoomValues=[...zoomSelect.options].map(option=>Number(option.value)).sort((a,b)=>a-b);
+for(const [label,glyph,direction] of [['缩小编辑页面','zoom_out',-1],['放大编辑页面','zoom_in',1]]){
+  const button=element('fluent-button','',label);button.dataset.icon=glyph;button.setAttribute('aria-label',label);button.setAttribute('appearance','subtle');
+  button.addEventListener('click',()=>{const index=zoomValues.indexOf(Number(zoomSelect.value));zoomSelect.value=String(zoomValues[Math.max(0,Math.min(zoomValues.length-1,index+direction))]);zoomSelect.dispatchEvent(new Event('change',{bubbles:true}));});
+  zoomControls.append(button);
+}
+zoomControls.insertBefore(zoomSelect,zoomControls.lastChild);$('editor-word-count').after(zoomControls);
+$('editor-word-count').title='字数统计：汉字、英文词、字符和段落';
+zoomSelect.setAttribute('aria-label','编辑页面缩放比例');
+try{const value=localStorage.getItem('workproof.writing-zoom');if(zoomValues.includes(Number(value))){zoomSelect.value=value;$('tiptap-editor').style.zoom=value;}}catch{}
+zoomSelect.addEventListener('change',()=>{try{localStorage.setItem('workproof.writing-zoom',zoomSelect.value);}catch{}});
 $('writing-zoom').addEventListener('change',event=>{$('tiptap-editor').style.zoom=event.target.value;addAction('layout',{detail:{zoom:Number(event.target.value)}});});
 function restorePageLayout(){
   const layout=editor?.state.doc.attrs.pageLayout||{size:'A4',orientation:'portrait',margin:'normal'};

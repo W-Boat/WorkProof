@@ -532,3 +532,5 @@ body dialog[data-dialog-closing=true]::backdrop{background:#0000}
 :root[data-reduce-motion=true] body dialog[open]{animation:none!important}:root[data-reduce-motion=true] body dialog::backdrop{transition:none}
 
 @starting-style{body dialog[open]::backdrop{background:#0000}}
+
+.footer-zoom{display:flex;align-items:center;gap:4px;margin-left:auto}.footer-zoom fluent-button{min-width:28px;min-height:26px}.footer-zoom #writing-zoom,.footer-zoom fluent-dropdown{min-width:80px;min-height:26px;font-size:12px}.writing-statistics-button{text-decoration:underline;text-underline-offset:3px}

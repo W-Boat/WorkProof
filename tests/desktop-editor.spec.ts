@@ -1096,3 +1096,13 @@ test('all app dialogs share rounded surfaces and finish closing before close han
     await page.getByRole('button',{name:'新建文档',exact:true}).click();await expect(dialog).toBeVisible();await page.keyboard.press('Escape');await expect(dialog).toBeHidden();
   }
 });
+
+
+test('writing zoom and complete statistics remain reachable with the ribbon folded',async({page})=>{
+  await desktop(page);const body=await create(page);await body.fill('中文 English words');
+  if(await page.locator('#toggle-ribbon').getAttribute('aria-expanded')==='true')await page.locator('#toggle-ribbon').click();
+  await expect(page.getByRole('group',{name:'编辑器缩放',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'放大编辑页面',exact:true}).click();await expect(page.locator('#writing-zoom')).toHaveValue('1.1');await expect(body).toHaveText('中文 English words');
+  await page.getByRole('button',{name:'缩小编辑页面',exact:true}).click();await expect(page.locator('#writing-zoom')).toHaveValue('1');
+  await page.getByRole('button',{name:'查看文档统计',exact:true}).click();const stats=page.getByRole('dialog',{name:'文档统计',exact:true});await expect(stats).toContainText('汉字');await expect(stats).toContainText('英文词');await expect(stats).toContainText('文字段落');
+});
