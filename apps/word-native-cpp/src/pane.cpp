@@ -40,7 +40,8 @@ struct State {
     HHOOK editorHook = nullptr;
     ActionMetrics actions;
     HWND editorWindow=nullptr;
-    std::wstring layoutSignature,formatSignature,structureSignature;
+    std::wstring layoutSignature,formatSignature,structureSignature,textSignature;
+    bool textSampled=false;
     long selectionStart=-1,selectionEnd=-1;
     HWND window = nullptr;
     IDispatch* word = nullptr;
@@ -199,7 +200,7 @@ std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long i
                       const std::string& checkpoint,const std::string& actions=std::string()) {
     wchar_t buffer[512];
 #ifdef WORKPROOF_POWERPOINT
-    swprintf_s(buffer,L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":0,\"deleted\":0,\"chars\":0,\"checkpoint\":\"%S\",\"metrics\":{\"slides\":%ld,\"shapes\":%lld}}",g.sequence,ElapsedMs(),kind,checkpoint.c_str(),snapshot.slides,snapshot.shapes);
+    swprintf_s(buffer,L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":%lld,\"deleted\":%lld,\"chars\":%lld,\"checkpoint\":\"%S\",\"metrics\":{\"slides\":%ld,\"shapes\":%lld}}",g.sequence,ElapsedMs(),kind,inserted,deleted,snapshot.textSampled?snapshot.characters:0,checkpoint.c_str(),snapshot.slides,snapshot.shapes);
 #else
     swprintf_s(buffer, L"{\"seq\":%lld,\"elapsed_ms\":%lld,\"kind\":\"%S\",\"inserted\":%lld,\"deleted\":%lld,"
                        L"\"chars\":%lld,\"checkpoint\":\"%S\",\"metrics\":{\"characters\":%lld,\"paragraphs\":%ld}}",
@@ -209,6 +210,9 @@ std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long i
     // The buffer above is assembled with wide characters only so numbers stay locale independent.
     std::wstring wide(buffer);
     std::string json=WideToUtf8(wide);
+#ifdef WORKPROOF_POWERPOINT
+    if(snapshot.textSampled&&actions.empty())json.insert(json.size()-2,",\"characters\":"+std::to_string(snapshot.characters)+",\"paragraphs\":"+std::to_string(snapshot.paragraphs));
+#endif
 #ifndef WORKPROOF_POWERPOINT
     if(actions.empty()){
         const auto& r=snapshot.revisions;
@@ -371,7 +375,7 @@ void FinishPairing(PairResult* result) {
     g.documentName = snapshot.name;
     g.lastCharacters = snapshot.characters;
     g.actions.Clear();g.editorWindow=snapshot.editorWindow;
-    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;g.structureSignature=snapshot.structureSignature;
+    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;g.structureSignature=snapshot.structureSignature;g.textSignature=snapshot.textSignature;g.textSampled=snapshot.textSampled;
     g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
     g.lastParagraphs = snapshot.paragraphs;
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
@@ -447,11 +451,23 @@ void Sample() {
     g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;
     g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
     g.editorWindow=snapshot.editorWindow;
-    bool changed = structureChanged || snapshot.characters != g.lastCharacters || snapshot.paragraphs != g.lastParagraphs || snapshot.slides!=g.lastSlides || snapshot.shapes!=g.lastShapes;
+#ifdef WORKPROOF_POWERPOINT
+    if(snapshot.textSampled!=g.textSampled&&!SendEvent("gap",snapshot,0,0,std::string(),error)){
+        g.paused=true;KillTimer(g.window,kSampleTimer);SetStatus(error);PaintState();return;
+    }
+#endif
+    const bool textChanged=snapshot.textSampled&&g.textSampled&&snapshot.textSignature!=g.textSignature;
+    bool changed = textChanged || structureChanged || snapshot.characters != g.lastCharacters || snapshot.paragraphs != g.lastParagraphs || snapshot.slides!=g.lastSlides || snapshot.shapes!=g.lastShapes;
     if (changed && g.lastCharacters >= 0) {
         long long inserted = snapshot.characters > g.lastCharacters ? snapshot.characters - g.lastCharacters : 0;
         long long deleted = g.lastCharacters > snapshot.characters ? g.lastCharacters - snapshot.characters : 0;
-        if (!SendEvent("edit", snapshot, inserted, deleted, std::string(), error)) {
+#ifdef WORKPROOF_POWERPOINT
+        if(!snapshot.textSampled||!g.textSampled)inserted=deleted=0;
+        const std::string observed=snapshot.textSampled?WideToUtf8(snapshot.textSignature):std::string();
+#else
+        const std::string observed;
+#endif
+        if (!SendEvent("edit", snapshot, inserted, deleted, observed, error)) {
             g.paused = true;
             KillTimer(g.window, kSampleTimer);
             SetStatus(error);PaintState();return;
@@ -468,10 +484,13 @@ void Sample() {
         g.lastRevisions=snapshot.revisions;
     }
 #endif
-    if(!snapshot.structureSignature.empty())g.structureSignature=snapshot.structureSignature;
+    if(!snapshot.structureSignature.empty())g.structureSignature=snapshot.structureSignature;g.textSignature=snapshot.textSignature;g.textSampled=snapshot.textSampled;
     g.lastCharacters = snapshot.characters;
     g.lastParagraphs = snapshot.paragraphs;
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
+#ifdef WORKPROOF_POWERPOINT
+    if(!snapshot.textSampled)SetStatus(L"记录中 · PPT 文字未完整采集，暂仅记录可用的对象与操作信息。");
+#endif
     PaintState();
 }
 
@@ -508,7 +527,7 @@ void TogglePause() {
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
     g.paused = false;
     g.actions.Clear();g.editorWindow=snapshot.editorWindow;
-    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;g.structureSignature=snapshot.structureSignature;
+    g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;g.structureSignature=snapshot.structureSignature;g.textSignature=snapshot.textSignature;g.textSampled=snapshot.textSampled;
     g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
     g.lastSampleMs = ElapsedMs();
     SetTimer(g.window, kSampleTimer, kSampleIntervalMs, nullptr);

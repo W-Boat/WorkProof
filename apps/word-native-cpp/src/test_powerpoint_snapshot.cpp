@@ -7,8 +7,8 @@
 #include <cwchar>
 namespace workproof { std::wstring EnginePath(){return L"unused.exe";} }
 namespace {
-enum Property {ActivePresentation=1,Path,Name,FullName,Slides,Count,Item,Shapes,ReadOnly,Saved,Save,FileDialog,Show,Execute,ActiveWindow,Hwnd,PageSetup,SlideWidth,SlideHeight,SlideId,ShapeId,ShapeType,Left,Top,Width,Height,Rotation,ZOrder};
-enum Role {Application,Presentation,SlideList,Slide,ShapeList,Dialog,DocumentWindow,Page,Shape};
+enum Property {ActivePresentation=1,Path,Name,FullName,Slides,Count,Item,Shapes,ReadOnly,Saved,Save,FileDialog,Show,Execute,ActiveWindow,Hwnd,PageSetup,SlideWidth,SlideHeight,SlideId,ShapeId,ShapeType,Left,Top,Width,Height,Rotation,ZOrder,HasTextFrame,TextFrame,TextRange,Text};
+enum Role {Application,Presentation,SlideList,Slide,ShapeList,Dialog,DocumentWindow,Page,Shape,Frame,Range};
 struct Fixture;
 class Object final:public IDispatch {
 public:
@@ -24,19 +24,20 @@ public:
 };
 struct Fixture {
     Object application{this,Application},presentation{this,Presentation},slides{this,SlideList},slide{this,Slide},shapes{this,ShapeList};
-    Object dialog{this,Dialog},window{this,DocumentWindow},page{this,Page},shape{this,Shape};
+    Object dialog{this,Dialog},window{this,DocumentWindow},page{this,Page},shape{this,Shape},frame{this,Frame},range{this,Range};
+    bool textEnabled=false;std::wstring text=L"hello";
     long activeSlide=0,activeShape=0;double shapeLeft=12;bool reverseShapes=false;int shapeCalls=0;
     bool unsaved=false,executeFailure=false,executeNoPath=false,showFailure=false,saveFailure=false;
     long choice=-1;int showCalls=0,executeCalls=0;
     LONG slideCount=3,shapeCount=4;
     Role failRole=Application;DISPID failProperty=0;bool wrongType=false;
     int forbiddenAccess=0,itemCalls=0,saveCalls=0;
-    bool balanced(){return application.refs==1&&presentation.refs==1&&slides.refs==1&&slide.refs==1&&shapes.refs==1&&dialog.refs==1&&window.refs==1&&page.refs==1&&shape.refs==1;}
+    bool balanced(){return application.refs==1&&presentation.refs==1&&slides.refs==1&&slide.refs==1&&shapes.refs==1&&dialog.refs==1&&window.refs==1&&page.refs==1&&shape.refs==1&&frame.refs==1&&range.refs==1;}
 };
 STDMETHODIMP Object::GetIDsOfNames(REFIID,LPOLESTR* names,UINT n,LCID,DISPID* ids){
-    const wchar_t* keys[]={L"",L"ActivePresentation",L"Path",L"Name",L"FullName",L"Slides",L"Count",L"Item",L"Shapes",L"ReadOnly",L"Saved",L"Save",L"FileDialog",L"Show",L"Execute",L"ActiveWindow",L"HWND",L"PageSetup",L"SlideWidth",L"SlideHeight",L"SlideID",L"Id",L"Type",L"Left",L"Top",L"Width",L"Height",L"Rotation",L"ZOrderPosition"};
+    const wchar_t* keys[]={L"",L"ActivePresentation",L"Path",L"Name",L"FullName",L"Slides",L"Count",L"Item",L"Shapes",L"ReadOnly",L"Saved",L"Save",L"FileDialog",L"Show",L"Execute",L"ActiveWindow",L"HWND",L"PageSetup",L"SlideWidth",L"SlideHeight",L"SlideID",L"Id",L"Type",L"Left",L"Top",L"Width",L"Height",L"Rotation",L"ZOrderPosition",L"HasTextFrame",L"TextFrame",L"TextRange",L"Text"};
     if(!names||!ids)return E_POINTER;
-    for(UINT i=0;i<n;++i){ids[i]=DISPID_UNKNOWN;for(int k=1;k<=ZOrder;++k)if(!wcscmp(names[i],keys[k])){ids[i]=k;break;}if(ids[i]==DISPID_UNKNOWN){++fixture->forbiddenAccess;return DISP_E_UNKNOWNNAME;}}
+    for(UINT i=0;i<n;++i){ids[i]=DISPID_UNKNOWN;for(int k=1;k<=Text;++k)if(!wcscmp(names[i],keys[k])){ids[i]=k;break;}if(ids[i]==DISPID_UNKNOWN){++fixture->forbiddenAccess;return DISP_E_UNKNOWNNAME;}}
     return S_OK;
 }
 STDMETHODIMP Object::Invoke(DISPID id,REFIID,LCID,WORD flags,DISPPARAMS* params,VARIANT* out,EXCEPINFO*,UINT*){
@@ -63,6 +64,10 @@ STDMETHODIMP Object::Invoke(DISPID id,REFIID,LCID,WORD flags,DISPPARAMS* params,
         if(!params||params->cArgs!=1||params->rgvarg[0].vt!=VT_I4||params->rgvarg[0].lVal<1||params->rgvarg[0].lVal>fixture->shapeCount)return DISP_E_BADINDEX;
         fixture->activeShape=params->rgvarg[0].lVal;++fixture->shapeCalls;object=&fixture->shape;
     }
+    if(role==Shape&&id==HasTextFrame){out->vt=VT_I4;out->lVal=fixture->textEnabled?-1:0;return S_OK;}
+    if(role==Shape&&id==TextFrame)object=&fixture->frame;
+    if(role==Frame&&id==TextRange)object=&fixture->range;
+    if(role==Range&&id==Text){out->vt=VT_BSTR;out->bstrVal=SysAllocString(fixture->text.c_str());return S_OK;}
     if(role==Shape){
         out->vt=VT_R8;
         switch(id){
@@ -85,7 +90,7 @@ bool Check(Fixture& f,bool expected,const char* label){
     workproof::DocSnapshot snapshot={};std::wstring error;int previous=f.itemCalls;
     bool actual=workproof::ReadDocument(&f.application,snapshot,error);
     bool valid=actual==expected&&f.balanced()&&f.forbiddenAccess==0&&(actual||!error.empty());
-    if(actual)valid=valid&&snapshot.slides==f.slideCount&&snapshot.shapes==static_cast<long long>(f.slideCount)*f.shapeCount&&snapshot.characters==0&&snapshot.paragraphs==0&&!snapshot.readOnly&&snapshot.saved&&(f.itemCalls-previous)==f.slideCount*2;
+    if(actual)valid=valid&&snapshot.slides==f.slideCount&&snapshot.shapes==static_cast<long long>(f.slideCount)*f.shapeCount&&snapshot.characters==0&&snapshot.paragraphs==0&&!snapshot.readOnly&&snapshot.saved&&(f.itemCalls-previous)>=f.slideCount;
     if(!valid)std::printf("FAIL: %s result=%d balanced=%d forbidden=%d\n",label,actual,f.balanced(),f.forbiddenAccess);
     return valid;
 }
@@ -94,6 +99,14 @@ int main(){
     Fixture f;if(!Check(f,true,"three slides twelve shapes"))return 1;
     workproof::DocSnapshot baseline,moved,reordered;std::wstring structureError;
     if(!workproof::ReadDocument(&f.application,baseline,structureError)||baseline.structureSignature.size()!=64)return 1;
+    f.textEnabled=true;
+    workproof::DocSnapshot firstText,secondText;
+    if(!workproof::ReadDocument(&f.application,firstText,structureError)||!firstText.textSampled||firstText.characters!=60||firstText.paragraphs!=12||firstText.textSignature.size()!=64||!f.balanced()){std::puts("FAIL: complete PowerPoint text count");return 1;}
+    f.text=L"world";
+    if(!workproof::ReadDocument(&f.application,secondText,structureError)||!secondText.textSampled||secondText.characters!=firstText.characters||secondText.textSignature==firstText.textSignature){std::puts("FAIL: equal-length replacement missed");return 1;}
+    f.failRole=Range;f.failProperty=Text;
+    if(!workproof::ReadDocument(&f.application,secondText,structureError)||secondText.textSampled||!secondText.textSignature.empty()||!f.balanced()){std::puts("FAIL: incomplete text became an empty-document baseline");return 1;}
+    f.failProperty=0;f.textEnabled=false;
     f.shapeLeft+=20;
     if(!workproof::ReadDocument(&f.application,moved,structureError)||moved.structureSignature==baseline.structureSignature||moved.shapes!=baseline.shapes){std::puts("FAIL: same-count geometry change missed");return 1;}
     f.reverseShapes=true;

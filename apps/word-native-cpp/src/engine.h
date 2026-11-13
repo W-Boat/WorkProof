@@ -31,6 +31,8 @@ struct DocSnapshot {
     std::wstring formatSignature;
     std::wstring structureSignature; // Local SHA-256 of bounded PPT object metadata; no content.
     long selectionStart = -1, selectionEnd = -1;
+    bool textSampled=false;
+    std::wstring textSignature; // Bounded PPT text digest, no plaintext serialization.
     WordRevisions revisions;
 };
 

@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <vector>
 #include <initializer_list>
+#include <functional>
 
 #pragma comment(lib, "winhttp.lib")
 
@@ -62,6 +63,47 @@ HRESULT GetProperty(IDispatch* object, const wchar_t* name, VARIANT* result) {
 }
 
 #ifdef WORKPROOF_POWERPOINT
+// Text is read only in memory for a bounded local digest; never exported.
+bool PresentationText(IDispatch* slides,long slideCount,long long shapeCount,DocSnapshot& snapshot){
+    if(shapeCount>4096)return false;
+    const auto began=GetTickCount64();long visited=0;long long characters=0;long paragraphs=0;
+    std::wstring data=L"workproof-ppt-text-v1;";
+    auto item=[](IDispatch* collection,long index,Variant& out){
+        LPOLESTR name=const_cast<LPOLESTR>(L"Item");DISPID id=0;
+        if(FAILED(collection->GetIDsOfNames(IID_NULL,&name,1,LOCALE_USER_DEFAULT,&id)))return false;
+        VARIANT arg={};arg.vt=VT_I4;arg.lVal=index;DISPPARAMS params={&arg,nullptr,1,0};
+        return SUCCEEDED(collection->Invoke(id,IID_NULL,LOCALE_USER_DEFAULT,DISPATCH_METHOD|DISPATCH_PROPERTYGET,&params,out.get(),nullptr,nullptr))&&out.value.vt==VT_DISPATCH&&out.value.pdispVal;
+    };
+    std::function<bool(IDispatch*,unsigned)> collect;
+    collect=[&](IDispatch* collection,unsigned depth){
+        if(depth>32)return false;
+        Variant count;if(FAILED(GetProperty(collection,L"Count",count.get()))||count.value.vt!=VT_I4||count.value.lVal<0||count.value.lVal>4096-visited)return false;
+        for(long n=1;n<=count.value.lVal;++n){
+            if(GetTickCount64()-began>=100||++visited>4096)return false;
+            Variant shape,type,has,number;if(!item(collection,n,shape)||FAILED(GetProperty(shape.value.pdispVal,L"Type",type.get()))||FAILED(VariantChangeType(number.get(),type.get(),0,VT_I4)))return false;
+            if(number.value.lVal==6){Variant group;if(FAILED(GetProperty(shape.value.pdispVal,L"GroupItems",group.get()))||group.value.vt!=VT_DISPATCH||!group.value.pdispVal||!collect(group.value.pdispVal,depth+1))return false;continue;}
+            // Table and SmartArt text require dedicated traversal, not a zero count.
+            if(number.value.lVal==19||number.value.lVal==24)return false;
+            if(FAILED(GetProperty(shape.value.pdispVal,L"HasTextFrame",has.get()))||FAILED(VariantChangeType(number.get(),has.get(),0,VT_I4)))return false;
+            if(!number.value.lVal)continue;
+            Variant frame,range,text;
+            if(FAILED(GetProperty(shape.value.pdispVal,L"TextFrame",frame.get()))||frame.value.vt!=VT_DISPATCH||!frame.value.pdispVal||
+               FAILED(GetProperty(frame.value.pdispVal,L"TextRange",range.get()))||range.value.vt!=VT_DISPATCH||!range.value.pdispVal||
+               FAILED(GetProperty(range.value.pdispVal,L"Text",text.get()))||text.value.vt!=VT_BSTR)return false;
+            const UINT length=SysStringLen(text.value.bstrVal);if(length>8000000-characters)return false;
+            characters+=length;data+=std::to_wstring(length)+L":";if(length){data.append(text.value.bstrVal,length);++paragraphs;for(UINT j=0;j<length;++j)if(text.value.bstrVal[j]==L'\r')++paragraphs;}data+=L";";
+        }
+        return true;
+    };
+    for(long n=1;n<=slideCount;++n){
+        if(GetTickCount64()-began>=100)return false;
+        Variant slide,shapes;if(!item(slides,n,slide)||FAILED(GetProperty(slide.value.pdispVal,L"Shapes",shapes.get()))||shapes.value.vt!=VT_DISPATCH||!shapes.value.pdispVal||!collect(shapes.value.pdispVal,0))return false;
+    }
+    if(GetTickCount64()-began>=100)return false;
+    unsigned char digest[32]{};if(BCryptHash(BCRYPT_SHA256_ALG_HANDLE,nullptr,0,reinterpret_cast<PUCHAR>(data.data()),static_cast<ULONG>(data.size()*sizeof(wchar_t)),digest,sizeof(digest))<0)return false;
+    const wchar_t* hex=L"0123456789abcdef";std::wstring result;for(auto byte:digest){result+=hex[byte>>4];result+=hex[byte&15];}
+    snapshot.characters=characters;snapshot.paragraphs=paragraphs;snapshot.textSignature=result;return true;
+}
 // Optional bounded structure sampling. Never read text, names, pixels or notes.
 std::wstring PresentationStructure(IDispatch* slides,long slideCount,long long shapeCount){
     if(shapeCount>4096)return {};
@@ -253,7 +295,7 @@ WordRevisions ReadWordRevisions(IDispatch* application,const std::wstring& ident
 #endif
 
 bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& error) {
-    snapshot.editorWindow=nullptr;snapshot.layoutSignature.clear();snapshot.formatSignature.clear();snapshot.structureSignature.clear();
+    snapshot.textSampled=false;snapshot.textSignature.clear();snapshot.editorWindow=nullptr;snapshot.layoutSignature.clear();snapshot.formatSignature.clear();snapshot.structureSignature.clear();
     snapshot.selectionStart=-1;snapshot.selectionEnd=-1;
     if (!application) { error = std::wstring(kHostName)+L" 尚未完成加载，请稍后重试。"; return false; }
     Variant documentOwner;
@@ -317,6 +359,7 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
         }
     }
     snapshot.structureSignature=PresentationStructure(slidesOwner.value.pdispVal,snapshot.slides,snapshot.shapes);
+    snapshot.textSampled=PresentationText(slidesOwner.value.pdispVal,snapshot.slides,snapshot.shapes,snapshot);
 #else
     Variant contentOwner, endOwner;
     VARIANT& content=contentOwner.value;
