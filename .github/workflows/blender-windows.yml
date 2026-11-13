@@ -1,0 +1,74 @@
+name: Real Windows Blender extension acceptance
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'apps/blender/**'
+      - 'scripts/package_blender.py'
+      - 'scripts/test_blender.py'
+      - 'scripts/test_blender_windows.py'
+      - '.github/workflows/blender-windows.yml'
+permissions:
+  contents: read
+jobs:
+  windows-host:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: '4.2.0'
+            series: '4.2'
+            sha256: b6e72874f8cb5c4ed77f9b03d7f1fde851b9455a7ff02a1e1119c876318ebc65
+          - version: '5.0.1'
+            series: '5.0'
+            sha256: 921d77f6c505a35b2c2f6e67d4ad1c10b72418338ba0e0d3ea7f582a5e5fe46e
+    env:
+      WORKPROOF_BLENDER_VERSION: ${{ matrix.version }}
+      WORKPROOF_BLENDER_SERIES: ${{ matrix.series }}
+      WORKPROOF_BLENDER_SHA256: ${{ matrix.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --locked -p workproof-engine
+      - run: python scripts/package_blender.py
+      - name: Download and verify official Windows host
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $archive='blender-'+$env:WORKPROOF_BLENDER_VERSION+'-windows-x64.zip'
+          $destination=Join-Path $env:RUNNER_TEMP $archive
+          $url='https://download.blender.org/release/Blender'+$env:WORKPROOF_BLENDER_SERIES+'/'+$archive
+          curl.exe --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 300 $url --output $destination
+          if($LASTEXITCODE -ne 0){throw 'Official host download failed'}
+          if((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:WORKPROOF_BLENDER_SHA256){throw 'Official archive digest differs'}
+          $unpacked=[IO.Path]::GetFullPath((Join-Path $env:RUNNER_TEMP ('workproof-blender-'+$env:WORKPROOF_BLENDER_VERSION)))
+          $temporary=[IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd('\')+'\'
+          if(-not $unpacked.StartsWith($temporary,[StringComparison]::OrdinalIgnoreCase) -or (Test-Path -LiteralPath $unpacked)){throw 'Expected a new isolated extraction directory'}
+          Expand-Archive -LiteralPath $destination -DestinationPath $unpacked
+          $executable=Join-Path $unpacked ('blender-'+$env:WORKPROOF_BLENDER_VERSION+'-windows-x64/blender.exe')
+          if(-not(Test-Path -LiteralPath $executable -PathType Leaf)){throw 'Official Blender executable missing'}
+          "WORKPROOF_BLENDER_EXECUTABLE=$executable" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Install, restart and exercise the real host
+        shell: pwsh
+        run: |
+          python scripts/test_blender_windows.py $env:WORKPROOF_BLENDER_EXECUTABLE $env:WORKPROOF_BLENDER_VERSION
+          if($LASTEXITCODE -ne 0){throw 'Real Blender acceptance failed'}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-blender-windows-${{ matrix.version }}-tested
+          if-no-files-found: error
+          path: |
+            dist/workproof-blender-*.zip
+            test-results/blender-windows/acceptance.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: blender-windows-${{ matrix.version }}-diagnostics
+          if-no-files-found: warn
+          path: test-results/blender-windows/
