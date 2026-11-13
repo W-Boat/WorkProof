@@ -124,7 +124,7 @@ mod tests{
     impl Drop for Temp{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
     fn event(seq:u64,kind:&str)->Event{Event{seq,elapsed_ms:seq*100,kind:kind.into(),inserted:0,deleted:0,chars:0,checkpoint:if kind=="save"{"a".repeat(64)}else{String::new()},metrics:BTreeMap::new()}}
     fn state()->(crate::Shared,HeaderMap){
-        let db=Connection::open_in_memory().unwrap();db.execute_batch(BASE).unwrap();db.execute_batch(PRIVATE).unwrap();
+        let db=Connection::open_in_memory().unwrap();db.execute_batch(BASE).unwrap();db.execute_batch(PRIVATE).unwrap();crate::recording_settings::initialize(&db).unwrap();
         let store=Store{db,key:ed25519_dalek::SigningKey::from_bytes(&[4;32]),info:ConnectionInfo{port:43127,token:"catalog-test-token".into()}};
         let mut headers=HeaderMap::new();headers.insert("authorization",HeaderValue::from_static("Bearer catalog-test-token"));
         (Arc::new(Mutex::new(store)),headers)
@@ -168,6 +168,24 @@ mod tests{
         let Json(proof)=crate::export(State(shared.clone()),headers,RoutePath(id.clone()),Json(Export{artifact_hash:"a".repeat(64),artifact_bytes:1})).await.ok().unwrap();
         let serialized=serde_json::to_string(&proof).unwrap();assert!(!serialized.contains("private-catalog"));assert!(!serialized.contains("local_path"));assert!(workproof_protocol::verify(&proof,&"a".repeat(64),1).valid);
         let store=shared.lock().unwrap();let received:i64=store.db.query_row("SELECT received_ms FROM session_activity WHERE session=?1",[&id],|r|r.get(0)).unwrap();assert_eq!(received,123);
+    }
+    #[tokio::test]
+    async fn recording_limit_allows_exact_retries_and_final_export() {
+        let (shared, headers) = state();
+        shared.lock().unwrap().db.execute("INSERT INTO recording_settings VALUES(1,100)", []).unwrap();
+        let Json(session) = crate::start(State(shared.clone()), headers.clone(), Json(input(None))).await.ok().unwrap();
+        let id = session["session_id"].as_str().unwrap().to_owned();
+        let mut events = vec![event(0, "start")];
+        events.extend((1..100).map(|seq| event(seq, "edit")));
+        for batch in [events.clone(), events] {
+            assert!(crate::append(State(shared.clone()), headers.clone(), RoutePath(id.clone()), Json(Batch{events:batch})).await.is_ok());
+        }
+        let error = crate::append(State(shared.clone()), headers.clone(), RoutePath(id.clone()), Json(Batch{events:vec![event(100,"edit")]})).await.err().unwrap();
+        assert_eq!(error.1, "RECORD_LIMIT_REACHED");
+        assert!(crate::append(State(shared.clone()), headers.clone(), RoutePath(id.clone()), Json(Batch{events:vec![event(100,"save")]})).await.is_ok());
+        let Json(proof) = crate::export(State(shared), headers, RoutePath(id), Json(Export{artifact_hash:"a".repeat(64),artifact_bytes:1})).await.ok().unwrap();
+        assert_eq!(proof.records.len(), 101);
+        assert!(workproof_protocol::verify(&proof, &"a".repeat(64), 1).valid);
     }
     #[tokio::test]
     async fn failed_private_binding_rolls_back_the_session(){

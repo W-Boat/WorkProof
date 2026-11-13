@@ -157,6 +157,7 @@ std::wstring DescribeEngineError(const std::string& code) {
     if (code == "PAIRING_EXPIRED") return L"连接请求已失效。请重新点击开始，并在桌面窗口允许连接。";
     if (code == "PAIRING_LIMIT") return L"待确认的连接太多。请先在桌面窗口处理已有请求，再重试。";
     if (code == "PAIRING_CHANNEL_MISMATCH") return L"连接来源不一致。请关闭面板后重新打开。";
+    if (code == "RECORD_LIMIT_REACHED") return L"已达到记录上限。可在 WorkProof 设置中提高上限，再继续记录。";
     if (code == "SAVE_CHECKPOINT_REQUIRED") return L"本次保存尚未记录完成，请再次导出。";
     if (code == "SEQUENCE_CONFLICT") return L"记录未能按原顺序保存。请暂停并开始一份新记录。";
     if (code == "ADAPTER_SESSION_DENIED") return L"这份记录不属于当前连接。请重新开始一份新记录。";
@@ -463,11 +464,8 @@ void Sample() {
         long long deleted = g.lastCharacters > snapshot.characters ? g.lastCharacters - snapshot.characters : 0;
 #ifdef WORKPROOF_POWERPOINT
         if(!snapshot.textSampled||!g.textSampled)inserted=deleted=0;
-        const std::string observed=snapshot.textSampled?WideToUtf8(snapshot.textSignature):std::string();
-#else
-        const std::string observed;
 #endif
-        if (!SendEvent("edit", snapshot, inserted, deleted, observed, error)) {
+        if (!SendEvent("edit", snapshot, inserted, deleted, std::string(), error)) {
             g.paused = true;
             KillTimer(g.window, kSampleTimer);
             SetStatus(error);PaintState();return;
@@ -609,7 +607,7 @@ void Export() {
     if (!SaveDocument(g.word, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
     DocSnapshot saved;
     if (!ReadDocument(g.word, saved, error)) { SetStatus(error); g.writing = false; PaintState(); return; }
-    if (saved.identity != before.identity || saved.characters != before.characters || saved.paragraphs != before.paragraphs || saved.slides!=before.slides || saved.shapes!=before.shapes) {
+    if (saved.identity != before.identity || saved.characters != before.characters || saved.paragraphs != before.paragraphs || saved.slides!=before.slides || saved.shapes!=before.shapes || saved.textSignature!=before.textSignature || saved.textSampled!=before.textSampled) {
         SetStatus(L"保存后内容仍在变化，已停止导出。请再次保存并重试。");
         g.writing = false;
         PaintState();
@@ -633,7 +631,7 @@ void Export() {
         return;
     }
     DocSnapshot check;
-    if (!ReadDocument(g.word, check, error) || check.identity != g.identity || check.characters != saved.characters || check.paragraphs != saved.paragraphs || check.slides!=saved.slides || check.shapes!=saved.shapes) {
+    if (!ReadDocument(g.word, check, error) || check.identity != g.identity || check.characters != saved.characters || check.paragraphs != saved.paragraphs || check.slides!=saved.slides || check.shapes!=saved.shapes || check.textSignature!=saved.textSignature || check.textSampled!=saved.textSampled) {
         SetStatus(L"生成摘要期间文档发生变化，已停止导出。请重新导出。");
         g.writing = false;
         PaintState();

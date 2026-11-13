@@ -10,6 +10,7 @@ pub mod location;
 pub mod editor;
 pub mod catalog;
 pub mod library_state;
+pub mod recording_settings;
 
 type Shared = Arc<Mutex<Store>>;
 static READY:AtomicBool=AtomicBool::new(false);
@@ -60,6 +61,7 @@ impl Store {
             CREATE TABLE IF NOT EXISTS events(session TEXT NOT NULL,seq INTEGER NOT NULL,json TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(session,seq),FOREIGN KEY(session) REFERENCES sessions(id));
             CREATE TABLE IF NOT EXISTS session_files(session TEXT PRIMARY KEY,local_path TEXT NOT NULL,FOREIGN KEY(session) REFERENCES sessions(id));
             CREATE TABLE IF NOT EXISTS session_activity(session TEXT PRIMARY KEY,received_ms INTEGER NOT NULL,FOREIGN KEY(session) REFERENCES sessions(id));")?;
+        recording_settings::initialize(&db)?;
         Ok(Self{db,key:SigningKey::from_bytes(&seed),info:ConnectionInfo{port,token:random_hex(32)}})
     }
 }
@@ -123,6 +125,7 @@ async fn append(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<Stri
     let tx=store.db.transaction()?;
     let last:Option<(u64,String,String)>=tx.query_row("SELECT seq,hash,json FROM events WHERE session=?1 ORDER BY seq DESC LIMIT 1",[&id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
     let (mut next,mut head,mut elapsed)=if let Some((seq,hash,json))=last{let e:Event=serde_json::from_str(&json).map_err(|_|bad("CORRUPT_RECORD"))?;(seq+1,hash,e.elapsed_ms)}else{(0,genesis(&id),0)};
+    let limit = recording_settings::read(&tx)?;
     let mut inserted=false;
     for e in batch.events {
         if !validate_event(&e){return Err(bad("INVALID_EVENT"));}
@@ -132,6 +135,11 @@ async fn append(State(shared):State<Shared>,headers:HeaderMap,Path(id):Path<Stri
             if existing!=json{return Err(bad("SEQUENCE_CONFLICT"));}continue;
         }
         if e.seq!=next||e.elapsed_ms<elapsed||(next==0&&e.kind!="start"){return Err(bad("SEQUENCE_GAP"));}
+        if let Some(limit) = limit {
+            if next >= limit && !matches!(e.kind.as_str(), "save" | "stop" | "pause" | "gap") {
+                return Err(bad("RECORD_LIMIT_REACHED"));
+            }
+        }
         head=event_hash(&head,&e);
         tx.execute("INSERT INTO events(session,seq,json,hash) VALUES(?1,?2,?3,?4)",params![id,e.seq,json,head])?;
         inserted=true;next+=1;elapsed=e.elapsed_ms;

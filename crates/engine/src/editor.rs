@@ -138,6 +138,11 @@ pub fn save(root:&Path,input:Save)->Result<Value>{
     let (last_seq,mut head,json):(u64,String,String)=tx.query_row("SELECT seq,hash,json FROM editor_events WHERE document=?1 ORDER BY seq DESC LIMIT 1",[&input.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(storage)?;
     let mut elapsed=serde_json::from_str::<Event>(&json).map_err(storage)?.elapsed_ms;
     if last_seq+input.actions.len() as u64+2>=MAX_EVENTS as u64{return Err("这份记录已满，请新建文档继续。".into());}
+    if let Some(limit) = super::recording_settings::load(root)? {
+        if !input.actions.is_empty() && last_seq + input.actions.len() as u64 + 2 > limit {
+            return Err("已达到记录上限。本次内容尚未保存，请提高设置中的记录上限后重试。".into());
+        }
+    }
     for (i,a) in input.actions.iter().enumerate(){let e=event(a,last_seq+i as u64+1,elapsed)?;elapsed=e.elapsed_ms;head=event_hash(&head,&e);tx.execute("INSERT INTO editor_events VALUES(?1,?2,?3,?4)",params![input.id,e.seq,encoded(&e)?,head]).map_err(storage)?;}
     let next=revision+1;let now=super::now_ms();let content=encoded(&input.content)?;
     let checkpoint=Event{seq:last_seq+input.actions.len() as u64+1,elapsed_ms:elapsed,kind:"save".into(),inserted:0,deleted:0,chars:text_length(&input.content),checkpoint:digest(content.as_bytes()),metrics:BTreeMap::new()};

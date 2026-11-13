@@ -42,3 +42,17 @@ pub async fn editor_export(window:WebviewWindow,id:String,docx:Option<Vec<u8>>,m
         Ok(json!({"file_name":name,"html":out.html,"fingerprint":out.proof.manifest.artifact_hash,"event_count":out.proof.manifest.event_count,"report":out.report,"saved":true}))
     }).await.map_err(|_|"作品与证书未能导出。")?
 }
+
+#[tauri::command]
+pub async fn recording_limit(window: WebviewWindow) -> Result<Option<u64>, String> {
+    let dir = root(&window)?;
+    tauri::async_runtime::spawn_blocking(move || workproof_engine::recording_settings::load(&dir))
+        .await.map_err(|_| "无法读取记录设置。")?
+}
+
+#[tauri::command]
+pub async fn set_recording_limit(window: WebviewWindow, limit: Option<u64>) -> Result<(), String> {
+    let dir = root(&window)?;
+    tauri::async_runtime::spawn_blocking(move || workproof_engine::recording_settings::save(&dir, limit))
+        .await.map_err(|_| "无法保存记录设置。")?
+}

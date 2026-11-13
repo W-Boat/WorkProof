@@ -643,3 +643,31 @@ const workspaceTools=initializeWorkspaceTools({
   },
 });
 await loadLibrary();
+
+const recordLimit = $('recording-limit');
+const saveRecordLimit = $('save-recording-limit');
+const recordLimitStatus = $('recording-limit-status');
+window.addEventListener('workproof-view', async event => {
+  if (event.detail !== 'settings' || !recordLimit.disabled) return;
+  try {
+    const limit = await ipc('recording_limit');
+    recordLimit.value = limit == null ? '' : String(limit);
+    recordLimit.disabled = saveRecordLimit.disabled = false;
+    recordLimitStatus.textContent = '';
+  } catch (error) {
+    recordLimitStatus.textContent = errorText(error);
+  }
+});
+saveRecordLimit.addEventListener('click', async () => {
+  if (!recordLimit.reportValidity()) return;
+  const limit = recordLimit.value === '' ? null : recordLimit.valueAsNumber;
+  recordLimit.disabled = saveRecordLimit.disabled = true;
+  try {
+    await ipc('set_recording_limit', {limit});
+    recordLimitStatus.textContent = '已保存设置。';
+  } catch (error) {
+    recordLimitStatus.textContent = errorText(error);
+  } finally {
+    recordLimit.disabled = saveRecordLimit.disabled = false;
+  }
+});

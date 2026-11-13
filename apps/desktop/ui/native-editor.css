@@ -534,3 +534,5 @@ body dialog[data-dialog-closing=true]::backdrop{background:#0000}
 @starting-style{body dialog[open]::backdrop{background:#0000}}
 
 .footer-zoom{display:flex;align-items:center;gap:4px;margin-left:auto}.footer-zoom fluent-button{min-width:28px;min-height:26px}.footer-zoom #writing-zoom,.footer-zoom fluent-dropdown{min-width:80px;min-height:26px;font-size:12px}.writing-statistics-button{text-decoration:underline;text-underline-offset:3px}
+
+.recording-limit-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.recording-limit-controls input{width:96px;padding:6px 8px;border:1px solid var(--stroke);border-radius:4px;color:var(--text);background:var(--content)}

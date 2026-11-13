@@ -30,6 +30,8 @@ async function desktop(page:Page){
       if(command==='save_report'){if(w.nativeReportSave)return w.nativeReportSave(args);throw new Error('Native report saver is not configured for this test');}
       if(command==='engine_status')return {ready:true,sessions:0,events:0,...(w.editorHarness.engineStatus||{})};
       if(command==='pending_adapters'||command==='adapter_connections')return [];
+      if(command==='recording_limit')return Number(localStorage.getItem('test.recording-limit'))||null;
+      if(command==='set_recording_limit'){localStorage.setItem('test.recording-limit',String(args.limit??''));return null;}
       if(command==='editor_list')return Object.values(docs);
       if(command==='library_delete'){if(args.kind==='editor'){for(const id of args.ids)delete docs[id];write(docs);}else w.editorHarness.externalDocuments=(w.editorHarness.externalDocuments||[]).filter((item:any)=>!args.ids.includes(item.id));return {deleted:args.ids.length};}
       if(command==='library_states')return JSON.parse(localStorage.getItem('library.states')||'{}');
