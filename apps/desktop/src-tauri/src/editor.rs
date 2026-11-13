@@ -69,7 +69,7 @@ fn office_registry() -> std::process::Command {
 pub async fn office_reconnect(window: WebviewWindow) -> Result<Value, String> {
     super::workbench_only(&window)?;
     #[cfg(windows)]
-    return tauri::async_runtime::spawn_blocking(|| {
+    return tauri::async_runtime::spawn_blocking(|| -> Result<Value, String> {
         let output = office_registry().args(["query", r"HKCU\Software\WorkProof", "/v", "OfficeReconnect"]).output()
             .map_err(|_| "无法读取 Office 重连设置。")?;
         let raw = String::from_utf8_lossy(&output.stdout);
@@ -92,7 +92,7 @@ pub async fn set_office_reconnect(window: WebviewWindow, seconds: u32, attempts:
         return Err("重连间隔须为 1 至 60 秒，重试次数须为 0 至 10 次。".into());
     }
     #[cfg(windows)]
-    return tauri::async_runtime::spawn_blocking(move || {
+    return tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let value = ((attempts << 16) | seconds).to_string();
         let status = office_registry().args(["add", r"HKCU\Software\WorkProof", "/v", "OfficeReconnect", "/t", "REG_DWORD", "/d", &value, "/f"])
             .output().map_err(|_| "无法保存 Office 重连设置。")?;
