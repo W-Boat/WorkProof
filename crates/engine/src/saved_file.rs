@@ -51,7 +51,7 @@ pub struct SavedFileRecorder {
     store:Shared,headers:HeaderMap,path:PathBuf,root:PathBuf,id:String,name:String,
     sequence:u64,started:Instant,paused:bool,last:Fingerprint,
     source:&'static str,geometry:Option<String>,
-    candidate:Option<(Stamp,Instant)>,pending:Option<Event>,
+    candidate:Option<(Stamp,Instant)>,pending:Vec<Event>,
 }
 
 impl SavedFileRecorder {
@@ -91,7 +91,7 @@ impl SavedFileRecorder {
         })).await.map_err(api)?;
         let id=created["session_id"].as_str().ok_or("记录编号未返回。")?.to_string();
         let mut recorder=Self{store:shared,headers,path,root,id,name,sequence:0,started:Instant::now(),paused:false,last,
-            candidate:None,pending:None,source,geometry};
+            candidate:None,pending:Vec::new(),source,geometry};
         recorder.emit("start",recorder.last.hash.clone()).await?;
         Ok(recorder)
     }
@@ -107,24 +107,39 @@ impl SavedFileRecorder {
         if self.paused||self.source!=ILLUSTRATOR_SOURCE{return Ok(());}
         if !valid_hash(&geometry){return Err("Illustrator 几何摘要无效。".into());}
         if self.geometry.as_deref()==Some(geometry.as_str()){return Ok(());}
-        self.require_observation_capacity()?;
+        self.require_capacity(1)?;
         self.emit("edit",geometry.clone()).await?;
         self.geometry=Some(geometry);
         Ok(())
     }
 
     async fn flush(&mut self)->Result<(),String>{
-        let Some(event)=self.pending.clone()else{return Ok(());};
-        let Json(result)=super::append(State(self.store.clone()),self.headers.clone(),Path(self.id.clone()),Json(Batch{events:vec![event]})).await.map_err(api)?;
-        if result["next_seq"].as_u64()!=Some(self.sequence+1){return Err("记录序号未被确认，待保存内容已保留。".into());}
-        self.sequence+=1;self.pending=None;Ok(())
+        if self.pending.is_empty(){return Ok(());}
+        let next=self.sequence+self.pending.len() as u64;
+        let result=super::append(State(self.store.clone()),self.headers.clone(),Path(self.id.clone()),Json(Batch{events:self.pending.clone()})).await;
+        let Json(result)=match result{
+            Ok(result)=>result,
+            Err(ApiError(StatusCode::BAD_REQUEST,ref code))if code=="RECORD_LIMIT_REACHED"=>{
+                // The collector rolled back the whole batch. Keep export available if the limit changed.
+                self.pending.clear();
+                self.paused=true;
+                return Err("记录已达到设置上限，可以提高上限或导出已有记录。".into());
+            }
+            Err(error)=>return Err(api(error)),
+        };
+        if result["next_seq"].as_u64()!=Some(next){return Err("记录序号未被确认，待保存内容已保留。".into());}
+        self.sequence=next;self.pending.clear();Ok(())
     }
 
     async fn emit(&mut self,kind:&str,checkpoint:String)->Result<(),String>{
         self.flush().await?;
-        self.pending=Some(Event{seq:self.sequence,elapsed_ms:self.started.elapsed().as_millis().min(31_536_000_000) as u64,
-            kind:kind.into(),inserted:0,deleted:0,chars:0,checkpoint,metrics:BTreeMap::new()});
+        self.queue(kind,checkpoint);
         self.flush().await
+    }
+
+    fn queue(&mut self,kind:&str,checkpoint:String){
+        self.pending.push(Event{seq:self.sequence+self.pending.len() as u64,elapsed_ms:self.started.elapsed().as_millis().min(31_536_000_000) as u64,
+            kind:kind.into(),inserted:0,deleted:0,chars:0,checkpoint,metrics:BTreeMap::new()});
     }
 
     /// Called on an interval by a native controller. Two stable observations precede hashing.
@@ -147,16 +162,16 @@ impl SavedFileRecorder {
     pub async fn checkpoint(&mut self)->Result<bool,String>{
         if self.paused{return Err("记录已暂停，请先继续。".into());}
         self.flush().await?;
-        self.require_observation_capacity()?;
+        self.require_capacity(1)?;
         let current=match fingerprint(self.path.clone()).await{Ok(value)=>value,Err(error)=>{self.paused=true;return Err(error);}};
         if current.hash==self.last.hash{self.last=current;self.candidate=None;return Ok(false);}
         self.emit("save",current.hash.clone()).await?;
         self.last=current;self.candidate=None;Ok(true)
     }
 
-    fn require_observation_capacity(&mut self)->Result<(),String>{
+    fn require_capacity(&mut self,events:u64)->Result<(),String>{
         let limit=recording_settings::load(&self.root)?.unwrap_or(OBSERVATION_LIMIT).min(OBSERVATION_LIMIT);
-        if self.sequence>=limit{
+        if self.sequence+events>limit{
             self.paused=true;
             return Err("记录已达到设置上限，可以提高上限或导出已有记录。".into());
         }
@@ -172,9 +187,10 @@ impl SavedFileRecorder {
     pub async fn resume(&mut self)->Result<(),String>{
         if !self.paused{return Ok(());}
         self.flush().await?;
-        self.require_observation_capacity()?;
-        self.emit("gap",String::new()).await?;
-        self.emit("resume",String::new()).await?;
+        self.require_capacity(2)?;
+        self.queue("gap",String::new());
+        self.queue("resume",String::new());
+        self.flush().await?;
         self.paused=false;self.candidate=None;Ok(())
     }
 
@@ -274,6 +290,41 @@ mod tests{
         let proof=recorder.export().await.unwrap();
         assert!(verify(&proof,&digest(b"new bytes after limit"),21).valid);
         assert!(proof.records.iter().any(|record|record.event.kind=="gap"));
+    }
+    #[tokio::test]async fn resume_at_capacity_does_not_leave_a_partial_gap_or_block_export(){
+        let fixture=Fixture::new();
+        recording_settings::save(&fixture.profile,Some(100)).unwrap();
+        let mut recorder=fixture.recorder().await;
+        for index in 1..98{
+            std::fs::write(&fixture.file,format!("save {index}")).unwrap();
+            recorder.checkpoint().await.unwrap();
+        }
+        recorder.pause().await.unwrap();
+        assert_eq!(recorder.status().events,99);
+        assert!(recorder.resume().await.is_err());
+        assert_eq!(recorder.status().events,99);
+        assert!(recorder.status().paused);
+        let proof=recorder.export().await.unwrap();
+        assert_eq!(proof.records.len(),100);
+        assert!(!proof.records.iter().any(|record|record.event.kind=="gap"));
+    }
+    #[tokio::test]async fn lower_limit_rolls_back_the_resume_batch_and_allows_export(){
+        let fixture=Fixture::new();
+        let mut recorder=fixture.recorder().await;
+        for index in 1..98{
+            std::fs::write(&fixture.file,format!("save {index}")).unwrap();
+            recorder.checkpoint().await.unwrap();
+        }
+        recorder.pause().await.unwrap();
+        recorder.require_capacity(2).unwrap();
+        recorder.queue("gap",String::new());
+        recorder.queue("resume",String::new());
+        recording_settings::save(&fixture.profile,Some(100)).unwrap();
+        assert!(recorder.flush().await.is_err());
+        assert!(recorder.pending.is_empty());
+        let proof=recorder.export().await.unwrap();
+        assert_eq!(proof.records.len(),100);
+        assert_eq!(proof.records.last().unwrap().event.kind,"save");
     }
     #[tokio::test]async fn polling_waits_for_a_quiet_file_before_hashing(){
         let fixture=Fixture::new();let mut recorder=fixture.recorder().await;
