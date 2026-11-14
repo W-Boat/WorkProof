@@ -1,6 +1,6 @@
 # 绘画软件接入
 
-用户最新指定优先支持 Photoshop（PS）、PaintTool SAI2、Adobe Illustrator（AI）。Photoshop 已有 UXP 开发适配；Illustrator 已补原生只读几何采样；SAI2 已接入 Windows 客户端的保存版本记录。Krita 开发插件继续补真实宿主验收。不能把文件可打开或探针能返回数据当作完整记录已接入。
+用户最新指定优先支持 Photoshop（PS）、PaintTool SAI2、Adobe Illustrator（AI）。Photoshop 已有 UXP 开发适配；Illustrator 已接入桌面的几何采样与签名导出；SAI2 已接入 Windows 客户端的保存版本记录。Krita 开发插件继续补真实宿主验收。不能把文件可打开或探针能返回数据当作完整记录已接入。
 
 ## Krita 开发版
 
@@ -35,15 +35,15 @@
 ## PS / SAI2 / AI 优先范围（追加）
 
 - Photoshop：复用现有 UXP 适配，继续补真实宿主、正式分发和大 PSD/PSB 流式路径；已有模拟与收集器检查不等于 Adobe 宿主验收。
-- Illustrator：[原生只读探针](../apps/illustrator/README.md) 已通过 Windows 模拟/脚本解析 Actions，未接完整授权记录链、真实软件和安装流程。2027 年公开 UXP 插件接口前不伪造兼容模块。
+- Illustrator：[原生只读探针](../apps/illustrator/README.md) 已扩展为桌面几何采样、保存版本和签名证书。真实软件验收及安装包仍待完成。
 - SAI2：[实施要求与观测边界](../apps/sai2/README.md) 已实现所选文件的持续观察、暂停和签名证书导出。覆盖稳定后观察到的保存版本。
 
 Krita 的真实宿主验收仍未通过：原最新发行包的 Python/Qt 绑定失败；Qt5 脚本运行器打开 GUI 缺少资源；完整 GUI 在旧版宿主遇到文档路径与 API 差异。已改为真实插件管理器、文档非阻塞图像锁和固定 5.2 / Qt5 环境，最新修正版 Actions 43580995145 仍在运行。桌面 Krita 入口也修复了软件选项加入错误下拉框的问题，交互 Actions 43580995140 仍在运行。不能用旧的核心成功覆盖这些真实失败。
 
-用户已确认本机尚未安装 SAI2 和 Illustrator；只读安装登记检查检测到 Photoshop 2025 26.11.0.18，检查当时未运行。后续优先使用该合法 Photoshop 做实机验收；SAI2/Illustrator 继续源码、自动检查和安装准备，真实宿主待可用后验收，不将未安装作为其他开发的阻塞。
+用户已确认本机尚未安装 SAI2 和 Illustrator；只读安装登记检查检测到 Photoshop 2025 26.11.0.18，检查当时未运行。后续需在签名有效的 Photoshop 安装上做实机验收；SAI2/Illustrator 继续源码、自动检查和安装准备，真实宿主待可用后验收，不将未安装作为其他开发的阻塞。
 
 ### 最新绘画交付核对
 
 - Photoshop 0.3.1 开发包增加 PSD／PSB 副本和 1 MiB 分块指纹，分块读取上限 8 GiB。若宿主只允许整文件读取，保留 128 MiB 上限。[Photoshop 专项](https://github.com/W-Boat/WorkProof/actions/runs/43584996719) 已通过分块模拟和真实收集器签名检查，[开发包](https://github.com/W-Boat/WorkProof/actions/runs/43584996719/artifacts/14109668738) 已下载校验。实际 Photoshop 文件的分块权限及加载待验收。本机 Photoshop 26.11 的 Authenticode 状态为 HashMismatch，实机检查待签名有效的安装。
-- [Illustrator Windows 专项](https://github.com/W-Boat/WorkProof/actions/runs/43585173901) 已验证锚点及控制柄变化、输入上限和脚本解析。Windows 桥接输出几何摘要及计数，文件路径用于本机绑定。真实 COM 宿主和完整证书链路待接入。
-- [SAI2 核心检查](https://github.com/W-Boat/WorkProof/actions/runs/43583192675) 在 Windows 和 Linux 成功，[Windows 原生控制器](https://github.com/W-Boat/WorkProof/actions/runs/43583192754/job/132412664169) 已验证导出失败后保留暂停状态并可重试。Firefox 发现提示被轮询覆盖，修复后的 [桌面回归](https://github.com/W-Boat/WorkProof/actions/runs/43584907053) 和 [包含修复的安装包](https://github.com/W-Boat/WorkProof/actions/runs/43585173894) 仍待结果，当前安装版尚未更新。
+- [Illustrator Windows 专项](https://github.com/W-Boat/WorkProof/actions/runs/43585173901) 已验证锚点及控制柄变化、输入上限和脚本解析。Windows 桥接输出几何摘要及计数，文件路径用于本机绑定。已接入文件匹配、定期几何采样、切换暂停和签名导出。[Windows 与 Linux 记录核心](https://github.com/W-Boat/WorkProof/actions/runs/43585589641) 已通过，合成作品的几何摘要与最终文件指纹均进入签名记录。真实 Illustrator COM 和安装包仍待验收。
+- [SAI2 核心检查](https://github.com/W-Boat/WorkProof/actions/runs/43583192675) 在 Windows 和 Linux 成功，[Windows 原生控制器](https://github.com/W-Boat/WorkProof/actions/runs/43583192754/job/132412664169) 已验证导出失败后保留暂停状态并可重试。Firefox 发现提示被轮询覆盖，修复后的 [桌面回归](https://github.com/W-Boat/WorkProof/actions/runs/43584907053) 已通过。包含 Illustrator 和 SAI2 的 [配套安装包](https://github.com/W-Boat/WorkProof/actions/runs/43585589592) 仍在排队，当前安装版尚未更新。
