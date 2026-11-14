@@ -10,11 +10,25 @@ try {
     $script=Join-Path $PSScriptRoot 'host.jsx'
     if(-not (Test-Path -LiteralPath $script -PathType Leaf)){throw 'Missing snapshot script'}
     $raw=[string]$application.DoJavaScriptFile($script)
-    if([Text.Encoding]::UTF8.GetByteCount($raw) -gt 1048576){throw 'Snapshot exceeds local bridge limit'}
+    if([Text.Encoding]::UTF8.GetByteCount($raw) -gt 4194304){throw 'Snapshot exceeds local bridge limit'}
     $value=$raw | ConvertFrom-Json
     if($value.error){throw ('Illustrator snapshot: '+$value.error)}
     if($value.format -ne 'workproof-illustrator-snapshot/1'){throw 'Unexpected snapshot format'}
-    $raw
+    # Keep object UUIDs, coordinates and group structure inside this native process.
+    $rows=[object[]]@($value.objects)
+    $payload=ConvertTo-Json -InputObject $rows -Depth 16 -Compress
+    $hasher=[Security.Cryptography.SHA256]::Create()
+    try {
+        $inputBytes=[Text.Encoding]::UTF8.GetBytes("workproof-illustrator-geometry-v1" + [char]0 + $payload)
+        $digest=[BitConverter]::ToString($hasher.ComputeHash($inputBytes)).Replace('-','').ToLowerInvariant()
+    } finally { $hasher.Dispose() }
+    [ordered]@{
+        format='workproof-illustrator-observation/1'
+        path=$value.path
+        saved=$value.saved
+        metrics=$value.metrics
+        geometry_sha256=$digest
+    } | ConvertTo-Json -Depth 4 -Compress
 } finally {
     if($application -and [Runtime.InteropServices.Marshal]::IsComObject($application)){
         [void][Runtime.InteropServices.Marshal]::ReleaseComObject($application)

@@ -31,7 +31,14 @@
         var started = new Date().getTime();
         var total = doc.pageItems.length;
         if (total > 4096) throw Error('OBJECT_LIMIT');
-        var rows = [], ids = {}, groups = 0, visible = 0;
+        var rows = [], ids = {}, groups = 0, visible = 0, pathPoints = 0;
+        function coordinates(point) {
+            if (!point || point.length !== 2) throw Error('PATH_POINT_UNAVAILABLE');
+            var x = Number(point[0]), y = Number(point[1]);
+            if (!isFinite(x) || !isFinite(y) || Math.abs(x) > 1000000000 || Math.abs(y) > 1000000000)
+                throw Error('INVALID_BOUNDS');
+            return [x, y];
+        }
         for (var i = 0; i < total; ++i) {
             if (new Date().getTime() - started > 100) throw Error('SNAPSHOT_BUDGET');
             var item = doc.pageItems[i];
@@ -56,18 +63,34 @@
             var shown = !item.hidden;
             groups += kind === 'GroupItem' ? 1 : 0;
             visible += shown ? 1 : 0;
-            rows.push([id, parentId, i, kind, shown, opacity, numbers]);
+            var pathShape = null;
+            if (kind === 'PathItem') {
+                var points = item.pathPoints;
+                if (!points || typeof points.length !== 'number') throw Error('PATH_POINT_UNAVAILABLE');
+                var pointCount = points.length;
+                pathPoints += pointCount;
+                if (pathPoints > 8192) throw Error('PATH_POINT_LIMIT');
+                var samples = [];
+                for (var k = 0; k < pointCount; ++k) {
+                    if (new Date().getTime() - started > 100) throw Error('SNAPSHOT_BUDGET');
+                    var point = points[k];
+                    samples.push([coordinates(point.anchor), coordinates(point.leftDirection),
+                        coordinates(point.rightDirection)]);
+                }
+                pathShape = [!!item.closed, samples];
+            }
+            rows.push([id, parentId, i, kind, shown, opacity, numbers, pathShape]);
         }
         // Host calls are synchronous but the active document can still change through host reentrancy.
         if (app.activeDocument !== doc || doc.fullName.fsName !== path || doc.pageItems.length !== total)
             throw Error('DOCUMENT_CHANGED_DURING_SAMPLE');
         var result = {format:'workproof-illustrator-snapshot/1',path:path,saved:!!doc.saved,
-            metrics:{objects:total,groups:groups,unhidden_objects:visible},objects:rows};
+            metrics:{objects:total,groups:groups,unhidden_objects:visible,path_points:pathPoints},objects:rows};
         return encode(result);
     } catch (failure) {
         // Allowlisted diagnostics only; never return host exception text or artwork content.
         var message = String(failure.message || '');
-        var known = /^(NO_ACTIVE_DOCUMENT|SAVE_LOCAL_DOCUMENT_FIRST|OBJECT_LIMIT|SNAPSHOT_BUDGET|STABLE_OBJECT_ID_UNAVAILABLE|UNKNOWN_OBJECT_KIND|BOUNDS_UNAVAILABLE|INVALID_BOUNDS|INVALID_OPACITY|PARENT_ID_UNAVAILABLE|DOCUMENT_CHANGED_DURING_SAMPLE)$/;
+        var known = /^(NO_ACTIVE_DOCUMENT|SAVE_LOCAL_DOCUMENT_FIRST|OBJECT_LIMIT|SNAPSHOT_BUDGET|STABLE_OBJECT_ID_UNAVAILABLE|UNKNOWN_OBJECT_KIND|BOUNDS_UNAVAILABLE|INVALID_BOUNDS|INVALID_OPACITY|PARENT_ID_UNAVAILABLE|PATH_POINT_UNAVAILABLE|PATH_POINT_LIMIT|DOCUMENT_CHANGED_DURING_SAMPLE)$/;
         return encode({error:known.test(message) ? message : 'HOST_SNAPSHOT_UNAVAILABLE'});
     }
 })();
