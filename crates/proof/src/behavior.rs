@@ -120,6 +120,10 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
         assessment.status="not_applicable".into();assessment.rule_results=rule_results("not_applicable");
         assessment.limitations.insert(0,"这份记录只观察 SAI2 文件的保存版本，未采集图层、笔触或应用内动作；文字输入规则不适用。".into());return assessment;
     }
+    if manifest.source=="illustrator"{
+        assessment.status="not_applicable".into();assessment.rule_results=rule_results("not_applicable");
+        assessment.limitations.insert(0,"这份记录覆盖 Illustrator 的几何采样与保存版本。填充、效果和具体命令可能未被采集。".into());return assessment;
+    }
     if matches!(manifest.source.as_str(),"photoshop"|"blender"|"krita"){
         assessment.status="not_applicable".into();assessment.rule_results=rule_results("not_applicable");assessment.limitations.insert(0,"这份记录来自图像或三维软件，文字输入规则不适用。".into());return assessment;
     }

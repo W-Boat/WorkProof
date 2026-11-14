@@ -280,6 +280,7 @@ function applyMotion(){document.documentElement.dataset.reduceMotion=String(moti
 try{motionPreference.checked=localStorage.getItem('workproof.reduce-motion')==='true';}catch{}applyMotion();motionPreference.addEventListener('change',applyMotion);
 
 const guides={
+  illustrator:{steps:['在 Illustrator 打开并保存本地 .ai 作品，再选择同一份文件开始。','继续创作，WorkProof 定期采样路径和对象几何。切换作品会暂停当前记录。','完成后在 Illustrator 保存作品，再导出证书。'],note:'Windows 开发版。通过 Illustrator 脚本接口观察几何变化和文件保存。采样可能错过短时间内的变化，填充、效果和具体命令暂不覆盖。'},
   'sai2-file':{steps:['先在 SAI2 中保存作品，再选择下方“选择作品并开始”。','保持 WorkProof 运行，稳定后观察到的保存版本会写入本机记录。','完成后先在 SAI2 保存，再导出证书并结束；将原作品和证书一起交付。'],note:'这是文件保存版本观察，不是 SAI2 内部插件。不会采集图层、笔触或未保存的编辑，也不能证明文件由哪个进程写入。文件移动或无法读取时会暂停。'},
   word:{steps:['点击“打开 Word 并开始记录”。已有文档会继续使用，新文档会先提示保存。','首次使用时，在这里允许 Word 连接。Word 显示“已开始记录”后即可创作。','完成后在 Word 的 WorkProof 侧栏导出作品和证书，将两个文件一起交付。'],note:'Windows 桌面版 Word：先点击上方“检查安装状态”。未安装时，保存并退出 Word，再点击“安装 / 修复加载项”。安装后即可从这里打开 Word；也可以使用 Word 中的 WorkProof 标签。网页版和 Mac 需要单独安装网页加载项。'},
   powerpoint:{steps:['点击“打开 PowerPoint 并开始记录”，新演示文稿请先保存。','首次使用时在这里允许 PowerPoint 连接。侧栏显示已开始后再创作。','完成后在 PowerPoint 的 WorkProof 侧栏导出演示文稿和证书，一起交付。'],note:'需要 Windows 桌面版 PowerPoint。先点击上方“检查安装状态”。未安装时，保存并退出 PowerPoint，再点击“安装 / 修复加载项”；安装后从这里打开软件即可。'},
@@ -290,7 +291,7 @@ const guides={
   blender:{steps:['在 Blender 设置中选择“从磁盘安装”，导入 WorkProof 插件文件。','先保存工程，在侧栏 WorkProof 面板中点击开始记录。','完成后保存并导出，将工程和旁边的证书一起交付。'],note:'需要 Blender 4.2 或更新版本。插件会自动连接本机的 WorkProof。'}
 };
 const creationTool=document.getElementById('creation-tool');
-const requirements={'sai2-file':'Windows · 仅记录已保存的 .sai2 文件版本，不记录逐笔绘画。',krita:'需要已启用 Python 插件的 Krita 5.2 / Qt5；开发版暂需手动安装。',word:'首次使用前，请先安装 Word 原生加载项。',powerpoint:'首次使用前，请先安装 PowerPoint 原生加载项。',wps:'当前需要手动接入，尚未提供一键安装包。',vscode:'先安装插件，再到 VS Code 中选择要记录的文件。',photoshop:'当前为测试版插件，需要手动安装。',blender:'适用于 Blender 4.2 及以上版本，需要安装插件。'};
+const requirements={illustrator:'Windows · 记录本地 .ai 作品的几何摘要和保存版本。','sai2-file':'Windows · 仅记录已保存的 .sai2 文件版本，不记录逐笔绘画。',krita:'需要已启用 Python 插件的 Krita 5.2 / Qt5；开发版暂需手动安装。',word:'首次使用前，请先安装 Word 原生加载项。',powerpoint:'首次使用前，请先安装 PowerPoint 原生加载项。',wps:'当前需要手动接入，尚未提供一键安装包。',vscode:'先安装插件，再到 VS Code 中选择要记录的文件。',photoshop:'当前为测试版插件，需要手动安装。',blender:'适用于 Blender 4.2 及以上版本，需要安装插件。'};
 try{const saved=localStorage.getItem('workproof.creation-tool');if(Object.hasOwn(guides,saved))creationTool.value=saved;}catch{}
 function showGuide(){const guide=guides[creationTool.value];const steps=document.getElementById('creation-steps');steps.replaceChildren();for(const text of guide.steps){const li=document.createElement('li');li.textContent=text;steps.append(li);}document.getElementById('installation-note').textContent=guide.note;document.getElementById('tool-requirement').textContent=requirements[creationTool.value];document.getElementById('install').hidden=creationTool.value!=='vscode';document.getElementById('open-word').hidden=creationTool.value!=='word';document.getElementById('open-powerpoint').hidden=creationTool.value!=='powerpoint';try{localStorage.setItem('workproof.creation-tool',creationTool.value);}catch{}}
 creationTool.addEventListener('change',showGuide);showGuide();

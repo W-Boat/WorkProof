@@ -7,9 +7,11 @@ $ErrorActionPreference='Stop'
 $application=$null
 try {
     $application=[Runtime.InteropServices.Marshal]::GetActiveObject('Illustrator.Application')
-    $script=Join-Path $PSScriptRoot 'host.jsx'
-    if(-not (Test-Path -LiteralPath $script -PathType Leaf)){throw 'Missing snapshot script'}
-    $raw=[string]$application.DoJavaScriptFile($script)
+    [Console]::OutputEncoding=New-Object Text.UTF8Encoding($false)
+    $source=$env:WORKPROOF_ILLUSTRATOR_SOURCE
+    if(-not $source){$source=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'host.jsx'))}
+    $source=$source -replace '^#target illustrator\r?\n',''
+    $raw=[string]$application.DoJavaScript($source)
     if([Text.Encoding]::UTF8.GetByteCount($raw) -gt 4194304){throw 'Snapshot exceeds local bridge limit'}
     $value=$raw | ConvertFrom-Json
     if($value.error){throw ('Illustrator snapshot: '+$value.error)}

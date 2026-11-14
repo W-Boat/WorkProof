@@ -4,6 +4,7 @@ use super::*;
 use std::{collections::BTreeMap, io::Read, path::{Path as FilePath, PathBuf}, time::{Duration, Instant, SystemTime}};
 
 pub const SOURCE:&str="sai2-file";
+pub const ILLUSTRATOR_SOURCE:&str="illustrator";
 const MAX_BYTES:u64=8*1024*1024*1024;
 const OBSERVATION_LIMIT:u64=MAX_EVENTS as u64-16;
 
@@ -49,15 +50,26 @@ pub struct RecordingStatus {
 pub struct SavedFileRecorder {
     store:Shared,headers:HeaderMap,path:PathBuf,root:PathBuf,id:String,name:String,
     sequence:u64,started:Instant,paused:bool,last:Fingerprint,
+    source:&'static str,geometry:Option<String>,
     candidate:Option<(Stamp,Instant)>,pending:Option<Event>,
 }
 
 impl SavedFileRecorder {
     /// No web request accepts a path. Only a trusted native file-selection flow may call this.
     pub async fn begin(root:PathBuf,path:PathBuf,started_at:String)->Result<Self,String>{
+        Self::begin_with_source(root,path,started_at,SOURCE,None).await
+    }
+
+    pub async fn begin_illustrator(root:PathBuf,path:PathBuf,started_at:String,geometry:String)->Result<Self,String>{
+        if !valid_hash(&geometry){return Err("Illustrator 几何摘要无效。".into());}
+        Self::begin_with_source(root,path,started_at,ILLUSTRATOR_SOURCE,Some(geometry)).await
+    }
+
+    async fn begin_with_source(root:PathBuf,path:PathBuf,started_at:String,source:&'static str,geometry:Option<String>)->Result<Self,String>{
         if !root.join("signing-key.bin").is_file(){return Err("请先启动 WorkProof 记录服务。".into());}
-        if !path.is_absolute()||!path.extension().and_then(|value|value.to_str()).is_some_and(|value|value.eq_ignore_ascii_case("sai2")){
-            return Err("请选择已保存的 .sai2 作品。".into());
+        let extension=if source==ILLUSTRATOR_SOURCE{"ai"}else{"sai2"};
+        if !path.is_absolute()||!path.extension().and_then(|value|value.to_str()).is_some_and(|value|value.eq_ignore_ascii_case(extension)){
+            return Err(format!("请选择已保存的 .{extension} 作品。"));
         }
         let path=std::fs::canonicalize(path).map_err(|_|"无法定位这份作品。")?;
         let name=path.file_name().and_then(|name|name.to_str()).ok_or("文件名无法读取。")?.to_string();
@@ -75,18 +87,29 @@ impl SavedFileRecorder {
         headers.insert("authorization",axum::http::HeaderValue::from_str(&format!("Bearer {}",store.info.token)).map_err(|_|"无法准备记录授权。")?);
         let shared=Arc::new(Mutex::new(store));
         let Json(created)=super::start(State(shared.clone()),headers.clone(),Json(Start{
-            file_name:name.clone(),started_at,source:SOURCE.into(),demo:false,local_path:Some(local_path)
+            file_name:name.clone(),started_at,source:source.into(),demo:false,local_path:Some(local_path)
         })).await.map_err(api)?;
         let id=created["session_id"].as_str().ok_or("记录编号未返回。")?.to_string();
         let mut recorder=Self{store:shared,headers,path,root,id,name,sequence:0,started:Instant::now(),paused:false,last,
-            candidate:None,pending:None};
+            candidate:None,pending:None,source,geometry};
         recorder.emit("start",recorder.last.hash.clone()).await?;
         Ok(recorder)
     }
 
     pub fn status(&self)->RecordingStatus{
-        RecordingStatus{session_id:self.id.clone(),file_name:self.name.clone(),source:SOURCE,
-            coverage:"saved-file-only",events:self.sequence,paused:self.paused}
+        RecordingStatus{session_id:self.id.clone(),file_name:self.name.clone(),source:self.source,
+            coverage:if self.source==ILLUSTRATOR_SOURCE{"geometry-and-saved-file"}else{"saved-file-only"},events:self.sequence,paused:self.paused}
+    }
+
+    pub fn matches_path(&self,path:&FilePath)->bool{self.path==path}
+
+    pub async fn observe_geometry(&mut self,geometry:String)->Result<(),String>{
+        if self.paused||self.source!=ILLUSTRATOR_SOURCE{return Ok(());}
+        if !valid_hash(&geometry){return Err("Illustrator 几何摘要无效。".into());}
+        if self.geometry.as_deref()==Some(geometry.as_str()){return Ok(());}
+        self.emit("edit",geometry.clone()).await?;
+        self.geometry=Some(geometry);
+        Ok(())
     }
 
     async fn flush(&mut self)->Result<(),String>{
@@ -203,6 +226,26 @@ mod tests{
         let encoded=serde_json::to_string(&proof).unwrap();assert!(!encoded.contains(&fixture.root.to_string_lossy().to_string()));
         let list=catalog::list(&fixture.profile).unwrap();assert_eq!(list.len(),1);assert_eq!(list[0].source,SOURCE);
         assert_eq!(PathBuf::from(list[0].local_path.as_ref().unwrap()),fixture.file.canonicalize().unwrap());
+    }
+    #[tokio::test]async fn illustrator_geometry_is_signed_and_final_save_binds_the_file(){
+        let fixture=Fixture::new();
+        let path=fixture.root.join("drawing.ai");
+        let original=b"synthetic Illustrator test bytes";
+        std::fs::write(&path,original).unwrap();
+        let mut recorder=SavedFileRecorder::begin_illustrator(
+            fixture.profile.clone(),path,"2026-11-14T00:00:00Z".into(),"a".repeat(64)
+        ).await.unwrap();
+        recorder.observe_geometry("a".repeat(64)).await.unwrap();
+        assert_eq!(recorder.status().events,1);
+        assert!(recorder.observe_geometry("invalid".into()).await.is_err());
+        recorder.observe_geometry("b".repeat(64)).await.unwrap();
+        let proof=recorder.export().await.unwrap();
+        assert!(verify(&proof,&digest(original),original.len() as u64).valid);
+        assert_eq!(proof.manifest.source,ILLUSTRATOR_SOURCE);
+        assert_eq!(proof.records[1].event.kind,"edit");
+        assert_eq!(proof.records[1].event.checkpoint,"b".repeat(64));
+        assert_eq!(proof.records.last().unwrap().event.kind,"save");
+        assert_eq!(assess_behavior(&Evidence::Full(proof)).status,"not_applicable");
     }
     #[tokio::test]async fn caller_cannot_start_other_formats_or_export_missing_files(){
         let fixture=Fixture::new();

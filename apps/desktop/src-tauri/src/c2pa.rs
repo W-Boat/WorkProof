@@ -93,7 +93,7 @@ fn drain<T:Pipe>(pipe:&mut T,out:&mut Vec<u8>,limit:usize)->Result<(),String>{
         match pipe.read(&mut buffer){Ok(0)=>return Ok(()),Ok(n)=>{if out.len()+n>limit{return Err("核验输出过大，已停止本次检查。".into());}out.extend_from_slice(&buffer[..n]);},Err(e) if e.kind()==std::io::ErrorKind::WouldBlock=>return Ok(()),Err(_)=>return Err("无法读取核验输出。".into())}
     }
 }
-fn capture(command:Command,seconds:u64,limit:usize)->Result<(ExitStatus,Vec<u8>,Vec<u8>),String>{
+pub(crate) fn capture(command:Command,seconds:u64,limit:usize)->Result<(ExitStatus,Vec<u8>,Vec<u8>),String>{
     capture_with_ready(command,seconds,limit,|_|Ok(()))
 }
 // Production starts its deadline immediately. Tests may establish that their
@@ -126,8 +126,9 @@ pub(crate) fn pick(title:&str,filter:&str,save:bool,suggested:&str)->Result<Opti
         let root=std::env::var_os("SystemRoot").ok_or("无法定位系统文件选择器。")?;
         let mut c=Command::new(PathBuf::from(root).join("System32/WindowsPowerShell/v1.0/powershell.exe"));
         let kind=if save{"SaveFileDialog"}else{"OpenFileDialog"};
-        // Arguments are fixed application labels, never selected file paths.
-        c.args(["-NoLogo","-NoProfile","-NonInteractive","-STA","-Command"]).arg(format!("Add-Type -AssemblyName System.Windows.Forms;[Console]::OutputEncoding=New-Object Text.UTF8Encoding($false);$d=New-Object Windows.Forms.{kind};$d.Title='{title}';$d.Filter='{filter}';$d.FileName='{suggested}';if($d.ShowDialog() -eq 'OK'){{[Console]::Write($d.FileName)}};$d.Dispose()"));c
+        // Pass labels and file names as data, including names derived from a document.
+        c.env("WORKPROOF_PICK_TITLE",title).env("WORKPROOF_PICK_FILTER",filter).env("WORKPROOF_PICK_NAME",suggested);
+        c.args(["-NoLogo","-NoProfile","-NonInteractive","-STA","-Command"]).arg(format!("Add-Type -AssemblyName System.Windows.Forms;[Console]::OutputEncoding=New-Object Text.UTF8Encoding($false);$d=New-Object Windows.Forms.{kind};$d.Title=$env:WORKPROOF_PICK_TITLE;$d.Filter=$env:WORKPROOF_PICK_FILTER;$d.FileName=$env:WORKPROOF_PICK_NAME;if($d.ShowDialog() -eq 'OK'){{[Console]::Write($d.FileName)}};$d.Dispose()"));c
     };
     #[cfg(target_os="macos")]let command={let mut c=Command::new("/usr/bin/osascript");let selection=if save{format!("choose file name with prompt \"{title}\" default name \"{suggested}\"")}else{format!("choose file with prompt \"{title}\"")};c.args(["-e",&format!("try\nPOSIX path of ({selection})\non error number -128\nreturn \"\"\nend try")]);c};
     #[cfg(target_os="linux")]let command={let mut c=Command::new("zenity");c.args(["--file-selection","--title",title]);if save{c.args(["--save","--confirm-overwrite","--filename",suggested]);}let (label,patterns)=filter.split_once('|').unwrap_or(("文件","*"));c.arg(format!("--file-filter={label} | {}",patterns.replace(';'," ")));c};

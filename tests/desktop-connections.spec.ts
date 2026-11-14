@@ -17,12 +17,15 @@ async function desktop(page:import('@playwright/test').Page,fail=false,nativeWor
     let pending=nativeWord?[{ticket:'native-word',origin:'',source:'word',channel:'native'}]:[];
     const harness:any=(window as any).connectionHarness={notice:null,events:{},decisions:[]};
     let connections=[{ticket:'word-ticket',origin:'https://school.example',source:'word',channel:'browser',expires_in_seconds:1800,sessions:2},{ticket:'wps-ticket',origin:'https://wps.example',source:'wps',channel:'browser',expires_in_seconds:3600,sessions:1}];
-    (window as any).__TAURI__={event:{listen:async(name:string,callback:any)=>{harness.events[name]=callback;return ()=>delete harness.events[name];}},core:{invoke:async(command:string,args?:{ticket?:string;action?:string;resume?:boolean})=>{
+    (window as any).__TAURI__={event:{listen:async(name:string,callback:any)=>{harness.events[name]=callback;return ()=>delete harness.events[name];}},core:{invoke:async(command:string,args?:{ticket?:string;action?:string;resume?:boolean;source?:string})=>{
       if(command==='window_action'&&args?.action==='ready')return null;
       if(command==='app_info')return {version:'0.1.0',build_number:'1234',source:'0123456789abcdef0123456789abcdef01234567',built_at:'1794384000'};
       if(command==='engine_status')return {ready:true,sessions:3,events:12};
       if(command==='saved_recording_status')return harness.savedRecording||{active:false};
-      if(command==='saved_recording_start')return harness.savedRecording={active:true,paused:false,events:1,file_name:'drawing.sai2',coverage:'saved-file-only'};
+      if(command==='saved_recording_start'){
+        const illustrator=args?.source==='illustrator';
+        return harness.savedRecording={active:true,paused:false,events:1,source:args?.source,file_name:illustrator?'drawing.ai':'drawing.sai2',coverage:illustrator?'geometry-and-saved-file':'saved-file-only'};
+      }
       if(command==='saved_recording_pause'){harness.savedRecording.paused=!args?.resume;return {...harness.savedRecording};}
       if(command==='saved_recording_finish'){
         harness.savedRecording.paused=true;
@@ -383,4 +386,14 @@ test('SAI2 saved-file mode preserves an active paused recording after cancelled 
   await finish.click();await expect(page.locator('#sai2-recording-status')).toContainText('文件已存在');await expect(pause).toContainText('继续记录');await expect(finish).toBeEnabled();
   await finish.click();await expect(start).toBeEnabled();await expect(finish).toBeDisabled();
   expect(await page.evaluate(()=>(window as any).connectionHarness.savedExports)).toBe(1);
+});
+
+test('Illustrator starts an explicit geometry recording from its own guide',async({page})=>{
+  await desktop(page);
+  await selectChoice(page,'#creation-tool','illustrator');
+  const panel=page.locator('#sai2-recording');
+  await expect(panel).toContainText('几何变化摘要和保存版本');
+  await page.locator('#sai2-start').click();
+  await expect(panel).toContainText('drawing.ai · 正在采集几何和保存版本');
+  await expect(page.locator('#sai2-finish')).toBeEnabled();
 });
