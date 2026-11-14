@@ -21,7 +21,7 @@ def __main__(args):
     directory = Path(directory).resolve()
     assert directory.is_relative_to(Path(os.environ['RUNNER_TEMP']).resolve())
     process = subprocess.Popen([harness], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL, text=True, env=dict(os.environ, WORKPROOF_DATA_DIR=str(directory)))
+        stderr=subprocess.DEVNULL, text=True, env=dict(os.environ, WORKPROOF_DATA_DIR=str(directory), TMPDIR=str(directory.parent)))
     document = second = None
     try:
         for _ in range(150):
@@ -91,6 +91,7 @@ def __main__(args):
         # Trigger the actual host QAction. This tests command observation, not undoability of API writes.
         action = app.action('edit_undo')
         assert action is not None, 'Native undo QAction unavailable'
+        action.setEnabled(True)  # API pixel writes need not populate Krita's undo stack.
         action.trigger()
         QApplication.processEvents()
         assert dock.pending_commands.get('undo_commands',0)>=1, 'Native command hook missing'

@@ -105,6 +105,7 @@ class WorkProofDocker(DockWidget):
     def start(self):
         if self.recorder.session or self.busy:
             return
+        self._bind_actions()
         try:
             original = self._snapshot()
         except Exception as error:
