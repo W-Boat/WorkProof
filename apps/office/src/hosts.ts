@@ -24,7 +24,7 @@ export async function detectHost():Promise<Host>{
       if(!document?.Path||!document.FullName)throw new Error('请在'+label+'打开并保存一份本地文件。');
       return document;
     };
-    return {source:mode,label,async snapshot(){
+    return {source:mode,label,async snapshot():Promise<Snapshot>{
       const document=active();
       const collection=presentation?document.Slides:document.Worksheets;
       const count=Number(collection.Count);

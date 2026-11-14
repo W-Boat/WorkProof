@@ -1,5 +1,57 @@
 import {test,expect} from '@playwright/test';
 
+for(const source of ['wps-presentation','wps-spreadsheets'] as const){
+  test(source+' records same-size changes, keeps contents private and binds export',async({page})=>{
+    const requests:{path:string;body:any}[]=[];
+    const presentation=source==='wps-presentation';
+    const name=presentation?'draft.pptx':'draft.xlsx';
+    await page.addInitScript(({presentation,name})=>{
+      const state={text:'PRIVATE-CONTENT',position:10,switched:false};
+      (window as any).structureFixture=state;
+      const shape={Type:1,Left:10,Top:10,Width:100,Height:30,Rotation:0,HasTextFrame:true,
+        TextFrame:{TextRange:{get Text(){return state.text;}}}};
+      Object.defineProperty(shape,'Left',{get:()=>state.position});
+      const range={Rows:{Count:1},Columns:{Count:1},Row:1,Column:1,get Formula(){return [[state.text]];}};
+      const document={Name:name,Path:'C:\\private',get FullName(){return 'C:\\private\\'+(state.switched?'other-':'')+name;},
+        Saved:true,Save(){},
+        Slides:{Count:1,Item:()=>({Shapes:{Count:1,Item:()=>shape}})},
+        Worksheets:{Count:1,Item:()=>({Name:'Sheet1',UsedRange:range})}};
+      (window as any).Application={[presentation?'ActivePresentation':'ActiveWorkbook']:document,
+        FileSystem:{readAsBinaryString:()=>String.fromCharCode(80,75,3,4,8,9)}};
+    },{presentation,name});
+    await page.route('http://127.0.0.1:43127/**',async route=>{
+      const request=route.request();
+      const headers={'access-control-allow-origin':'http://127.0.0.1:4173',
+        'access-control-allow-headers':'Authorization, Content-Type','access-control-allow-methods':'GET, POST, OPTIONS'};
+      if(request.method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
+      const path=new URL(request.url()).pathname;
+      requests.push({path,body:request.postDataJSON()});
+      const result=path==='/v1/pairing'?{ticket:'structure-fixture'}:path.includes('/pairing/')?{approved:true,token:'fixture-grant'}:
+        path==='/v1/sessions'?{session_id:'fixture-session'}:path.endsWith('/events')?{next_seq:100}:path.endsWith('/export')?{fixture:true}:{};
+      await route.fulfill({status:200,headers,contentType:'application/json',body:JSON.stringify(result)});
+    });
+    await page.goto('/office/index.html?host='+source);
+    await expect(page.locator('#host')).toHaveText(presentation?'WPS 演示':'WPS 表格');
+    await page.locator('#start').click();
+    await expect(page.locator('#status')).toContainText('记录中');
+    await page.evaluate(()=>{const state=(window as any).structureFixture;state.text='PRIVATE-CHANGED';state.position=30;});
+    await expect.poll(()=>requests.some(r=>r.body?.events?.some((e:any)=>e.kind==='edit'))).toBe(true);
+    const edit=requests.flatMap(r=>r.body?.events??[]).find(e=>e.kind==='edit');
+    expect(edit.checkpoint).toMatch(/^[0-9a-f]{64}$/);
+    expect(edit.inserted).toBe(0);expect(edit.deleted).toBe(0);
+    expect(edit.metrics).toEqual(presentation?{slides:1,shapes:1}:{sheets:1,used_cells:1});
+    expect(JSON.stringify(requests)).not.toContain('PRIVATE-');
+    expect(requests.find(r=>r.path==='/v1/sessions')?.body.source).toBe(source);
+    await page.locator('#export').click();
+    await expect(page.locator('#delivery')).toBeVisible();
+    await expect(page.locator('#save-artifact')).toHaveAttribute('download',name);
+    expect(requests.find(r=>r.path.endsWith('/export'))?.body.artifact_hash).toMatch(/^[0-9a-f]{64}$/);
+    await page.evaluate(()=>{(window as any).structureFixture.switched=true;});
+    await expect(page.locator('#status')).toContainText('切换到另一份文档');
+    await expect(page.locator('#export')).toBeDisabled();
+  });
+}
+
 // Host API simulations verify add-in logic only. These are not licensed Word/WPS runtime tests.
 for(const variant of ['word','wps','wps-alias','wps-factory'] as const){
   const host=variant==='word'?'word':'wps';

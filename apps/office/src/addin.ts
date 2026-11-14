@@ -72,7 +72,7 @@ async function sample(force=false){
     if(previous&&current.identity!==previous.identity){paused=true;throw new Error('你已切换到另一份文档。请重新打开 WorkProof 面板，为新文档开始记录。');}
     if(lastSample&&performance.now()-lastSample>15000)event('gap',current);
     lastSample=performance.now();
-    if(previous&&(current.contentHash!==previous.contentHash||current.paragraphs!==previous.paragraphs))event('edit',current,Math.max(0,current.characters-previous.characters),Math.max(0,previous.characters-current.characters));
+    if(previous&&(current.contentHash!==previous.contentHash||current.paragraphs!==previous.paragraphs))event('edit',current,Math.max(0,current.characters-previous.characters),Math.max(0,previous.characters-current.characters),current.contentHash);
     previous=current;
     if(force)await flush();
   }catch(error){if(generation===samplingGeneration)throw error;}
