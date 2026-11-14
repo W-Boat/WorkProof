@@ -280,12 +280,12 @@ function applyMotion(){document.documentElement.dataset.reduceMotion=String(moti
 try{motionPreference.checked=localStorage.getItem('workproof.reduce-motion')==='true';}catch{}applyMotion();motionPreference.addEventListener('change',applyMotion);
 
 const guides={
-  'sai2-file':{steps:['先在 SAI2 中保存作品，再选择下方“选择作品并开始”。','保持 WorkProof 运行，每次保存后的文件版本会写入本机记录。','完成后先在 SAI2 保存，再导出证书并结束；将原作品和证书一起交付。'],note:'这是文件保存版本观察，不是 SAI2 内部插件。不会采集图层、笔触或未保存的编辑，也不能证明文件由哪个进程写入。文件移动或无法读取时会暂停。'},
+  'sai2-file':{steps:['先在 SAI2 中保存作品，再选择下方“选择作品并开始”。','保持 WorkProof 运行，稳定后观察到的保存版本会写入本机记录。','完成后先在 SAI2 保存，再导出证书并结束；将原作品和证书一起交付。'],note:'这是文件保存版本观察，不是 SAI2 内部插件。不会采集图层、笔触或未保存的编辑，也不能证明文件由哪个进程写入。文件移动或无法读取时会暂停。'},
   word:{steps:['点击“打开 Word 并开始记录”。已有文档会继续使用，新文档会先提示保存。','首次使用时，在这里允许 Word 连接。Word 显示“已开始记录”后即可创作。','完成后在 Word 的 WorkProof 侧栏导出作品和证书，将两个文件一起交付。'],note:'Windows 桌面版 Word：先点击上方“检查安装状态”。未安装时，保存并退出 Word，再点击“安装 / 修复加载项”。安装后即可从这里打开 Word；也可以使用 Word 中的 WorkProof 标签。网页版和 Mac 需要单独安装网页加载项。'},
   powerpoint:{steps:['点击“打开 PowerPoint 并开始记录”，新演示文稿请先保存。','首次使用时在这里允许 PowerPoint 连接。侧栏显示已开始后再创作。','完成后在 PowerPoint 的 WorkProof 侧栏导出演示文稿和证书，一起交付。'],note:'需要 Windows 桌面版 PowerPoint。先点击上方“检查安装状态”。未安装时，保存并退出 PowerPoint，再点击“安装 / 修复加载项”；安装后从这里打开软件即可。'},
   wps:{steps:['打开 WPS 文档，在 WorkProof 标签中选择“打开记录工作台”。','点击开始记录，回到这里核对网址并允许连接。','完成后导出作品和证书，将这两个文件一起交付。'],note:'WPS 暂未提供面向普通用户的一键安装包，当前需按接入说明安装。没有安装入口时，请联系学校或团队。'},
   vscode:{steps:['先点击下方按钮，安装 WorkProof 插件。','打开文件，点击 VS Code 底部的 WorkProof，选择记录当前文件。','完成后导出证书，将它与这份作品一起交付。'],note:'需要先安装 VS Code。插件会自动连接本机的 WorkProof。'},
-  photoshop:{steps:['先安装 WorkProof 插件，再从 Photoshop 的插件菜单打开它。','选择作品副本的位置，点击开始，并回到这里允许连接。','完成后导出 PSD 副本和证书，将这两个文件一起交付。'],note:'Photoshop 当前提供测试版插件文件，尚未提供正式的一键安装包。请交付本次导出的 PSD 副本。'},
+  photoshop:{steps:['先安装 WorkProof 插件，再从 Photoshop 的插件菜单打开它。','选择作品副本的位置，点击开始，并回到这里允许连接。','完成后导出 PSD 或 PSB 副本和证书，将这两个文件一起交付。'],note:'Photoshop 当前提供测试版插件文件，尚未提供正式的一键安装包。请交付本次导出的 PSD 或 PSB 副本。'},
   krita:{steps:['在 Krita 中导入 WorkProof Python 插件，启用后重启软件。','保存作品，在 WorkProof 面板点开始，再回到这里允许连接。','完成后从 Krita 面板保存并导出证书，将原作品和证书一起交付。'],note:'当前为 Krita 5.2 / Qt5 开发插件，需要手动导入 ZIP。首次安装请使用“工具 → 脚本 → 从文件导入 Python 插件”，在 Python 插件管理器启用并重启。画面采样不等于完整笔触记录。'},
   blender:{steps:['在 Blender 设置中选择“从磁盘安装”，导入 WorkProof 插件文件。','先保存工程，在侧栏 WorkProof 面板中点击开始记录。','完成后保存并导出，将工程和旁边的证书一起交付。'],note:'需要 Blender 4.2 或更新版本。插件会自动连接本机的 WorkProof。'}
 };

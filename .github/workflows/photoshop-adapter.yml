@@ -1,6 +1,13 @@
 name: Photoshop adapter and native grant validation
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'apps/photoshop/**'
+      - 'scripts/test_photoshop.cjs'
+      - 'scripts/test_photoshop_engine.cjs'
+      - 'scripts/package_photoshop.py'
+      - '.github/workflows/photoshop-adapter.yml'
 permissions:
   contents: read
 jobs:
