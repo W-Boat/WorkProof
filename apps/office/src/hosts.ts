@@ -3,8 +3,8 @@ declare const Office:any;
 declare const Word:any;
 type HostGlobals=Window&{wps?:any;Application?:any};
 export const fingerprint=(bytes:Uint8Array)=>Array.from(blake3(bytes),n=>n.toString(16).padStart(2,'0')).join('');
-export type Snapshot={name:string;identity:string;characters:number;paragraphs:number;contentHash:string};
-export interface Host {source:'word'|'wps';label:string;snapshot():Promise<Snapshot>;artifact():Promise<{name:string;bytes:Uint8Array}>}
+export type Snapshot={name:string;identity:string;characters:number;paragraphs:number;contentHash:string;metrics?:Record<string,number>};
+export interface Host {source:'word'|'wps'|'wps-presentation'|'wps-spreadsheets';label:string;snapshot():Promise<Snapshot>;artifact():Promise<{name:string;bytes:Uint8Array}>}
 function callback<T>(operation:(done:(result:any)=>void)=>void):Promise<T>{return new Promise((resolve,reject)=>operation(result=>result.status==='succeeded'?resolve(result.value):reject(new Error(result.error?.message||'宿主接口调用失败'))));}
 function summarize(name:string,identity:string,text:string,paragraphs:number):Snapshot{
   if(text.length>20_000_000)throw new Error('当前原型的文档统计上限为 2000 万字符。');
@@ -12,11 +12,67 @@ function summarize(name:string,identity:string,text:string,paragraphs:number):Sn
 }
 export async function detectHost():Promise<Host>{
   const w=window as HostGlobals;
-  const application=[w.Application,w.wps?.Application,w.wps].find(api=>api?.ActiveDocument)||
+  const mode=new URLSearchParams(window.location.search).get('host');
+  const sources=[w.Application,w.wps?.Application,w.wps];
+  if(mode==='wps-presentation'||mode==='wps-spreadsheets'){
+    const presentation=mode==='wps-presentation';
+    const property=presentation?'ActivePresentation':'ActiveWorkbook';
+    const application=sources.find(api=>api?.[property]);
+    const label=presentation?'WPS 演示':'WPS 表格';
+    const active=()=>{
+      const document=application?.[property];
+      if(!document?.Path||!document.FullName)throw new Error('请在'+label+'打开并保存一份本地文件。');
+      return document;
+    };
+    return {source:mode,label,async snapshot(){
+      const document=active();
+      const collection=presentation?document.Slides:document.Worksheets;
+      const count=Number(collection.Count);
+      if(!Number.isSafeInteger(count)||count<0||count>128)throw new Error('当前最多支持 128 张幻灯片或工作表。');
+      const chunks:string[]=[];
+      let objects=0,totalChars=0;
+      for(let index=1;index<=count;index++){
+        const item=collection.Item(index);
+        if(presentation){
+          const shapes=item.Shapes;
+          const shapeCount=Number(shapes.Count);
+          if(!Number.isSafeInteger(shapeCount)||shapeCount<0||objects+shapeCount>4096)throw new Error('当前最多支持 4096 个幻灯片对象。');
+          const rows=[];
+          for(let k=1;k<=shapeCount;k++){
+            const shape=shapes.Item(k);
+            const text=shape.HasTextFrame?String(shape.TextFrame.TextRange.Text||''):'';
+            totalChars+=text.length;
+            if(totalChars>2_000_000)throw new Error('演示文稿超出可采样文字范围。');
+            rows.push([shape.Type,shape.Left,shape.Top,shape.Width,shape.Height,shape.Rotation,text]);
+          }
+          chunks.push(JSON.stringify(rows));objects+=shapeCount;
+        }else{
+          const range=item.UsedRange;
+          const cells=Number(range.Rows.Count)*Number(range.Columns.Count);
+          if(!Number.isSafeInteger(cells)||cells<0||objects+cells>20000)throw new Error('当前最多支持 2 万个使用区域单元格。');
+          const formulas=range.Formula;
+          if(formulas===undefined)throw new Error('当前 WPS 版本未提供可用的区域公式接口。');
+          const rows=JSON.stringify([String(item.Name),range.Row,range.Column,formulas]);
+          totalChars+=rows.length;
+          if(totalChars>2_000_000)throw new Error('工作簿超出可采样内容范围。');
+          chunks.push(rows);objects+=cells;
+        }
+      }
+      return {name:String(document.Name),identity:String(document.FullName),characters:0,paragraphs:0,
+        contentHash:fingerprint(new TextEncoder().encode(JSON.stringify(chunks))),
+        metrics:presentation?{slides:count,shapes:objects}:{sheets:count,used_cells:objects}};
+    },artifact:()=>wpsArtifact(active(),application,w)};
+  }
+  const application=sources.find(api=>api?.ActiveDocument)||
     (typeof w.wps?.WpsApplication==='function'?w.wps.WpsApplication():undefined);
   if(application?.ActiveDocument){
-    return {source:'wps',label:'WPS 文字',async snapshot(){const doc=application.ActiveDocument;return summarize(String(doc.Name),String(doc.FullName||doc.Name),String(doc.Content.Text),Number(doc.Paragraphs.Count));},async artifact(){
-      const doc=application.ActiveDocument;
+    return {source:'wps',label:'WPS 文字',async snapshot(){const doc=application.ActiveDocument;return summarize(String(doc.Name),String(doc.FullName||doc.Name),String(doc.Content.Text),Number(doc.Paragraphs.Count));},artifact:()=>wpsArtifact(application.ActiveDocument,application,w)};
+  }
+  if(mode==='wps')throw new Error('当前 WPS 未提供可用的文档接口，请打开文字文档并确认加载项权限。');
+  return detectWord();
+}
+
+async function wpsArtifact(doc:any,application:any,w:HostGlobals){
       if(!doc.Path)throw new Error('请先保存 WPS 文档，再导出交付件。');
       const fullName=String(doc.FullName);
       await doc.Save();
@@ -34,9 +90,9 @@ export async function detectHost():Promise<Host>{
         bytes[i]=value;
       }
       return {name:String(doc.Name),bytes};
-    }};
-  }
-  if(new URLSearchParams(window.location.search).get('host')==='wps')throw new Error('当前 WPS 未提供可用的文档接口，请打开文字文档并确认加载项权限。');
+}
+
+async function detectWord():Promise<Host>{
   if(typeof Office==='undefined'){
     await new Promise<void>((resolve,reject)=>{const script=document.createElement('script');script.src='https://appsforoffice.microsoft.com/lib/1/hosted/office.js';script.onload=()=>resolve();script.onerror=()=>reject(new Error('无法加载 Word 官方宿主接口，请检查网络。'));document.head.append(script);});
   }

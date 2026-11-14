@@ -56,7 +56,7 @@ async function api(route:string,body?:unknown,authenticated=true,signal?:AbortSi
 }
 function event(kind:string,snapshot:Snapshot,inserted=0,deleted=0,checkpoint=''){
   if(pending.length>=2048){paused=true;paint();throw new Error('尚未保存的操作太多，已暂停。请恢复与 WorkProof 的连接后继续。');}
-  pending.push({seq:next++,elapsed_ms:Math.floor(performance.now()-started),kind,inserted,deleted,chars:snapshot.characters,checkpoint,metrics:{characters:snapshot.characters,paragraphs:snapshot.paragraphs}});paint();
+  pending.push({seq:next++,elapsed_ms:Math.floor(performance.now()-started),kind,inserted,deleted,chars:snapshot.characters,checkpoint,metrics:snapshot.metrics??{characters:snapshot.characters,paragraphs:snapshot.paragraphs}});paint();
 }
 async function flush(){
   if(delivering)return delivering;
@@ -101,7 +101,7 @@ async function start(){
   deliveryName=host.source==='word'?previous.name.replace(/\.[^.]*$/,'')+'.docx':previous.name;
   const result=await api('/v1/sessions',{file_name:deliveryName,started_at:new Date().toISOString(),source:host.source});
   session=result.session_id;next=0;started=performance.now();lastSample=started;paused=false;event('start',previous);await flush();
-  message('记录中。正在保存文字数量等变化，不保存文档正文。');paint();
+  message(previous.metrics?'记录中。保存结构数量和变化时间，文件内容留在本机。':'记录中。正在保存文字数量等变化，不保存文档正文。');paint();
 }
 async function pause(){
   if(!session)return;

@@ -1,5 +1,6 @@
 """CI package contract, including same-origin manifest and WPS ribbon wiring."""
 import os
+import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -22,4 +23,10 @@ for name in ['index.html', 'addin.js', 'wps/main.js', 'wps/index.html']:
     assert (root / name).is_file() and (root / name).stat().st_size > 0, name
 assert 'src="main.js"' in (root / 'wps/index.html').read_text(encoding='utf-8')
 assert not (root / 'wps/publish.html').exists(), 'No unreviewed upstream publication template is distributed'
+for mode, addon_type in [('wps-presentation', 'wpp'), ('wps-spreadsheets', 'et')]:
+    directory = root / mode
+    assert json.loads((directory / 'package.json').read_text(encoding='utf-8'))['addonType'] == addon_type
+    assert (directory / 'ribbon.xml').read_bytes() == ribbon_bytes
+    assert ('../index.html?host=' + mode) in (directory / 'main.js').read_text(encoding='utf-8')
+    assert 'src="main.js"' in (directory / 'index.html').read_text(encoding='utf-8')
 print('Word manifest and WPS ribbon package validated; real host acceptance remains separate.')

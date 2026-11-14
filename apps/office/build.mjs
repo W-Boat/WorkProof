@@ -1,5 +1,5 @@
 import {build} from 'esbuild';
-import {mkdir,copyFile,writeFile,rm} from 'node:fs/promises';
+import {mkdir,copyFile,readFile,writeFile,rm} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +22,15 @@ for(const name of ['main.js','ribbon.xml']){
 const entry='<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>WorkProof WPS Ribbon</title><script src="main.js"></script></html>';
 await writeFile(path.join(wpsBuild,'index.html'),entry);
 await writeFile(path.join(out,'wps/index.html'),entry);
+const ribbonScript=await readFile(path.join(root,'wps/main.js'),'utf8');
+for(const [mode,type] of [['wps-presentation','wpp'],['wps-spreadsheets','et']]){
+  const directory=path.join(out,mode);
+  await mkdir(directory,{recursive:true});
+  await copyFile(path.join(root,'wps/ribbon.xml'),path.join(directory,'ribbon.xml'));
+  await writeFile(path.join(directory,'main.js'),ribbonScript.replace('?host=wps',`?host=${mode}`));
+  await writeFile(path.join(directory,'index.html'),entry);
+  await writeFile(path.join(directory,'package.json'),JSON.stringify({name:mode,version:'0.2.0',private:true,addonType:type},null,2));
+}
 if(origin){
   const xmlEscape=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
   const base=xmlEscape(publicUrl.origin);

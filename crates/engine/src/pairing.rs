@@ -67,7 +67,7 @@ pub fn decide(ticket:&str,approve:bool)->Result<(),String>{
 pub struct PairRequest {source:String}
 pub async fn request_pair(headers:HeaderMap,Json(input):Json<PairRequest>)->ApiResult<Pending>{
     let origin=origin(&headers)?;
-    if !matches!(input.source.as_str(),"word"|"wps"|"photoshop"){return Err(bad("UNSUPPORTED_ADAPTER"));}
+    if !matches!(input.source.as_str(),"word"|"wps"|"wps-presentation"|"wps-spreadsheets"|"photoshop"){return Err(bad("UNSUPPORTED_ADAPTER"));}
     insert_request(origin,input.source,"browser")
 }
 fn insert_request(origin:String,source:String,channel:&str)->ApiResult<Pending>{
