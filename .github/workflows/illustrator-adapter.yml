@@ -1,0 +1,35 @@
+name: Illustrator native probe validation
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'apps/illustrator/**'
+      - 'scripts/test_illustrator.cjs'
+      - '.github/workflows/illustrator-adapter.yml'
+permissions:
+  contents: read
+jobs:
+  snapshot-probe:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only snapshot contract, isolation and unavailable states
+        run: node scripts/test_illustrator.cjs
+      - name: Parse Windows bridge without executing or launching a host
+        shell: powershell
+        run: |
+          $tokens=$null; $errors=$null
+          [void][Management.Automation.Language.Parser]::ParseFile((Resolve-Path apps/illustrator/read-snapshot.ps1),[ref]$tokens,[ref]$errors)
+          if($errors.Count){throw 'Illustrator PowerShell bridge syntax failed'}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-illustrator-readonly-probe
+          if-no-files-found: error
+          path: |
+            apps/illustrator/host.jsx
+            apps/illustrator/read-snapshot.ps1
+            docs/DRAWING-ADAPTERS.md
