@@ -36,16 +36,23 @@ def __main__(args):
                 process.stdin.write(json.dumps({'ticket':result['ticket'],'approve':True})+'\n')
                 process.stdin.flush()
             return result
+        print('WORKPROOF_HOST collector ready', flush=True)
         app = Krita.instance()
         app.setBatchmode(True)
         window = app.activeWindow()
         assert window, 'Krita main window not ready'
+        print('WORKPROOF_HOST creating document', flush=True)
         document = app.createDocument(128,128,'WorkProof native fixture','RGBA','U8','',72.)
         assert document, 'Could not create native document'
         document.setBatchmode(True)
+        print('WORKPROOF_HOST adding document view', flush=True)
         window.addView(document)
         artifact = directory/'native-fixture.kra'
+        print('WORKPROOF_HOST saving native KRA', flush=True)
         assert document.saveAs(str(artifact)), 'Native KRA save failed'
+        document.setFileName(str(artifact))
+        assert artifact.is_file(), 'Native KRA not written'
+        print('WORKPROOF_HOST waiting for initial save', flush=True)
         document.waitForDone()
         QApplication.processEvents()
         dock = next((item for item in app.dockers() if isinstance(item,WorkProofDocker)),None)
@@ -55,6 +62,7 @@ def __main__(args):
         dock.recorder = Recorder(request)
         dock.settings.setValue('engine',engine)
         document.thumbnail(64,64)  # Warm the host's first thumbnail setup.
+        print('WORKPROOF_HOST initial capture', flush=True)
         first = capture(document)
         def wait_for(predicate, label, seconds=20):
             until=time.monotonic()+seconds
@@ -64,9 +72,11 @@ def __main__(args):
                     return
                 time.sleep(.01)
             raise AssertionError(label+': '+dock.status.text())
+        print('WORKPROOF_HOST start button', flush=True)
         dock.buttons[0].click()
         wait_for(lambda:bool(dock.recorder.session) and not dock.busy and not dock.paused,'Real start button')
         baseline = dock.recorder.committed
+        print('WORKPROOF_HOST native layer edit', flush=True)
         added = document.createNode('PRIVATE LAYER NAME DO NOT PUBLISH','paintlayer')
         assert document.rootNode().addChildNode(added,None), 'Could not add native layer'
         document.refreshProjection()
@@ -78,6 +88,7 @@ def __main__(args):
         assert dock.recorder.committed>baseline, 'Native layer edit missing'
         assert dock.recorder.previous['checkpoint']==current['checkpoint']
         # Change actual pixels; a same-count paint edit must change the preview digest.
+        print('WORKPROOF_HOST pixel sample', flush=True)
         before_paint = capture(document)
         assert added.setPixelData(bytes([0,0,255,255])*128*128,0,0,128,128), 'Native pixel write'
         document.refreshProjection()
@@ -88,6 +99,7 @@ def __main__(args):
         dock.sample()
         wait_for(lambda:not dock.busy,'Native paint sample')
         # Trigger the actual host QAction. This tests command observation, not undoability of API writes.
+        print('WORKPROOF_HOST native undo signal', flush=True)
         action = app.action('edit_undo')
         assert action is not None, 'Native undo QAction unavailable'
         action.setEnabled(True)  # API pixel writes need not populate Krita's undo stack.
@@ -98,9 +110,11 @@ def __main__(args):
         dock.sample()
         wait_for(lambda:not dock.busy,'Undo command sample')
         output = directory/'native-fixture.kra.wproof'
+        print('WORKPROOF_HOST export button', flush=True)
         with patch.object(QFileDialog,'getSaveFileName',return_value=(str(output),'WorkProof (*.wproof)')):
             dock.buttons[2].click()
             wait_for(lambda:not dock.busy and output.is_file(),'Real export button',seconds=60)
+        print('WORKPROOF_HOST certificate written', flush=True)
         proof = json.loads(output.read_text())
         kinds=[row['event']['kind'] for row in proof['records']]
         assert 'layer' in kinds and 'edit' in kinds and kinds[-1]=='save', 'Native event kinds missing'
