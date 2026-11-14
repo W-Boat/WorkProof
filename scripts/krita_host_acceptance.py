@@ -12,7 +12,7 @@ from unittest.mock import patch
 def __main__(args):
     from krita import Krita
     from workproof.qt_compat import QT_VERSION_STR, PYQT_VERSION_STR, QApplication
-    from workproof.core import Recorder, Transport, capture
+    from workproof.core import Recorder, SnapshotBusy, Transport, capture
     from workproof.docker import WorkProofDocker, QFileDialog
 
     assert os.environ.get('GITHUB_ACTIONS') == 'true', 'Actions-only host fixture'
@@ -87,22 +87,32 @@ def __main__(args):
         wait_for(lambda:not dock.busy,'Native layer sample')
         assert dock.recorder.committed>baseline, 'Native layer edit missing'
         assert dock.recorder.previous['checkpoint']==current['checkpoint']
-        # Change actual pixels; a same-count paint edit must change the preview digest.
-        print('WORKPROOF_HOST pixel sample', flush=True)
-        before_paint = capture(document)
-        assert added.setPixelData(bytes([0,0,255,255])*128*128,0,0,128,128), 'Native pixel write'
-        document.refreshProjection()
-        document.waitForDone()
-        painted = capture(document)
+        # Use Krita's public foreground-fill action so the host schedules the update
+        # and creates a genuine undo entry, just as it would from its Edit menu.
+        before_paint = current
+        document.setActiveNode(added)
+        QApplication.processEvents()
+        fill = app.action('fill_selection_foreground_color')
+        assert fill is not None and fill.isEnabled(), 'Native foreground fill unavailable'
+        print('WORKPROOF_HOST native foreground fill', flush=True)
+        fill.trigger()
+        painted = None
+        def capture_changed_pixels():
+            nonlocal painted
+            try:
+                painted = capture(document)
+            except SnapshotBusy:
+                return False
+            return painted['checkpoint'] != before_paint['checkpoint']
+        wait_for(capture_changed_pixels, 'Native foreground pixels')
         assert painted['tree']==before_paint['tree'], 'Painting changed structure unexpectedly'
         assert painted['checkpoint']!=before_paint['checkpoint'], 'Native pixels not detected'
         dock.sample()
         wait_for(lambda:not dock.busy,'Native paint sample')
-        # Trigger the actual host QAction. This tests command observation, not undoability of API writes.
         print('WORKPROOF_HOST native undo signal', flush=True)
         action = app.action('edit_undo')
         assert action is not None, 'Native undo QAction unavailable'
-        action.setEnabled(True)  # API pixel writes need not populate Krita's undo stack.
+        wait_for(action.isEnabled, 'Native foreground fill undo entry')
         action.trigger()
         QApplication.processEvents()
         assert dock.pending_commands.get('undo_commands',0)>=1, 'Native command hook missing'
