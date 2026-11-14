@@ -253,6 +253,8 @@ jobs:
           Write-Output 'PASS actual NSIS installation and all embedded Office resource hashes; no Office registration or real host launch performed'
       - name: Desktop image report compatibility and process limits
         run: cargo test --release --locked -p workproof-desktop c2pa::tests
+      - name: Native saved-file recording lifecycle
+        run: cargo test --release --locked -p workproof-desktop saved_recording::tests
       - name: Encrypted report file and checksum transaction
         run: cargo test --release --locked -p workproof-desktop report_download::tests
       - name: Embedded verifier navigation and command isolation
@@ -397,6 +399,8 @@ jobs:
       - run: npm run ${{ matrix.build }} -w @workproof/desktop
       - name: Desktop image report compatibility and process limits
         run: cargo test --release --locked -p workproof-desktop c2pa::tests
+      - name: Native saved-file recording lifecycle
+        run: cargo test --release --locked -p workproof-desktop saved_recording::tests
       - name: Encrypted report file and checksum transaction
         run: cargo test --release --locked -p workproof-desktop report_download::tests
       - name: Embedded verifier navigation and command isolation

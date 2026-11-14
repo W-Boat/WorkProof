@@ -8,7 +8,8 @@ export function savedRecordingUI({ready,onSaved}){
   function render(){
     const active=current.active===true;
     start.disabled=busy||active||!ready();pause.disabled=finish.disabled=busy||!active;
-    pause.textContent=current.paused?'继续记录':'暂停记录';
+    const pauseLabel=current.paused?'继续记录':'暂停记录';
+    if(pause.textContent.trim()!==pauseLabel){pause.setAttribute('aria-label',pauseLabel);pause.title=pauseLabel;pause.dataset.icon=current.paused?'play':'pause';pause.textContent=pauseLabel;}
     status.textContent=current.error||(active?`${current.file_name} · ${current.paused?'已暂停':'正在观察保存版本'} · 已保存 ${current.events} 条记录`:'选择一份已保存的 .sai2 文件后开始。');
   }
   async function refresh(){

@@ -195,6 +195,8 @@ mod tests{
         let bytes=std::fs::read(&fixture.file).unwrap();
         assert!(verify(&proof,&digest(&bytes),bytes.len() as u64).valid);
         assert_eq!(proof.manifest.source,SOURCE);assert!(recorder.status().paused);
+        let assessment=assess_behavior(&Evidence::Full(proof.clone()));assert_eq!(assessment.status,"not_applicable");
+        assert!(assessment.limitations.iter().any(|line|line.contains("未采集图层")));
         assert!(proof.records.iter().any(|record|record.event.kind=="gap"));
         assert!(proof.records.iter().all(|record|record.event.inserted==0&&record.event.deleted==0&&record.event.metrics.is_empty()));
         assert!(!verify(&proof,&digest(b"tampered"),8).valid);
