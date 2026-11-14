@@ -42,6 +42,8 @@ Krita 的真实宿主验收仍未通过：原最新发行包的 Python/Qt 绑定
 
 用户已确认本机尚未安装 SAI2 和 Illustrator；只读安装登记检查检测到 Photoshop 2025 26.11.0.18，检查当时未运行。后续需在签名有效的 Photoshop 安装上做实机验收；SAI2/Illustrator 继续源码、自动检查和安装准备，真实宿主待可用后验收，不将未安装作为其他开发的阻塞。
 
+[Krita 5.2.2 / Qt 5.15.13 原生宿主报告](https://github.com/W-Boat/WorkProof/actions/runs/43587790350/artifacts/14110972083)记录了真实填色、撤销、证书导出、原作品核验、篡改拒绝和切换文档隔离。任务在报告写出后因 Krita 退出时崩溃失败。[关闭流程复测](https://github.com/W-Boat/WorkProof/actions/runs/43588110498)继续要求宿主正常退出。两轮均使用 Linux 发行版宿主，文件保存对话框由测试指定路径。
+
 ### 最新绘画交付核对
 
 本机 Windows 已安装并启动 `6707485`，安装包来自 [Actions 43585173894](https://github.com/W-Boat/WorkProof/actions/runs/43585173894)。已核对包的构建证明、安装后可执行文件及内嵌资源提交号，记录服务启动后仍有原来的 6 个会话和 77 条事件。此安装包提供 SAI2 保存版本记录，Illustrator 桌面入口随后续安装包交付。
