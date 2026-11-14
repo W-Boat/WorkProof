@@ -5,7 +5,7 @@ import pathlib
 import threading
 from krita import Krita, DockWidget
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal, QSettings
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QMessageBox
 from .core import Recorder, SnapshotBusy, capture
 
 
@@ -31,7 +31,8 @@ class WorkProofDocker(DockWidget):
         layout.addWidget(self.status)
         self.buttons = []
         for title, callback in [('开始记录', self.start), ('暂停 / 继续', self.toggle),
-                                ('保存并导出证书', self.export), ('选择本机摘要程序', self.choose_engine)]:
+                                ('保存并导出证书', self.export), ('开始另一份记录', self.new_recording),
+                                ('选择本机摘要程序', self.choose_engine)]:
             button = QPushButton(title)
             button.clicked.connect(callback)
             layout.addWidget(button)
@@ -167,6 +168,24 @@ class WorkProofDocker(DockWidget):
         except Exception as error:
             self.paused = True
             self.status.setText(str(error))
+
+    def new_recording(self):
+        if self.busy or not self.recorder.session:
+            return
+        if not self.paused:
+            self.status.setText('请先暂停并导出当前作品，再开始另一份记录。')
+            return
+        if self.recorder.pending:
+            self.status.setText('还有动作等待保存，请先恢复连接并继续重试，旧动作不会被丢弃。')
+            return
+        answer = QMessageBox.question(self, '开始另一份记录',
+            '旧记录仍保存在 WorkProof。请确认已导出需要的作品和证书，再开始另一份记录。',
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if answer != QMessageBox.Yes:
+            return
+        self.recorder = Recorder()
+        self.pending_commands = {}
+        self.status.setText('已准备好。保存当前作品后，点击开始记录。')
 
     def choose_engine(self):
         path, _ = QFileDialog.getOpenFileName(self, '选择安装包中的 workproof-engine')

@@ -64,8 +64,9 @@ def capture(document, now=time.monotonic):
         shown = bool(node.visible())
         rows.append([uid, parent, order, kind, shown, node.opacity(), node.blendingMode()])
         groups += kind == 'grouplayer'
-        layers += kind != 'grouplayer'
-        visible += shown and kind != 'grouplayer'
+        is_layer = kind != 'grouplayer' and not kind.endswith('mask')
+        layers += is_layer
+        visible += shown and is_layer
         stack.extend((child, uid, i, depth + 1) for i, child in enumerate(node.childNodes()))
     rows.sort(key=lambda row: row[0])
     # Fixed-size thumbnail is a change hint, not a full-resolution image commitment.
@@ -154,7 +155,9 @@ class Recorder:
     def event(self, kind, snapshot, metrics=None):
         if snapshot['identity'] != self.identity:
             raise RuntimeError('当前文档已改变，请切回原文档后继续。')
-        if len(self.pending) >= 128 or self.committed + len(self.pending) >= 99984:
+        sequence = self.committed + len(self.pending)
+        terminal = kind in ('save', 'gap', 'pause', 'stop')
+        if len(self.pending) >= 128 or sequence >= (100000 if terminal else 99984):
             raise RuntimeError('记录达到容量上限，请导出已有记录。')
         self.elapsed = max(self.elapsed, int((self.clock() - self.started) * 1000))
         values = dict(snapshot['metrics'])

@@ -201,11 +201,11 @@ def real_collector(harness, engine):
             assert 'private-document-id' not in json.dumps(proof)
             check = subprocess.run([engine, 'verify', str(artifact), str(output)], capture_output=True)
             assert check.returncode == 0, 'Actual engine rejected certificate'
-            def denied(route, body=None):
+            def denied(route, body=None, expected=403):
                 try:
                     http(route, body, recorder.token)
                 except HTTPError as error:
-                    assert error.code == 403
+                    assert error.code == expected
                 else:
                     raise AssertionError('Scope escape')
             denied('/v1/status')
@@ -217,7 +217,7 @@ def real_collector(harness, engine):
             process.stdin.write(json.dumps({'revoke': ticket}) + '\n')
             process.stdin.flush()
             time.sleep(.1)
-            denied('/v1/sessions/' + recorder.session + '/export', {'artifact_hash': 'a' * 64, 'artifact_bytes': 1})
+            denied('/v1/sessions/' + recorder.session + '/export', {'artifact_hash': 'a' * 64, 'artifact_bytes': 1}, expected=401)
             print('Real collector: approval, Krita source, signed export, file tamper and scope isolation passed; Krita host not exercised')
         finally:
             process.terminate()
