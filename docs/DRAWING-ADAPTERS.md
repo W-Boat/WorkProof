@@ -25,3 +25,9 @@
 接口依据：[官方插件说明](https://docs.krita.org/en/user_manual/python_scripting/krita_python_plugin_howto.html)、[Document](https://api.kde.org/legacy/krita/html/classDocument.html)、[Node](https://api.kde.org/legacy/krita/html/classNode.html)。
 
 后续顺序：真实 Krita 宿主验收及桌面安装入口 → GIMP / Inkscape 宿主方案 → 商业绘画软件按公开插件能力逐项确认。平台没有可用接口时明确说明，不伪造全动作支持。
+
+## 2026-11-14 验证记录
+
+源码 `9de232b` 的 [Krita 专项 43578617911](https://github.com/W-Boat/WorkProof/actions/runs/43578617911) 已成功。7 项核心模拟、真实 Rust 收集器批准连接、证书签名导出、篡改拒绝、来源/会话隔离及撤销检查通过。开发 ZIP 已下载并核对外层 GitHub 摘要和内层 ZIP 摘要，包含 GPL 许可与完整插件源代码。
+
+插件目前基于 PyQt5，真实 Krita 5.x/Qt5 宿主导入与绘画尚未验收，Qt6 版本未适配。配套桌面构建仍在运行，用户当前安装版仍为 `8d85093`，不能直接批准 Krita 来源。已验证插件 ZIP不等于已完成客户端安装或真实宿主交付。
