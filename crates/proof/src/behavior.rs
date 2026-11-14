@@ -116,7 +116,7 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
     }
     let Evidence::Full(proof)=evidence else{unreachable!()};
     assessment.summary.events=proof.records.len() as u64;
-    if matches!(manifest.source.as_str(),"photoshop"|"blender"){
+    if matches!(manifest.source.as_str(),"photoshop"|"blender"|"krita"){
         assessment.status="not_applicable".into();assessment.rule_results=rule_results("not_applicable");assessment.limitations.insert(0,"这份记录来自图像或三维软件，文字输入规则不适用。".into());return assessment;
     }
     if !matches!(manifest.source.as_str(),"workproof-tiptap"|"word"|"wps"|"vscode"|"powerpoint"|"synthetic-demo"){
@@ -341,6 +341,7 @@ mod tests{
         let invalid=assess_behavior(&Evidence::Full(changed));assert_eq!(invalid.status,"unavailable");assert!(invalid.signals.is_empty());assert_eq!(invalid.summary.inserted,0);
         let selective=create_disclosure(&original,&[1]).unwrap();let partial=assess_behavior(&Evidence::Selective(selective));assert_eq!(partial.status,"insufficient");assert_eq!(partial.scope,"selective");assert!(partial.signals.is_empty());
         assert_eq!(assess_behavior(&Evidence::Full(proof("blender",&[(1000,5000,0)]))).status,"not_applicable");
+        assert_eq!(assess_behavior(&Evidence::Full(proof("krita",&[(1000,5000,0)]))).status,"not_applicable");
         assert_eq!(assess_behavior(&Evidence::Full(proof("unknown-adapter",&[(1000,5000,0)]))).status,"insufficient");
         let clustered:Vec<_>=(0..5).map(|_|(1000,1,0)).collect();assert_eq!(assess_behavior(&Evidence::Full(proof("word",&clustered))).status,"insufficient");
     }

@@ -6,7 +6,7 @@ async fn main()->Result<(),Box<dyn std::error::Error>>{
     let dir=workproof_engine::data_dir()?;
     let root=std::env::temp_dir().canonicalize()?;
     let actual=dir.canonicalize()?;
-    if !actual.starts_with(root)||!actual.file_name().is_some_and(|s|{let n=s.to_string_lossy();n.starts_with("workproof-photoshop-")||n.starts_with("workproof-word-")}){return Err("Isolated fixture directory required".into());}
+    if !actual.starts_with(root)||!actual.file_name().is_some_and(|s|{let n=s.to_string_lossy();n.starts_with("workproof-photoshop-")||n.starts_with("workproof-word-")||n.starts_with("workproof-krita-")}){return Err("Isolated fixture directory required".into());}
     std::thread::spawn(||{
         for line in std::io::stdin().lock().lines(){
             let Ok(line)=line else{break;};

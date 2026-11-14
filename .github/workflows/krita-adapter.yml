@@ -1,0 +1,39 @@
+name: Krita adapter and collector validation
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'apps/krita/**'
+      - 'scripts/test_krita.py'
+      - 'scripts/package_krita.py'
+      - 'docs/DRAWING-ADAPTERS.md'
+      - '.github/workflows/krita-adapter.yml'
+permissions:
+  contents: read
+jobs:
+  krita-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Core source compilation and host-independent tests
+        run: |
+          python -m py_compile apps/krita/workproof/*.py
+          python scripts/test_krita.py
+      - name: Real collector and approval isolation
+        run: |
+          cargo test --locked -p workproof-protocol -p workproof-engine
+          cargo build --locked -p workproof-engine --example native_adapter_harness --bin workproof-engine
+          python scripts/test_krita.py target/debug/examples/native_adapter_harness target/debug/workproof-engine
+      - name: Package source plugin for Krita import
+        run: python scripts/package_krita.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workproof-krita-dev
+          if-no-files-found: error
+          path: |
+            dist/workproof-krita-dev.zip
+            dist/workproof-krita-dev.zip.sha256
+            docs/DRAWING-ADAPTERS.md

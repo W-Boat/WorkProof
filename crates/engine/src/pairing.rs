@@ -94,7 +94,7 @@ fn require_native(headers:&HeaderMap)->Result<(),ApiError>{
 }
 pub async fn request_native(headers:HeaderMap,Json(input):Json<PairRequest>)->ApiResult<Pending>{
     require_native(&headers)?;
-    if !matches!(input.source.as_str(),"photoshop"|"word"|"powerpoint"){return Err(bad("UNSUPPORTED_NATIVE_ADAPTER"));}
+    if !matches!(input.source.as_str(),"photoshop"|"word"|"powerpoint"|"krita"){return Err(bad("UNSUPPORTED_NATIVE_ADAPTER"));}
     insert_request(String::new(),input.source,"native")
 }
 pub async fn poll_native(headers:HeaderMap,Path(ticket):Path<String>)->ApiResult<serde_json::Value>{
@@ -150,6 +150,23 @@ mod tests{
         assert!(poll_pair(authenticated,Path(p.ticket.clone())).await.is_err());
         decide(&p.ticket,false).unwrap();
         assert!(!allows(&headers,None,None));
+    }
+    #[tokio::test]async fn native_krita_is_approved_source_and_session_scoped(){
+        let Json(p)=request_native(HeaderMap::new(),Json(PairRequest{source:"krita".into()})).await.ok().unwrap();
+        let Json(waiting)=poll_native(HeaderMap::new(),Path(p.ticket.clone())).await.ok().unwrap();
+        assert_eq!(waiting["approved"],false);
+        decide(&p.ticket,true).unwrap();
+        let Json(result)=poll_native(HeaderMap::new(),Path(p.ticket.clone())).await.ok().unwrap();
+        let mut headers=HeaderMap::new();headers.insert("authorization",HeaderValue::from_str(&format!("Bearer {}",result["token"].as_str().unwrap())).unwrap());
+        assert!(allows(&headers,None,Some("krita")));
+        for other in ["word","wps","photoshop","powerpoint"]{assert!(!allows(&headers,None,Some(other)));}
+        bind(&headers,"krita-owned");assert!(allows(&headers,Some("krita-owned"),Some("krita")));
+        assert!(!allows(&headers,Some("foreign"),None));
+        headers.insert("origin",HeaderValue::from_static("https://localhost:18443"));
+        assert!(!allows(&headers,None,Some("krita")));
+        assert!(poll_native(headers.clone(),Path(p.ticket.clone())).await.is_err());
+        assert!(request_pair(headers,Json(PairRequest{source:"krita".into()})).await.is_err());
+        decide(&p.ticket,false).unwrap();
     }
     #[tokio::test]async fn native_word_requires_approval_and_stays_scoped(){
         let Json(p)=request_native(HeaderMap::new(),Json(PairRequest{source:"word".into()})).await.ok().unwrap();
