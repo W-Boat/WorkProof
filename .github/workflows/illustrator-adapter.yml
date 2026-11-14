@@ -1,9 +1,11 @@
-name: Illustrator native probe validation
+name: Adobe desktop probe validation
 on:
   workflow_dispatch:
   push:
     paths:
       - 'apps/illustrator/**'
+      - 'apps/indesign/**'
+      - 'scripts/test_indesign.cjs'
       - 'scripts/test_illustrator.cjs'
       - '.github/workflows/illustrator-adapter.yml'
 permissions:
@@ -18,13 +20,17 @@ jobs:
         with:
           node-version: '22'
       - name: Read-only snapshot contract, isolation and unavailable states
-        run: node scripts/test_illustrator.cjs
+        run: |
+          node scripts/test_illustrator.cjs
+          node scripts/test_indesign.cjs
       - name: Parse Windows bridge without executing or launching a host
         shell: powershell
         run: |
           $tokens=$null; $errors=$null
           [void][Management.Automation.Language.Parser]::ParseFile((Resolve-Path apps/illustrator/read-snapshot.ps1),[ref]$tokens,[ref]$errors)
           if($errors.Count){throw 'Illustrator PowerShell bridge syntax failed'}
+          [void][Management.Automation.Language.Parser]::ParseFile((Resolve-Path apps/indesign/read-snapshot.ps1),[ref]$tokens,[ref]$errors)
+          if($errors.Count){throw 'InDesign PowerShell bridge syntax failed'}
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-illustrator-readonly-probe
