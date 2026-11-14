@@ -49,19 +49,23 @@ class WorkProofDocker(DockWidget):
         self.timer.setInterval(1500)
         self.timer.timeout.connect(self.sample)
         self.timer.start()
-        # QAction reports commands being triggered, not proof of their eventual effect.
-        for action_id, kind, metric in [('edit_undo', 'undo', 'undo_commands'),
-                                        ('edit_redo', 'redo', 'redo_commands'),
-                                        ('copy', 'interaction', 'copy'), ('paste', 'interaction', 'paste'),
-                                        ('cut', 'interaction', 'cut')]:
-            action = Krita.instance().action(action_id)
-            if action:
-                action.triggered.connect(lambda checked=False, k=kind, m=metric: self.command(k, m))
         self.pending_commands = {}
+        self.bound_actions = set()
+        self._bind_actions()
+
+    def _bind_actions(self):
+        # A docker can be constructed before Krita marks its window active.
+        # Bind again on canvas change, without connecting a QAction twice.
+        for action_id, metric in [('edit_undo', 'undo_commands'), ('edit_redo', 'redo_commands'),
+                                  ('copy', 'copy'), ('paste', 'paste'), ('cut', 'cut')]:
+            action = Krita.instance().action(action_id)
+            if action is not None and action not in self.bound_actions:
+                action.triggered.connect(lambda checked=False, m=metric: self.command('interaction', m))
+                self.bound_actions.add(action)
 
     def canvasChanged(self, canvas):
-        # Actual document identity is rechecked on every sample and completion.
-        pass
+        if hasattr(self, 'bound_actions'):
+            self._bind_actions()
 
     def _snapshot(self):
         return capture(Krita.instance().activeDocument())

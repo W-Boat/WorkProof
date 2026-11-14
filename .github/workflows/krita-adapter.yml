@@ -5,6 +5,8 @@ on:
     paths:
       - 'apps/krita/**'
       - 'scripts/test_krita.py'
+      - 'scripts/run_krita_host.py'
+      - 'scripts/krita_host_acceptance.py'
       - 'scripts/package_krita.py'
       - 'docs/DRAWING-ADAPTERS.md'
       - '.github/workflows/krita-adapter.yml'
@@ -29,6 +31,19 @@ jobs:
           python scripts/test_krita.py target/debug/examples/native_adapter_harness target/debug/workproof-engine
       - name: Package source plugin for Krita import
         run: python scripts/package_krita.py
+      - name: Install actual Krita Qt5 host
+        run: sudo apt-get update && sudo apt-get install -y krita python3-pyqt5 xvfb xauth
+      - name: Native Krita document and real plugin UI acceptance
+        run: python scripts/run_krita_host.py target/debug/examples/native_adapter_harness target/debug/workproof-engine
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: krita-native-host-evidence
+          if-no-files-found: error
+          path: |
+            test-krita-host-results.json
+            test-krita-host-results.png
+            test-krita-host.log
       - uses: actions/upload-artifact@v4
         with:
           name: workproof-krita-dev
