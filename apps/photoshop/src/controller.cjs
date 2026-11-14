@@ -180,15 +180,14 @@ class Recorder {
       const before=this.host.snapshot();this.check(before);const revision=this.revision;
       await this.host.saveCopy(this.artifact,this.documentId);
       if(this.stopped)throw new Error('插件已关闭，未写入证书。');
-      const {bytes,stamp}=await this.host.readArtifact(this.artifact);
+      const {digest,size,stamp}=await this.host.fingerprintArtifact(this.artifact,this.hash);
       const after=this.host.snapshot();this.check(after);
       if(!same(before,after)||revision!==this.revision)throw new Error('导出期间文档发生变化，请停止编辑后重试。');
-      const digest=this.hash(bytes);
       if(this.now()-this.lastSample>15000)this.event('gap',after);
       this.lastSample=this.now();this.event('save',after,digest);await this.flush();
-      const proof=await this.api('/v1/sessions/'+this.session+'/export',{artifact_hash:digest,artifact_bytes:bytes.length});
+      const proof=await this.api('/v1/sessions/'+this.session+'/export',{artifact_hash:digest,artifact_bytes:size});
       const m=proof.manifest;
-      if(m?.protocol!=='workproof/3'||m.source!=='photoshop'||m.session_id!==this.session||m.file_name!==this.artifact.name||m.artifact_hash!==digest||m.artifact_bytes!==bytes.length||m.event_count!==this.next)throw new Error('引擎返回的交付绑定不一致，未写入证书。');
+      if(m?.protocol!=='workproof/3'||m.source!=='photoshop'||m.session_id!==this.session||m.file_name!==this.artifact.name||m.artifact_hash!==digest||m.artifact_bytes!==size||m.event_count!==this.next)throw new Error('引擎返回的交付绑定不一致，未写入证书。');
       const latest=this.host.snapshot();this.check(latest);
       if(!same(after,latest)||revision!==this.revision)throw new Error('签发期间文档发生变化，请重试。');
       if(this.stopped)throw new Error('插件已关闭，未写入证书。');
@@ -196,7 +195,7 @@ class Recorder {
       await this.host.writeProof(proofFile,proof);
       if(graphFile)await this.host.writeProof(graphFile,{format:'workproof-evolution/1',snapshots:this.graphs});
       await this.host.assertArtifactUnchanged(this.artifact,stamp);
-      this.message=graphFile?'PSD 副本、.wproof 与 .wgraph 已保存到所选位置。请一并交付这三份文件。':'PSD 副本和 .wproof 已写入你选择的位置。请交付这份副本。';
+      this.message=graphFile?'设计副本、.wproof 与 .wgraph 已保存到所选位置。请一并交付这三份文件。':'设计副本和 .wproof 已写入你选择的位置。请交付这份副本。';
     }finally{await this.finishBusy();}
   }
   async stop(){

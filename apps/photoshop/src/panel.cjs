@@ -1,5 +1,6 @@
 const ps=require('photoshop');
 const {storage,entrypoints}=require('uxp');
+const fileIO=require('fs');
 const {blake3}=require('@noble/hashes/blake3.js');
 const {Recorder}=require('./controller.cjs');
 const {createHost}=require('./host.cjs');
@@ -15,7 +16,7 @@ async function request(path,body,token){
     ]);
   }finally{clearTimeout(timer);}
 }
-const recorder=new Recorder({host:createHost(ps,storage),request,hash:bytes=>Array.from(blake3(bytes),n=>n.toString(16).padStart(2,'0')).join(''),changed:state=>{
+const recorder=new Recorder({host:createHost(ps,storage,{fileIO,createHasher:()=>blake3.create()}),request,hash:bytes=>Array.from(blake3(bytes),n=>n.toString(16).padStart(2,'0')).join(''),changed:state=>{
   element('status').textContent=state.message;
   element('count').textContent=`${state.committed} 条已提交事件 · ${state.queued} 条待提交`;
   element('start').disabled=state.recording||state.busy;

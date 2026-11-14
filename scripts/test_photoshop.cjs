@@ -12,7 +12,7 @@ function fixture(){
     async chooseArtifact(){return state.cancelArtifact?null:artifact;},async chooseProof(){return state.cancelProof?null:{name:'delivery.psd.wproof'};},
     async listen(names,listener){state.listener=listener;state.names=names;},async unlisten(names,listener){assert.equal(listener,state.listener);state.listener=null;},
     async saveCopy(){state.saveCalls++;if(state.changedOnSave)state.history++;},
-    async readArtifact(){return {bytes:new Uint8Array([56,66,80,83,0,1,0,0]),stamp:'stable'};},
+    async fingerprintArtifact(entry,hash){const bytes=new Uint8Array([56,66,80,83,0,1,0,0]);return {digest:hash(bytes),size:bytes.length,stamp:'stable'};},
     async assertArtifactUnchanged(){},async writeProof(entry,proof){state.writes.push(proof);},
   };
   const recorder=new Recorder({host,hash:()=> 'ab'.repeat(32),now:()=>state.clock,sleep:async()=>{},request:async(path,body,token)=>{
@@ -143,7 +143,7 @@ test('hiding a panel during start pauses after the outstanding operation settles
   await r.hidden();release();await starting;
   assert.equal(r.paused,true);assert.deepEqual([...events.values()].map(e=>e.kind),['start','pause']);
 });
-function nativeFixture(){
+function nativeFixture(options){
   const neverRead=()=>{throw Error('Private host content must not be read');};
   const child={id:103,kind:1,visible:true,get name(){return neverRead();}};
   const doc={id:17,title:'design.psd',path:'C:/private/source.psd',cloudDocument:false,activeHistoryState:{id:99,get name(){return neverRead();}},
@@ -152,8 +152,8 @@ function nativeFixture(){
   const calls=[];
   doc.saveAs={psd:async(...args)=>calls.push(args)};
   const ps={app:{activeDocument:doc},constants:{LayerKind:{GROUP:7}},core:{executeAsModal:async(fn,options)=>{calls.push(options);await fn({isCancelled:false});}},action:{addNotificationListener:async()=>{},removeNotificationListener:async()=>{}}};
-  const storage={formats:{binary:'binary',utf8:'utf8'},localFileSystem:{getFileForSaving:async()=>entry}};
-  return {host:createHost(ps,storage),doc,entry,calls};
+  const storage={formats:{binary:'binary',utf8:'utf8'},localFileSystem:{getFileForSaving:async()=>entry,getFsUrl:file=>'file:'+file.nativePath}};
+  return {host:createHost(ps,storage,options),doc,entry,calls};
 }
 test('native API adapter counts nested visibility and excludes names',()=>{
   const {host}=nativeFixture();assert.deepEqual(host.snapshot(),{id:17,history:99,metrics:{layers:3,groups:1,visible_layers:1},topology:[[101,null,0,'7',false],[102,null,1,'1',true],[103,101,0,'1',true]],groupIds:[101]});
@@ -206,4 +206,30 @@ test('missing host capabilities are unknown, never zero-valued measurements',()=
   doc.layers=[{kind:1}];assert.throws(()=>host.snapshot(),/未知值当成零/);
   doc.layers=[{id:1,kind:7,visible:true,layers:undefined}];assert.throws(()=>host.snapshot(),/完整读取图层结构/);
   doc.layers=[];doc.activeHistoryState={};assert.throws(()=>host.snapshot(),/历史状态标识/);
+});
+
+test('PSB saves as a copy and the fingerprint reads multiple bounded chunks',async()=>{
+  const {blake3}=await import('@noble/hashes/blake3.js');
+  const bytes=new Uint8Array(2*1024*1024+17).fill(83);
+  let offset=0,closed=0;
+  const {host,doc,entry}=nativeFixture({createHasher:()=>blake3.create(),fileIO:{
+    async open(url,mode){assert.equal(url,'file:C:/delivery/delivery.psb');assert.equal(mode,'r');return 4;},
+    async read(descriptor,buffer,start,length,position){
+      assert.equal(descriptor,4);assert.equal(start,0);assert.equal(position,-1);assert.equal(length,1024*1024);
+      const chunk=bytes.subarray(offset,offset+length);new Uint8Array(buffer).set(chunk);offset+=chunk.length;
+      return {bytesRead:chunk.length,buffer};
+    },
+    async close(descriptor){assert.equal(descriptor,4);closed++;}
+  }});
+  entry.name='delivery.psb';entry.nativePath='C:/delivery/delivery.psb';
+  entry.getMetadata=async()=>({size:bytes.length,dateModified:new Date(1000)});
+  entry.read=async()=>{throw Error('Expected bounded reads');};
+  let saved=false;doc.saveAs.psb=async(file,options,copy)=>{assert.equal(file,entry);assert.equal(copy,true);saved=true;};
+  await host.saveCopy(entry,17);assert(saved);
+  const result=await host.fingerprintArtifact(entry,()=>assert.fail('Expected incremental hash'));
+  assert.equal(result.digest,Buffer.from(blake3(bytes)).toString('hex'));
+  assert.equal(result.size,bytes.length);assert.equal(closed,1);
+  offset=0;entry.getMetadata=async()=>({size:bytes.length,dateModified:new Date(offset?2000:1000)});
+  await assert.rejects(()=>host.fingerprintArtifact(entry,()=>''),/发生变化/);
+  assert.equal(closed,2);
 });

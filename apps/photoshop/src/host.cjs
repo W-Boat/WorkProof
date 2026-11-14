@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Only native APIs; no production catch-all listener and no descriptor persistence.
-function createHost(ps,storage){
+function createHost(ps,storage,{fileIO,createHasher}={}){
   const fs=storage.localFileSystem;
   const id=()=>ps.app.activeDocument?.id;
   const stamp=m=>{
@@ -50,9 +50,11 @@ function createHost(ps,storage){
     async unlisten(events,callback){await ps.action.removeNotificationListener(events,callback);},
     async chooseArtifact(){
       const doc=ps.app.activeDocument;if(!doc)throw new Error('请先打开 Photoshop 文档。');
-      const name=String(doc.title||doc.name||'design').replace(/\.[^.]*$/,'')+'-workproof.psd';
-      const entry=await fs.getFileForSaving(name,{types:['psd']});
-      if(entry&&!entry.name.toLowerCase().endsWith('.psd'))throw new Error('交付副本须使用 .psd 扩展名。');
+      const title=String(doc.title||doc.name||'design');
+      const extension=/\.psb$/i.test(title)||doc.width>30000||doc.height>30000?'psb':'psd';
+      const name=title.replace(/\.[^.]*$/,'')+'-workproof.'+extension;
+      const entry=await fs.getFileForSaving(name,{types:['psd','psb']});
+      if(entry&&!/\.(psd|psb)$/i.test(entry.name))throw new Error('请选择 .psd 或 .psb 交付副本。');
       return entry;
     },
     async chooseProof(name){
@@ -71,7 +73,9 @@ function createHost(ps,storage){
         if(!doc||doc.id!==documentId||context.isCancelled)throw new Error('当前文档已改变或保存已取消。');
         const normalize=value=>String(value||'').replace(/\\/g,'/').toLowerCase();
         if(!doc.cloudDocument&&doc.path&&normalize(doc.path)===normalize(entry.nativePath))throw new Error('请选择不同于原文档的位置，避免覆盖正在创作的原文件。');
-        await doc.saveAs.psd(entry,{},true);
+        const extension=/\.(psd|psb)$/i.exec(entry.name)?.[1].toLowerCase();
+        if(!extension||typeof doc.saveAs?.[extension]!=='function')throw new Error('当前 Photoshop 无法保存这种副本格式。');
+        await doc.saveAs[extension](entry,{},true);
       },{commandName:'WorkProof：保存交付副本'});
     },
     async readArtifact(entry){
@@ -82,6 +86,42 @@ function createHost(ps,storage){
       const bytes=new Uint8Array(data),after=await entry.getMetadata();
       if(bytes.length!==before.size||stamp(before)!==stamp(after))throw new Error('读取期间交付文件发生变化。');
       return {bytes,stamp:stamp(after)};
+    },
+    async fingerprintArtifact(entry,hash){
+      const before=await entry.getMetadata();
+      const expectedStamp=stamp(before);
+      const maxBytes=8*1024*1024*1024;
+      if(!Number.isSafeInteger(before.size)||before.size<=0||before.size>maxBytes)throw new Error('请选择不超过 8 GiB 的非空交付副本。');
+      let descriptor;
+      if(fileIO&&createHasher&&typeof fs.getFsUrl==='function'){
+        try{descriptor=await fileIO.open(fs.getFsUrl(entry),'r');}
+        catch{ /* Older host permissions may support Entry.read only. */ }
+      }
+      if(descriptor===undefined){
+        if(before.size>128*1024*1024)throw new Error('此 Photoshop 无法分块读取所选副本。请选择不超过 128 MiB 的文件。');
+        const {bytes,stamp}=await this.readArtifact(entry);
+        if(stamp!==expectedStamp)throw new Error('读取期间交付文件发生变化。');
+        return {digest:hash(bytes),size:bytes.length,stamp};
+      }
+      const hasher=createHasher();
+      const buffer=new ArrayBuffer(1024*1024);
+      let size=0;
+      try{
+        for(;;){
+          const result=await fileIO.read(descriptor,buffer,0,buffer.byteLength,-1);
+          const count=result?.bytesRead;
+          if(!Number.isSafeInteger(count)||count<0||count>buffer.byteLength)throw new Error('Photoshop 返回无效的分块读取长度。');
+          if(!count)break;
+          size+=count;
+          if(size>before.size)throw new Error('读取期间交付文件发生变化。');
+          const chunk=result.buffer??buffer;
+          if(!(chunk instanceof ArrayBuffer)||chunk.byteLength<count)throw new Error('Photoshop 返回无效的文件数据。');
+          hasher.update(new Uint8Array(chunk,0,count));
+        }
+      }finally{await fileIO.close(descriptor);}
+      if(size!==before.size||stamp(await entry.getMetadata())!==expectedStamp)throw new Error('读取期间交付文件发生变化。');
+      const digest=Array.from(hasher.digest(),n=>n.toString(16).padStart(2,'0')).join('');
+      return {digest,size,stamp:expectedStamp};
     },
     async assertArtifactUnchanged(entry,expected){if(stamp(await entry.getMetadata())!==expected)throw new Error('交付文件已改变，请重新导出证书。');},
     async writeProof(entry,proof){await entry.write(JSON.stringify(proof,null,2),{format:storage.formats.utf8});},
