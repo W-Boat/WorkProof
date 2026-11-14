@@ -37,6 +37,7 @@
             if (!isFinite(value) || value < 0 || value % 1) throw Error('INVALID_OBJECT_ID');
             return value;
         }
+        var documentId = id(doc);
         var pageCount = doc.pages.length, storyCount = doc.stories.length;
         var items = doc.allPageItems;
         if (pageCount > 1024 || storyCount > 4096 || items.length > 4096) throw Error('OBJECT_LIMIT');
@@ -69,8 +70,8 @@
             layout.push([uid, item.parentPage ? id(item.parentPage) : null, coordinates, angle]);
         }
         budget();
-        if (app.activeDocument !== doc || doc.fullName.fsName !== path || !!doc.modified !== modified ||
-            doc.stories.length !== storyCount || doc.allPageItems.length !== items.length)
+        if (!app.documents.length || id(app.activeDocument) !== documentId || doc.fullName.fsName !== path ||
+            !!doc.modified !== modified || doc.pages.length !== pageCount || doc.stories.length !== storyCount)
             throw Error('DOCUMENT_CHANGED_DURING_SAMPLE');
         return encode({format:'workproof-indesign-snapshot/1',path:path,saved:!modified,
             metrics:{pages:pageCount,stories:storyCount,objects:items.length,characters:characters},

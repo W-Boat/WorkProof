@@ -4,7 +4,7 @@ const vm = require('node:vm');
 
 const script = fs.readFileSync('apps/indesign/host.jsx', 'utf8').replace(/^#target indesign\r?\n/, '');
 const document = {
-  saved: true, modified: true, fullName: {exists: true, fsName: '/private/book.indd'},
+  id: 8, saved: true, modified: true, fullName: {exists: true, fsName: '/private/book.indd'},
   pages: [{id: 1}], stories: [{id: 2, characters: {length: 5}, contents: 'draft'}],
   allPageItems: [{id: 3, parentPage: {id: 1}, geometricBounds: [0, 0, 100, 100], rotationAngle: 0}],
 };
