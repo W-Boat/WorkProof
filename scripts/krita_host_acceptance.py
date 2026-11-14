@@ -1,4 +1,4 @@
-"""Executed inside official kritarunner, never an ordinary Python interpreter."""
+"""Executed inside the official Krita GUI, never an ordinary Python interpreter."""
 import hashlib
 import json
 import os
@@ -38,8 +38,8 @@ def __main__(args):
             return result
         app = Krita.instance()
         app.setBatchmode(True)
-        window = app.openWindow()
-        window.qwindow().show()
+        window = app.activeWindow()
+        assert window, 'Krita main window not ready'
         document = app.createDocument(128,128,'WorkProof native fixture','RGBA','U8','',72.)
         assert document, 'Could not create native document'
         document.setBatchmode(True)

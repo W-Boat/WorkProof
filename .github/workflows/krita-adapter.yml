@@ -7,6 +7,7 @@ on:
       - 'scripts/test_krita.py'
       - 'scripts/run_krita_host.py'
       - 'scripts/krita_host_acceptance.py'
+      - 'scripts/krita_host_bootstrap.py'
       - 'scripts/package_krita.py'
       - 'docs/DRAWING-ADAPTERS.md'
       - '.github/workflows/krita-adapter.yml'
