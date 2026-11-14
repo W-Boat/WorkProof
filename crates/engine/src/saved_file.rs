@@ -107,6 +107,7 @@ impl SavedFileRecorder {
         if self.paused||self.source!=ILLUSTRATOR_SOURCE{return Ok(());}
         if !valid_hash(&geometry){return Err("Illustrator 几何摘要无效。".into());}
         if self.geometry.as_deref()==Some(geometry.as_str()){return Ok(());}
+        self.require_observation_capacity()?;
         self.emit("edit",geometry.clone()).await?;
         self.geometry=Some(geometry);
         Ok(())
@@ -146,12 +147,20 @@ impl SavedFileRecorder {
     pub async fn checkpoint(&mut self)->Result<bool,String>{
         if self.paused{return Err("记录已暂停，请先继续。".into());}
         self.flush().await?;
-        let limit=recording_settings::load(&self.root)?.unwrap_or(OBSERVATION_LIMIT).min(OBSERVATION_LIMIT);
-        if self.sequence>=limit{self.paused=true;return Err("记录已达到设置上限，可以提高上限或导出已有记录。".into());}
+        self.require_observation_capacity()?;
         let current=match fingerprint(self.path.clone()).await{Ok(value)=>value,Err(error)=>{self.paused=true;return Err(error);}};
         if current.hash==self.last.hash{self.last=current;self.candidate=None;return Ok(false);}
         self.emit("save",current.hash.clone()).await?;
         self.last=current;self.candidate=None;Ok(true)
+    }
+
+    fn require_observation_capacity(&mut self)->Result<(),String>{
+        let limit=recording_settings::load(&self.root)?.unwrap_or(OBSERVATION_LIMIT).min(OBSERVATION_LIMIT);
+        if self.sequence>=limit{
+            self.paused=true;
+            return Err("记录已达到设置上限，可以提高上限或导出已有记录。".into());
+        }
+        Ok(())
     }
 
     pub async fn pause(&mut self)->Result<(),String>{
@@ -162,6 +171,8 @@ impl SavedFileRecorder {
 
     pub async fn resume(&mut self)->Result<(),String>{
         if !self.paused{return Ok(());}
+        self.flush().await?;
+        self.require_observation_capacity()?;
         self.emit("gap",String::new()).await?;
         self.emit("resume",String::new()).await?;
         self.paused=false;self.candidate=None;Ok(())

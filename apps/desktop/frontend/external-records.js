@@ -32,7 +32,7 @@ export function externalRecords({ipc,flush,ui}){
   }
   function renderRecord(record){
     const event=record.event,row=element('li','event-item'),details=element('details','action-details');
-    const editingLabels={powerpoint:'修改演示文稿',blender:'修改模型',photoshop:'修改画面',krita:'修改画面'};
+    const editingLabels={powerpoint:'修改演示文稿',blender:'修改模型',photoshop:'修改画面',krita:'修改画面',illustrator:'几何变化'};
     const label=event.kind==='edit'&&Object.hasOwn(editingLabels,current.source)?editingLabels[current.source]:actionLabels[event.kind]||({layout:'调整版式',save:'保存作品',pause:'暂停记录',resume:'继续记录',interaction:'操作软件'}[event.kind])||'文档操作';
     const summary=element('summary','',`${label} · 第 ${event.seq+1} 条`);
     const start=Date.parse(current.started_at),date=Number.isFinite(start)?displayTime(start+event.elapsed_ms):`开始后 ${Math.round(event.elapsed_ms/1000)} 秒`;
