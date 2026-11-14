@@ -1,6 +1,6 @@
 # 绘画软件接入
 
-新增 Krita 原生 Python 面板开发版，已有 Photoshop UXP 接入继续保留。本阶段重点覆盖绘画场景；GIMP、Inkscape、SAI、CLIP STUDIO PAINT 与 Procreate 尚未接入，不能将文件可打开当作操作已采集。
+用户最新指定优先支持 Photoshop（PS）、PaintTool SAI2、Adobe Illustrator（AI）。Photoshop 已有 UXP 开发适配；Illustrator 新增原生只读采样探针；SAI2 外部记录方式尚未实现。Krita 开发插件继续补真实宿主验收。不能把文件可打开或探针能返回数据当作完整记录已接入。
 
 ## Krita 开发版
 
@@ -31,3 +31,11 @@
 源码 `9de232b` 的 [Krita 专项 43578617911](https://github.com/W-Boat/WorkProof/actions/runs/43578617911) 已成功。7 项核心模拟、真实 Rust 收集器批准连接、证书签名导出、篡改拒绝、来源/会话隔离及撤销检查通过。开发 ZIP 已下载并核对外层 GitHub 摘要和内层 ZIP 摘要，包含 GPL 许可与完整插件源代码。
 
 插件目前基于 PyQt5，真实 Krita 5.x/Qt5 宿主导入与绘画尚未验收，Qt6 版本未适配。配套桌面构建仍在运行，用户当前安装版仍为 `8d85093`，不能直接批准 Krita 来源。已验证插件 ZIP不等于已完成客户端安装或真实宿主交付。
+
+## PS / SAI2 / AI 优先范围（追加）
+
+- Photoshop：复用现有 UXP 适配，继续补真实宿主、正式分发和大 PSD/PSB 流式路径；已有模拟与收集器检查不等于 Adobe 宿主验收。
+- Illustrator：[原生只读探针](../apps/illustrator/README.md) 已通过 Windows 模拟/脚本解析 Actions，未接完整授权记录链、真实软件和安装流程。2027 年公开 UXP 插件接口前不伪造兼容模块。
+- SAI2：[实施要求与观测边界](../apps/sai2/README.md) 已明确，尚未实现。文件保存或前台输入统计必须明确标成外部观测，不冒充图层和笔触 API。
+
+Krita 的真实宿主验收仍未通过：原最新发行包的 Python/Qt 绑定失败；Qt5 脚本运行器打开 GUI 缺少资源；完整 GUI 在旧版宿主遇到文档路径与 API 差异。已改为真实插件管理器、文档非阻塞图像锁和固定 5.2 / Qt5 环境，最新修正版 Actions 43580995145 仍在运行。桌面 Krita 入口也修复了软件选项加入错误下拉框的问题，交互 Actions 43580995140 仍在运行。不能用旧的核心成功覆盖这些真实失败。
