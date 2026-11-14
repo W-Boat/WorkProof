@@ -49,8 +49,15 @@ def capture(document, now=time.monotonic):
     path = pathlib.Path(document.fileName())
     if not path.is_absolute() or not path.is_file():
         raise RuntimeError('请使用已保存的本地文件。')
-    if not document.isIdle():
+    if not document.tryBarrierLock():
         raise SnapshotBusy('画布正在处理操作，稍后继续采样。')
+    try:
+        return _capture_locked(document, path, started, now)
+    finally:
+        document.unlock()
+
+
+def _capture_locked(document, path, started, now):
     root_node = document.rootNode()
     rows = []
     layers = groups = visible = 0

@@ -48,7 +48,8 @@ class CaptureTests(unittest.TestCase):
         class Document:
             idle = True
             def fileName(self): return str(artifact)
-            def isIdle(self): return self.idle
+            def tryBarrierLock(self): return self.idle
+            def unlock(self): self.unlocks = getattr(self, 'unlocks', 0) + 1
             def rootNode(self): return root_node
             def thumbnail(self, width, height): return image
             def width(self): return 1024
@@ -64,6 +65,7 @@ class CaptureTests(unittest.TestCase):
             self.assertEqual(first['metrics'], {'layers': 1, 'groups': 0, 'visible_layers': 1})
             self.assertNotIn('private preview bytes', json.dumps(first))
             self.assertNotIn('private-node-id', json.dumps(first))
+            self.assertEqual(document.unlocks, 1)
             image.pixels = b'changed preview bytes'
             second = core.capture(document, now=lambda: 1)
             self.assertEqual(first['tree'], second['tree'])
@@ -78,6 +80,7 @@ class CaptureTests(unittest.TestCase):
             root_node.children = [leaf] * 4097
             with self.assertRaises(RuntimeError):
                 core.capture(document, now=lambda: 1)
+            self.assertEqual(document.unlocks, 4)
 
 
 class RecorderTests(unittest.TestCase):

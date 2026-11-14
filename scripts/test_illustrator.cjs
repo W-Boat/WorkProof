@@ -10,6 +10,7 @@ assert.equal(run(null).error,'NO_ACTIVE_DOCUMENT');
 let first=run(doc([item('12345678-1234')]));
 assert.equal(first.format,'workproof-illustrator-snapshot/1');
 assert.equal(first.metrics.objects,1);
+assert.equal(first.metrics.unhidden_objects,1);
 assert.deepEqual(first.objects[0][6],[0,100,100,0]);
 assert.equal(first.objects[0][1],null);
 assert.equal(run(doc([item('12345678-1234'),item('12345678-1234')])).error,'STABLE_OBJECT_ID_UNAVAILABLE');

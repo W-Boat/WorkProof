@@ -138,8 +138,6 @@ def __main__(args):
         process.terminate()
         process.wait(timeout=10)
         if second:
-            second.setModified(False)
             second.close()
         if document:
-            document.setModified(False)
             document.close()

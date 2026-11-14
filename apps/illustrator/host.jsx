@@ -62,7 +62,7 @@
         if (app.activeDocument !== doc || doc.fullName.fsName !== path || doc.pageItems.length !== total)
             throw Error('DOCUMENT_CHANGED_DURING_SAMPLE');
         var result = {format:'workproof-illustrator-snapshot/1',path:path,saved:!!doc.saved,
-            metrics:{objects:total,groups:groups,visible_layers:visible},objects:rows};
+            metrics:{objects:total,groups:groups,unhidden_objects:visible},objects:rows};
         return encode(result);
     } catch (failure) {
         // Allowlisted diagnostics only; never return host exception text or artwork content.

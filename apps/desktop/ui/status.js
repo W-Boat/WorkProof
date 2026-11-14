@@ -284,11 +284,11 @@ const guides={
   wps:{steps:['打开 WPS 文档，在 WorkProof 标签中选择“打开记录工作台”。','点击开始记录，回到这里核对网址并允许连接。','完成后导出作品和证书，将这两个文件一起交付。'],note:'WPS 暂未提供面向普通用户的一键安装包，当前需按接入说明安装。没有安装入口时，请联系学校或团队。'},
   vscode:{steps:['先点击下方按钮，安装 WorkProof 插件。','打开文件，点击 VS Code 底部的 WorkProof，选择记录当前文件。','完成后导出证书，将它与这份作品一起交付。'],note:'需要先安装 VS Code。插件会自动连接本机的 WorkProof。'},
   photoshop:{steps:['先安装 WorkProof 插件，再从 Photoshop 的插件菜单打开它。','选择作品副本的位置，点击开始，并回到这里允许连接。','完成后导出 PSD 副本和证书，将这两个文件一起交付。'],note:'Photoshop 当前提供测试版插件文件，尚未提供正式的一键安装包。请交付本次导出的 PSD 副本。'},
-  krita:{steps:['在 Krita 中导入 WorkProof Python 插件，启用后重启软件。','保存作品，在 WorkProof 面板点开始，再回到这里允许连接。','完成后从 Krita 面板保存并导出证书，将原作品和证书一起交付。'],note:'当前为 Krita 5.x / Qt5 开发插件，需要手动导入 ZIP。首次安装请使用“工具 → 脚本 → 从文件导入 Python 插件”，在 Python 插件管理器启用并重启。画面采样不等于完整笔触记录。'},
+  krita:{steps:['在 Krita 中导入 WorkProof Python 插件，启用后重启软件。','保存作品，在 WorkProof 面板点开始，再回到这里允许连接。','完成后从 Krita 面板保存并导出证书，将原作品和证书一起交付。'],note:'当前为 Krita 5.2 / Qt5 开发插件，需要手动导入 ZIP。首次安装请使用“工具 → 脚本 → 从文件导入 Python 插件”，在 Python 插件管理器启用并重启。画面采样不等于完整笔触记录。'},
   blender:{steps:['在 Blender 设置中选择“从磁盘安装”，导入 WorkProof 插件文件。','先保存工程，在侧栏 WorkProof 面板中点击开始记录。','完成后保存并导出，将工程和旁边的证书一起交付。'],note:'需要 Blender 4.2 或更新版本。插件会自动连接本机的 WorkProof。'}
 };
 const creationTool=document.getElementById('creation-tool');
-const requirements={krita:'需要已启用 Python 插件的 Krita 5.x / Qt5；开发版暂需手动安装。',word:'首次使用前，请先安装 Word 原生加载项。',powerpoint:'首次使用前，请先安装 PowerPoint 原生加载项。',wps:'当前需要手动接入，尚未提供一键安装包。',vscode:'先安装插件，再到 VS Code 中选择要记录的文件。',photoshop:'当前为测试版插件，需要手动安装。',blender:'适用于 Blender 4.2 及以上版本，需要安装插件。'};
+const requirements={krita:'需要已启用 Python 插件的 Krita 5.2 / Qt5；开发版暂需手动安装。',word:'首次使用前，请先安装 Word 原生加载项。',powerpoint:'首次使用前，请先安装 PowerPoint 原生加载项。',wps:'当前需要手动接入，尚未提供一键安装包。',vscode:'先安装插件，再到 VS Code 中选择要记录的文件。',photoshop:'当前为测试版插件，需要手动安装。',blender:'适用于 Blender 4.2 及以上版本，需要安装插件。'};
 try{const saved=localStorage.getItem('workproof.creation-tool');if(Object.hasOwn(guides,saved))creationTool.value=saved;}catch{}
 function showGuide(){const guide=guides[creationTool.value];const steps=document.getElementById('creation-steps');steps.replaceChildren();for(const text of guide.steps){const li=document.createElement('li');li.textContent=text;steps.append(li);}document.getElementById('installation-note').textContent=guide.note;document.getElementById('tool-requirement').textContent=requirements[creationTool.value];document.getElementById('install').hidden=creationTool.value!=='vscode';document.getElementById('open-word').hidden=creationTool.value!=='word';document.getElementById('open-powerpoint').hidden=creationTool.value!=='powerpoint';try{localStorage.setItem('workproof.creation-tool',creationTool.value);}catch{}}
 creationTool.addEventListener('change',showGuide);showGuide();
