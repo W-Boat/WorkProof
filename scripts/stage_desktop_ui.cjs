@@ -73,13 +73,14 @@ for(const name of ['metadata-worker.js','metadata-common.js','docx-metadata.js',
 }
 fs.copyFileSync(path.join(root,'apps/verifier/public/notices/iptc-newscodes.txt'),path.join(nativeUi,'notices/iptc-newscodes.txt'));
 
-// Build-time only: ship small high-DPI WebP icons, not six 1.4 MB originals.
+// Generate lightweight high-DPI WebP icons for the packaged desktop.
 // sharp is locked in this monorepo's existing Next.js build dependency graph.
 (async()=>{
   const sharp=require('sharp'),destination=path.join(nativeUi,'adapter-icons');fs.mkdirSync(destination,{recursive:true});
-  const names=['word','powerpoint','wps','vscode','photoshop','blender'];
+  const names=['word','powerpoint','wps','vscode','photoshop','blender','krita','sai2','illustrator','indesign','wps-presentation','excel','wps-spreadsheets'];
   const entries=await Promise.all(names.map(async name=>{
-    const source=path.join(root,'assets/brand/adapters',name+'-v1.png');
+    const version=name==='photoshop'?2:1;
+    const source=path.join(root,'assets/brand/adapters',name+'-v'+version+'.png');
     const metadata=await sharp(source).metadata();if(!metadata.hasAlpha)throw new Error('Adapter icon must preserve alpha: '+name);
     const corner=await sharp(source).ensureAlpha().extract({left:0,top:0,width:1,height:1}).raw().toBuffer();if(corner[3]>2)throw new Error('Adapter icon corner must be transparent: '+name);
     const target=path.join(destination,name+'.webp');await sharp(source).resize(128,128,{fit:'contain'}).webp({quality:90,alphaQuality:100}).toFile(target);

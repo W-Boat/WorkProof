@@ -1,0 +1,86 @@
+{
+  "generator": "built-in image_gen",
+  "reference": "assets/brand/adapters/photoshop-v1.png",
+  "entries": [
+    {
+      "host": "photoshop",
+      "asset": "photoshop-v2.png",
+      "generated_file": "exec-676cffd5-4b92-42cf-9a92-446fb729f6fc.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "25fbabf10fef26657ae898b635329e9b56c380da6fce7d0ee1d2f18e9cf90cc6"
+    },
+    {
+      "host": "sai2",
+      "asset": "sai2-v1.png",
+      "generated_file": "exec-ce981d33-6e2d-4ddb-950b-da0d942932aa.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "a6a3057be8b6fa988e52c0cb50574e8b3fcd3f17ba0bf5ed409eb42c049b060b"
+    },
+    {
+      "host": "illustrator",
+      "asset": "illustrator-v1.png",
+      "generated_file": "exec-15fdf403-9292-4148-90e4-7afbc38e6d4d.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "61b5b8bdec13f7c88a25a05c4de4ff336bb9117a21bba2627311c70bf2e8bc5f"
+    },
+    {
+      "host": "indesign",
+      "asset": "indesign-v1.png",
+      "generated_file": "exec-9fb14d76-ab1c-43de-903d-6422566e4191.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "e2084b885942ce2b5bf6df0ab175e87143933e7e87c3f14a8891afabd0a4ad8c"
+    },
+    {
+      "host": "wps-presentation",
+      "asset": "wps-presentation-v1.png",
+      "generated_file": "exec-9b349b5d-caac-4f90-bb8f-49de49662155.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "f201f1d7e977eff1a552296a1b979d8928a02a8ca4e24b22bb2e41d0ef130980"
+    },
+    {
+      "host": "excel",
+      "asset": "excel-v1.png",
+      "generated_file": "exec-8dfbc27d-fb69-440c-b302-6c488fa84a46.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "17792b294ced9ea65232716bf91bac567c1304ead0f94bd0696749b36362a544"
+    },
+    {
+      "host": "wps-spreadsheets",
+      "asset": "wps-spreadsheets-v1.png",
+      "generated_file": "exec-5fa6723f-bc4b-4dbc-9a11-ac14e5cfe4ed.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "bcb6406132303328ab53872031a240ddc10077dbe06fa1619fb7138433decf4d"
+    },
+    {
+      "host": "krita",
+      "asset": "krita-v1.png",
+      "generated_file": "exec-79511aef-91e5-4795-9aac-b91c082d561b.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "7fee499453c339858d5453f5e196c82265f8832f83cb796e68717b84cbe140d3"
+    }
+  ]
+}

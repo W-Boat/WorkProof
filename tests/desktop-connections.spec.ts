@@ -7,7 +7,7 @@ async function desktop(page:import('@playwright/test').Page,fail=false,nativeWor
     const asset=new URL(route.request().url()).pathname.slice('/desktop-status/'.length)||'index.html';
     const name=asset.split('/').at(-1)!;
     const types:Record<string,string>={'word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','status.js':'application/javascript','index.html':'text/html','theme.css':'text/css','workbench.css':'text/css','fluent-workbench.css':'text/css','native-editor.css':'text/css','report-export.css':'text/css','brand.png':'image/png'};
-    const hostIcon=/^adapter-icons\/(word|powerpoint|wps|vscode|photoshop|blender)\.webp$/.test(asset);
+    const hostIcon=/^adapter-icons\/([a-z0-9-]+)\.webp$/.test(asset)&&fs.existsSync('apps/desktop/ui/'+asset);
     if(hostIcon)return route.fulfill({contentType:'image/webp',body:fs.readFileSync('apps/desktop/ui/'+asset)});
     const chunk=/^chunks\/[A-Za-z0-9_-]+\.js$/.test(asset);
     if(!chunk&&(!types[name]||asset!==name))return route.abort();
@@ -339,14 +339,15 @@ test('desktop errors remain until dismissed and notices pause for pointer or key
   await page.clock.runFor(6100);await expect(notice).toBeHidden();
 });
 
-test('all six application adapters use the generated WorkProof icon family',async({page})=>{
+test('available application cards use the generated WorkProof icon family',async({page})=>{
   await desktop(page);await page.getByRole('button',{name:'应用连接',exact:true}).click();
-  for(const source of ['word','powerpoint','wps','vscode','photoshop','blender']){
+  for(const source of ['word','powerpoint','wps','vscode','photoshop','blender','krita','sai2-file','illustrator']){
     const image=page.locator(`.host-toolbar [data-tool="${source}"] img.adapter-icon`);
     await expect(image).toBeVisible();await expect.poll(()=>image.evaluate(node=>(node as HTMLImageElement).naturalWidth)).toBe(128);
   }
   const manifest=JSON.parse(fs.readFileSync('apps/desktop/ui/adapter-icons/manifest.json','utf8'));
-  expect(manifest.entries).toHaveLength(6);expect(manifest.entries.every((entry:any)=>entry.bytes<=32768)).toBe(true);
+  expect(manifest.entries.map((entry:any)=>entry.name).sort()).toEqual(['blender','excel','illustrator','indesign','krita','photoshop','powerpoint','sai2','vscode','word','wps','wps-presentation','wps-spreadsheets']);
+  expect(manifest.entries.every((entry:any)=>entry.bytes<=32768)).toBe(true);
 });
 
 test('notification activation opens a consent dialog and never approves a plugin by itself',async({page})=>{

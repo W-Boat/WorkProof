@@ -11,7 +11,7 @@ async function desktop(page:Page){
     const name=asset.split('/').at(-1)!;
     const type:Record<string,string>={'index.html':'text/html','word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','theme.css':'text/css','native-editor.css':'text/css','report-export.css':'text/css','report-viewer.js':'application/javascript','native-verifier.css':'text/css','verify-worker.js':'application/javascript','brand.png':'image/png'};
     const headers=name==='index.html'?{'Content-Security-Policy':JSON.parse(fs.readFileSync('apps/desktop/src-tauri/tauri.conf.json','utf8')).app.security.csp}:{};
-    const hostIcon=/^adapter-icons\/(word|powerpoint|wps|vscode|photoshop|blender)\.webp$/.test(asset);
+    const hostIcon=/^adapter-icons\/([a-z0-9-]+)\.webp$/.test(asset)&&fs.existsSync('apps/desktop/ui/'+asset);
     if(hostIcon)return route.fulfill({contentType:'image/webp',body:fs.readFileSync('apps/desktop/ui/'+asset)});
     const chunk=/^chunks\/[A-Za-z0-9_-]+\.js$/.test(asset);
     if(!chunk&&(!type[name]||asset!==name))return route.abort();
