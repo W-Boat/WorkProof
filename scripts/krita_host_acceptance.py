@@ -11,8 +11,7 @@ from unittest.mock import patch
 
 def __main__(args):
     from krita import Krita
-    from PyQt5.QtCore import QT_VERSION_STR, PYQT_VERSION_STR
-    from PyQt5.QtWidgets import QApplication
+    from workproof.qt_compat import QT_VERSION_STR, PYQT_VERSION_STR, QApplication
     from workproof.core import Recorder, Transport, capture
     from workproof.docker import WorkProofDocker, QFileDialog
 

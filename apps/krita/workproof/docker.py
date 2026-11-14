@@ -4,8 +4,7 @@ import os
 import pathlib
 import threading
 from krita import Krita, DockWidget
-from PyQt5.QtCore import QObject, QTimer, pyqtSignal, QSettings
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QMessageBox
+from .qt_compat import QObject, QTimer, pyqtSignal, QSettings, QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QMessageBox, YES, NO
 from .core import Recorder, SnapshotBusy, capture
 
 
@@ -185,8 +184,8 @@ class WorkProofDocker(DockWidget):
             return
         answer = QMessageBox.question(self, '开始另一份记录',
             '旧记录仍保存在 WorkProof。请确认已导出需要的作品和证书，再开始另一份记录。',
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if answer != QMessageBox.Yes:
+            YES | NO, NO)
+        if answer != YES:
             return
         self.recorder = Recorder()
         self.pending_commands = {}
