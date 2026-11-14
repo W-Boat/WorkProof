@@ -61,15 +61,16 @@ appearance.addEventListener('change',()=>{appearanceMode=appearance.value;applyA
 systemAppearance.addEventListener('change',applyAppearance);applyAppearance();
 function updateConnectionBadges(){
   const selected=document.getElementById('creation-tool').value;
+  const fileModes={'sai2-file':'保存版本',illustrator:'几何与保存版本'};
   for(const badge of document.querySelectorAll('[data-connection]')){
     const source=badge.dataset.connection,count=visibleConnections.filter(value=>value.source===source).length;
-    badge.textContent=!engineReady?'服务未就绪':!connectionsKnown?'待检查':count?'已允许':source==='vscode'||source==='blender'?'宿主内查看':'未允许';
-    badge.title=count?'已允许此加载项连接，不表示软件当前仍在运行或正在记录。':'尚无有效的加载项连接授权。自动连接的软件请在宿主中查看状态。';
+    badge.textContent=!engineReady?'服务未就绪':fileModes[source]??(!connectionsKnown?'待检查':count?'已允许':source==='vscode'||source==='blender'?'宿主内查看':'未允许');
+    badge.title=fileModes[source]?'在 WorkProof 中选择作品并开始记录。':count?'已允许此加载项连接，不表示软件当前仍在运行或正在记录。':'尚无有效的加载项连接授权。自动连接的软件请在宿主中查看状态。';
     badge.dataset.connected=String(engineReady&&connectionsKnown&&count>0);
     const button=badge.closest('button');button.classList.toggle('selected-tool',source===selected);
   }
   const count=visibleConnections.filter(value=>value.source===selected).length;
-  const text=!engineReady?'记录服务未就绪':!connectionsKnown?'正在检查连接…':count?`已允许 ${count} 个连接 · 记录状态请在软件中查看`:selected==='vscode'||selected==='blender'?'此软件自动连接 · 请在软件中查看记录状态':'尚未连接 · 首次使用请先安装加载项';
+  const text=!engineReady?'记录服务未就绪':fileModes[selected]?'在此处选择作品并开始记录':!connectionsKnown?'正在检查连接…':count?`已允许 ${count} 个连接 · 记录状态请在软件中查看`:selected==='vscode'||selected==='blender'?'此软件自动连接 · 请在软件中查看记录状态':'尚未连接 · 首次使用请先安装加载项';
   document.getElementById('selected-connection').textContent=text;
 }
 const launchIds=['open-word','open-powerpoint','install','check-office','install-office'];

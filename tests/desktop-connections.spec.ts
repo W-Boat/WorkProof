@@ -390,10 +390,22 @@ test('SAI2 saved-file mode preserves an active paused recording after cancelled 
 
 test('Illustrator starts an explicit geometry recording from its own guide',async({page})=>{
   await desktop(page);
-  await selectChoice(page,'#creation-tool','illustrator');
+  await page.getByRole('button',{name:'选择 Adobe Illustrator',exact:true}).click();
+  await expect(page.locator('#creation-tool')).toHaveValue('illustrator');
   const panel=page.locator('#sai2-recording');
   await expect(panel).toContainText('几何变化摘要和保存版本');
   await page.locator('#sai2-start').click();
   await expect(panel).toContainText('drawing.ai · 正在采集几何和保存版本');
   await expect(page.locator('#sai2-finish')).toBeEnabled();
+});
+
+test('the final drawing application can be picked after scrolling the Fluent menu',async({page})=>{
+  await desktop(page);
+  const dropdown=page.locator('#creation-tool-fluent');
+  await dropdown.getByRole('combobox').click();
+  const menu=dropdown.getByRole('listbox');
+  await menu.hover();
+  await page.mouse.wheel(0,420);
+  await dropdown.getByRole('option',{name:'Adobe Illustrator',exact:true}).click();
+  await expect(page.locator('#creation-tool')).toHaveValue('illustrator');
 });
