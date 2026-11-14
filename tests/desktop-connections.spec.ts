@@ -341,7 +341,7 @@ test('desktop errors remain until dismissed and notices pause for pointer or key
 
 test('available application cards use the generated WorkProof icon family',async({page})=>{
   await desktop(page);await page.getByRole('button',{name:'应用连接',exact:true}).click();
-  for(const source of ['word','powerpoint','wps','wps-presentation','wps-spreadsheets','vscode','photoshop','blender','krita','sai2-file','illustrator']){
+  for(const source of ['word','powerpoint','wps','excel','wps-presentation','wps-spreadsheets','vscode','photoshop','blender','krita','sai2-file','illustrator']){
     const image=page.locator(`.host-toolbar [data-tool="${source}"] img.adapter-icon`);
     await expect(image).toBeVisible();await expect.poll(()=>image.evaluate(node=>(node as HTMLImageElement).naturalWidth)).toBe(128);
   }

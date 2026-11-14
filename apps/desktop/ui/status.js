@@ -146,7 +146,7 @@ for(const button of document.querySelectorAll('[data-tool]'))button.addEventList
   const select=document.getElementById('creation-tool');select.value=button.dataset.tool;select.dispatchEvent(new Event('change'));void requestView('connections');
 });
 const connectionCards=new Map();
-const adapterName=source=>({word:'Word',powerpoint:'PowerPoint',wps:'WPS','wps-presentation':'WPS 演示','wps-spreadsheets':'WPS 表格',vscode:'VS Code',photoshop:'Photoshop',blender:'Blender',krita:'Krita'}[source]||source);
+const adapterName=source=>({word:'Word',excel:'Excel',powerpoint:'PowerPoint',wps:'WPS','wps-presentation':'WPS 演示','wps-spreadsheets':'WPS 表格',vscode:'VS Code',photoshop:'Photoshop',blender:'Blender',krita:'Krita'}[source]||source);
 const consent=connectionConsent({nameOf:adapterName,showMessage,onDecision:()=>refresh()});
 const pairingInbox=document.createElement('fluent-button');pairingInbox.id='pairing-inbox';pairingInbox.dataset.keepLabel='true';pairingInbox.dataset.icon='plug_connected';pairingInbox.setAttribute('appearance','subtle');pairingInbox.hidden=true;document.getElementById('status').before(pairingInbox);
 let latestRequests=[];pairingInbox.addEventListener('click',()=>{if(latestRequests.length)void consent.open(latestRequests[0].ticket);});
@@ -287,6 +287,7 @@ const guides={
   powerpoint:{steps:['点击“打开 PowerPoint 并开始记录”，新演示文稿请先保存。','首次使用时在这里允许 PowerPoint 连接。侧栏显示已开始后再创作。','完成后在 PowerPoint 的 WorkProof 侧栏导出演示文稿和证书，一起交付。'],note:'需要 Windows 桌面版 PowerPoint。先点击上方“检查安装状态”。未安装时，保存并退出 PowerPoint，再点击“安装 / 修复加载项”；安装后从这里打开软件即可。'},
   'wps-presentation':{steps:['由机构部署加载项后，在WPS 演示的 WorkProof 标签打开记录工作台。','保存作品，在工作台开始记录，并在这里允许连接。','在加载项中导出作品与证书。'],note:'开发版需要机构发布，真实宿主兼容性待验收。'},
   'wps-spreadsheets':{steps:['由机构部署加载项后，在WPS 表格的 WorkProof 标签打开记录工作台。','保存作品，在工作台开始记录，并在这里允许连接。','在加载项中导出作品与证书。'],note:'开发版需要机构发布，真实宿主兼容性待验收。'},
+  excel:{steps:['由机构部署 Excel 加载项，打开并保存 .xlsx 或 .xlsm 工作簿。','在加载项点击开始记录，然后回到这里允许连接。','完成后在加载项分别保存工作簿和证书。'],note:'开发版采用 Office.js，需支持 CompressedFile 的 Excel 桌面版，真实宿主兼容性待验收。'},
   wps:{steps:['打开 WPS 文档，在 WorkProof 标签中选择“打开记录工作台”。','点击开始记录，回到这里核对网址并允许连接。','完成后导出作品和证书，将这两个文件一起交付。'],note:'WPS 暂未提供面向普通用户的一键安装包，当前需按接入说明安装。没有安装入口时，请联系学校或团队。'},
   vscode:{steps:['先点击下方按钮，安装 WorkProof 插件。','打开文件，点击 VS Code 底部的 WorkProof，选择记录当前文件。','完成后导出证书，将它与这份作品一起交付。'],note:'需要先安装 VS Code。插件会自动连接本机的 WorkProof。'},
   photoshop:{steps:['先安装 WorkProof 插件，再从 Photoshop 的插件菜单打开它。','选择作品副本的位置，点击开始，并回到这里允许连接。','完成后导出 PSD 或 PSB 副本和证书，将这两个文件一起交付。'],note:'Photoshop 当前提供测试版插件文件，尚未提供正式的一键安装包。请交付本次导出的 PSD 或 PSB 副本。'},
@@ -294,7 +295,7 @@ const guides={
   blender:{steps:['在 Blender 设置中选择“从磁盘安装”，导入 WorkProof 插件文件。','先保存工程，在侧栏 WorkProof 面板中点击开始记录。','完成后保存并导出，将工程和旁边的证书一起交付。'],note:'需要 Blender 4.2 或更新版本。插件会自动连接本机的 WorkProof。'}
 };
 const creationTool=document.getElementById('creation-tool');
-const requirements={'wps-presentation':'需由机构发布WPS 演示加载项。','wps-spreadsheets':'需由机构发布WPS 表格加载项。',illustrator:'Windows · 记录本地 .ai 作品的几何摘要和保存版本。','sai2-file':'Windows · 仅记录已保存的 .sai2 文件版本，不记录逐笔绘画。',krita:'需要已启用 Python 插件的 Krita 5.2 / Qt5；开发版暂需手动安装。',word:'首次使用前，请先安装 Word 原生加载项。',powerpoint:'首次使用前，请先安装 PowerPoint 原生加载项。',wps:'当前需要手动接入，尚未提供一键安装包。',vscode:'先安装插件，再到 VS Code 中选择要记录的文件。',photoshop:'当前为测试版插件，需要手动安装。',blender:'适用于 Blender 4.2 及以上版本，需要安装插件。'};
+const requirements={excel:'需要机构部署 Excel 加载项，并使用支持完整文件导出的桌面版。','wps-presentation':'需由机构发布WPS 演示加载项。','wps-spreadsheets':'需由机构发布WPS 表格加载项。',illustrator:'Windows · 记录本地 .ai 作品的几何摘要和保存版本。','sai2-file':'Windows · 仅记录已保存的 .sai2 文件版本，不记录逐笔绘画。',krita:'需要已启用 Python 插件的 Krita 5.2 / Qt5；开发版暂需手动安装。',word:'首次使用前，请先安装 Word 原生加载项。',powerpoint:'首次使用前，请先安装 PowerPoint 原生加载项。',wps:'当前需要手动接入，尚未提供一键安装包。',vscode:'先安装插件，再到 VS Code 中选择要记录的文件。',photoshop:'当前为测试版插件，需要手动安装。',blender:'适用于 Blender 4.2 及以上版本，需要安装插件。'};
 try{const saved=localStorage.getItem('workproof.creation-tool');if(Object.hasOwn(guides,saved))creationTool.value=saved;}catch{}
 function showGuide(){const guide=guides[creationTool.value];const steps=document.getElementById('creation-steps');steps.replaceChildren();for(const text of guide.steps){const li=document.createElement('li');li.textContent=text;steps.append(li);}document.getElementById('installation-note').textContent=guide.note;document.getElementById('tool-requirement').textContent=requirements[creationTool.value];document.getElementById('install').hidden=creationTool.value!=='vscode';document.getElementById('open-word').hidden=creationTool.value!=='word';document.getElementById('open-powerpoint').hidden=creationTool.value!=='powerpoint';try{localStorage.setItem('workproof.creation-tool',creationTool.value);}catch{}}
 creationTool.addEventListener('change',showGuide);showGuide();

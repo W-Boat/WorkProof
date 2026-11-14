@@ -1,10 +1,11 @@
 import {blake3} from '@noble/hashes/blake3.js';
 declare const Office:any;
 declare const Word:any;
+declare const Excel:any;
 type HostGlobals=Window&{wps?:any;Application?:any};
 export const fingerprint=(bytes:Uint8Array)=>Array.from(blake3(bytes),n=>n.toString(16).padStart(2,'0')).join('');
 export type Snapshot={name:string;identity:string;characters:number;paragraphs:number;contentHash:string;metrics?:Record<string,number>};
-export interface Host {source:'word'|'wps'|'wps-presentation'|'wps-spreadsheets';label:string;snapshot():Promise<Snapshot>;artifact():Promise<{name:string;bytes:Uint8Array}>}
+export interface Host {source:'word'|'excel'|'wps'|'wps-presentation'|'wps-spreadsheets';label:string;snapshot():Promise<Snapshot>;artifact():Promise<{name:string;bytes:Uint8Array}>}
 function callback<T>(operation:(done:(result:any)=>void)=>void):Promise<T>{return new Promise((resolve,reject)=>operation(result=>result.status==='succeeded'?resolve(result.value):reject(new Error(result.error?.message||'宿主接口调用失败'))));}
 function summarize(name:string,identity:string,text:string,paragraphs:number):Snapshot{
   if(text.length>20_000_000)throw new Error('当前原型的文档统计上限为 2000 万字符。');
@@ -97,12 +98,47 @@ async function detectWord():Promise<Host>{
     await new Promise<void>((resolve,reject)=>{const script=document.createElement('script');script.src='https://appsforoffice.microsoft.com/lib/1/hosted/office.js';script.onload=()=>resolve();script.onerror=()=>reject(new Error('无法加载 Word 官方宿主接口，请检查网络。'));document.head.append(script);});
   }
   await Office.onReady();
+  if(Office.context.host==='Excel'&&typeof Excel!=='undefined'){
+    const snapshot=async():Promise<Snapshot>=>Excel.run(async(context:any)=>{
+      const url=String(Office.context.document.url||'');
+      if(!url)throw new Error('请先保存 Excel 工作簿，再开始记录。');
+      const sheets=context.workbook.worksheets;
+      sheets.load('items/id,items/name');
+      await context.sync();
+      if(sheets.items.length>128)throw new Error('当前最多支持 128 张工作表。');
+      const ranges=sheets.items.map((sheet:any)=>{
+        const range=sheet.getUsedRange();
+        range.load('address,rowCount,columnCount');
+        return {sheet,range};
+      });
+      await context.sync();
+      let cells=0;
+      for(const {range} of ranges){
+        cells+=range.rowCount*range.columnCount;
+        if(!Number.isSafeInteger(cells)||cells>20000)throw new Error('当前最多支持 2 万个使用区域单元格。');
+        range.load('formulas,values');
+      }
+      await context.sync();
+      const rows=ranges.map(({sheet,range}:any)=>[sheet.id,sheet.name,range.address,range.formulas,range.values]);
+      const raw=JSON.stringify(rows);
+      if(raw.length>2_000_000)throw new Error('工作簿超出可采样内容范围。');
+      const name=decodeURIComponent(url.split(/[?#]/)[0].split(/[\\/]/).at(-1)||'');
+      if(!/\.(xlsx|xlsm)$/i.test(name))throw new Error('请将工作簿保存为 .xlsx 或 .xlsm 后开始记录。');
+      if(String(Office.context.document.url||'')!==url)throw new Error('采样时工作簿已切换，请重试。');
+      return {name,identity:url,characters:0,paragraphs:0,contentHash:fingerprint(new TextEncoder().encode(raw)),
+        metrics:{sheets:sheets.items.length,used_cells:cells}};
+    });
+    return {source:'excel',label:'Microsoft Excel',snapshot,artifact:()=>officeArtifact(snapshot)};
+  }
   if(Office.context.host!=='Word'||typeof Word==='undefined')throw new Error('请在 Word 或 WPS 文字加载项中打开 WorkProof。');
   const wordSnapshot=async():Promise<Snapshot>=>{
     return Word.run(async(context:any)=>{const body=context.document.body;body.load('text');body.paragraphs.load('items');await context.sync();const url=String(Office.context.document.url||'');const name=decodeURIComponent(url.split(/[\\/]/).at(-1)||'document.docx').replace(/\?.*$/,'');return summarize(name,url||name,String(body.text),body.paragraphs.items.length);});
   };
-  return {source:'word',label:'Microsoft Word',snapshot:wordSnapshot,async artifact(){
-    if(!Office.context.requirements.isSetSupported('CompressedFile','1.1'))throw new Error('当前 Word 版本不支持压缩交付文件导出。');
+  return {source:'word',label:'Microsoft Word',snapshot:wordSnapshot,artifact:()=>officeArtifact(wordSnapshot,true)};
+}
+
+async function officeArtifact(snapshot:()=>Promise<Snapshot>,word=false):Promise<{name:string;bytes:Uint8Array}>{
+    if(!Office.context.requirements.isSetSupported('CompressedFile','1.1'))throw new Error('当前宿主版本不支持整份文件导出，请使用支持此接口的桌面版。');
     const file:any=await callback(done=>Office.context.document.getFileAsync('compressed',{sliceSize:65536},done));
     try{
       if(file.size>128*1024*1024)throw new Error('当前原型支持不超过 128 MB 的交付文件。');
@@ -111,7 +147,6 @@ async function detectWord():Promise<Host>{
         const slice:any=await callback(done=>file.getSliceAsync(index,done));const chunk=Uint8Array.from(slice.data as number[]);bytes.set(chunk,offset);offset+=chunk.length;
       }
       if(offset!==file.size)throw new Error('Word 导出文件切片不完整，请重试。');
-      const current=await wordSnapshot();return {name:current.name.replace(/\.[^.]*$/,'')+'.docx',bytes};
+      const current=await snapshot();return {name:word?current.name.replace(/\.[^.]*$/,'')+'.docx':current.name,bytes};
     }finally{await callback(done=>file.closeAsync(done));}
-  }};
-}
+  }

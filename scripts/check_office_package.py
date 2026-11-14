@@ -11,6 +11,10 @@ ns = {'o': 'http://schemas.microsoft.com/office/appforoffice/1.1'}
 assert manifest.find('o:Id', ns).text == '9ebd5d58-80c3-4868-8dd5-c3f3c53d7942'
 assert manifest.find('o:DefaultSettings/o:SourceLocation', ns).get('DefaultValue') == origin + '/office/index.html'
 assert manifest.find('o:Permissions', ns).text == 'ReadWriteDocument'
+excel = ET.parse(root / 'manifest-excel.xml').getroot()
+assert excel.find('o:Id', ns).text == '52d5c976-01ca-4f27-b877-8aa8bdb6ce5c'
+assert excel.find('o:Hosts/o:Host', ns).get('Name') == 'Workbook'
+assert excel.find('o:DefaultSettings/o:SourceLocation', ns).get('DefaultValue') == origin + '/office/index.html?host=excel'
 # WPS SDK online verification checks the raw prefix before parsing XML.
 # XML declarations, BOMs and leading whitespace fail that compatibility check.
 ribbon_bytes = (root / 'wps/ribbon.xml').read_bytes()

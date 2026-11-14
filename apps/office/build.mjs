@@ -35,4 +35,12 @@ if(origin){
   const xmlEscape=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
   const base=xmlEscape(publicUrl.origin);
   await writeFile(path.join(out,'manifest-word.xml'),`<?xml version="1.0" encoding="UTF-8"?><OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="TaskPaneApp"><Id>9ebd5d58-80c3-4868-8dd5-c3f3c53d7942</Id><Version>0.2.0.0</Version><ProviderName>WorkProof</ProviderName><DefaultLocale>zh-CN</DefaultLocale><DisplayName DefaultValue="WorkProof · 开源证人"/><Description DefaultValue="在本机记录创作过程并导出可核验证书"/><Hosts><Host Name="Document"/></Hosts><DefaultSettings><SourceLocation DefaultValue="${base}/office/index.html"/></DefaultSettings><Permissions>ReadWriteDocument</Permissions></OfficeApp>`);
-}else await rm(path.join(out,'manifest-word.xml'),{force:true});
+  const excelManifest=(await readFile(path.join(out,'manifest-word.xml'),'utf8'))
+    .replace('9ebd5d58-80c3-4868-8dd5-c3f3c53d7942','52d5c976-01ca-4f27-b877-8aa8bdb6ce5c')
+    .replace('<Host Name="Document"/>','<Host Name="Workbook"/>')
+    .replace('/office/index.html','/office/index.html?host=excel');
+  await writeFile(path.join(out,'manifest-excel.xml'),excelManifest);
+}else{
+  await rm(path.join(out,'manifest-word.xml'),{force:true});
+  await rm(path.join(out,'manifest-excel.xml'),{force:true});
+}

@@ -1,11 +1,11 @@
 import {test,expect} from '@playwright/test';
 
-for(const source of ['wps-presentation','wps-spreadsheets'] as const){
+for(const source of ['wps-presentation','wps-spreadsheets','excel'] as const){
   test(source+' records same-size changes, keeps contents private and binds export',async({page})=>{
     const requests:{path:string;body:any}[]=[];
     const presentation=source==='wps-presentation';
-    const name=presentation?'draft.pptx':'draft.xlsx';
-    await page.addInitScript(({presentation,name})=>{
+    const name=presentation?'draft.pptx':source==='excel'?'draft.xlsm':'draft.xlsx';
+    await page.addInitScript(({presentation,name,source})=>{
       const state={text:'PRIVATE-CONTENT',position:10,switched:false};
       (window as any).structureFixture=state;
       const shape={Type:1,Left:10,Top:10,Width:100,Height:30,Rotation:0,HasTextFrame:true,
@@ -18,7 +18,20 @@ for(const source of ['wps-presentation','wps-spreadsheets'] as const){
         Worksheets:{Count:1,Item:()=>({Name:'Sheet1',UsedRange:range})}};
       (window as any).Application={[presentation?'ActivePresentation':'ActiveWorkbook']:document,
         FileSystem:{readAsBinaryString:()=>String.fromCharCode(80,75,3,4,8,9)}};
-    },{presentation,name});
+      if(source==='excel'){
+        delete (window as any).Application;
+        const excelRange={address:'Sheet1!A1',rowCount:1,columnCount:1,
+          get formulas(){return [[state.text]];},get values(){return [[state.text]];},load(){}};
+        const worksheets={items:[{id:'sheet-id',name:'Sheet1',getUsedRange:()=>excelRange}],load(){}};
+        (window as any).Excel={run:async(fn:any)=>fn({workbook:{worksheets},sync:async()=>{}})};
+        const file={size:6,sliceCount:1,getSliceAsync(_index:number,done:any){done({status:'succeeded',value:{data:[80,75,3,4,8,9]}});},
+          closeAsync(done:any){done({status:'succeeded'});}};
+        (window as any).Office={onReady:async()=>({host:'Excel'}),
+          context:{host:'Excel',requirements:{isSetSupported:()=>true},
+            document:{get url(){return 'https://institution.example/'+(state.switched?'other-':'')+name;},
+              getFileAsync(_type:string,_options:any,done:any){done({status:'succeeded',value:file});}}}};
+      }
+    },{presentation,name,source});
     await page.route('http://127.0.0.1:43127/**',async route=>{
       const request=route.request();
       const headers={'access-control-allow-origin':'http://127.0.0.1:4173',
@@ -31,7 +44,7 @@ for(const source of ['wps-presentation','wps-spreadsheets'] as const){
       await route.fulfill({status:200,headers,contentType:'application/json',body:JSON.stringify(result)});
     });
     await page.goto('/office/index.html?host='+source);
-    await expect(page.locator('#host')).toHaveText(presentation?'WPS 演示':'WPS 表格');
+    await expect(page.locator('#host')).toHaveText(source==='excel'?'Microsoft Excel':presentation?'WPS 演示':'WPS 表格');
     await page.locator('#start').click();
     await expect(page.locator('#status')).toContainText('记录中');
     await page.evaluate(()=>{const state=(window as any).structureFixture;state.text='PRIVATE-CHANGED';state.position=30;});
