@@ -17,8 +17,10 @@ def run():
         __main__(json.loads(os.environ['WORKPROOF_HOST_ARGS']))
     except BaseException:
         traceback.print_exc()
-        QApplication.exit(1)
+        QTimer.singleShot(0, lambda: QApplication.exit(1))
     else:
-        QApplication.exit(0)
+        # Let the driver frame and its libkis document, node and window wrappers
+        # unwind before Krita tears down the owning windows and image resources.
+        QTimer.singleShot(0, QApplication.quit)
 
 QTimer.singleShot(1500, run)

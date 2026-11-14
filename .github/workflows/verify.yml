@@ -4,6 +4,9 @@ on:
     paths-ignore:
       - '**/*.md'
       - '.github/workflows/native-webview.yml'
+      - 'scripts/krita_host_acceptance.py'
+      - 'scripts/krita_host_bootstrap.py'
+      - 'scripts/run_krita_host.py'
       - 'tools/ai-assessment/**'
       - '.github/workflows/ai-evaluation.yml'
       - '.github/workflows/ai-benchmark.yml'

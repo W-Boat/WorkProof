@@ -21,7 +21,6 @@ def __main__(args):
     assert directory.is_relative_to(Path(os.environ['RUNNER_TEMP']).resolve())
     process = subprocess.Popen([harness], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL, text=True, env=dict(os.environ, WORKPROOF_DATA_DIR=str(directory), TMPDIR=str(directory.parent)))
-    document = second = None
     try:
         for _ in range(150):
             assert process.poll() is None, 'Collector exited'
@@ -161,7 +160,3 @@ def __main__(args):
     finally:
         process.terminate()
         process.wait(timeout=10)
-        if second:
-            second.close()
-        if document:
-            document.close()
