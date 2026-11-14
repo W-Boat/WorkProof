@@ -1,5 +1,7 @@
 # 全阶段实施与验收
 
+2026-11-14 办公扩展：Excel、WPS 演示和 WPS 表格已接入共享任务窗、独立桌面入口、结构变化摘要和文件绑定导出。[Office 专项 43597030462](https://github.com/W-Boat/WorkProof/actions/runs/43597030462)通过类型检查、17 项模拟宿主交互和包资源校验，已下载并核对开发包 SHA-256。真实宿主安装、机构发布与性能验收继续进行。范围见 [Excel](EXCEL.md)和 [WPS 演示及表格](WPS-STRUCTURED.md)。InDesign 当前已有图标，记录适配待实现。
+
 2026-11-14 绘画扩展：Photoshop 0.3.1 开发包已交付，支持 PSD／PSB 副本和分块指纹。SAI2 已接入保存版本记录，Illustrator 已接入几何采样与签名导出。Windows 和 Linux 记录核心测试通过，桌面安装包与真实宿主验收按 [绘画接入范围](DRAWING-ADAPTERS.md) 更新。本机尚未安装 SAI2 或 Illustrator，现有 Photoshop 26.11 的 Adobe 签名散列校验失败。
 
 
