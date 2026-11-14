@@ -1,6 +1,6 @@
 # 全阶段实施与验收
 
-2026-11-14 绘画扩展：用户指定 PS、SAI2、Adobe Illustrator 为优先宿主。Illustrator 原生只读探针已通过 Windows Actions 43580995215，尚未接完整记录链；SAI2 尚未实现。Krita 真正宿主验收仍在修复，不能用核心模拟成功代替。详见 [绘画接入范围](DRAWING-ADAPTERS.md)。用户确认 SAI2 / Illustrator 未安装，本机检测到 Photoshop 26.11。
+2026-11-14 绘画扩展：Photoshop 0.3.1 开发包已交付，支持 PSD／PSB 副本和分块指纹。SAI2 已接入保存版本记录，Illustrator 已接入几何采样与签名导出。Windows 和 Linux 记录核心测试通过，桌面安装包与真实宿主验收按 [绘画接入范围](DRAWING-ADAPTERS.md) 更新。本机尚未安装 SAI2 或 Illustrator，现有 Photoshop 26.11 的 Adobe 签名散列校验失败。
 
 
 2026-11-14：已安装并打开 `8d85093`，Word/PPT 原生加载项同步更新。编辑器缩放与字数统计、记录上限、Office 重连设置及可选自动开始已交付。完整构建、桌面交互和 Office 三组 Actions 全部成功；用户记录保留为 6 会话、77 事件。[本次交付及验收边界](DESKTOP-DELIVERY-2026-11-14.md)。
