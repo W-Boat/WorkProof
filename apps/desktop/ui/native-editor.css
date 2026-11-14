@@ -456,7 +456,7 @@ input,textarea,[contenteditable="true"],[contenteditable="true"] *,.cm-content,.
 select.wp-select-source{display:none!important}
 .wp-select{display:inline-flex;min-width:100px;max-width:100%;font:inherit;vertical-align:middle}
 .wp-select[hidden]{display:none!important}
-.wp-select fluent-option{font:inherit;min-height:36px}
+.wp-select fluent-option{flex:none;font:inherit;min-height:36px;scroll-margin-block:4px}
 .wp-select[data-native-select=font-family]{width:180px}
 .wp-select[data-native-select=font-size]{min-width:70px;width:76px}
 .wp-select[data-native-select=paragraph-style]{width:110px}
