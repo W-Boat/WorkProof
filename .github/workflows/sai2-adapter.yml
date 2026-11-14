@@ -1,0 +1,27 @@
+name: SAI2 saved-file recorder validation
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'crates/engine/src/saved_file.rs'
+      - 'crates/engine/src/lib.rs'
+      - 'crates/proof/src/behavior.rs'
+      - '.github/workflows/sai2-adapter.yml'
+permissions:
+  contents: read
+jobs:
+  saved-file-core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Real storage, BLAKE3, Ed25519, file lifecycle and record limits
+        run: cargo test --locked -p workproof-engine saved_file::tests
+      - name: Graphic source does not claim text behavior or human authorship
+        run: cargo test --locked -p workproof-protocol behavior::tests

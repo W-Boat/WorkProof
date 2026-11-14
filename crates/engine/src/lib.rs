@@ -11,6 +11,7 @@ pub mod editor;
 pub mod catalog;
 pub mod library_state;
 pub mod recording_settings;
+pub mod saved_file;
 
 type Shared = Arc<Mutex<Store>>;
 static READY:AtomicBool=AtomicBool::new(false);

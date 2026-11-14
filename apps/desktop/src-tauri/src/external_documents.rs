@@ -11,7 +11,7 @@ fn root(window:&WebviewWindow)->Result<PathBuf,String>{
 
 fn opens_as_document(path:&Path)->bool{
     let Some(extension)=path.extension().and_then(|value|value.to_str())else{return false;};
-    matches!(extension.to_ascii_lowercase().as_str(),"doc"|"docx"|"docm"|"dotx"|"dotm"|"rtf"|"odt"|"wps"|"wpt"|"ppt"|"pptx"|"pptm"|"pps"|"ppsx"|"potx"|"pdf"|"txt"|"md"|"markdown"|"psd"|"psb"|"blend"|"png"|"jpg"|"jpeg"|"webp"|"gif"|"bmp"|"tif"|"tiff")
+    matches!(extension.to_ascii_lowercase().as_str(),"doc"|"docx"|"docm"|"dotx"|"dotm"|"rtf"|"odt"|"wps"|"wpt"|"ppt"|"pptx"|"pptm"|"pps"|"ppsx"|"potx"|"pdf"|"txt"|"md"|"markdown"|"psd"|"psb"|"blend"|"sai2"|"ai"|"ait"|"kra"|"png"|"jpg"|"jpeg"|"webp"|"gif"|"bmp"|"tif"|"tiff")
 }
 
 fn annotate(document:&catalog::ExternalDocument)->Result<Value,String>{
@@ -52,6 +52,9 @@ pub async fn external_document_locate(window:WebviewWindow,id:String)->Result<Va
             "powerpoint"=>"演示文稿|*.ppt;*.pptx;*.pptm;*.pps;*.ppsx",
             "photoshop"=>"设计作品|*.psd;*.psb;*.png;*.jpg;*.jpeg;*.webp",
             "blender"=>"Blender 工程|*.blend",
+            "sai2-file"=>"SAI2 作品|*.sai2",
+            "illustrator"=>"Illustrator 作品|*.ai;*.ait",
+            "krita"=>"Krita 作品|*.kra",
             _=>"作品文件|*.*",
         };
         let Some(path)=super::c2pa::pick("定位原文件，仅更新本机文件位置",filter,false,"")?else{return Ok(serde_json::json!({"cancelled":true}));};

@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-export const sourceLabels={editor:'内置编辑器',word:'Word',powerpoint:'PowerPoint',wps:'WPS',vscode:'VS Code',photoshop:'Photoshop',blender:'Blender',krita:'Krita'};
+export const sourceLabels={editor:'内置编辑器',word:'Word',powerpoint:'PowerPoint',wps:'WPS',vscode:'VS Code',photoshop:'Photoshop',blender:'Blender',krita:'Krita','sai2-file':'SAI2 · 保存版本',illustrator:'Illustrator'};
 export function sourceLabel(source){return Object.hasOwn(sourceLabels,source)?sourceLabels[source]:source||'其他应用';}
 export function recordTime(document){
   if(Number.isFinite(document.modified_ms))return document.modified_ms;
