@@ -24,7 +24,7 @@ export function savedRecordingUI({ready,onSaved}){
         const result=await invoke(command,args());
         if(!result.cancelled){current=result;render();if(command==='saved_recording_finish'){status.textContent='证书已保存，记录已结束。请将原作品和证书一起交付。';await onSaved();}}
         else{if(command==='saved_recording_finish')current.paused=true;status.textContent=command==='saved_recording_finish'?'已取消导出，记录保持暂停。':'已取消选择，尚未开始记录。';}
-      }catch(error){status.textContent=error instanceof Error?error.message:String(error);}
+      }catch(error){try{current=await invoke('saved_recording_status');}catch{}status.textContent=error instanceof Error?error.message:String(error);}
       finally{busy=false;const message=status.textContent;render();status.textContent=message;}
     });
   }

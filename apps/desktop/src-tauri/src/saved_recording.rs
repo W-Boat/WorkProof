@@ -116,3 +116,37 @@ pub async fn saved_recording_finish(window:WebviewWindow)->Result<Value,String>{
     response.await.map_err(|_|"证书保存未完成。")??;
     state(&handle)
 }
+
+
+#[cfg(test)]mod tests{
+    use super::*;
+    struct Fixture(PathBuf);
+    impl Drop for Fixture{fn drop(&mut self){
+        let temporary=std::fs::canonicalize(std::env::temp_dir()).unwrap();
+        if let Ok(actual)=self.0.canonicalize(){
+            assert_eq!(actual.parent(),Some(temporary.as_path()));
+            assert!(actual.file_name().unwrap().to_string_lossy().starts_with("workproof-saved-controller-"));
+            let _=std::fs::remove_dir_all(actual);
+        }
+    }}
+    #[tokio::test]async fn failed_certificate_write_keeps_controller_and_existing_file(){
+        let nonce=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let fixture=Fixture(std::env::temp_dir().join(format!("workproof-saved-controller-{}-{nonce}",std::process::id())));
+        let profile=fixture.0.join("profile");workproof_engine::Store::open(&profile,43127).unwrap();
+        let artifact=fixture.0.join("fixture.sai2");std::fs::write(&artifact,b"synthetic SAI2 saved bytes").unwrap();
+        let recorder=SavedFileRecorder::begin(profile,artifact,"2026-11-14T00:00:00Z".into()).await.unwrap();
+        let handle=controller(recorder);pause(&handle).await.unwrap();
+        let existing=fixture.0.join("existing.wproof");std::fs::write(&existing,b"keep original").unwrap();
+        let (reply,response)=oneshot::channel();handle.send.send(Command::Finish(existing.clone(),reply)).await.unwrap();
+        assert!(response.await.unwrap().is_err());
+        assert_eq!(std::fs::read(&existing).unwrap(),b"keep original");
+        assert_eq!(state(&handle).unwrap()["active"],true);assert_eq!(state(&handle).unwrap()["paused"],true);
+        let output=fixture.0.join("fresh.wproof");
+        let (reply,response)=oneshot::channel();handle.send.send(Command::Finish(output.clone(),reply)).await.unwrap();
+        response.await.unwrap().unwrap();handle.send.closed().await;
+        assert_eq!(state(&handle).unwrap()["active"],false);
+        let certificate:Value=serde_json::from_slice(&std::fs::read(output).unwrap()).unwrap();
+        assert_eq!(certificate["manifest"]["source"],"sai2-file");
+        assert_eq!(certificate["records"].as_array().unwrap().last().unwrap()["event"]["kind"],"save");
+    }
+}
