@@ -31,7 +31,7 @@ mod windows_toasts{
     use std::{collections::{HashMap,HashSet},time::Duration};
     use windows::{core::HSTRING,Data::Xml::Dom::XmlDocument,Foundation::TypedEventHandler,UI::Notifications::{NotificationSetting,ToastNotification,ToastNotificationManager,ToastNotifier},Win32::System::WinRT::{RoInitialize,RO_INIT_MULTITHREADED}};
 
-    fn label(source:&str)->&'static str{match source{"word"=>"Word","powerpoint"=>"PowerPoint","wps"=>"WPS","vscode"=>"VS Code","photoshop"=>"Photoshop","blender"=>"Blender",_=>"应用"}}
+    fn label(source:&str)->&'static str{match source{"word"=>"Word","powerpoint"=>"PowerPoint","wps"=>"WPS","vscode"=>"VS Code","photoshop"=>"Photoshop","blender"=>"Blender","krita"=>"Krita",_=>"应用"}}
 
     fn notify(notifier:&ToastNotifier,app:&tauri::AppHandle,ticket:&str,source:&str)->windows::core::Result<ToastNotification>{
         if notifier.Setting()?!=NotificationSetting::Enabled{return Err(windows::core::Error::from_hresult(windows::core::HRESULT(0x80070005u32 as i32)));}

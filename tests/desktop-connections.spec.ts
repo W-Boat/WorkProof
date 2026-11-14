@@ -346,3 +346,16 @@ test('notification activation opens a consent dialog and never approves a plugin
   await expect(dialog).toBeHidden();expect(await page.evaluate(()=>(window as any).connectionHarness.decisions)).toEqual([{ticket:'native-word',approve:true}]);
   await expect(page.locator('#pairing-inbox')).toBeHidden();
 });
+
+test('Krita guide explains manual plugin installation and hides unrelated installers',async({page})=>{
+  await desktop(page);
+  await page.getByRole('button',{name:'选择 Krita',exact:true}).click();
+  await expect(page.locator('#creation-tool')).toHaveValue('krita');
+  await expect(page.locator('#creation-steps')).toContainText('原作品和证书');
+  await expect(page.locator('#creation-steps li')).toHaveCount(3);
+  await expect(page.locator('#tool-requirement')).toContainText('手动安装');
+  await expect(page.locator('#office-setup')).toBeHidden();
+  await expect(page.locator('#install')).toBeHidden();
+  await expect(page.locator('#open-word')).toBeHidden();
+  await expect(page.locator('#open-powerpoint')).toBeHidden();
+});
