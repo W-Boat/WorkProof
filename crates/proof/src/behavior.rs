@@ -124,6 +124,18 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
         assessment.status="not_applicable".into();assessment.rule_results=rule_results("not_applicable");
         assessment.limitations.insert(0,"这份记录覆盖 Illustrator 的几何采样与保存版本。填充、效果和具体命令可能未被采集。".into());return assessment;
     }
+    let structured_scope = match manifest.source.as_str() {
+        "indesign" => Some("记录覆盖 InDesign 的文本摘要、版面变化和保存版本。"),
+        "excel" | "wps-spreadsheets" => Some("记录覆盖工作表和使用区域的变化。"),
+        "wps-presentation" => Some("记录覆盖幻灯片对象、文字和位置的采样变化。"),
+        _ => None,
+    };
+    if let Some(scope) = structured_scope {
+        assessment.status = "not_applicable".into();
+        assessment.rule_results = rule_results("not_applicable");
+        assessment.limitations.insert(0, format!("{scope}文字输入规则不适用。"));
+        return assessment;
+    }
     if matches!(manifest.source.as_str(),"photoshop"|"blender"|"krita"){
         assessment.status="not_applicable".into();assessment.rule_results=rule_results("not_applicable");assessment.limitations.insert(0,"这份记录来自图像或三维软件，文字输入规则不适用。".into());return assessment;
     }
@@ -350,6 +362,9 @@ mod tests{
         let selective=create_disclosure(&original,&[1]).unwrap();let partial=assess_behavior(&Evidence::Selective(selective));assert_eq!(partial.status,"insufficient");assert_eq!(partial.scope,"selective");assert!(partial.signals.is_empty());
         assert_eq!(assess_behavior(&Evidence::Full(proof("blender",&[(1000,5000,0)]))).status,"not_applicable");
         assert_eq!(assess_behavior(&Evidence::Full(proof("krita",&[(1000,5000,0)]))).status,"not_applicable");
+        for source in ["indesign","excel","wps-spreadsheets","wps-presentation"] {
+            assert_eq!(assess_behavior(&Evidence::Full(proof(source,&[(1000,5000,0)]))).status,"not_applicable");
+        }
         assert_eq!(assess_behavior(&Evidence::Full(proof("unknown-adapter",&[(1000,5000,0)]))).status,"insufficient");
         let clustered:Vec<_>=(0..5).map(|_|(1000,1,0)).collect();assert_eq!(assess_behavior(&Evidence::Full(proof("word",&clustered))).status,"insufficient");
     }
