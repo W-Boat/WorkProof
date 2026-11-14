@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, io::Read, path::{Path as FilePath, PathBuf}, ti
 
 pub const SOURCE:&str="sai2-file";
 pub const ILLUSTRATOR_SOURCE:&str="illustrator";
+pub const INDESIGN_SOURCE:&str="indesign";
 const MAX_BYTES:u64=8*1024*1024*1024;
 const OBSERVATION_LIMIT:u64=MAX_EVENTS as u64-16;
 
@@ -65,9 +66,14 @@ impl SavedFileRecorder {
         Self::begin_with_source(root,path,started_at,ILLUSTRATOR_SOURCE,Some(geometry)).await
     }
 
+    pub async fn begin_indesign(root:PathBuf,path:PathBuf,started_at:String,digest:String)->Result<Self,String>{
+        if !valid_hash(&digest){return Err("InDesign 摘要无效。".into());}
+        Self::begin_with_source(root,path,started_at,INDESIGN_SOURCE,Some(digest)).await
+    }
+
     async fn begin_with_source(root:PathBuf,path:PathBuf,started_at:String,source:&'static str,geometry:Option<String>)->Result<Self,String>{
         if !root.join("signing-key.bin").is_file(){return Err("请先启动 WorkProof 记录服务。".into());}
-        let extension=if source==ILLUSTRATOR_SOURCE{"ai"}else{"sai2"};
+        let extension=match source{ILLUSTRATOR_SOURCE=>"ai",INDESIGN_SOURCE=>"indd",_=>"sai2"};
         if !path.is_absolute()||!path.extension().and_then(|value|value.to_str()).is_some_and(|value|value.eq_ignore_ascii_case(extension)){
             return Err(format!("请选择已保存的 .{extension} 作品。"));
         }
@@ -98,14 +104,14 @@ impl SavedFileRecorder {
 
     pub fn status(&self)->RecordingStatus{
         RecordingStatus{session_id:self.id.clone(),file_name:self.name.clone(),source:self.source,
-            coverage:if self.source==ILLUSTRATOR_SOURCE{"geometry-and-saved-file"}else{"saved-file-only"},events:self.sequence,paused:self.paused}
+            coverage:match self.source{ILLUSTRATOR_SOURCE=>"geometry-and-saved-file",INDESIGN_SOURCE=>"layout-and-saved-file",_=>"saved-file-only"},events:self.sequence,paused:self.paused}
     }
 
     pub fn matches_path(&self,path:&FilePath)->bool{self.path==path}
 
     pub async fn observe_geometry(&mut self,geometry:String)->Result<(),String>{
-        if self.paused||self.source!=ILLUSTRATOR_SOURCE{return Ok(());}
-        if !valid_hash(&geometry){return Err("Illustrator 几何摘要无效。".into());}
+        if self.paused||self.geometry.is_none(){return Ok(());}
+        if !valid_hash(&geometry){return Err("文档变化摘要无效。".into());}
         if self.geometry.as_deref()==Some(geometry.as_str()){return Ok(());}
         self.require_capacity(1)?;
         self.emit("edit",geometry.clone()).await?;
@@ -273,6 +279,22 @@ mod tests{
         assert_eq!(proof.records[1].event.checkpoint,"b".repeat(64));
         assert_eq!(proof.records.last().unwrap().event.kind,"save");
         assert_eq!(assess_behavior(&Evidence::Full(proof)).status,"not_applicable");
+    }
+    #[tokio::test]async fn indesign_layout_is_signed_and_binds_saved_document(){
+        let fixture=Fixture::new();
+        let path=fixture.root.join("layout.indd");
+        let file=b"synthetic layout document bytes";
+        std::fs::write(&path,file).unwrap();
+        let mut recorder=SavedFileRecorder::begin_indesign(
+            fixture.profile.clone(),path,"2026-11-15T00:00:00Z".into(),"a".repeat(64)
+        ).await.unwrap();
+        assert_eq!(recorder.status().coverage,"layout-and-saved-file");
+        recorder.observe_geometry("b".repeat(64)).await.unwrap();
+        let proof=recorder.export().await.unwrap();
+        assert_eq!(proof.manifest.source,INDESIGN_SOURCE);
+        assert_eq!(proof.records[1].event.checkpoint,"b".repeat(64));
+        assert!(verify(&proof,&digest(file),file.len() as u64).valid);
+        assert!(!verify(&proof,&digest(b"changed"),7).valid);
     }
     #[tokio::test]async fn caller_cannot_start_other_formats_or_export_missing_files(){
         let fixture=Fixture::new();

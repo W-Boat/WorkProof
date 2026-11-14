@@ -9,14 +9,15 @@ export function savedRecordingUI({ready,onSaved}){
   function render(){
     const active=current.active===true;
     const illustrator=select.value==='illustrator';
-    coverage.textContent=illustrator?'记录当前 .ai 作品的几何变化摘要和保存版本。完成后请在 Illustrator 保存。':'仅观察所选文件的保存版本，不采集图层或笔触。完成绘画后请先在 SAI2 保存。';
+    const indesign=select.value==='indesign';
+    coverage.textContent=indesign?'记录 .indd 作品的文本和版面变化摘要。完成后请在 InDesign 保存。':illustrator?'记录当前 .ai 作品的几何变化摘要和保存版本。完成后请在 Illustrator 保存。':'仅观察所选文件的保存版本，不采集图层或笔触。完成绘画后请先在 SAI2 保存。';
     start.disabled=busy||active||!ready();pause.disabled=finish.disabled=busy||!active;
     const pauseLabel=current.paused?'继续记录':'暂停记录';
     if(pause.textContent.trim()!==pauseLabel){pause.setAttribute('aria-label',pauseLabel);pause.title=pauseLabel;pause.dataset.icon=current.paused?'play':'pause';pause.textContent=pauseLabel;}
-    status.textContent=feedback||current.error||(active?`${current.file_name} · ${current.paused?'已暂停':(current.source==='illustrator'?'正在采集几何和保存版本':'正在观察保存版本')} · 已保存 ${current.events} 条记录`:(illustrator?'打开 Illustrator 中的本地作品，再选择对应 .ai 文件。':'选择一份已保存的 .sai2 文件后开始。'));
+    status.textContent=feedback||current.error||(active?`${current.file_name} · ${current.paused?'已暂停':(current.source==='indesign'?'正在采集文本、版面和保存版本':current.source==='illustrator'?'正在采集几何和保存版本':'正在观察保存版本')} · 已保存 ${current.events} 条记录`:(indesign?'在 InDesign 打开本地作品，再选择对应 .indd 文件。':illustrator?'打开 Illustrator 中的本地作品，再选择对应 .ai 文件。':'选择一份已保存的 .sai2 文件后开始。'));
   }
   async function refresh(){
-    panel.hidden=!['sai2-file','illustrator'].includes(select.value);
+    panel.hidden=!['sai2-file','illustrator','indesign'].includes(select.value);
     if(panel.hidden||busy||refreshing)return;
     const requestedAt=revision;
     refreshing=true;

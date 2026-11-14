@@ -24,7 +24,7 @@ async function desktop(page:import('@playwright/test').Page,fail=false,nativeWor
       if(command==='saved_recording_status')return harness.savedRecording||{active:false};
       if(command==='saved_recording_start'){
         const illustrator=args?.source==='illustrator';
-        return harness.savedRecording={active:true,paused:false,events:1,source:args?.source,file_name:illustrator?'drawing.ai':'drawing.sai2',coverage:illustrator?'geometry-and-saved-file':'saved-file-only'};
+        return harness.savedRecording={active:true,paused:false,events:1,source:args?.source,file_name:args?.source==='indesign'?'layout.indd':illustrator?'drawing.ai':'drawing.sai2',coverage:args?.source==='indesign'?'layout-and-saved-file':illustrator?'geometry-and-saved-file':'saved-file-only'};
       }
       if(command==='saved_recording_pause'){harness.savedRecording.paused=!args?.resume;return {...harness.savedRecording};}
       if(command==='saved_recording_finish'){
@@ -341,7 +341,7 @@ test('desktop errors remain until dismissed and notices pause for pointer or key
 
 test('available application cards use the generated WorkProof icon family',async({page})=>{
   await desktop(page);await page.getByRole('button',{name:'应用连接',exact:true}).click();
-  for(const source of ['word','powerpoint','wps','excel','wps-presentation','wps-spreadsheets','vscode','photoshop','blender','krita','sai2-file','illustrator']){
+  for(const source of ['word','powerpoint','wps','excel','wps-presentation','wps-spreadsheets','vscode','photoshop','blender','krita','sai2-file','illustrator','indesign']){
     const image=page.locator(`.host-toolbar [data-tool="${source}"] img.adapter-icon`);
     await expect(image).toBeVisible();await expect.poll(()=>image.evaluate(node=>(node as HTMLImageElement).naturalWidth)).toBe(128);
   }
@@ -398,6 +398,16 @@ test('Illustrator starts an explicit geometry recording from its own guide',asyn
   await page.locator('#sai2-start').click();
   await expect(panel).toContainText('drawing.ai · 正在采集几何和保存版本');
   await expect(page.locator('#sai2-finish')).toBeEnabled();
+});
+
+test('InDesign opens its own recording guide and starts on an INDD document',async({page})=>{
+  await desktop(page);
+  await page.getByRole('button',{name:'选择 Adobe InDesign',exact:true}).click();
+  await expect(page.locator('#creation-tool')).toHaveValue('indesign');
+  const panel=page.locator('#sai2-recording');
+  await expect(panel).toContainText('文本和版面变化摘要');
+  await page.locator('#sai2-start').click();
+  await expect(panel).toContainText('layout.indd · 正在采集文本、版面和保存版本');
 });
 
 test('the final drawing application can be picked after scrolling the Fluent menu',async({page})=>{
