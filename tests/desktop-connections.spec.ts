@@ -420,7 +420,11 @@ test('plugin setup routes to the selected application and shows actionable resul
   await page.getByRole('button',{name:'选择 Krita',exact:true}).click();
   await page.getByRole('button',{name:'安装 Krita 插件',exact:true}).click();
   await expect(page.locator('#adapter-setup-result')).toHaveText('已打开插件资源');
-  expect(await page.evaluate(()=>(window as any).pluginSetupHosts)).toEqual(['blender','krita']);
+  await expect(page.locator('#setup-photoshop-ccx')).toBeHidden();
+  await page.getByRole('button',{name:'选择 Photoshop',exact:true}).click();
+  await page.getByRole('button',{name:'打开 Photoshop CCX 安装包',exact:true}).click();
+  await expect(page.locator('#adapter-setup-result')).toHaveText('已打开插件资源');
+  expect(await page.evaluate(()=>(window as any).pluginSetupHosts)).toEqual(['blender','krita','photoshop-ccx']);
 });
 
 test('Krita guide explains host activation and hides unrelated installers',async({page})=>{

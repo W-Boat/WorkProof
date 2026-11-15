@@ -73,7 +73,7 @@ function updateConnectionBadges(){
   const text=!engineReady?'记录服务未就绪':fileModes[selected]?'在此处选择作品并开始记录':!connectionsKnown?'正在检查连接…':count?`已允许 ${count} 个连接 · 记录状态请在软件中查看`:selected==='vscode'||selected==='blender'?'此软件自动连接 · 请在软件中查看记录状态':'尚未连接 · 首次使用请先安装加载项';
   document.getElementById('selected-connection').textContent=text;
 }
-const launchIds=['open-word','open-powerpoint','install','check-office','install-office','setup-adapter'];
+const launchIds=['open-word','open-powerpoint','install','check-office','install-office','setup-adapter','setup-photoshop-ccx'];
 function updateLaunchButtons(){for(const id of launchIds)document.getElementById(id).disabled=!engineReady||launching;}
 const feedback=document.getElementById('message');
 const feedbackText=document.createElement('span');feedbackText.id='message-text';
@@ -304,6 +304,7 @@ creationTool.addEventListener('change',updateConnectionBadges);updateConnectionB
 const adapterSetup = document.getElementById('adapter-setup');
 const adapterSetupButton = document.getElementById('setup-adapter');
 const adapterSetupResult = document.getElementById('adapter-setup-result');
+const photoshopCcx = document.getElementById('setup-photoshop-ccx');
 const adapterActions = {
   vscode: ['检查 VS Code 安装状态', '检查当前 VS Code 用户的扩展。'],
   blender: ['安装 Blender 扩展', '请保存并关闭 Blender，然后选择 Blender 可执行文件。'],
@@ -313,15 +314,19 @@ const adapterActions = {
 function showAdapterSetup(){
   const action = adapterActions[creationTool.value];
   adapterSetup.hidden = !action;
+  photoshopCcx.hidden = creationTool.value !== 'photoshop';
   if (!action) return;
   adapterSetupButton.textContent = action[0];
   adapterSetupResult.textContent = action[1];
 }
 creationTool.addEventListener('change',showAdapterSetup);
 showAdapterSetup();
-adapterSetupButton.addEventListener('click',async()=>{
-  const host=creationTool.value;
-  if(launching||!engineReady||!Object.hasOwn(adapterActions,host))return;
+adapterSetupButton.addEventListener('click',()=>void configureAdapter(creationTool.value));
+photoshopCcx.addEventListener('click',()=>{
+  if(creationTool.value==='photoshop')void configureAdapter('photoshop-ccx');
+});
+async function configureAdapter(host){
+  if(launching||!engineReady||(!Object.hasOwn(adapterActions,host)&&host!=='photoshop-ccx'))return;
   launching=true;
   creationTool.disabled=true;
   updateLaunchButtons();
@@ -335,7 +340,7 @@ adapterSetupButton.addEventListener('click',async()=>{
     creationTool.disabled=false;
     updateLaunchButtons();
   }
-});
+}
 const wpsSetup = document.getElementById('wps-setup');
 const wpsAddress = document.getElementById('wps-setup-address');
 const wpsOpen = document.getElementById('wps-setup-open');

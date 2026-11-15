@@ -146,6 +146,16 @@ async fn adapter_setup(window:tauri::WebviewWindow,app:tauri::AppHandle,host:Str
                 Ok("Blender 已完成安装。请打开 Blender 查看 WorkProof 面板。".into())
             }
             "krita"=>krita_setup::install(&resources.join("krita")),
+            "photoshop-ccx"=>{
+                let Some(package)=c2pa::pick("选择 WorkProof Photoshop 的 CCX 安装包","Adobe 插件|*.ccx",false,"")?
+                    else{return Ok("已取消选择安装包。".into());};
+                if !package.is_absolute() || !package.is_file()
+                    || !package.extension().and_then(|extension|extension.to_str()).is_some_and(|extension|extension.eq_ignore_ascii_case("ccx")) {
+                    return Err("请选择本机的 .ccx 插件安装包。".into());
+                }
+                platform::open_document(&package)?;
+                Ok("已请求打开 CCX。请在 Adobe Creative Cloud 确认插件信息并完成安装。".into())
+            }
             "photoshop"=>{
                 let development=resources.join("photoshop");
                 if !development.join("manifest.json").is_file(){return Err("安装包缺少 Photoshop 开发插件。".into());}
