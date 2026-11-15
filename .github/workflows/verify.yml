@@ -264,6 +264,8 @@ jobs:
         run: cargo test --release --locked -p workproof-desktop c2pa::tests
       - name: Native saved-file recording lifecycle
         run: cargo test --release --locked -p workproof-desktop saved_recording::tests
+      - name: Install bundled Krita files into an isolated profile
+        run: cargo test --release --locked -p workproof-desktop krita_setup::tests
       - name: Encrypted report file and checksum transaction
         run: cargo test --release --locked -p workproof-desktop report_download::tests
       - name: Embedded verifier navigation and command isolation
@@ -411,6 +413,8 @@ jobs:
         run: cargo test --release --locked -p workproof-desktop c2pa::tests
       - name: Native saved-file recording lifecycle
         run: cargo test --release --locked -p workproof-desktop saved_recording::tests
+      - name: Install bundled Krita files into an isolated profile
+        run: cargo test --release --locked -p workproof-desktop krita_setup::tests
       - name: Encrypted report file and checksum transaction
         run: cargo test --release --locked -p workproof-desktop report_download::tests
       - name: Embedded verifier navigation and command isolation

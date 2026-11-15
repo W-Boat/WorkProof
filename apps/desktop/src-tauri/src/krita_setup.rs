@@ -48,3 +48,37 @@ fn install_files(source: &Path, destination: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn installs_bundled_plugin_and_preserves_a_different_existing_version() {
+        let id = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let root = std::env::temp_dir().join(format!("workproof-krita-{}-{id}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        struct Fixture(PathBuf);
+        impl Drop for Fixture {
+            fn drop(&mut self) { let _ = fs::remove_dir_all(&self.0); }
+        }
+        let fixture = Fixture(root);
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/adapters/krita");
+        let destination = fixture.0.join("pykrita");
+        install_files(&source, &destination).unwrap();
+        install_files(&source, &destination).unwrap();
+        for name in FILES {
+            assert_eq!(fs::read(source.join(name)).unwrap(), fs::read(destination.join(name)).unwrap());
+        }
+        let conflicting = destination.join("workproof/core.py");
+        let missing = destination.join("workproof/Manual.html");
+        fs::write(&conflicting, b"different plugin version").unwrap();
+        fs::remove_file(&missing).unwrap();
+        assert!(install_files(&source, &destination).is_err());
+        assert_eq!(fs::read(conflicting).unwrap(), b"different plugin version");
+        assert!(!missing.exists());
+        fs::copy(source.join("workproof/core.py"), destination.join("workproof/core.py")).unwrap();
+        install_files(&source, &destination).unwrap();
+        assert!(missing.is_file());
+    }
+}
