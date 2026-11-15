@@ -262,12 +262,20 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   expect(await page.locator('#settings-page').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
   const sizes=await page.locator('.window-controls button').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));expect(sizes).toEqual([{w:46,h:36},{w:46,h:36},{w:46,h:36}]);
   expect(await page.locator('.workspace-nav .wp-icon svg').first().evaluate(n=>getComputedStyle(n).transform)).toBe('none');
-  const startup=page.locator('#login-startup');
-  await expect(startup).not.toBeChecked();
-  await startup.check();
-  await expect(page.locator('#login-startup-status')).toHaveText('已保存设置。');
-  await startup.uncheck();
-  await expect(startup).not.toBeChecked();
+  const startup=page.getByRole('switch',{name:'登录 Windows 时启动',exact:true});
+  await expect(startup).toHaveJSProperty('checked',false);
+  await startup.click();
+  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test.login-startup'))).toBe('true');
+  await startup.click();
+  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test.login-startup'))).toBe('false');
+  const word=page.getByRole('switch',{name:'Word',exact:true});
+  const powerpoint=page.getByRole('switch',{name:'PowerPoint',exact:true});
+  await word.click();
+  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test.auto-start.word'))).toBe('true');
+  await expect(powerpoint).toHaveJSProperty('checked',false);
+  await powerpoint.click();
+  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test.auto-start.powerpoint'))).toBe('true');
+  await expect(word).toHaveJSProperty('checked',true);
   for(const width of [1280,960,420,360]){
     await page.setViewportSize({width,height:780});
     if(width<640&&!await page.locator('body').evaluate(n=>n.classList.contains('compact-nav')))await page.locator('#collapse-nav').click();
@@ -277,6 +285,12 @@ test('settings use upright icons and equal window buttons with reduced motion',a
     const controlsBelowDescription=await page.locator('#settings-page .recording-limit-controls:visible').evaluateAll(groups=>
       groups.every(group=>group.getBoundingClientRect().top>=group.previousElementSibling!.getBoundingClientRect().bottom));
     expect(controlsBelowDescription).toBe(true);
+    const officeControls=await page.locator('.setting-switch-list').evaluate(group=>{
+      const controls=group.getBoundingClientRect();
+      const description=group.previousElementSibling!.getBoundingClientRect();
+      return controls.left>=description.right||controls.top>=description.bottom;
+    });
+    expect(officeControls).toBe(true);
     await page.locator('main').evaluate(node=>node.scrollTop=0);
     if(width===420)await page.screenshot({path:info.outputPath('fluent-settings-narrow.png')});
   }
