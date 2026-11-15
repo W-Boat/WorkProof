@@ -3355,6 +3355,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "ed25519-dalek 2.2.0",
+ "flate2",
  "hex",
  "serde",
  "serde_json",
