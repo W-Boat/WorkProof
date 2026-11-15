@@ -50,7 +50,7 @@ function render(model:ReportPackage,root:HTMLElement){
   diagnosis.append(details('全部提醒、测量值、阈值与规则版本',result.behavior??{status:'unavailable'}));
   }
   const graphSection=section('charts','全部统计图'),grid=el('div',undefined,'chart-grid');graphSection.append(el('p','十种图表使用与核验页面相同的数据汇总。散点图最多绘制 500 个代表点，完整原始记录仍包含在报告中。','note'),grid);
-  const partial=report.scope==='selective',structured=records.some(({event})=>event.metrics?.vertices!==undefined||event.metrics?.layers!==undefined),chartData=report.valid?summarize(records):null;
+  const partial=report.scope==='selective',structured=!!result.behavior?.structure||records.some(({event})=>event.metrics?.vertices!==undefined||event.metrics?.layers!==undefined),chartData=report.valid?summarize(records):null;
   for(const [id,label,description] of charts){
     const card=el('div',undefined,'chart-card');card.append(el('h3',label),el('p',description,'note'));grid.append(card);
     const unavailable=!report.valid?'核验未通过，不能作为可信过程统计展示。':partial&&!categoryCharts.includes(id)?'仅披露部分记录，不计算全程时间统计。':structured&&!['activity','donut','tree','heatmap'].includes(id)?'当前宿主记录不适用这项文字编辑统计。':!records.length?'没有记录。':id==='box'&&!chartData!.quantiles.length?'写入间隔样本不足。':(['scatter','histogram'].includes(id)&&!chartData!.writes.length)?'没有新增字符的事件。':null;
@@ -63,6 +63,14 @@ function render(model:ReportPackage,root:HTMLElement){
   const pager=el('div',undefined,'pager'),label=el('span'),content=el('div');let page=0;
   const before=command('上一页',()=>{page--;paint();}),after=command('下一页',()=>{page++;paint();});pager.append(before,label,after);events.append(pager,content);
   function paint(){before.disabled=page===0;after.disabled=(page+1)*200>=records.length;label.textContent=`${page+1} / ${Math.max(1,Math.ceil(records.length/200))}`;content.replaceChildren(table(['序号','经过时间（毫秒）','动作','新增','删除','文档字符','记录哈希'],records.slice(page*200,(page+1)*200).map(({event,hash})=>[event.seq,event.elapsed_ms,event.kind,event.inserted,event.deleted,event.chars,hash])));content.append(details('本页完整事件字段（含指标和检查点）',records.slice(page*200,(page+1)*200)));}paint();
+  if(structure&&structure.first_gap_seq!=null){
+    const firstGap=records.findIndex(({event})=>event.seq===structure.first_gap_seq);
+    if(firstGap>=0)diagnosis.append(command('查看首个采集缺口',()=>{
+      page=Math.floor(firstGap/200);paint();
+      const row=content.querySelectorAll<HTMLTableRowElement>('tbody tr')[firstGap%200];
+      if(row){row.tabIndex=-1;row.focus();}
+    }));
+  }
   if(report.valid&&proof.manifest.source==='word'){
     const observations=records.filter(({event})=>event.metrics?.word_revision_total!==undefined||event.metrics?.word_revision_tracking!==undefined),last=observations.at(-1);
     if(last){const word=section('word-revisions','Word 修订记录采样');word.append(el('p',`共 ${observations.length} 次可见采样，最后一次在 ${last.event.elapsed_ms} 毫秒。只表示采样时保留的修订标记。`),details('初次可见采样',observations[0]),details('最后采样',last));}

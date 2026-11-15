@@ -21,7 +21,12 @@ function NativeVerifier(){
   const [expectedId,setExpectedId]=useState(''),[shareMessage,setShareMessage]=useState('');
   const [progress,setProgress]=useState({phase:'准备核验',progress:0});
   const [tab,setTab]=useState('report'),[ready,setReady]=useState(false),[eventPage,setEventPage]=useState(0);
+  const [focusedEventSeq,setFocusedEventSeq]=useState<number|null>(null);
+  const focusedEvent=useRef<HTMLTableRowElement>(null);
   const worker=useRef<Worker|null>(null),generation=useRef(0);
+  useEffect(()=>{
+    if(tab==='events')focusedEvent.current?.focus();
+  },[tab,eventPage,focusedEventSeq]);
   useEffect(()=>{
     let active=true;
     loadEmbeddedFluent(document.documentElement.dataset.theme==='dark').then(()=>{if(active)setReady(true);},()=>{if(active)setError('核验组件未能加载，请重新打开客户端。');});
@@ -29,7 +34,7 @@ function NativeVerifier(){
   },[]);
   function cancel(){generation.current++;worker.current?.terminate();worker.current=null;setStage('idle');setResult(null);setError('');setShareMessage('');}
   function choose(file:File|null,kind:'artifact'|'proof'){
-    cancel();setEventPage(0);setTab('report');
+    cancel();setEventPage(0);setFocusedEventSeq(null);setTab('report');
     if(kind==='proof'&&file&&file.size>32*1024*1024){setProof(null);setError('证书超过 32 MB，请选择完整安装包支持范围内的证书。');return;}
     if(kind==='artifact')setMetadata(null);
     (kind==='proof'?setProof:setArtifact)(file);
@@ -96,10 +101,10 @@ function NativeVerifier(){
       {shareMessage&&<p role="status">{shareMessage}</p>}
       <nav className="nv-tabs" aria-label="核验结果视图">{tabs.map(([id,label])=><FluentElement key={id} tag="fluent-button" appearance={tab===id?'primary':'subtle'} aria-pressed={tab===id} onClick={()=>setTab(id)}>{label}</FluentElement>)}</nav>
       <div className="nv-result" key={tab}>
-        {tab==='report'&&<><div className="nv-checks">{[['作品指纹',result.report.file_match],['记录链',result.report.chain_valid],['数字签名',result.report.signature_valid]].map(([name,ok])=><div key={String(name)}><span>{name}</span><strong data-ok={!!ok}>{ok?'通过':'未通过'}</strong></div>)}</div><BehaviorReport assessment={result.behavior} valid={valid}/>{valid&&result.proof.manifest.source==='word'&&<WordRevisionSummary records={records} partial={result.report.scope==='selective'}/>}</>}
+        {tab==='report'&&<><div className="nv-checks">{[['作品指纹',result.report.file_match],['记录链',result.report.chain_valid],['数字签名',result.report.signature_valid]].map(([name,ok])=><div key={String(name)}><span>{name}</span><strong data-ok={!!ok}>{ok?'通过':'未通过'}</strong></div>)}</div><BehaviorReport assessment={result.behavior} valid={valid} onLocate={seq=>{const index=records.findIndex(({event})=>event.seq===seq);if(index>=0){setEventPage(Math.floor(index/50));setFocusedEventSeq(seq);setTab('events');}}}/>{valid&&result.proof.manifest.source==='word'&&<WordRevisionSummary records={records} partial={result.report.scope==='selective'}/>}</>}
         {tab==='charts'&&(valid?<Suspense fallback={<p role="status">正在加载统计图…</p>}><Charts records={records} partial={result.report.scope==='selective'} reduced={document.documentElement.dataset.reduceMotion==='true'||matchMedia('(prefers-reduced-motion: reduce)').matches}/></Suspense>:<p>核验通过后才能展示可信的过程统计。</p>)}
         {tab==='replay'&&(valid?<ProcessReplay records={records} partial={result.report.scope==='selective'} renderIcon={name=><span className="wp-icon" aria-hidden="true" dangerouslySetInnerHTML={{__html:nativeIcons[name]}}/>}/>:<p>核验通过后才能回放可信的过程记录。</p>)}
-        {tab==='events'&&(valid?<section><h3>已核验操作记录</h3><p>共 {records.length.toLocaleString()} 条；每页显示 50 条，原始证据保持完整。</p><div className="nv-table"><table><thead><tr><th>序号</th><th>经过时间</th><th>动作</th><th>新增</th><th>删除</th><th>文档字符</th></tr></thead><tbody>{records.slice(eventPage*50,(eventPage+1)*50).map(({event})=><tr key={event.seq}><td>{event.seq}</td><td>{time(event.elapsed_ms)}</td><td>{labels[event.kind]||event.kind}</td><td>{event.inserted}</td><td>{event.deleted}</td><td>{event.chars}</td></tr>)}</tbody></table></div><div className="nv-actions"><FluentElement tag="fluent-button" disabled={eventPage===0} onClick={()=>setEventPage(n=>n-1)}>上一页</FluentElement><span>{eventPage+1} / {Math.max(1,Math.ceil(records.length/50))}</span><FluentElement tag="fluent-button" disabled={(eventPage+1)*50>=records.length} onClick={()=>setEventPage(n=>n+1)}>下一页</FluentElement></div></section>:<p>核验通过后才能展示可信的操作记录。</p>)}
+        {tab==='events'&&(valid?<section><h3>已核验操作记录</h3><p>共 {records.length.toLocaleString()} 条；每页显示 50 条，原始证据保持完整。</p><div className="nv-table"><table><thead><tr><th>序号</th><th>经过时间</th><th>动作</th><th>新增</th><th>删除</th><th>文档字符</th></tr></thead><tbody>{records.slice(eventPage*50,(eventPage+1)*50).map(({event})=><tr key={event.seq} ref={event.seq===focusedEventSeq?focusedEvent:undefined} tabIndex={event.seq===focusedEventSeq?-1:undefined}><td>{event.seq}</td><td>{time(event.elapsed_ms)}</td><td>{labels[event.kind]||event.kind}</td><td>{event.inserted}</td><td>{event.deleted}</td><td>{event.chars}</td></tr>)}</tbody></table></div><div className="nv-actions"><FluentElement tag="fluent-button" disabled={eventPage===0} onClick={()=>setEventPage(n=>n-1)}>上一页</FluentElement><span>{eventPage+1} / {Math.max(1,Math.ceil(records.length/50))}</span><FluentElement tag="fluent-button" disabled={(eventPage+1)*50>=records.length} onClick={()=>setEventPage(n=>n+1)}>下一页</FluentElement></div></section>:<p>核验通过后才能展示可信的操作记录。</p>)}
         {tab==='certificate'&&(valid?<dl className="nv-certificate">{[['作品名称',result.proof.manifest.file_name],['记录来源',result.proof.manifest.source],['记录数量',result.report.total_events],['核验范围',result.report.scope==='full'?'完整记录':'仅已披露记录'],['证书指纹',result.certificateId],['签名公钥',result.proof.manifest.public_key],['作品指纹',result.fingerprint]].map(([name,value])=><div key={String(name)}><dt>{name}</dt><dd>{String(value)}</dd></div>)}</dl>:<p>这份证书尚未通过核验，不能作为有效证书展示。</p>)}
       </div></>}
   </div></EmbeddedFluent.Provider>;

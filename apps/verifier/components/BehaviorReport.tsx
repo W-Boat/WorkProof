@@ -7,16 +7,18 @@ import {useEmbeddedFluent} from './fluent-embedded';
 import {type BehaviorAssessment} from '../lib/evidence';
 import {buildBehaviorReport,names} from '../lib/behavior-report-data';
 
-export function BehaviorReport({assessment,valid,checks,reminders}:{assessment?:BehaviorAssessment|null;valid:boolean;checks?:ReactNode;reminders?:ReactNode}){
+export function BehaviorReport({assessment,valid,checks,reminders,onLocate}:{assessment?:BehaviorAssessment|null;valid:boolean;checks?:ReactNode;reminders?:ReactNode;onLocate?:(sequence:number)=>void}){
   const embedded=useEmbeddedFluent();
   const [filter,setFilter]=useState<'all'|'review'>('all');
   const {full,evaluated,triggered}=buildBehaviorReport(assessment,valid,embedded);
   const structure=valid?assessment?.structure:undefined;
   if(structure&&assessment?.status==='not_applicable'){
+    const firstGap=structure.first_gap_seq;
     return <Panel id="verification-diagnosis" title="创作过程检验单" className="behavior-report">
       {checks}
       <Notice intent={structure.gaps?'warning':'info'}><strong>{structure.gaps?'发现采集缺口，建议查看对应时间段':'已披露记录未标注采集缺口'}</strong>
         <p>本次按软件记录的结构变化或保存版本复核。软件在两次采样之间发生的操作可能没有留下记录。</p>
+        {firstGap!=null&&onLocate&&<Button variant="secondary" onClick={()=>onLocate(firstGap)}>查看首个采集缺口</Button>}
       </Notice>
       <div className="behavior-table-scroll"><table>
         <thead><tr><th>记录项目</th><th>观测次数</th></tr></thead>

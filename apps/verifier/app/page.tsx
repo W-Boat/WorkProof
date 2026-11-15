@@ -80,7 +80,7 @@ export default function Page(){
   }
   const m=result?.proof.manifest,r=result?.report;const records=result?.proof.records||[];
   const partial=r?.scope==='selective';
-  const behaviorNote=behaviorSummary(result?.behavior,r?.scope),behaviorReview=r?.valid&&result?.behavior?.status==='review';
+  const behaviorNote=behaviorSummary(result?.behavior,r?.scope),behaviorReview=r?.valid&&(result?.behavior?.status==='review'||(result?.behavior?.structure?.gaps??0)>0);
   const gaps=records.filter(x=>x.event.kind==='gap').length;const duration=records.at(-1)?.event.elapsed_ms||0;
   function shareText(){return `WorkProof 签名证书\n作品：${m?.file_name}\n证书指纹（SHA-256 / 签名字节）：${result?.certificateId}\n编辑过程：${behaviorNote}。统计提醒仅供人工复核。\n请在独立的 WorkProof 核验页打开作品原文件和 .wproof，并填写上方指纹。签名可检查内容改动，不认证作者身份或原创性。${partial?'此证书仅披露部分事件。':'此文件包含全部过程记录；转发前请确认可以公开。'}${m?.demo?' 演示数据，不用于实际交付。':''}`;}
   async function shareCertificate(){
@@ -154,6 +154,7 @@ export default function Page(){
       <div className="result-certificate"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId} behaviorNote={behaviorNote} behaviorReview={!!behaviorReview}/></div>
       <BehaviorReport assessment={result.behavior} valid={r.valid}
         checks={<><VerificationChecks inline proof={result.proof} report={r} behavior={result.behavior}/>{r.valid&&m.source==='word'&&<WordRevisionSummary records={records} partial={partial}/>}</>}
+        onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}
         reminders={<BehaviorPanel inline assessment={result.behavior} valid={r.valid} onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}/>}/>
       {r.valid&&<ProcessReplay key={'replay-'+result.certificateId} records={records} partial={partial}/>}
       {r.valid&&<EmbeddedVerificationCharts key={result.certificateId} records={records} partial={partial} reduced={reduced}/>}
