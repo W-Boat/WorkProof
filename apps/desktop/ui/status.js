@@ -317,6 +317,8 @@ function showAdapterSetup(){
   photoshopCcx.hidden = creationTool.value !== 'photoshop';
   if (!action) return;
   adapterSetupButton.textContent = action[0];
+  adapterSetupButton.setAttribute('aria-label',action[0]);
+  adapterSetupButton.title = action[0];
   adapterSetupResult.textContent = action[1];
 }
 creationTool.addEventListener('change',showAdapterSetup);
