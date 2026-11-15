@@ -113,6 +113,23 @@ async fn adapter_setup(window:tauri::WebviewWindow,app:tauri::AppHandle,host:Str
         static SETUP:std::sync::Mutex<()>=std::sync::Mutex::new(());
         let _guard=SETUP.try_lock().map_err(|_|"安装任务正在运行，请稍候。")?;
         match host.as_str(){
+            "vscode"=>{
+                for binary in platform::vscode_candidates() {
+                    if binary.is_absolute() && !binary.is_file(){continue;}
+                    let mut command=std::process::Command::new(binary);
+                    command.arg("--list-extensions");
+                    match c2pa::capture(command,30,256*1024) {
+                        Ok((status, output, _)) if status.success()=>{
+                            let installed=String::from_utf8_lossy(&output).lines()
+                                .any(|line|line.trim().eq_ignore_ascii_case("workproof-local.workproof-vscode"));
+                            return Ok(if installed{"已安装 WorkProof 扩展。"}else{"尚未安装 WorkProof 扩展。可在这里安装随附的 VSIX。"}.into());
+                        }
+                        Ok(_)=>return Err("VS Code 未能列出已安装的扩展。".into()),
+                        Err(_) => continue,
+                    }
+                }
+                Err("无法读取 VS Code 扩展，请确认 VS Code 已安装且可以打开。".into())
+            }
             "blender"=>{
                 let package=resources.join("workproof-blender.zip");
                 if !package.is_file(){return Err("安装包缺少 Blender 扩展。".into());}

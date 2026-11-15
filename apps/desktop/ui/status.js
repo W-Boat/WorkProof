@@ -305,6 +305,7 @@ const adapterSetup = document.getElementById('adapter-setup');
 const adapterSetupButton = document.getElementById('setup-adapter');
 const adapterSetupResult = document.getElementById('adapter-setup-result');
 const adapterActions = {
+  vscode: ['检查 VS Code 安装状态', '检查当前 VS Code 用户的扩展。'],
   blender: ['安装 Blender 扩展', '请保存并关闭 Blender，然后选择 Blender 可执行文件。'],
   krita: ['打开 Krita 插件包', '在 Krita 导入 ZIP，再在 Python 插件管理器启用。'],
   photoshop: ['打开 Photoshop 开发插件', '在 Adobe UXP Developer Tool 中添加并加载插件。'],

@@ -106,7 +106,7 @@ pub fn open_verifier(port:u16)->Result<(),String>{
         }
     }
 }
-fn vscode_candidates()->Vec<PathBuf>{
+pub(crate) fn vscode_candidates()->Vec<PathBuf>{
     #[cfg(windows)]let mut paths=vec![PathBuf::from("code.cmd")];
     #[cfg(not(windows))]let mut paths=vec![PathBuf::from("code")];
     #[cfg(windows)]{

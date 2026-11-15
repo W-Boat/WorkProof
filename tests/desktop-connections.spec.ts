@@ -361,6 +361,27 @@ test('notification activation opens a consent dialog and never approves a plugin
   await expect(page.locator('#pairing-inbox')).toBeHidden();
 });
 
+test('plugin setup routes to the selected application and shows actionable results',async({page})=>{
+  await desktop(page);
+  await page.evaluate(()=>{
+    const target=window as any, original=target.__TAURI__.core.invoke;
+    target.pluginSetupHosts=[];
+    target.__TAURI__.core.invoke=(command:string,args:any)=>{
+      if(command!=='adapter_setup')return original(command,args);
+      target.pluginSetupHosts.push(args.host);
+      if(args.host==='blender')throw new Error('Blender 扩展安装失败');
+      return Promise.resolve('已打开插件资源');
+    };
+  });
+  await page.getByRole('button',{name:'选择 Blender',exact:true}).click();
+  await page.getByRole('button',{name:'安装 Blender 扩展',exact:true}).click();
+  await expect(page.locator('#adapter-setup-result')).toHaveText('Blender 扩展安装失败');
+  await page.getByRole('button',{name:'选择 Krita',exact:true}).click();
+  await page.getByRole('button',{name:'打开 Krita 插件包',exact:true}).click();
+  await expect(page.locator('#adapter-setup-result')).toHaveText('已打开插件资源');
+  expect(await page.evaluate(()=>(window as any).pluginSetupHosts)).toEqual(['blender','krita']);
+});
+
 test('Krita guide explains manual plugin installation and hides unrelated installers',async({page})=>{
   await desktop(page);
   await page.getByRole('button',{name:'选择 Krita',exact:true}).click();
