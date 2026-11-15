@@ -263,14 +263,14 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   expect(await page.locator('#settings-page').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
   const sizes=await page.locator('.window-controls button').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));expect(sizes).toEqual([{w:46,h:36},{w:46,h:36},{w:46,h:36}]);
   expect(await page.locator('.workspace-nav .wp-icon svg').first().evaluate(n=>getComputedStyle(n).transform)).toBe('none');
-  const startup=page.getByRole('switch',{name:'登录 Windows 时启动',exact:true});
+  const startup=page.locator('fluent-switch#login-startup');
   await expect(startup).toHaveJSProperty('checked',false);
   await startup.click();
   await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test.login-startup'))).toBe('true');
   await startup.click();
   await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test.login-startup'))).toBe('false');
-  const word=page.getByRole('switch',{name:'Word',exact:true});
-  const powerpoint=page.getByRole('switch',{name:'PowerPoint',exact:true});
+  const word=page.locator('fluent-switch#auto-start-word');
+  const powerpoint=page.locator('fluent-switch#auto-start-powerpoint');
   await word.click();
   await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test.auto-start.word'))).toBe('true');
   await expect(powerpoint).toHaveJSProperty('checked',false);
