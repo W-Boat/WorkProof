@@ -20,7 +20,8 @@ fn db(root:&Path)->Result<Connection>{
       CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY,title TEXT NOT NULL,started TEXT NOT NULL,created INTEGER NOT NULL,modified INTEGER NOT NULL,revision INTEGER NOT NULL,content TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS document_types(document TEXT PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN ('word','markdown')),FOREIGN KEY(document) REFERENCES documents(id));
       CREATE TABLE IF NOT EXISTS revisions(document TEXT NOT NULL,revision INTEGER NOT NULL,content TEXT NOT NULL,actions TEXT NOT NULL,saved INTEGER NOT NULL,request TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(document,revision),UNIQUE(document,request),FOREIGN KEY(document) REFERENCES documents(id));
-      CREATE TABLE IF NOT EXISTS editor_events(document TEXT NOT NULL,seq INTEGER NOT NULL,json TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(document,seq),FOREIGN KEY(document) REFERENCES documents(id));").map_err(storage)?;
+      CREATE TABLE IF NOT EXISTS editor_events(document TEXT NOT NULL,seq INTEGER NOT NULL,json TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(document,seq),FOREIGN KEY(document) REFERENCES documents(id));
+      CREATE TABLE IF NOT EXISTS editor_proof_overflow(document TEXT PRIMARY KEY,first_revision INTEGER NOT NULL,FOREIGN KEY(document) REFERENCES documents(id) ON DELETE CASCADE);").map_err(storage)?;
     Ok(db)
 }
 fn encoded(v:&impl Serialize)->Result<String>{serde_json::to_string(v).map_err(storage)}
@@ -79,6 +80,9 @@ pub fn create(root:&Path,title:&str,started:&str,kind:&str)->Result<Value>{
 fn legacy_kind(content:&Value)->&'static str {
     if content["attrs"]["markdownSource"].is_string() { "markdown" } else { "word" }
 }
+fn proof_overflow(db:&Connection,id:&str)->Result<Option<u64>> {
+    db.query_row("SELECT first_revision FROM editor_proof_overflow WHERE document=?1",[id],|r|r.get(0)).optional().map_err(storage)
+}
 pub fn load(root:&Path,id:&str)->Result<Value>{
     if !valid_id(id){return Err("文档编号无效。".into());}
     let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
@@ -90,7 +94,7 @@ pub fn load(root:&Path,id:&str)->Result<Value>{
     let mut versions=vec![];let mut actions=vec![];
     for row in rows{let (rev,time,json)=row.map_err(storage)?;let batch:Vec<Action>=serde_json::from_str(&json).map_err(storage)?;versions.push(json!({"revision":rev,"saved":time,"count":batch.len()}));if actions.len()<300{for a in batch.into_iter().rev().take(300-actions.len()){actions.push(json!({"revision":rev,"action":a}));}}}
     let count:u64=db.query_row("SELECT COUNT(*) FROM editor_events WHERE document=?1",[id],|r|r.get(0)).map_err(storage)?;
-    Ok(json!({"id":id,"title":title,"created":created,"revision":revision,"content":content,"kind":kind,"versions":versions,"actions":actions,"event_count":count}))
+    Ok(json!({"id":id,"title":title,"created":created,"revision":revision,"content":content,"kind":kind,"versions":versions,"actions":actions,"event_count":count,"proof_overflow_revision":proof_overflow(&db,id)?}))
 }
 /// Bounded, content-free index for the local replay viewer. `through` pins the
 /// view to the revision opened by the user while new saves may arrive.
@@ -126,7 +130,7 @@ pub fn save(root:&Path,input:Save)->Result<Value>{
     content_ok(&input.content)?;let raw=encoded(&input)?;if raw.len()>8*MAX_BODY{return Err("本次记录过大，请分段导入或粘贴。".into());}let payload=digest(raw.as_bytes());
     let _lock=WRITER.lock().map_err(storage)?;let mut db=db(root)?;let tx=db.transaction().map_err(storage)?;
     let previous:Option<(u64,String)>=tx.query_row("SELECT revision,payload FROM revisions WHERE document=?1 AND request=?2",params![input.id,input.request_id],|r|Ok((r.get(0)?,r.get(1)?))).optional().map_err(storage)?;
-    if let Some((revision,hash))=previous {if hash!=payload{return Err("保存请求冲突，请重新打开文档。".into());}return Ok(json!({"revision":revision}));}
+    if let Some((revision,hash))=previous {if hash!=payload{return Err("保存请求冲突，请重新打开文档。".into());}return Ok(json!({"revision":revision,"proof_overflow_revision":proof_overflow(&tx,&input.id)?}));}
     let revision:u64=tx.query_row("SELECT revision FROM documents WHERE id=?1",[&input.id],|r|r.get(0)).map_err(storage)?;
     if revision!=input.expected_revision{return Err("这份文档已在其他窗口更新。请先保留当前内容，再重新打开文档。".into());}
     let kind_exists:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM document_types WHERE document=?1)",[&input.id],|r|r.get(0)).map_err(storage)?;
@@ -137,19 +141,30 @@ pub fn save(root:&Path,input:Save)->Result<Value>{
     }
     let (last_seq,mut head,json):(u64,String,String)=tx.query_row("SELECT seq,hash,json FROM editor_events WHERE document=?1 ORDER BY seq DESC LIMIT 1",[&input.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(storage)?;
     let mut elapsed=serde_json::from_str::<Event>(&json).map_err(storage)?.elapsed_ms;
-    if last_seq+input.actions.len() as u64+2>=MAX_EVENTS as u64{return Err("这份记录已满，请新建文档继续。".into());}
-    if let Some(limit) = super::recording_settings::load(root)? {
-        if !input.actions.is_empty() && last_seq + input.actions.len() as u64 + 2 > limit {
-            return Err("已达到记录上限。本次内容尚未保存，请提高设置中的记录上限后重试。".into());
+    let next=revision+1;let now=super::now_ms();let content=encoded(&input.content)?;
+    let mut overflow=proof_overflow(&tx,&input.id)?;
+    let limit=super::recording_settings::load(root)?.unwrap_or(MAX_EVENTS as u64-1);
+    if overflow.is_none() && last_seq + input.actions.len() as u64 + 2 > limit {
+        tx.execute("INSERT INTO editor_proof_overflow VALUES(?1,?2)",params![input.id,next]).map_err(storage)?;
+        overflow=Some(next);
+    }
+    for (i,a) in input.actions.iter().enumerate(){
+        let seq=if overflow.is_some(){i as u64+1}else{last_seq+i as u64+1};
+        let e=event(a,seq,elapsed)?;
+        elapsed=e.elapsed_ms;
+        if overflow.is_none(){
+            head=event_hash(&head,&e);
+            tx.execute("INSERT INTO editor_events VALUES(?1,?2,?3,?4)",params![input.id,e.seq,encoded(&e)?,head]).map_err(storage)?;
         }
     }
-    for (i,a) in input.actions.iter().enumerate(){let e=event(a,last_seq+i as u64+1,elapsed)?;elapsed=e.elapsed_ms;head=event_hash(&head,&e);tx.execute("INSERT INTO editor_events VALUES(?1,?2,?3,?4)",params![input.id,e.seq,encoded(&e)?,head]).map_err(storage)?;}
-    let next=revision+1;let now=super::now_ms();let content=encoded(&input.content)?;
-    let checkpoint=Event{seq:last_seq+input.actions.len() as u64+1,elapsed_ms:elapsed,kind:"save".into(),inserted:0,deleted:0,chars:text_length(&input.content),checkpoint:digest(content.as_bytes()),metrics:BTreeMap::new()};
-    head=event_hash(&head,&checkpoint);tx.execute("INSERT INTO editor_events VALUES(?1,?2,?3,?4)",params![input.id,checkpoint.seq,encoded(&checkpoint)?,head]).map_err(storage)?;
+    if overflow.is_none(){
+        let checkpoint=Event{seq:last_seq+input.actions.len() as u64+1,elapsed_ms:elapsed,kind:"save".into(),inserted:0,deleted:0,chars:text_length(&input.content),checkpoint:digest(content.as_bytes()),metrics:BTreeMap::new()};
+        head=event_hash(&head,&checkpoint);
+        tx.execute("INSERT INTO editor_events VALUES(?1,?2,?3,?4)",params![input.id,checkpoint.seq,encoded(&checkpoint)?,head]).map_err(storage)?;
+    }
     tx.execute("INSERT INTO revisions VALUES(?1,?2,?3,?4,?5,?6,?7)",params![input.id,next,content,encoded(&input.actions)?,now,input.request_id,payload]).map_err(storage)?;
     tx.execute("UPDATE documents SET title=?2,modified=?3,revision=?4,content=?5 WHERE id=?1",params![input.id,input.title,now,next,content]).map_err(storage)?;
-    tx.commit().map_err(storage)?;Ok(json!({"revision":next}))
+    tx.commit().map_err(storage)?;Ok(json!({"revision":next,"proof_overflow_revision":overflow}))
 }
 
 fn escape(s:&str)->String{s.replace('&',"&amp;").replace('<',"&lt;").replace('>',"&gt;").replace('"',"&quot;").replace('\'',"&#39;")}
@@ -223,6 +238,9 @@ pub fn export_markdown(root:&Path,id:&str,file_name:&str,markdown:&str)->Result<
 fn export_bytes(root:&Path,id:&str,file_name:&str,artifact:Option<&[u8]>)->Result<Export>{
     if !valid_id(id)||file_name.len()>1024||file_name.contains(['/', '\\']){return Err("文件名称无效。".into());}
     let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
+    if let Some(revision)=proof_overflow(&db,id)? {
+        return Err(format!("正文和动作已保存到本机。第 {revision} 个版本起超出单份证书容量，暂无法为这份文档签发完整证书。"));
+    }
     let (title,started,content):(String,String,String)=db.query_row("SELECT title,started,content FROM documents WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(storage)?;
     let body=parse(content)?;content_ok(&body)?;
     let html=format!("<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:\"><title>{}</title><style>body{{font:17px/1.9 'Segoe UI','Microsoft YaHei',sans-serif;max-width:780px;margin:48px auto;padding:0 28px;color:#242424;background:white}}h1,h2,h3{{line-height:1.4}}blockquote{{border-left:3px solid #0f6cbd;margin-left:0;padding-left:20px;color:#616161}}pre{{white-space:pre-wrap}}@media print{{body{{margin:0;max-width:none}}}}</style><body>{}</body></html>",escape(&title),render(&body));
@@ -321,6 +339,35 @@ mod tests {
         assert_eq!(load(&root.0, old_id).unwrap()["kind"], "markdown");
     }
     #[test]fn saves_reopen_and_retries_exact_request_without_duplicate_events(){let root=root();let d=create(&root.0,"课程论文","2026-11-06T00:00:00Z","word").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();save(&root.0,save_input(id)).unwrap();let loaded=load(&root.0,id).unwrap();assert_eq!(loaded["revision"],1);assert_eq!(loaded["event_count"],3);assert_eq!(version(&root.0,id,0).unwrap()["content"][0]["type"],"paragraph");let mut stale=save_input(id);stale.request_id="b".repeat(32);assert!(save(&root.0,stale).is_err());}
+    #[test]
+    fn overflowing_the_certificate_keeps_the_document_and_every_local_action(){
+        let root=root();
+        let settings=Connection::open(root.0.join("records.sqlite")).unwrap();
+        super::super::recording_settings::initialize(&settings).unwrap();
+        super::super::recording_settings::save(&root.0,Some(100)).unwrap();
+        let document=create(&root.0,"长文测试","","word").unwrap();
+        let id=document["id"].as_str().unwrap();
+        let mut input=save_input(id);
+        input.actions=vec![input.actions[0].clone();98];
+        let saved=save(&root.0,input).unwrap();
+        assert!(saved["proof_overflow_revision"].is_null());
+        assert!(export(&root.0,id,"draft.html").unwrap().report.valid);
+
+        let mut input=save_input(id);
+        input.expected_revision=1;
+        input.request_id="b".repeat(32);
+        input.content["content"][0]["content"][0]["text"]=json!("触顶后继续写");
+        let retry=serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+        let saved=save(&root.0,input).unwrap();
+        assert_eq!(saved["proof_overflow_revision"],2);
+        assert_eq!(save(&root.0,retry).unwrap(),saved);
+        let loaded=load(&root.0,id).unwrap();
+        assert_eq!(loaded["revision"],2);
+        assert_eq!(loaded["proof_overflow_revision"],2);
+        assert_eq!(loaded["content"]["content"][0]["content"][0]["text"],"触顶后继续写");
+        assert_eq!(replay_frame(&root.0,id,2).unwrap()["actions"].as_array().unwrap().len(),1);
+        assert!(export(&root.0,id,"draft.html").err().unwrap().contains("第 2 个版本"));
+    }
     #[test]fn export_verifies_and_tampering_fails_without_executable_content(){let root=root();let d=create(&root.0,"论文","2026-11-06T00:00:00Z","word").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();let out=export(&root.0,id,"workproof.html").unwrap();assert!(out.report.valid);assert!(!out.html.contains("<script>"));assert!(out.html.contains("&lt;script&gt;"));assert!(!verify(&out.proof,&digest(b"changed"),7).valid);let mut p=out.proof.clone();p.records[1].event.inserted+=1;assert!(!verify(&p,&p.manifest.artifact_hash,p.manifest.artifact_bytes).valid);}
     #[test]fn rejects_path_ids_unknown_nodes_and_invalid_action_metrics(){let root=root();assert!(load(&root.0,"../key").is_err());let d=create(&root.0,"论文","","word").unwrap();let mut s=save_input(d["id"].as_str().unwrap());s.content=json!({"type":"doc","content":[{"type":"iframe"}]});assert!(save(&root.0,s).is_err());let mut s=save_input(d["id"].as_str().unwrap());s.actions[0].metrics.insert("clipboard_text".into(),1);assert!(save(&root.0,s).is_err());assert_eq!(load(&root.0,d["id"].as_str().unwrap()).unwrap()["revision"],0);}
     #[test]fn refuses_changed_body_before_signing_a_new_export(){let root=root();let d=create(&root.0,"论文","","word").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();let db=db(&root.0).unwrap();db.execute("UPDATE documents SET content=?2 WHERE id=?1",params![id,encoded(&json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"altered"}]}]})).unwrap()]).unwrap();drop(db);assert!(export(&root.0,id,"workproof.html").is_err());}
