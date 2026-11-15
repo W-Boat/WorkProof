@@ -1,6 +1,7 @@
 import {selectChoice} from './desktop-select';
 import {test,expect,Page} from '@playwright/test';
 import fs from 'node:fs';
+import {gunzipSync} from 'node:zlib';
 import {createHash,createDecipheriv,pbkdf2Sync} from 'node:crypto';
 
 // Browser tests exercise the real bundled Tiptap. Only native storage IPC is a
@@ -603,7 +604,10 @@ test('encrypted report saves through native IPC, includes every record and certi
     generated=html;savedCertificate=certificateId;const bytes=Buffer.from(html,'utf8');
     return {cancelled:false,file_name:'WorkProof-report.html',md5:createHash('md5').update(bytes).digest('hex'),sha256:createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length};
   });
-  await desktop(page);await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
+  await desktop(page);
+  await page.getByRole('button',{name:'设置',exact:true}).click();
+  await selectChoice(page,'#report-compression','always');
+  await page.getByRole('button',{name:'文件核验',exact:true}).click();await page.locator('#verify').click();
   await page.getByLabel('1 · 最终作品',{exact:true}).setInputFiles('apps/verifier/public/demo/essay.md');
   await page.getByLabel('2 · WorkProof 证书',{exact:true}).setInputFiles('apps/verifier/public/demo/essay.md.wproof');
   await page.getByRole('button',{name:'开始核验',exact:true}).click();await expect(page.getByRole('heading',{name:'文件与证书一致',exact:true})).toBeVisible({timeout:20000});
@@ -616,8 +620,9 @@ test('encrypted report saves through native IPC, includes every record and certi
   const envelopeText=generated.match(/id="report-envelope">([^<]+)<\/script>/)![1],pack=JSON.parse(envelopeText);
   expect(createHash('sha256').update(Buffer.from(pack.viewer,'base64')).digest('hex')).toBe(pack.viewer_sha256);
   const cipher=Buffer.from(pack.ciphertext,'base64'),key=pbkdf2Sync(password,Buffer.from(pack.salt,'base64'),600000,32,'sha256'),decoder=createDecipheriv('aes-256-gcm',key,Buffer.from(pack.iv,'base64'));
-  decoder.setAAD(Buffer.from('workproof-encrypted-report/1:'+pack.viewer_sha256));decoder.setAuthTag(cipher.subarray(-16));
-  const model=JSON.parse(Buffer.concat([decoder.update(cipher.subarray(0,-16)),decoder.final()]).toString('utf8'));
+  expect(pack.compression).toBe('gzip');
+  decoder.setAAD(Buffer.from('workproof-encrypted-report/1:'+pack.viewer_sha256+':gzip'));decoder.setAuthTag(cipher.subarray(-16));
+  const model=JSON.parse(gunzipSync(Buffer.concat([decoder.update(cipher.subarray(0,-16)),decoder.final()])).toString('utf8'));
   expect(model.result.proof.records).toEqual(original.records);expect(model.result.certificateId).toBe(savedCertificate);expect(Buffer.from(model.certificate.base64,'base64')).toEqual(rawProof);
   expect(Object.keys(model.artifact).sort()).toEqual(['bytes','name','type']);expect(model.metadata.status).toBe('not_run');
   fs.writeFileSync(testInfo.outputPath('encrypted-report.html'),generated);

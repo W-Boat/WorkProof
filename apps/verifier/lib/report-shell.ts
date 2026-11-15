@@ -4,13 +4,29 @@ export const REPORT_STYLE=String.raw`
 export const REPORT_READER=String.raw`
 (()=>{'use strict';const form=document.getElementById('unlock-form'),status=document.getElementById('unlock-status'),field=document.getElementById('report-password');
 const decode=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const maxPlainBytes=80*1024*1024;
+async function inflate(bytes){
+  if(typeof DecompressionStream!=='function')throw Error('unsupported-compression');
+  const reader=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')).getReader();
+  const chunks=[];let size=0;
+  try{
+    while(true){
+      const {done,value}=await reader.read();if(done)break;
+      size+=value.byteLength;
+      if(size>maxPlainBytes){await reader.cancel();throw Error('size');}
+      chunks.push(value);
+    }
+  }finally{reader.releaseLock();}
+  return new Blob(chunks).arrayBuffer();
+}
 form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('button');if(!globalThis.crypto||!crypto.subtle){status.textContent='当前浏览器环境不支持本机解密，请使用完整桌面浏览器打开。';return;}button.disabled=true;status.textContent='正在本机解密…';
-try{const pack=JSON.parse(document.getElementById('report-envelope').textContent);if(pack.schema!=='workproof-encrypted-report/1'||pack.kdf!=='PBKDF2-SHA256'||pack.iterations!==600000||pack.cipher!=='AES-256-GCM'||typeof pack.viewer!=='string'||pack.viewer.length>12*1024*1024||typeof pack.ciphertext!=='string'||pack.ciphertext.length>112*1024*1024||typeof pack.salt!=='string'||pack.salt.length>32||typeof pack.iv!=='string'||pack.iv.length>24)throw Error('format');
+try{const pack=JSON.parse(document.getElementById('report-envelope').textContent);if(pack.schema!=='workproof-encrypted-report/1'||pack.kdf!=='PBKDF2-SHA256'||pack.iterations!==600000||(pack.compression!==undefined&&pack.compression!=='gzip')||pack.cipher!=='AES-256-GCM'||typeof pack.viewer!=='string'||pack.viewer.length>12*1024*1024||typeof pack.ciphertext!=='string'||pack.ciphertext.length>112*1024*1024||typeof pack.salt!=='string'||pack.salt.length>32||typeof pack.iv!=='string'||pack.iv.length>24)throw Error('format');
 if(decode(pack.salt).length!==16||decode(pack.iv).length!==12)throw Error('format');
 const viewer=decode(pack.viewer),viewerHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',viewer)),b=>b.toString(16).padStart(2,'0')).join('');if(viewerHash!==pack.viewer_sha256)throw Error('viewer');
 const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(field.value),'PBKDF2',false,['deriveKey']);const key=await crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt:decode(pack.salt),iterations:600000},material,{name:'AES-GCM',length:256},false,['decrypt']);
-const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(pack.iv),additionalData:new TextEncoder().encode('workproof-encrypted-report/1:'+viewerHash)},key,decode(pack.ciphertext));
-if(plain.byteLength>80*1024*1024)throw Error('size');const model=JSON.parse(new TextDecoder().decode(plain));if(model.schema!=='workproof-report/1'||!model.result||!Array.isArray(model.result.proof.records)||model.result.proof.records.length>1000000)throw Error('format');
+const payload=await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(pack.iv),additionalData:new TextEncoder().encode('workproof-encrypted-report/1:'+viewerHash+(pack.compression==='gzip'?':gzip':''))},key,decode(pack.ciphertext));
+const plain=pack.compression==='gzip'?await inflate(payload):payload;
+if(plain.byteLength>maxPlainBytes)throw Error('size');const model=JSON.parse(new TextDecoder().decode(plain));if(model.schema!=='workproof-report/1'||!model.result||!Array.isArray(model.result.proof.records)||model.result.proof.records.length>1000000)throw Error('format');
 field.value='';const root=document.createElement('main');root.id='report-root';root.className='report';document.body.replaceChildren(root);const script=document.createElement('script');script.textContent=new TextDecoder().decode(viewer);document.body.append(script);window.workproofRenderReport(model,root);
-}catch(error){if(status.isConnected){status.textContent='密码不正确，或报告已损坏。请核对密码和配套校验文件。';button.disabled=false;}else{document.body.textContent='报告内容无法显示。请重新打开文件并核对来源。';}}});})();
+}catch(error){if(status.isConnected){status.textContent=error.message==='unsupported-compression'?'当前浏览器无法解压报告，请用支持 gzip 的桌面浏览器打开。':'密码不正确，或报告已损坏。请核对密码和配套校验文件。';button.disabled=false;}else{document.body.textContent='报告内容无法显示。请重新打开文件并核对来源。';}}});})();
 `;

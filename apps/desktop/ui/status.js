@@ -280,6 +280,15 @@ window.addEventListener('workproof-view',renderNavigation);
 function applyMotion(){document.documentElement.dataset.reduceMotion=String(motionPreference.checked);try{localStorage.setItem('workproof.reduce-motion',String(motionPreference.checked));}catch{}sendVerifierAppearance();}
 try{motionPreference.checked=localStorage.getItem('workproof.reduce-motion')==='true';}catch{}applyMotion();motionPreference.addEventListener('change',applyMotion);
 
+const reportCompression=document.getElementById('report-compression');
+try {
+  const saved=localStorage.getItem('workproof.report-compression');
+  if(saved==='always'||saved==='off')reportCompression.value=saved;
+} catch {}
+reportCompression.addEventListener('change',()=>{
+  try { localStorage.setItem('workproof.report-compression',reportCompression.value); } catch {}
+});
+
 const guides={
   indesign:{steps:['在 InDesign 打开已保存的本地 .indd 作品。','在这里选择同一个文件并开始记录。','在 InDesign 保存，回到 WorkProof 导出证书。'],note:'Windows 开发版采集文本与版面变化摘要。真实宿主兼容性待验收。'},
   illustrator:{steps:['在 Illustrator 打开并保存本地 .ai 作品，再选择同一份文件开始。','继续创作，WorkProof 定期采样路径和对象几何。切换作品会暂停当前记录。','完成后在 Illustrator 保存作品，再导出证书。'],note:'Windows 开发版。通过 Illustrator 脚本接口观察几何变化和文件保存。采样可能错过短时间内的变化，填充、效果和具体命令暂不覆盖。'},

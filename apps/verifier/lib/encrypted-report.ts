@@ -20,6 +20,16 @@ export async function createEncryptedReport(input:{result:Result;artifact:File;p
   const model:ReportPackage={schema:'workproof-report/1',exported_at:new Date().toISOString(),result:input.result,expected_certificate_id:input.expectedCertificateId??'',application:input.application??null,metadata:input.metadata??{status:'not_run'},auxiliary_text:input.auxiliaryText??'',certificate:{name:input.proof.name,type:input.proof.type||'application/json',base64:base64(new Uint8Array(await input.proof.arrayBuffer()))},artifact:{name:input.artifact.name,type:input.artifact.type||'application/octet-stream',bytes:input.artifact.size}};
   check(signal);const plain=new TextEncoder().encode(JSON.stringify(model));
   if(plain.byteLength>80*1024*1024)throw new Error('完整报告超过 80 MB，本次无法生成；不会截断记录。');
+  let mode='auto';
+  try { mode=localStorage.getItem('workproof.report-compression')||mode; } catch {}
+  let payload=plain;
+  if(typeof CompressionStream==='function'&&(mode==='always'||(mode!=='off'&&plain.length>=1024*1024))){
+    const stream=new Blob([plain]).stream().pipeThrough(new CompressionStream('gzip'));
+    const compressed=new Uint8Array(await new Response(stream).arrayBuffer());
+    if(compressed.length<plain.length)payload=compressed;
+  }
+  check(signal);
+  const compressed=payload!==plain;
   const runtime=await fetch(new URL('report-viewer.js',document.baseURI),{signal});
   if(!runtime.ok)throw new Error('离线报告组件未能加载，请确认安装包完整。');
   const viewer=new Uint8Array(await runtime.arrayBuffer());if(viewer.byteLength>8*1024*1024)throw new Error('离线报告组件超出预期大小。');
@@ -28,8 +38,8 @@ export async function createEncryptedReport(input:{result:Result;artifact:File;p
   check(signal);const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);
   const key=await crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt,iterations:600000},material,{name:'AES-GCM',length:256},false,['encrypt']);
-  check(signal);const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode('workproof-encrypted-report/1:'+viewerHash)},key,plain);check(signal);
-  const envelope={schema:'workproof-encrypted-report/1',kdf:'PBKDF2-SHA256',iterations:600000,cipher:'AES-256-GCM',salt:base64(salt),iv:base64(iv),ciphertext:base64(new Uint8Array(ciphertext)),viewer:base64(viewer),viewer_sha256:viewerHash};
+  check(signal);const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode('workproof-encrypted-report/1:'+viewerHash+(compressed?':gzip':''))},key,payload);check(signal);
+  const envelope={schema:'workproof-encrypted-report/1',kdf:'PBKDF2-SHA256',iterations:600000,cipher:'AES-256-GCM',...(compressed?{compression:'gzip'}:{}),salt:base64(salt),iv:base64(iv),ciphertext:base64(new Uint8Array(ciphertext)),viewer:base64(viewer),viewer_sha256:viewerHash};
   const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data: blob:; font-src \'none\'; connect-src \'none\'; base-uri \'none\'; form-action \'none\'"><title>WorkProof 加密核验报告</title><style>'+REPORT_STYLE+'</style></head><body><main class="unlock"><p>WorkProof</p><h1>加密核验报告</h1><p>输入报告提供者单独告知你的密码。解密在本机进行，不上传文件。</p><form id="unlock-form"><label for="report-password">报告密码</label><input id="report-password" type="password" autocomplete="off" required><button type="submit">打开报告</button></form><p id="unlock-status" role="status"></p><p class="note">HTML 的 MD5 与 SHA-256 在配套校验文件中。密码不保存在报告里。</p></main><script type="application/json" id="report-envelope">'+JSON.stringify(envelope)+'</script><script>'+REPORT_READER+'</script></body></html>';
   const bytes=new TextEncoder().encode(html);if(bytes.byteLength>128*1024*1024)throw new Error('加密 HTML 超过 128 MB，无法保存；报告没有截断。');
   const sha256=hex(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)));check(signal);
