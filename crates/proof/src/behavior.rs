@@ -40,6 +40,8 @@ pub struct BehaviorSummary{
 pub struct BehaviorAssessment{
     pub version:String,
     pub rule_version:String,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub structure:Option<crate::behavior_structure::StructureAssessment>,
     pub status:String,
     pub scope:String,
     pub signals:Vec<BehaviorSignal>,
@@ -68,7 +70,7 @@ impl BehaviorAssessment{
             ("regular_min_interval_ms".into(),50),("regular_max_interval_ms".into(),2000),
             ("max_signals".into(),MAX_SIGNALS as u64),
         ]);
-        Self{version:VERSION.into(),rule_version:RULE_VERSION.into(),status:status.into(),scope:scope.into(),signals:vec![],summary:BehaviorSummary::default(),thresholds,
+        Self{version:VERSION.into(),rule_version:RULE_VERSION.into(),structure:None,status:status.into(),scope:scope.into(),signals:vec![],summary:BehaviorSummary::default(),thresholds,
             limitations:vec![
                 "规则尚未经真实中英文作业校准，提醒仅用于人工复核。".into(),
                 "签名可核验记录的一致性，行为统计不能证明作者身份、人类创作或是否使用 AI。".into(),
@@ -116,6 +118,7 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
         assessment.limitations.insert(0,"仅提供部分记录，无法评估整个创作过程或比较总量占比。".into());return assessment;
     }
     assessment.summary.events=manifest.event_count;
+    assessment.structure=crate::behavior_structure::assess(evidence);
     if manifest.source=="sai2-file"{
         assessment.status="not_applicable".into();assessment.rule_results=rule_results("not_applicable");
         assessment.limitations.insert(0,"这份记录只观察 SAI2 文件的保存版本，未采集图层、笔触或应用内动作；文字输入规则不适用。".into());return assessment;
@@ -127,7 +130,7 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
     let structured_scope = match manifest.source.as_str() {
         "indesign" => Some("记录覆盖 InDesign 的文本摘要、版面变化和保存版本。"),
         "excel" | "wps-spreadsheets" => Some("记录覆盖工作表和使用区域的变化。"),
-        "wps-presentation" => Some("记录覆盖幻灯片对象、文字和位置的采样变化。"),
+        "powerpoint" | "wps-presentation" => Some("记录覆盖幻灯片对象、文字和位置的采样变化。"),
         _ => None,
     };
     if let Some(scope) = structured_scope {
@@ -139,7 +142,7 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
     if matches!(manifest.source.as_str(),"photoshop"|"blender"|"krita"){
         assessment.status="not_applicable".into();assessment.rule_results=rule_results("not_applicable");assessment.limitations.insert(0,"这份记录来自图像或三维软件，文字输入规则不适用。".into());return assessment;
     }
-    if !matches!(manifest.source.as_str(),"workproof-tiptap"|"word"|"wps"|"vscode"|"powerpoint"|"synthetic-demo"){
+    if !matches!(manifest.source.as_str(),"workproof-tiptap"|"word"|"wps"|"vscode"|"synthetic-demo"){
         assessment.status="insufficient".into();assessment.rule_results=rule_results("insufficient");assessment.limitations.insert(0,"尚未定义这个记录来源的文字统计语义，无法按当前输入规则评估。".into());return assessment;
     }
     assessment.summary.duration_ms=evidence.records().next_back().map(|record|record.event.elapsed_ms).unwrap_or(0);
@@ -309,6 +312,23 @@ mod tests{
         for(index,mut event)in events.into_iter().enumerate(){event.seq=index as u64;head=event_hash(&head,&event);records.push(Record{event,hash:head.clone()});}
         original.manifest.event_count=records.len() as u64;original.manifest.chain_head=head;
         sign(original.manifest,records,&SigningKey::from_bytes(&[7;32]))
+    }
+    #[test]
+    fn presentation_and_artwork_use_coverage_checks_instead_of_writing_thresholds(){
+        for source in ["powerpoint","wps-presentation","photoshop","sai2-file","excel","indesign"] {
+            let signed=boundary(proof(source,&[(1000,5000,5000)]),1,"gap");
+            let resumed=boundary(signed,2,"pause");
+            let result=assess_behavior(&Evidence::Full(resumed));
+            assert_eq!(result.status,"not_applicable");
+            assert!(result.signals.is_empty());
+            let coverage=result.structure.unwrap();
+            assert_eq!(coverage.gaps,1);
+            assert_eq!(coverage.first_gap_seq,Some(1));
+            assert_eq!(coverage.pauses,1);
+        }
+        let writing=assess_behavior(&Evidence::Full(proof("word",&[(1000,5000,5000)])));
+        assert!(writing.structure.is_none());
+        assert!(has(&writing,"bulk_insertion"));
     }
     #[test]fn explicit_recording_boundaries_do_not_create_continuous_input_evidence(){
         let bursts=proof("workproof-tiptap",&[(0,300,0),(500,300,0)]);

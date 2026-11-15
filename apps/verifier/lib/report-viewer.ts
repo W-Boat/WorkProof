@@ -28,6 +28,14 @@ function render(model:ReportPackage,root:HTMLElement){
   if(report.errors.length)summary.append(details('核验错误明细',report.errors));summary.append(details('原始核验结果',report),details('完整证书清单与签名',{manifest:proof.manifest,signature:proof.signature}),details('报告生成环境',model.application));
   if(model.expected_certificate_id)summary.append(el('p','提供者指定的证书指纹：'+model.expected_certificate_id),el('p',result.certificateMatch===true?'指定证书指纹一致。':result.certificateMatch===false?'指定证书指纹不一致。':'指定证书指纹未能核对。',result.certificateMatch===false?'error':'note'));
   const diagnosis=section('diagnosis','编辑过程检验单'),data=buildBehaviorReport(result.behavior,report.valid,true);
+  const structure=report.valid?result.behavior?.structure:undefined;
+  if(structure&&result.behavior?.status==='not_applicable'){
+    diagnosis.append(el('p',structure.gaps?'发现采集缺口，建议复核记录覆盖范围。':'已披露记录未标注采集缺口。'));
+    const items=[['保存记录',number(structure.saves)],['主动暂停',number(structure.pauses)],['采集缺口',number(structure.gaps)]];
+    if(structure.profile!=='saved_file')items.splice(1,0,['结构或编辑变化',number(structure.changes)]);
+    diagnosis.append(table(['记录项目','观测次数'],items));
+    diagnosis.append(details('结构记录检查',structure));
+  }else{
   const diagnostic=table(['项目','实测值','参考条件','检验结果'],data.evaluated.map(({row,state})=>[row.name,row.value==null?'—':number(row.value)+(row.unit?' '+row.unit:''),row.reference,state.text]));
   diagnostic.querySelectorAll('tbody tr').forEach((row,index)=>{if(data.evaluated[index].state.flag)row.classList.add('flag');});diagnosis.append(diagnostic);
   const stateNames:{[key:string]:string}={triggered:'↑ 需要复核',within_reference:'未触发提醒',insufficient:'条件不足',not_applicable:'不适用',unavailable:'未能评估'};
@@ -40,6 +48,7 @@ function render(model:ReportPackage,root:HTMLElement){
   for(const axis of axes){const row=el('div'),label=el('p',axis.label+'：'+(axis.value===null?'信息不足':axis.value===Infinity?'超过 2 倍':number(axis.value)+' 倍阈值'));if(axis.status==='triggered')label.classList.add('error');row.append(label);if(axis.value!==null){const range=el('progress') as HTMLProgressElement;range.max=2;range.value=Math.min(2,Math.max(0,axis.value));range.setAttribute('aria-label',axis.label);row.append(range);}overview.append(row);}
   if(result.behavior?.signals_truncated)diagnosis.append(el('p','引擎对提醒时段做了数量限制；报告保留全部已返回的提醒和证书提供的原始记录。','note'));
   diagnosis.append(details('全部提醒、测量值、阈值与规则版本',result.behavior??{status:'unavailable'}));
+  }
   const graphSection=section('charts','全部统计图'),grid=el('div',undefined,'chart-grid');graphSection.append(el('p','十种图表使用与核验页面相同的数据汇总。散点图最多绘制 500 个代表点，完整原始记录仍包含在报告中。','note'),grid);
   const partial=report.scope==='selective',structured=records.some(({event})=>event.metrics?.vertices!==undefined||event.metrics?.layers!==undefined),chartData=report.valid?summarize(records):null;
   for(const [id,label,description] of charts){

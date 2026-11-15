@@ -11,6 +11,24 @@ export function BehaviorReport({assessment,valid,checks,reminders}:{assessment?:
   const embedded=useEmbeddedFluent();
   const [filter,setFilter]=useState<'all'|'review'>('all');
   const {full,evaluated,triggered}=buildBehaviorReport(assessment,valid,embedded);
+  const structure=valid?assessment?.structure:undefined;
+  if(structure&&assessment?.status==='not_applicable'){
+    return <Panel id="verification-diagnosis" title="创作过程检验单" className="behavior-report">
+      {checks}
+      <Notice intent={structure.gaps?'warning':'info'}><strong>{structure.gaps?'发现采集缺口，建议查看对应时间段':'已披露记录未标注采集缺口'}</strong>
+        <p>本次按软件记录的结构变化或保存版本复核。软件在两次采样之间发生的操作可能没有留下记录。</p>
+      </Notice>
+      <div className="behavior-table-scroll"><table>
+        <thead><tr><th>记录项目</th><th>观测次数</th></tr></thead>
+        <tbody>
+          <tr><td>保存记录</td><td>{structure.saves}</td></tr>
+          {structure.profile!=='saved_file'&&<tr><td>结构或编辑变化</td><td>{structure.changes}</td></tr>}
+          <tr><td>主动暂停</td><td>{structure.pauses}</td></tr>
+          <tr><td>采集缺口</td><td>{structure.gaps}</td></tr>
+        </tbody>
+      </table></div>
+    </Panel>;
+  }
   if(embedded){
     const review=evaluated.filter(({state})=>state.flag);
     const remaining=evaluated.filter(({state})=>!state.flag);

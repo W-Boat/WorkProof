@@ -9,6 +9,7 @@ pub const MAX_EVENTS: usize = 100_000;
 pub mod merkle;
 pub mod evolution;
 pub mod behavior;
+mod behavior_structure;
 pub mod receipt;
 pub mod segmented;
 pub use behavior::{assess_behavior,BehaviorAssessment};
