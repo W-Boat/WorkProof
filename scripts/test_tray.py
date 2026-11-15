@@ -27,20 +27,23 @@ with tempfile.TemporaryDirectory(prefix='workproof-tray-') as tmp:
             from ctypes import wintypes
             user32 = ctypes.WinDLL('user32', use_last_error=True)
             callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-            visible = []
+            workbenches = []
             @callback_type
             def inspect_window(window, _):
                 owner = wintypes.DWORD()
                 user32.GetWindowThreadProcessId(window, ctypes.byref(owner))
-                if owner.value == proc.pid and user32.IsWindowVisible(window):
-                    visible.append(window)
+                if owner.value == proc.pid:
+                    title = ctypes.create_unicode_buffer(256)
+                    user32.GetWindowTextW(window, title, len(title))
+                    if title.value.startswith('WorkProof ·'):
+                        workbenches.append(title.value)
                 return True
             user32.EnumWindows.argtypes = [callback_type, wintypes.LPARAM]
             user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
-            user32.IsWindowVisible.argtypes = [wintypes.HWND]
+            user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
             if not user32.EnumWindows(inspect_window, 0):
                 raise ctypes.WinError(ctypes.get_last_error())
-            assert not visible, 'Login startup opened a visible WorkProof window'
+            assert not workbenches, f'Login startup created a WorkProof workspace window: {workbenches!r}'
         result={'tray_startup':'passed','protocol':status['protocol'],'webview_opened':False}
         pathlib.Path('test-tray-results.json').write_text(json.dumps(result,indent=2))
         print(json.dumps(result))
