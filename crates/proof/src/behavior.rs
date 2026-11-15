@@ -104,7 +104,8 @@ fn add_hit(hits:&mut Vec<Hit>,hit:Hit,truncated:&mut bool){
 fn details(values:&[(&str,f64)])->BTreeMap<String,f64>{values.iter().map(|(key,value)|((*key).into(),*value)).collect()}
 
 pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
-    let(manifest,scope)=match evidence{Evidence::Full(proof)=>(&proof.manifest,"full"),Evidence::Selective(proof)=>(&proof.manifest,"selective")};
+    let manifest=evidence.manifest();
+    let scope=if matches!(evidence,Evidence::Selective(_)){"selective"}else{"full"};
     let mut assessment=BehaviorAssessment::empty("unavailable",scope);
     // The claimed artifact digest establishes only certificate consistency here.
     // Caller verification against the actual file remains a separate operation.
@@ -114,8 +115,7 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
         assessment.rule_results=rule_results("insufficient");
         assessment.limitations.insert(0,"仅提供部分记录，无法评估整个创作过程或比较总量占比。".into());return assessment;
     }
-    let Evidence::Full(proof)=evidence else{unreachable!()};
-    assessment.summary.events=proof.records.len() as u64;
+    assessment.summary.events=manifest.event_count;
     if manifest.source=="sai2-file"{
         assessment.status="not_applicable".into();assessment.rule_results=rule_results("not_applicable");
         assessment.limitations.insert(0,"这份记录只观察 SAI2 文件的保存版本，未采集图层、笔触或应用内动作；文字输入规则不适用。".into());return assessment;
@@ -142,11 +142,11 @@ pub fn assess_behavior(evidence:&Evidence)->BehaviorAssessment{
     if !matches!(manifest.source.as_str(),"workproof-tiptap"|"word"|"wps"|"vscode"|"powerpoint"|"synthetic-demo"){
         assessment.status="insufficient".into();assessment.rule_results=rule_results("insufficient");assessment.limitations.insert(0,"尚未定义这个记录来源的文字统计语义，无法按当前输入规则评估。".into());return assessment;
     }
-    assessment.summary.duration_ms=proof.records.last().map(|record|record.event.elapsed_ms).unwrap_or(0);
-    for record in &proof.records{assessment.summary.paste_commands+=record.event.metrics.get("paste").copied().unwrap_or(0);}
+    assessment.summary.duration_ms=evidence.records().next_back().map(|record|record.event.elapsed_ms).unwrap_or(0);
+    for record in evidence.records(){assessment.summary.paste_commands+=record.event.metrics.get("paste").copied().unwrap_or(0);}
     // Ignore save/start checkpoints, keyboard noise and undo/redo replay deltas.
     let mut edits:Vec<&Event>=Vec::new();let mut edit_segments=Vec::new();let mut segment=0usize;
-    for record in &proof.records{
+    for record in evidence.records(){
         let event=&record.event;
         if matches!(event.kind.as_str(),"pause"|"resume"|"gap"){segment+=1;}
         if event.kind=="edit"&&(event.inserted>0||event.deleted>0){edits.push(event);edit_segments.push(segment);}

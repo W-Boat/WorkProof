@@ -1,6 +1,6 @@
 //! Optional graph supplements bind only to explicitly disclosed, verified event checkpoints.
 //! They do not establish complete editing history, artifact identity or human authorship.
-use crate::{Evidence,Event,inspect_certificate};
+use crate::{Evidence,inspect_certificate};
 use serde::{Deserialize,Serialize};
 use std::collections::{BTreeMap,BTreeSet};
 
@@ -95,11 +95,8 @@ pub fn verify(evidence:&Evidence,supplement:&Supplement)->EvolutionReport{
     if supplement.format!=FORMAT{return reject(report,"EVOLUTION_SCHEMA_UNSUPPORTED");}
     if supplement.snapshots.is_empty()||supplement.snapshots.len()>MAX_SNAPSHOTS||
         supplement.snapshots.iter().map(|s|s.nodes.len()).sum::<usize>()>MAX_TOTAL_NODES{return reject(report,"EVOLUTION_SNAPSHOT_LIMIT");}
-    let (manifest,events):(_,Vec<&Event>)=match evidence{
-        Evidence::Full(proof)=>(&proof.manifest,proof.records.iter().map(|r|&r.event).collect()),
-        Evidence::Selective(proof)=>(&proof.manifest,proof.disclosed.iter().map(|r|&r.record.event).collect()),
-    };
-    let events:BTreeMap<_,_>=events.into_iter().map(|e|(e.seq,e)).collect();
+    let manifest=evidence.manifest();
+    let events:BTreeMap<_,_>=evidence.records().map(|record|(record.event.seq,&record.event)).collect();
     let mut previous=None;
     for snapshot in &supplement.snapshots{
         if snapshot.session_id!=manifest.session_id||snapshot.source!=manifest.source||previous.is_some_and(|seq|seq>=snapshot.seq){return reject(report,"EVOLUTION_BINDING_INVALID");}
@@ -125,6 +122,7 @@ pub fn verify_json(evidence_json:&[u8],supplement_json:&[u8])->EvolutionReport{
 
 #[cfg(test)]mod tests{
     use super::*;
+    use crate::Event;
     use crate::{Record,Manifest,sign,genesis,event_hash,digest,create_disclosure,Proof,VERSION};
     use ed25519_dalek::SigningKey;
     fn snapshot()->Snapshot{Snapshot{format:FORMAT.into(),session_id:"evolution-fixture".into(),source:"blender".into(),seq:1,event_kind:"mesh".into(),nodes:vec![

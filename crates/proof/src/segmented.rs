@@ -42,7 +42,7 @@ impl SegmentedProof {
         bytes
     }
 
-    fn valid_manifest(&self) -> bool {
+    pub(crate) fn valid_manifest(&self) -> bool {
         let m = &self.manifest;
         m.protocol == VERSION
             && m.merkle_root.is_empty()
@@ -244,6 +244,13 @@ mod tests {
         let key = SigningKey::from_bytes(&[3; 32]);
         let mut proof = SegmentedProof::sign(manifest, vec![full, tail], &key).unwrap();
         assert!(proof.verify(&artifact, 5).valid);
+        let encoded = serde_json::to_vec(&proof).unwrap();
+        let parsed: crate::Evidence = serde_json::from_slice(&encoded).unwrap();
+        assert!(crate::verify_evidence(&parsed, &artifact, 5).valid);
+        let inspection = crate::inspect_certificate_json(&encoded);
+        assert!(inspection.certificate_valid);
+        assert!(!inspection.artifact_checked);
+        assert_eq!(inspection.disclosed_events, 5);
         assert!(!proof.verify(&artifact, 6).file_match);
 
         let boundary = proof.segments[0].pop().unwrap();

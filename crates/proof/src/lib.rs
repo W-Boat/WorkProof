@@ -53,7 +53,28 @@ pub struct Manifest {
 pub struct Proof { pub manifest: Manifest, pub records: Vec<Record>, pub signature: String }
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
-pub enum Evidence { Full(Proof), Selective(Disclosure) }
+pub enum Evidence {
+    Full(Proof),
+    Selective(Disclosure),
+    Segmented(segmented::SegmentedProof),
+}
+impl Evidence {
+    pub fn manifest(&self) -> &Manifest {
+        match self {
+            Self::Full(p) => &p.manifest,
+            Self::Selective(p) => &p.manifest,
+            Self::Segmented(p) => &p.manifest,
+        }
+    }
+
+    pub fn records(&self) -> Box<dyn DoubleEndedIterator<Item = &Record> + '_> {
+        match self {
+            Self::Full(p) => Box::new(p.records.iter()),
+            Self::Selective(p) => Box::new(p.disclosed.iter().map(|row| &row.record)),
+            Self::Segmented(p) => Box::new(p.segments.iter().flatten()),
+        }
+    }
+}
 #[cfg_attr(feature="wasm",wasm_bindgen)]
 pub fn behavior_json(proof_json:&str)->String{
     let assessment=if proof_json.len()>32*1024*1024{BehaviorAssessment::unavailable()}
@@ -162,7 +183,7 @@ fn signature_valid(m:&Manifest,signature:&str)->bool{
     })().is_some()
 }
 pub fn verify_evidence(p:&Evidence,artifact_hash:&str,artifact_bytes:u64)->Report{
-    match p{Evidence::Full(p)=>verify(p,artifact_hash,artifact_bytes),Evidence::Selective(p)=>verify_disclosure(p,artifact_hash,artifact_bytes)}
+    match p{Evidence::Full(p)=>verify(p,artifact_hash,artifact_bytes),Evidence::Selective(p)=>verify_disclosure(p,artifact_hash,artifact_bytes),Evidence::Segmented(p)=>p.verify(artifact_hash,artifact_bytes)}
 }
 /// Certificate-only inspection deliberately does not report an artifact/file match.
 #[derive(Debug,Serialize,Deserialize)]
@@ -179,9 +200,14 @@ impl CertificateInspection{
     pub fn rejected(code:&str)->Self{Self{protocol:"workproof-inspection/1".into(),certificate_valid:false,artifact_checked:false,identity_verified:false,time_verified:false,signature_valid:false,chain_valid:false,merkle_valid:None,scope:"unknown".into(),disclosed_events:0,total_events:0,errors:vec![code.into()],manifest:None,signature:None,actions:Default::default()}}
 }
 pub fn inspect_certificate(evidence:&Evidence)->CertificateInspection{
-    let (m,signature)=match evidence{Evidence::Full(p)=>(&p.manifest,&p.signature),Evidence::Selective(p)=>(&p.manifest,&p.signature)};
+    let m = evidence.manifest();
+    let (schema, signature) = match evidence {
+        Evidence::Full(p) => (supported_manifest(m), &p.signature),
+        Evidence::Selective(p) => (supported_manifest(m), &p.signature),
+        Evidence::Segmented(p) => (p.valid_manifest(), &p.signature),
+    };
     // Bound reflected metadata even on invalid inputs. No user-controlled megabyte fields in stdout.
-    if !supported_manifest(m)||!valid_hash(&m.chain_head)||m.public_key.len()!=64||signature.len()!=128
+    if !schema||!valid_hash(&m.chain_head)||m.public_key.len()!=64||signature.len()!=128
         ||!m.public_key.bytes().all(|b|b.is_ascii_hexdigit())||!signature.bytes().all(|b|b.is_ascii_hexdigit()){
         return CertificateInspection::rejected("INVALID_MANIFEST");
     }
@@ -189,11 +215,7 @@ pub fn inspect_certificate(evidence:&Evidence)->CertificateInspection{
     let report=verify_evidence(evidence,&m.artifact_hash,m.artifact_bytes);
     let mut actions=std::collections::BTreeMap::new();
     if report.valid{
-        let events:Vec<&Event>=match evidence{
-            Evidence::Full(p)=>p.records.iter().map(|r|&r.event).collect(),
-            Evidence::Selective(p)=>p.disclosed.iter().map(|r|&r.record.event).collect(),
-        };
-        for event in events{
+        for event in evidence.records().map(|record| &record.event){
             for (key,value) in &event.metrics{
                 if matches!(key.as_str(),"backspace"|"delete_forward"|"space"|"enter"|"copy"|"paste"|"cut"|"undo_commands"|"redo_commands"|"format_commands"|"cursor_moves"|"spaces_inserted"|"line_breaks_inserted"){
                     *actions.entry(key.clone()).or_insert(0u64)+=*value;
