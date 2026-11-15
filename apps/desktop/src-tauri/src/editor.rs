@@ -66,6 +66,41 @@ fn office_registry() -> std::process::Command {
 }
 
 #[tauri::command]
+pub async fn login_startup(window: WebviewWindow, enabled: Option<bool>) -> Result<bool, String> {
+    super::workbench_only(&window)?;
+    #[cfg(windows)]
+    return tauri::async_runtime::spawn_blocking(move || {
+        const KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+        const NAME: &str = "WorkProof";
+        let check = || {
+            office_registry().args(["query", KEY, "/v", NAME]).output()
+                .map(|output| output.status.success())
+                .map_err(|_| "无法读取 Windows 启动设置。".to_string())
+        };
+        let Some(enabled) = enabled else { return check(); };
+        if !enabled && !check()? { return Ok(false); }
+        let output = if enabled {
+            let exe = std::env::current_exe().map_err(|_| "无法定位 WorkProof 程序。")?;
+            let path = exe.to_str().ok_or("WorkProof 程序路径无法用于登录启动。")?;
+            let launch = format!("\"{path}\" --login-startup");
+            if launch.encode_utf16().count() > 260 {
+                return Err("WorkProof 程序路径过长，无法配置登录启动。".into());
+            }
+            office_registry().args(["add", KEY, "/v", NAME, "/t", "REG_SZ", "/d", &launch, "/f"]).output()
+        } else {
+            office_registry().args(["delete", KEY, "/v", NAME, "/f"]).output()
+        }.map_err(|_| "无法保存 Windows 启动设置。")?;
+        if !output.status.success() { return Err("无法保存 Windows 启动设置。".into()); }
+        Ok(enabled)
+    }).await.map_err(|_| "无法更新 Windows 启动设置。")?;
+    #[cfg(not(windows))]
+    {
+        let _ = enabled;
+        Err("登录启动设置仅在 Windows 提供。".into())
+    }
+}
+
+#[tauri::command]
 pub async fn office_reconnect(window: WebviewWindow) -> Result<Value, String> {
     super::workbench_only(&window)?;
     #[cfg(windows)]

@@ -32,6 +32,10 @@ async function desktop(page:Page){
       if(command==='pending_adapters'||command==='adapter_connections')return [];
       if(command==='office_auto_start'){const key='test.auto-start.'+args.host;if(args.enabled!==null)localStorage.setItem(key,String(args.enabled));return localStorage.getItem(key)==='true';}
       if(command==='office_reconnect')return {seconds:5,attempts:3};
+      if(command==='login_startup'){
+        if(args.enabled!==null)localStorage.setItem('test.login-startup',String(args.enabled));
+        return localStorage.getItem('test.login-startup')==='true';
+      }
       if(command==='recording_limit')return Number(localStorage.getItem('test.recording-limit'))||null;
       if(command==='set_recording_limit'){localStorage.setItem('test.recording-limit',String(args.limit??''));return null;}
       if(command==='editor_list')return Object.values(docs);
@@ -258,12 +262,21 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   expect(await page.locator('#settings-page').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
   const sizes=await page.locator('.window-controls button').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));expect(sizes).toEqual([{w:46,h:36},{w:46,h:36},{w:46,h:36}]);
   expect(await page.locator('.workspace-nav .wp-icon svg').first().evaluate(n=>getComputedStyle(n).transform)).toBe('none');
+  const startup=page.locator('#login-startup');
+  await expect(startup).not.toBeChecked();
+  await startup.check();
+  await expect(page.locator('#login-startup-status')).toHaveText('已保存设置。');
+  await startup.uncheck();
+  await expect(startup).not.toBeChecked();
   for(const width of [1280,960,420,360]){
     await page.setViewportSize({width,height:780});
     if(width<640&&!await page.locator('body').evaluate(n=>n.classList.contains('compact-nav')))await page.locator('#collapse-nav').click();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     expect(await page.locator('#settings-page').evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);
     expect(await page.locator('#appearance-label').evaluate(node=>node.getBoundingClientRect().width)).toBeGreaterThan(140);
+    const controlsBelowDescription=await page.locator('#settings-page .recording-limit-controls:visible').evaluateAll(groups=>
+      groups.every(group=>group.getBoundingClientRect().top>=group.previousElementSibling!.getBoundingClientRect().bottom));
+    expect(controlsBelowDescription).toBe(true);
     await page.locator('main').evaluate(node=>node.scrollTop=0);
     if(width===420)await page.screenshot({path:info.outputPath('fluent-settings-narrow.png')});
   }

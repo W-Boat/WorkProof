@@ -728,3 +728,27 @@ for (const [host, field] of autoStartFields) field.addEventListener('change', as
     field.disabled = false;
   }
 });
+
+const loginStartupRow = $('login-startup-settings');
+const loginStartup = $('login-startup');
+const loginStartupStatus = $('login-startup-status');
+let loginStartupBusy = false;
+async function updateLoginStartup(enabled) {
+  if (loginStartupBusy) return;
+  loginStartupBusy = loginStartup.disabled = true;
+  try {
+    loginStartup.checked = await ipc('login_startup', {enabled});
+    loginStartupStatus.textContent = enabled === null ? '' : '已保存设置。';
+  } catch (error) {
+    if (enabled !== null) loginStartup.checked = !enabled;
+    loginStartupStatus.textContent = errorText(error);
+  } finally {
+    loginStartupBusy = loginStartup.disabled = false;
+  }
+}
+window.addEventListener('workproof-view', event => {
+  if (event.detail !== 'settings' || document.body.dataset.platform !== 'windows') return;
+  loginStartupRow.hidden = false;
+  void updateLoginStartup(null);
+});
+loginStartup.addEventListener('change', () => void updateLoginStartup(loginStartup.checked));
