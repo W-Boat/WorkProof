@@ -51,9 +51,11 @@ def select_file(selector,path):
     wait(displayed)
 
 def click_text(text):
-    element=execute('return Array.from(document.querySelectorAll("button,fluent-button")).find(b=>(b.getAttribute("aria-label")||b.textContent).includes(arguments[0]))',[text])
-    assert element
-    click_element(element)
+    def find():
+        element=execute('return Array.from(document.querySelectorAll("button,fluent-button")).find(b=>(b.getAttribute("aria-label")||b.textContent).includes(arguments[0]))',[text])
+        assert element, f'Native button not rendered: {text}'
+        return element
+    click_element(wait(find))
 def settled_layout():
     call('POST',f'/session/{session}/execute/async',{'script':"const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));",'args':[]})
 
