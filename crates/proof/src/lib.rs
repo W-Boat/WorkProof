@@ -12,6 +12,7 @@ pub mod behavior;
 mod behavior_structure;
 pub mod receipt;
 pub mod segmented;
+pub mod transport;
 pub use behavior::{assess_behavior,BehaviorAssessment};
 pub use merkle::{create_disclosure, verify_disclosure, Disclosure};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -78,7 +79,7 @@ impl Evidence {
 }
 #[cfg_attr(feature="wasm",wasm_bindgen)]
 pub fn behavior_json(proof_json:&str)->String{
-    let assessment=if proof_json.len()>32*1024*1024{BehaviorAssessment::unavailable()}
+    let assessment=if proof_json.len()>transport::MAX_JSON_BYTES{BehaviorAssessment::unavailable()}
         else{match serde_json::from_str::<Evidence>(proof_json){Ok(proof)=>assess_behavior(&proof),Err(_)=>BehaviorAssessment::unavailable()}};
     serde_json::to_string(&assessment).expect("bounded behavior assessment contains finite numeric values")
 }
@@ -232,8 +233,11 @@ pub fn inspect_certificate(evidence:&Evidence)->CertificateInspection{
         manifest:Some(m.clone()),signature:report.signature_valid.then(||signature.clone()),actions}
 }
 pub fn inspect_certificate_json(json:&[u8])->CertificateInspection{
-    if json.len()>32*1024*1024{return CertificateInspection::rejected("PROOF_TOO_LARGE");}
-    match serde_json::from_slice::<Evidence>(json){Ok(proof)=>inspect_certificate(&proof),Err(_)=>CertificateInspection::rejected("INVALID_PROOF")}
+    let json=match transport::decode(json){
+        Ok(json)=>json,
+        Err(code)=>return CertificateInspection::rejected(code),
+    };
+    match serde_json::from_slice::<Evidence>(&json){Ok(proof)=>inspect_certificate(&proof),Err(_)=>CertificateInspection::rejected("INVALID_PROOF")}
 }
 #[cfg(test)]mod inspection_tests{
     use super::*;
@@ -298,6 +302,13 @@ pub fn verify_server_receipt(proof:&[u8],receipt:&[u8],issuer:&str,public_key:&s
 #[cfg(feature="wasm")]
 #[wasm_bindgen]
 pub struct FileHasher { hasher: blake3::Hasher, bytes: u64 }
+
+#[cfg(feature="wasm")]
+#[wasm_bindgen]
+pub fn decode_certificate(bytes: &[u8]) -> Result<String, JsValue> {
+    let json=transport::decode(bytes).map_err(JsValue::from_str)?;
+    String::from_utf8(json.into_owned()).map_err(|_|JsValue::from_str("INVALID_PROOF"))
+}
 #[cfg(feature="wasm")]
 #[wasm_bindgen]
 impl FileHasher {
@@ -306,7 +317,7 @@ impl FileHasher {
     pub fn update(&mut self, bytes: &[u8]) { self.hasher.update(bytes); self.bytes += bytes.len() as u64; }
     pub fn finish(&self) -> String { self.hasher.finalize().to_hex().to_string() }
     pub fn verify(&self, json: &str) -> Result<String, JsValue> {
-        if json.len() > 32 * 1024 * 1024 { return Err(JsValue::from_str("PROOF_TOO_LARGE")); }
+        if json.len() > transport::MAX_JSON_BYTES { return Err(JsValue::from_str("PROOF_TOO_LARGE")); }
         let proof: Evidence = serde_json::from_str(json).map_err(|_| JsValue::from_str("INVALID_PROOF"))?;
         serde_json::to_string(&verify_evidence(&proof, &self.finish(), self.bytes)).map_err(|_| JsValue::from_str("INVALID_PROOF"))
     }

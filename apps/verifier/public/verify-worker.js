@@ -12,7 +12,10 @@ self.onmessage = async ({data}) => {
       const report=JSON.parse((await ready).verify_server_receipt(new Uint8Array(await proof.arrayBuffer()),new Uint8Array(await data.receipt.arrayBuffer()),data.issuerId,data.publicKey,data.nowMs,2678400));
       self.postMessage({type:'receipt',report});return;
     }
-    const json=await proof.text();
+    const prefix=new Uint8Array(await proof.slice(0,2).arrayBuffer());
+    const compressed=prefix[0]===0x1f&&prefix[1]===0x8b;
+    if(compressed&&typeof (await ready).decode_certificate!=='function')throw new Error('请更新核验页以打开压缩证书');
+    const json=compressed?(await ready).decode_certificate(new Uint8Array(await proof.arrayBuffer())):await proof.text();
     const parsed=JSON.parse(json);
     const segmented=parsed.manifest?.protocol==='workproof/segmented/1';
     if(!segmented&&!['workproof/1','workproof/2','workproof/3'].includes(parsed.manifest?.protocol))throw new Error('不支持的证据协议版本');

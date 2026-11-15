@@ -55,7 +55,8 @@ async fn main()->Result<(),Box<dyn std::error::Error>> {
     }
     if args.get(1).map(String::as_str)==Some("verify") {
         if args.len()!=4{return Err("Usage: workproof-engine verify ARTIFACT PROOF.wproof".into());}
-        let p:Evidence=serde_json::from_slice(&read_proof(&args[3])?)?;
+        let bytes=read_proof(&args[3])?;
+        let p:Evidence=serde_json::from_slice(&workproof_protocol::transport::decode(&bytes)?)?;
         let mut file=std::fs::File::open(&args[2])?;let mut hasher=blake3::Hasher::new();let mut buf=[0u8;65536];let mut length=0;
         loop{let n=file.read(&mut buf)?;if n==0{break;}hasher.update(&buf[..n]);length+=n as u64;}
         let report=verify_evidence(&p,&hasher.finalize().to_hex().to_string(),length);

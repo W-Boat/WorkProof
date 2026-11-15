@@ -38,7 +38,8 @@ pub async fn save_report(window:WebviewWindow,html:String,certificate_id:String)
 
 fn write_certificate(path:&Path,bytes:&[u8],certificate_id:&str,sha256:&str)->Result<Value,String>{
     if bytes.is_empty()||bytes.len()>32*1024*1024||format!("{:x}",Sha256::digest(bytes))!=sha256{return Err("原始证书数据不完整，请重新核验后保存。".into());}
-    let value:Value=serde_json::from_slice(bytes).map_err(|_|"原始证书不是有效的 JSON 文件。")?;
+    let decoded=workproof_engine::proof_transport::decode(bytes).map_err(|_|"原始证书无法解压。")?;
+    let value:Value=serde_json::from_slice(&decoded).map_err(|_|"原始证书不是有效的 JSON 文件。")?;
     let signature=value["signature"].as_str().filter(|s|s.len()==128&&s.bytes().all(|b|b.is_ascii_hexdigit())).ok_or("原始证书缺少签名。")?;
     let signature:Vec<u8>=signature.as_bytes().chunks_exact(2).map(|pair|u8::from_str_radix(std::str::from_utf8(pair).unwrap(),16).unwrap()).collect();
     if format!("{:x}",Sha256::digest(&signature))!=certificate_id{return Err("原文件与已核验的证书指纹不一致，请重新核验。".into());}

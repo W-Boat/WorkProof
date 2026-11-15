@@ -30,7 +30,8 @@ pub async fn editor_export(window:WebviewWindow,id:String,docx:Option<Vec<u8>>,m
         let name=path.file_name().and_then(|s|s.to_str()).ok_or("文件名称无法读取。")?;
         let out=store::desktop_export(&dir,&id,name,docx.as_deref(),markdown.as_deref())?;
         let proof=serde_json::to_vec(&out.proof).map_err(|_|"证书未能生成。")?;
-        if proof.len()>32*1024*1024{return Err("完整证书超过当前核验端的 32 MiB 限制，正文与动作仍保存在本机。".into());}
+        let proof=workproof_engine::proof_transport::encode(proof,Some(1024*1024))
+            .map_err(|_|"证书无法封装在当前核验范围内，正文与动作仍保存在本机。")?;
         use std::io::Write;
         let mut artifact=std::fs::OpenOptions::new().write(true).create_new(true).open(&path).map_err(|_|"保存位置已有同名作品，或无法写入。请选择新的文件名。")?;
         let result=(||->Result<(),String>{
