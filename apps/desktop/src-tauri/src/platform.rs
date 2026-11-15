@@ -85,18 +85,26 @@ fn open_office(powerpoint:bool)->Result<(),String>{
 }
 fn browser_command(port:u16)->Result<Command,String>{
     if port==0{return Err("核验页面尚未就绪，请稍后重试。".into());}
-    let url=format!("http://127.0.0.1:{port}/");
+    Ok(web_command(&format!("http://127.0.0.1:{port}/")))
+}
+fn web_command(address:&str)->Command{
     #[cfg(windows)]let mut command={let mut c=Command::new("rundll32.exe");c.arg("url.dll,FileProtocolHandler");c};
     #[cfg(target_os="macos")]let mut command=Command::new("/usr/bin/open");
     #[cfg(target_os="linux")]let mut command=Command::new("xdg-open");
-    command.arg(url);quiet(&mut command);Ok(command)
+    command.arg(address);quiet(&mut command);command
 }
 pub fn open_verifier(port:u16)->Result<(),String>{
-    let mut child=browser_command(port)?.spawn().map_err(|_|"无法打开默认浏览器，请检查系统的默认浏览器设置。".to_string())?;
+    launch_browser(browser_command(port)?)
+}
+pub fn open_web_address(address:&str)->Result<(),String>{
+    launch_browser(web_command(address))
+}
+fn launch_browser(mut command:Command)->Result<(),String>{
+    let mut child=command.spawn().map_err(|_|"无法打开默认浏览器，请检查系统的默认浏览器设置。".to_string())?;
     let until=Instant::now()+Duration::from_millis(300);
     loop{
         match child.try_wait(){
-            Ok(Some(status))=>return if status.success(){Ok(())}else{Err("系统未能打开核验页，请检查默认浏览器设置。".into())},
+            Ok(Some(status))=>return if status.success(){Ok(())}else{Err("系统未能打开页面，请检查默认浏览器设置。".into())},
             Err(_)=>return Err("无法读取浏览器启动结果，请重试。".into()),
             Ok(None) if Instant::now()>=until=>{
                 // Some desktop launchers wait for the browser. Do not kill the user's browser.

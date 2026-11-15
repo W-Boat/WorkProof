@@ -336,6 +336,29 @@ adapterSetupButton.addEventListener('click',async()=>{
     updateLaunchButtons();
   }
 });
+const wpsSetup = document.getElementById('wps-setup');
+const wpsAddress = document.getElementById('wps-setup-address');
+const wpsOpen = document.getElementById('wps-setup-open');
+const wpsResult = document.getElementById('wps-setup-result');
+function showWpsSetup(){ wpsSetup.hidden = !['wps','wps-presentation','wps-spreadsheets'].includes(creationTool.value); }
+creationTool.addEventListener('change',showWpsSetup);
+showWpsSetup();
+async function openWpsPublication(event){
+  event.preventDefault();
+  if(wpsOpen.disabled || !wpsAddress.reportValidity()) return;
+  wpsOpen.disabled = true;
+  try{
+    await window.__TAURI__.core.invoke('open_wps_publication',{address:wpsAddress.value});
+    wpsResult.textContent = '已打开发布页。请在页面内安装加载项，完成后重新打开 WPS。';
+  }catch(error){
+    wpsResult.textContent = errorText(error);
+  }finally{
+    wpsOpen.disabled = false;
+  }
+}
+wpsSetup.addEventListener('submit',openWpsPublication);
+wpsOpen.addEventListener('click',openWpsPublication);
+
 const excelSetup = document.getElementById('excel-setup');
 const excelOrigin = document.getElementById('excel-setup-origin');
 const excelSave = document.getElementById('excel-setup-save');

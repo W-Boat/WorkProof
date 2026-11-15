@@ -157,6 +157,21 @@ async fn adapter_setup(window:tauri::WebviewWindow,app:tauri::AppHandle,host:Str
     }).await.map_err(|_|"插件配置未完成。")?
 }
 
+#[tauri::command]
+fn open_wps_publication(window: tauri::WebviewWindow, address: String) -> Result<(), String> {
+    workbench_only(&window)?;
+    if address.len() > 2048 {
+        return Err("WPS 发布地址过长。".into());
+    }
+    let url = tauri::Url::parse(address.trim()).map_err(|_| "请输入有效的 WPS 发布地址。")?;
+    if url.scheme() != "https" || url.host_str().is_none()
+        || !url.username().is_empty() || url.password().is_some()
+    {
+        return Err("请填写机构提供的 WPS HTTPS 发布地址。".into());
+    }
+    platform::open_web_address(url.as_str())
+}
+
 fn workbench_only(window:&tauri::WebviewWindow)->Result<(),String>{
     workbench_label(window.label())
 }
@@ -257,7 +272,7 @@ async fn install_vscode(window:tauri::WebviewWindow,app:tauri::AppHandle)->Resul
     Ok("插件安装完成。在 VS Code 状态栏点击 WorkProof 即可开始记录。".into())
 }
 fn main(){
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![saved_recording::saved_recording_start,saved_recording::saved_recording_status,saved_recording::saved_recording_pause,saved_recording::saved_recording_finish,connection_notifications::take_pairing_notice,report_download::save_report,report_download::save_certificate,window_action,office_setup,adapter_setup,excel_setup::save_excel_manifest,engine_status,app_info,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,verifier_url,install_vscode,open_word,open_powerpoint,verify_image,embed_image,editor::login_startup,editor::office_auto_start,editor::office_reconnect,editor::set_office_reconnect,editor::recording_limit,editor::set_recording_limit,editor::editor_list,editor::editor_create,editor::editor_load,editor::editor_save,editor::editor_version,editor::editor_history,editor::editor_replay_frame,editor::editor_export,external_documents::external_document_read,external_documents::library_states,external_documents::library_set_state,external_documents::library_delete,external_documents::external_documents_list,external_documents::external_document_load,external_documents::external_document_open,external_documents::external_document_locate]).setup(|app|{
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![saved_recording::saved_recording_start,saved_recording::saved_recording_status,saved_recording::saved_recording_pause,saved_recording::saved_recording_finish,connection_notifications::take_pairing_notice,report_download::save_report,report_download::save_certificate,window_action,office_setup,adapter_setup,excel_setup::save_excel_manifest,open_wps_publication,engine_status,app_info,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,verifier_url,install_vscode,open_word,open_powerpoint,verify_image,embed_image,editor::login_startup,editor::office_auto_start,editor::office_reconnect,editor::set_office_reconnect,editor::recording_limit,editor::set_recording_limit,editor::editor_list,editor::editor_create,editor::editor_load,editor::editor_save,editor::editor_version,editor::editor_history,editor::editor_replay_frame,editor::editor_export,external_documents::external_document_read,external_documents::library_states,external_documents::library_set_state,external_documents::library_delete,external_documents::external_documents_list,external_documents::external_document_load,external_documents::external_document_open,external_documents::external_document_locate]).setup(|app|{
         let open=MenuItem::with_id(app,"open","打开工作台",true,None::<&str>)?;
         let library=MenuItem::with_id(app,"library","我的文档",true,None::<&str>)?;
         let verification=MenuItem::with_id(app,"verification","文件核验",true,None::<&str>)?;

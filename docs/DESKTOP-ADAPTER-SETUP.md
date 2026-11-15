@@ -10,7 +10,7 @@
 | Krita | 安装到当前用户的默认插件目录 | 在宿主启用并重启，默认目录及宿主版本仍需真机验收 |
 | Photoshop | 打开随包开发插件目录 | 由 Adobe 工具生成并验收 CCX，接入正式安装流程 |
 | Excel | 输入机构 HTTPS 地址，在桌面保存专用清单 | 由机构管理员部署清单，随后验收真实 Excel |
-| WPS 文字、演示、表格 | 已有加载项入口与发布资源 | WPS 发布、注册和真实宿主验收 |
+| WPS 文字、演示、表格 | 从桌面打开机构的 HTTPS 安装页 | 机构用 WPS 发布工具部署安装页，用户在页面确认安装，真实宿主待验收 |
 | Illustrator、InDesign、SAI2 | 从应用连接直接开始记录 | 对应宿主及版本验收 |
 
 - [Blender 扩展命令](https://docs.blender.org/manual/en/latest/advanced/command_line/extension_arguments.html)

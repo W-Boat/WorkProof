@@ -361,6 +361,29 @@ test('notification activation opens a consent dialog and never approves a plugin
   await expect(page.locator('#pairing-inbox')).toBeHidden();
 });
 
+test('WPS components share the institution publication entry',async({page})=>{
+  await desktop(page);
+  await page.evaluate(()=>{
+    const target=window as any, original=target.__TAURI__.core.invoke;
+    target.wpsPublicationAddresses=[];
+    target.__TAURI__.core.invoke=(command:string,args:any)=>{
+      if(command!=='open_wps_publication')return original(command,args);
+      target.wpsPublicationAddresses.push(args.address);
+      return Promise.resolve();
+    };
+  });
+  await expect(page.locator('#wps-setup')).toBeHidden();
+  const address='https://office.example.edu/publish.html';
+  for(const host of ['WPS','WPS 演示','WPS 表格']){
+    await page.getByRole('button',{name:'选择 '+host,exact:true}).click();
+    await expect(page.locator('#wps-setup')).toBeVisible();
+  }
+  await page.getByLabel('WPS 加载项发布地址').fill(address);
+  await page.getByRole('button',{name:'打开 WPS 安装页面',exact:true}).click();
+  await expect(page.locator('#wps-setup-result')).toContainText('已打开发布页');
+  expect(await page.evaluate(()=>(window as any).wpsPublicationAddresses)).toEqual([address]);
+});
+
 test('Excel setup saves a manifest for the provided institution address',async({page})=>{
   await desktop(page);
   await page.evaluate(()=>{

@@ -541,5 +541,5 @@ body dialog[data-dialog-closing=true]::backdrop{background:#0000}
 
 .recording-limit-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.recording-limit-controls input{width:96px;padding:6px 8px;border:1px solid var(--stroke);border-radius:4px;color:var(--text);background:var(--content)}
 
-#excel-setup-origin{width:min(100%,320px)}
-#excel-setup label{display:block;margin-bottom:8px}
+#excel-setup-origin,#wps-setup-address{width:min(100%,320px)}
+#excel-setup label,#wps-setup label{display:block;margin-bottom:8px}
