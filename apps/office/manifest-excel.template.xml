@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="TaskPaneApp">
+  <Id>52d5c976-01ca-4f27-b877-8aa8bdb6ce5c</Id>
+  <Version>0.2.0.0</Version>
+  <ProviderName>WorkProof</ProviderName>
+  <DefaultLocale>zh-CN</DefaultLocale>
+  <DisplayName DefaultValue="WorkProof · 开源证人"/>
+  <Description DefaultValue="在本机记录工作簿变化并导出可核验证书"/>
+  <Hosts><Host Name="Workbook"/></Hosts>
+  <DefaultSettings><SourceLocation DefaultValue="__WORKPROOF_HTTPS_ORIGIN__/office/index.html?host=excel"/></DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+</OfficeApp>

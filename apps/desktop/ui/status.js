@@ -336,6 +336,28 @@ adapterSetupButton.addEventListener('click',async()=>{
     updateLaunchButtons();
   }
 });
+const excelSetup = document.getElementById('excel-setup');
+const excelOrigin = document.getElementById('excel-setup-origin');
+const excelSave = document.getElementById('excel-setup-save');
+const excelResult = document.getElementById('excel-setup-result');
+function showExcelSetup(){ excelSetup.hidden = creationTool.value !== 'excel'; }
+creationTool.addEventListener('change',showExcelSetup);
+showExcelSetup();
+async function saveExcelManifest(event){
+  event.preventDefault();
+  if(excelSave.disabled || !excelOrigin.reportValidity()) return;
+  excelSave.disabled = true;
+  try{
+    const saved = await window.__TAURI__.core.invoke('save_excel_manifest',{origin:excelOrigin.value});
+    excelResult.textContent = saved ? '清单已保存。请交给机构管理员部署。' : '已取消保存。';
+  }catch(error){
+    excelResult.textContent = errorText(error);
+  }finally{
+    excelSave.disabled = false;
+  }
+}
+excelSetup.addEventListener('submit',saveExcelManifest);
+excelSave.addEventListener('click',saveExcelManifest);
 function showOfficeSetup(){document.getElementById('office-setup').hidden=!['word','powerpoint'].includes(creationTool.value);document.getElementById('office-setup-result').textContent='首次使用可在这里检查并安装加载项。请先保存并退出对应的 Office 软件。';}
 creationTool.addEventListener('change',showOfficeSetup);showOfficeSetup();
 for(const id of ['check-office','install-office'])document.getElementById(id).addEventListener('click',async()=>{

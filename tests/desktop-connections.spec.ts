@@ -361,6 +361,24 @@ test('notification activation opens a consent dialog and never approves a plugin
   await expect(page.locator('#pairing-inbox')).toBeHidden();
 });
 
+test('Excel setup saves a manifest for the provided institution address',async({page})=>{
+  await desktop(page);
+  await page.evaluate(()=>{
+    const target=window as any, original=target.__TAURI__.core.invoke;
+    target.__TAURI__.core.invoke=(command:string,args:any)=>{
+      if(command!=='save_excel_manifest')return original(command,args);
+      target.excelManifestOrigin=args.origin;
+      return Promise.resolve(true);
+    };
+  });
+  await expect(page.locator('#excel-setup')).toBeHidden();
+  await page.getByRole('button',{name:'选择 Excel',exact:true}).click();
+  await page.getByLabel('机构 HTTPS 地址').fill('https://office.example.edu');
+  await page.getByRole('button',{name:'保存 Excel 加载项清单',exact:true}).click();
+  await expect(page.locator('#excel-setup-result')).toHaveText('清单已保存。请交给机构管理员部署。');
+  expect(await page.evaluate(()=>(window as any).excelManifestOrigin)).toBe('https://office.example.edu');
+});
+
 test('plugin setup routes to the selected application and shows actionable results',async({page})=>{
   await desktop(page);
   await page.evaluate(()=>{
