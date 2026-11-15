@@ -18,8 +18,14 @@ pub async fn editor_history(window:WebviewWindow,id:String,after:Option<u64>,thr
 #[tauri::command]
 pub async fn editor_replay_frame(window:WebviewWindow,id:String,revision:u64)->Result<Value,String>{let dir=root(&window)?;tauri::async_runtime::spawn_blocking(move||store::replay_frame(&dir,&id,revision)).await.map_err(|_|"回放版本未能读取。")?}
 #[tauri::command]
-pub async fn editor_export(window:WebviewWindow,id:String,docx:Option<Vec<u8>>,markdown:Option<String>)->Result<Value,String>{
+pub async fn editor_export(window:WebviewWindow,id:String,docx:Option<Vec<u8>>,markdown:Option<String>,compression:Option<String>)->Result<Value,String>{
     let dir=root(&window)?;
+    let compression_threshold=match compression.as_deref(){
+        None|Some("auto")=>Some(1024*1024),
+        Some("always")=>Some(0),
+        Some("off")=>None,
+        _=>return Err("无法识别证书压缩设置。".into()),
+    };
     tauri::async_runtime::spawn_blocking(move||{
         let extension=store::desktop_export_extension(&dir,&id,docx.is_some(),markdown.is_some())?;
         // Picker text is fixed: never interpolate a document name into shell code.
@@ -30,7 +36,7 @@ pub async fn editor_export(window:WebviewWindow,id:String,docx:Option<Vec<u8>>,m
         let name=path.file_name().and_then(|s|s.to_str()).ok_or("文件名称无法读取。")?;
         let out=store::desktop_export(&dir,&id,name,docx.as_deref(),markdown.as_deref())?;
         let proof=serde_json::to_vec(&out.proof).map_err(|_|"证书未能生成。")?;
-        let proof=workproof_engine::proof_transport::encode(proof,Some(1024*1024))
+        let proof=workproof_engine::proof_transport::encode(proof,compression_threshold)
             .map_err(|_|"证书无法封装在当前核验范围内，正文与动作仍保存在本机。")?;
         use std::io::Write;
         let mut artifact=std::fs::OpenOptions::new().write(true).create_new(true).open(&path).map_err(|_|"保存位置已有同名作品，或无法写入。请选择新的文件名。")?;

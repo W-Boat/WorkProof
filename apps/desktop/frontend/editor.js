@@ -570,7 +570,8 @@ async function exportDocument(){
     let docx=null,markdown=null;
     if(format==='docx')docx=Array.from(await wordOperation('export',{content:editor.getJSON()}));
     if(format==='markdown')markdown=workspace.markdownText();
-    const out=await ipc('editor_export',{id:active.id,docx,markdown});
+    const compression=$('report-compression').value;
+    const out=await ipc('editor_export',{id:active.id,docx,markdown,compression});
     if(out?.cancelled)return;
     if(out?.saved!==true||out.report?.valid!==true||out.report?.file_match!==true||out.report?.signature_valid!==true||typeof out.html!=='string'||!/^[a-f0-9]{64}$/.test(out.fingerprint))throw new Error('导出结果未能确认，请不要交付未经核验的文件。');
     $('export-preview').srcdoc=out.html;$('exported-name').textContent=out.file_name;$('certificate-name').textContent=active.title;$('certificate-count').textContent=`${out.event_count} 条核验记录`;$('certificate-fingerprint').textContent=out.fingerprint;$('certificate-empty').hidden=true;$('certificate-result').hidden=false;selectTab('certificate');$('tab-certificate').focus();ui.showMessage('作品和证书已保存，请将两个文件一起交付。');

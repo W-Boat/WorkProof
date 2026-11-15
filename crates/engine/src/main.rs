@@ -41,7 +41,8 @@ async fn main()->Result<(),Box<dyn std::error::Error>> {
     }
     if args.get(1).map(String::as_str)==Some("disclose") {
         if args.len()!=4&&args.len()!=5{return Err("Usage: workproof-engine disclose INPUT.wproof OUTPUT.wproof [ZERO_BASED_INDICES_CSV]".into());}
-        let p:Proof=serde_json::from_slice(&read_proof(&args[2])?)?;
+        let bytes=read_proof(&args[2])?;
+        let p:Proof=serde_json::from_slice(&workproof_protocol::transport::decode(&bytes)?)?;
         let selected:Vec<u64>=if let Some(value)=args.get(4){
             if value.len()>16*1024{return Err("Selection exceeds limit".into());}
             value.split(',').map(str::parse).collect::<Result<_,_>>()?
