@@ -264,9 +264,11 @@ test('settings use upright icons and equal window buttons with reduced motion',a
   const sizes=await page.locator('.window-controls button').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));expect(sizes).toEqual([{w:46,h:36},{w:46,h:36},{w:46,h:36}]);
   expect(await page.locator('.workspace-nav .wp-icon svg').first().evaluate(n=>getComputedStyle(n).transform)).toBe('none');
   const startup=page.locator('fluent-switch#login-startup');
+  await expect(startup).toHaveJSProperty('disabled',false);
   await expect(startup).toHaveJSProperty('checked',false);
   await startup.click();
   await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test.login-startup'))).toBe('true');
+  await expect(startup).toHaveJSProperty('disabled',false);
   await startup.click();
   await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test.login-startup'))).toBe('false');
   const word=page.locator('fluent-switch#auto-start-word');
