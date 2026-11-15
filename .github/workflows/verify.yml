@@ -244,7 +244,7 @@ jobs:
           # Every other executable byte must match the exact-source build.
           python -c "import pathlib,sys; a=pathlib.Path('target/release/workproof-desktop.exe').read_bytes(); b=pathlib.Path(sys.argv[1]).read_bytes(); marker=b'__TAURI_BUNDLE_TYPE_VAR_UNK'; assert a==b or (a.count(marker)==1 and a.replace(marker,b'__TAURI_BUNDLE_TYPE_VAR_NSS')==b), 'Installed desktop executable differs from its build'; print('PASS installed desktop executable byte equivalence, allowing only Tauri NSIS marker')" (Join-Path $destination 'workproof-desktop.exe')
           if($LASTEXITCODE -ne 0){throw 'Installed executable verification failed'}
-          foreach($adapter in @('workproof-blender.zip','workproof-krita-dev.zip','photoshop/manifest.json','photoshop/main.js')){
+          foreach($adapter in @('workproof-blender.zip','krita/workproof.desktop','krita/workproof/docker.py','photoshop/manifest.json','photoshop/main.js')){
             $sourceFile=Join-Path 'apps/desktop/src-tauri/resources/adapters' $adapter
             $installedFile=Join-Path (Join-Path $destination 'adapters') $adapter
             if((Get-FileHash -LiteralPath $sourceFile).Hash -ne (Get-FileHash -LiteralPath $installedFile).Hash){throw ('Installed plugin differs: '+$adapter)}

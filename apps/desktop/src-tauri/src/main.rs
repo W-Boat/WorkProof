@@ -3,6 +3,7 @@ use tauri::{menu::{Menu,MenuItem,PredefinedMenuItem},tray::{TrayIconBuilder,Tray
 mod platform;
 mod c2pa;
 mod office_setup;
+mod krita_setup;
 mod editor;
 mod external_documents;
 mod saved_recording;
@@ -143,11 +144,7 @@ async fn adapter_setup(window:tauri::WebviewWindow,app:tauri::AppHandle,host:Str
                 if !status.success(){return Err("Blender 扩展安装失败。请确认版本至少为 4.2，并关闭正在运行的 Blender 后重试。".into());}
                 Ok("Blender 已完成安装。请打开 Blender 查看 WorkProof 面板。".into())
             }
-            "krita"=>{
-                if !resources.join("workproof-krita-dev.zip").is_file(){return Err("安装包缺少 Krita 插件。".into());}
-                platform::open_document(&resources)?;
-                Ok("在 Krita 中选择「工具 → 脚本 → 从文件导入 Python 插件」，选中 workproof-krita-dev.zip，再在 Python 插件管理器启用。".into())
-            }
+            "krita"=>krita_setup::install(&resources.join("krita")),
             "photoshop"=>{
                 let development=resources.join("photoshop");
                 if !development.join("manifest.json").is_file(){return Err("安装包缺少 Photoshop 开发插件。".into());}

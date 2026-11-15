@@ -2,6 +2,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import zipfile
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
@@ -14,5 +15,11 @@ manifest = root / 'apps/blender/workproof/blender_manifest.toml'
 version = tomllib.loads(manifest.read_text(encoding='utf-8'))['version']
 blender = root / 'dist' / f'workproof-blender-{version}.zip'
 shutil.copy2(blender, target / 'workproof-blender.zip')
-shutil.copy2(root / 'dist/workproof-krita-dev.zip', target)
+with zipfile.ZipFile(root / 'dist/workproof-krita-dev.zip') as archive:
+    for name in ('workproof.desktop', 'workproof/__init__.py', 'workproof/core.py',
+                 'workproof/docker.py', 'workproof/qt_compat.py', 'workproof/Manual.html',
+                 'workproof/COPYING', 'workproof/README.md'):
+        destination = target / 'krita' / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(archive.read(name))
 shutil.copytree(root / 'apps/photoshop/dist', target / 'photoshop', dirs_exist_ok=True)

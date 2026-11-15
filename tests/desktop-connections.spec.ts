@@ -377,18 +377,18 @@ test('plugin setup routes to the selected application and shows actionable resul
   await page.getByRole('button',{name:'安装 Blender 扩展',exact:true}).click();
   await expect(page.locator('#adapter-setup-result')).toHaveText('Blender 扩展安装失败');
   await page.getByRole('button',{name:'选择 Krita',exact:true}).click();
-  await page.getByRole('button',{name:'打开 Krita 插件包',exact:true}).click();
+  await page.getByRole('button',{name:'安装 Krita 插件',exact:true}).click();
   await expect(page.locator('#adapter-setup-result')).toHaveText('已打开插件资源');
   expect(await page.evaluate(()=>(window as any).pluginSetupHosts)).toEqual(['blender','krita']);
 });
 
-test('Krita guide explains manual plugin installation and hides unrelated installers',async({page})=>{
+test('Krita guide explains host activation and hides unrelated installers',async({page})=>{
   await desktop(page);
   await page.getByRole('button',{name:'选择 Krita',exact:true}).click();
   await expect(page.locator('#creation-tool')).toHaveValue('krita');
   await expect(page.locator('#creation-steps')).toContainText('原作品和证书');
   await expect(page.locator('#creation-steps li')).toHaveCount(3);
-  await expect(page.locator('#tool-requirement')).toContainText('手动安装');
+  await expect(page.locator('#tool-requirement')).toContainText('在 Krita 中启用');
   await expect(page.locator('#office-setup')).toBeHidden();
   await expect(page.locator('#install')).toBeHidden();
   await expect(page.locator('#open-word')).toBeHidden();
