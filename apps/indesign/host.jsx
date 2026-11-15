@@ -41,14 +41,15 @@
         var pageCount = doc.pages.length, storyCount = doc.stories.length;
         var items = doc.allPageItems;
         if (pageCount > 1024 || storyCount > 4096 || items.length > 4096) throw Error('OBJECT_LIMIT');
-        var stories = [], characters = 0, seen = {};
+        var stories = [], characters = 0, textUnits = 0, seen = {};
         for (var i = 0; i < storyCount; ++i) {
             budget();
             var story = doc.stories[i], count = Number(story.characters.length);
             if (!isFinite(count) || count < 0 || characters + count > 1000000) throw Error('TEXT_LIMIT');
             var content = story.contents;
             if (typeof content !== 'string') throw Error('TEXT_UNAVAILABLE');
-            if (content.length > 2000000) throw Error('TEXT_LIMIT');
+            textUnits += content.length;
+            if (textUnits > 2000000) throw Error('TEXT_LIMIT');
             characters += count;
             stories.push([id(story), content]);
         }

@@ -22,3 +22,6 @@ assert.notDeepEqual(observe({...document, allPageItems: [{...document.allPageIte
 assert.equal(observe({...document, modified: false}).saved, true);
 assert.equal(observe({...document, isCloudDocument: true}).error, 'SAVE_LOCAL_DOCUMENT_FIRST');
 assert.equal(observe(null).error, 'NO_ACTIVE_DOCUMENT');
+
+const longStory = {id: 2, characters: {length: 1}, contents: 'x'.repeat(1000001)};
+assert.equal(observe({...document, stories: [longStory, {...longStory, id: 4}]}).error, 'TEXT_LIMIT');
