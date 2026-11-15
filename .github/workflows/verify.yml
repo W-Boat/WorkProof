@@ -191,6 +191,7 @@ jobs:
           New-Item -ItemType Directory -Force apps/desktop/src-tauri/resources | Out-Null
           Copy-Item -Recurse .ci-artifacts/apps/verifier/out apps/desktop/src-tauri/resources/verifier
           Copy-Item .ci-artifacts/apps/extension/*.vsix apps/desktop/src-tauri/resources/workproof.vsix
+          python scripts/stage_desktop_adapters.py
           npm run icons -w @workproof/desktop
       - run: cargo test --locked -p workproof-protocol -p workproof-engine
       - name: Windows state location and desktop integration tests
@@ -243,6 +244,11 @@ jobs:
           # Every other executable byte must match the exact-source build.
           python -c "import pathlib,sys; a=pathlib.Path('target/release/workproof-desktop.exe').read_bytes(); b=pathlib.Path(sys.argv[1]).read_bytes(); marker=b'__TAURI_BUNDLE_TYPE_VAR_UNK'; assert a==b or (a.count(marker)==1 and a.replace(marker,b'__TAURI_BUNDLE_TYPE_VAR_NSS')==b), 'Installed desktop executable differs from its build'; print('PASS installed desktop executable byte equivalence, allowing only Tauri NSIS marker')" (Join-Path $destination 'workproof-desktop.exe')
           if($LASTEXITCODE -ne 0){throw 'Installed executable verification failed'}
+          foreach($adapter in @('workproof-blender.zip','workproof-krita-dev.zip','photoshop/manifest.json','photoshop/main.js')){
+            $sourceFile=Join-Path 'apps/desktop/src-tauri/resources/adapters' $adapter
+            $installedFile=Join-Path (Join-Path $destination 'adapters') $adapter
+            if((Get-FileHash -LiteralPath $sourceFile).Hash -ne (Get-FileHash -LiteralPath $installedFile).Hash){throw ('Installed plugin differs: '+$adapter)}
+          }
           $payload=Join-Path $destination 'office'
           $source='apps/desktop/src-tauri/resources/office'
           foreach($file in (Get-ChildItem -LiteralPath $source -Recurse -File -Force)){
@@ -386,6 +392,7 @@ jobs:
           packages=list(pathlib.Path('.ci-artifacts/apps/extension').glob('*.vsix'));assert len(packages)==1
           shutil.copy2(packages[0],base/'workproof.vsix')
           PY
+          python3 scripts/stage_desktop_adapters.py
           npm run icons -w @workproof/desktop
       - name: Native protocol, state discovery and desktop integration
         run: |

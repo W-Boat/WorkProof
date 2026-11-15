@@ -73,7 +73,7 @@ function updateConnectionBadges(){
   const text=!engineReady?'记录服务未就绪':fileModes[selected]?'在此处选择作品并开始记录':!connectionsKnown?'正在检查连接…':count?`已允许 ${count} 个连接 · 记录状态请在软件中查看`:selected==='vscode'||selected==='blender'?'此软件自动连接 · 请在软件中查看记录状态':'尚未连接 · 首次使用请先安装加载项';
   document.getElementById('selected-connection').textContent=text;
 }
-const launchIds=['open-word','open-powerpoint','install','check-office','install-office'];
+const launchIds=['open-word','open-powerpoint','install','check-office','install-office','setup-adapter'];
 function updateLaunchButtons(){for(const id of launchIds)document.getElementById(id).disabled=!engineReady||launching;}
 const feedback=document.getElementById('message');
 const feedbackText=document.createElement('span');feedbackText.id='message-text';
@@ -301,6 +301,40 @@ try{const saved=localStorage.getItem('workproof.creation-tool');if(Object.hasOwn
 function showGuide(){const guide=guides[creationTool.value];const steps=document.getElementById('creation-steps');steps.replaceChildren();for(const text of guide.steps){const li=document.createElement('li');li.textContent=text;steps.append(li);}document.getElementById('installation-note').textContent=guide.note;document.getElementById('tool-requirement').textContent=requirements[creationTool.value];document.getElementById('install').hidden=creationTool.value!=='vscode';document.getElementById('open-word').hidden=creationTool.value!=='word';document.getElementById('open-powerpoint').hidden=creationTool.value!=='powerpoint';try{localStorage.setItem('workproof.creation-tool',creationTool.value);}catch{}}
 creationTool.addEventListener('change',showGuide);showGuide();
 creationTool.addEventListener('change',updateConnectionBadges);updateConnectionBadges();
+const adapterSetup = document.getElementById('adapter-setup');
+const adapterSetupButton = document.getElementById('setup-adapter');
+const adapterSetupResult = document.getElementById('adapter-setup-result');
+const adapterActions = {
+  blender: ['安装 Blender 扩展', '请保存并关闭 Blender，然后选择 Blender 可执行文件。'],
+  krita: ['打开 Krita 插件包', '在 Krita 导入 ZIP，再在 Python 插件管理器启用。'],
+  photoshop: ['打开 Photoshop 开发插件', '在 Adobe UXP Developer Tool 中添加并加载插件。'],
+};
+function showAdapterSetup(){
+  const action = adapterActions[creationTool.value];
+  adapterSetup.hidden = !action;
+  if (!action) return;
+  adapterSetupButton.textContent = action[0];
+  adapterSetupResult.textContent = action[1];
+}
+creationTool.addEventListener('change',showAdapterSetup);
+showAdapterSetup();
+adapterSetupButton.addEventListener('click',async()=>{
+  const host=creationTool.value;
+  if(launching||!engineReady||!Object.hasOwn(adapterActions,host))return;
+  launching=true;
+  creationTool.disabled=true;
+  updateLaunchButtons();
+  adapterSetupResult.textContent='正在处理，请稍候…';
+  try{
+    adapterSetupResult.textContent=await window.__TAURI__.core.invoke('adapter_setup',{host});
+  }catch(error){
+    adapterSetupResult.textContent=errorText(error);
+  }finally{
+    launching=false;
+    creationTool.disabled=false;
+    updateLaunchButtons();
+  }
+});
 function showOfficeSetup(){document.getElementById('office-setup').hidden=!['word','powerpoint'].includes(creationTool.value);document.getElementById('office-setup-result').textContent='首次使用可在这里检查并安装加载项。请先保存并退出对应的 Office 软件。';}
 creationTool.addEventListener('change',showOfficeSetup);showOfficeSetup();
 for(const id of ['check-office','install-office'])document.getElementById(id).addEventListener('click',async()=>{

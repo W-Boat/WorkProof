@@ -105,6 +105,43 @@ async fn office_setup(window:tauri::WebviewWindow,host:String,install:bool)->Res
     workbench_only(&window)?;
     tauri::async_runtime::spawn_blocking(move||office_setup::office_setup(&host,install)).await.map_err(|_|"安装任务未能完成，请重新检查安装状态。".to_string())?
 }
+#[tauri::command]
+async fn adapter_setup(window:tauri::WebviewWindow,app:tauri::AppHandle,host:String)->Result<String,String>{
+    workbench_only(&window)?;
+    let resources=app.path().resource_dir().map_err(|_|"无法定位安装包资源。")?.join("adapters");
+    tauri::async_runtime::spawn_blocking(move||{
+        static SETUP:std::sync::Mutex<()>=std::sync::Mutex::new(());
+        let _guard=SETUP.try_lock().map_err(|_|"安装任务正在运行，请稍候。")?;
+        match host.as_str(){
+            "blender"=>{
+                let package=resources.join("workproof-blender.zip");
+                if !package.is_file(){return Err("安装包缺少 Blender 扩展。".into());}
+                let Some(binary)=c2pa::pick("选择 Blender 可执行文件","Blender|blender.exe;blender",false,"")? else{return Ok("已取消安装。".into());};
+                if !binary.file_name().and_then(|name|name.to_str()).is_some_and(|name|name.eq_ignore_ascii_case(if cfg!(windows){"blender.exe"}else{"blender"})){
+                    return Err("请选择 Blender 可执行文件。".into());
+                }
+                let mut command=std::process::Command::new(binary);
+                command.args(["--background","--command","extension","install-file","--repo","user_default","--enable"]).arg(package);
+                let (status,_,_)=c2pa::capture(command,120,256*1024)?;
+                if !status.success(){return Err("Blender 扩展安装失败。请确认版本至少为 4.2，并关闭正在运行的 Blender 后重试。".into());}
+                Ok("Blender 已完成安装。请打开 Blender 查看 WorkProof 面板。".into())
+            }
+            "krita"=>{
+                if !resources.join("workproof-krita-dev.zip").is_file(){return Err("安装包缺少 Krita 插件。".into());}
+                platform::open_document(&resources)?;
+                Ok("在 Krita 中选择「工具 → 脚本 → 从文件导入 Python 插件」，选中 workproof-krita-dev.zip，再在 Python 插件管理器启用。".into())
+            }
+            "photoshop"=>{
+                let development=resources.join("photoshop");
+                if !development.join("manifest.json").is_file(){return Err("安装包缺少 Photoshop 开发插件。".into());}
+                platform::open_document(&development)?;
+                Ok("在 Adobe UXP Developer Tool 中添加 manifest.json，再选择 Load 加载插件。".into())
+            }
+            _=>Err("无法识别要配置的插件。".into()),
+        }
+    }).await.map_err(|_|"插件配置未完成。")?
+}
+
 fn workbench_only(window:&tauri::WebviewWindow)->Result<(),String>{
     workbench_label(window.label())
 }
@@ -205,7 +242,7 @@ async fn install_vscode(window:tauri::WebviewWindow,app:tauri::AppHandle)->Resul
     Ok("插件安装完成。在 VS Code 状态栏点击 WorkProof 即可开始记录。".into())
 }
 fn main(){
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![saved_recording::saved_recording_start,saved_recording::saved_recording_status,saved_recording::saved_recording_pause,saved_recording::saved_recording_finish,connection_notifications::take_pairing_notice,report_download::save_report,report_download::save_certificate,window_action,office_setup,engine_status,app_info,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,verifier_url,install_vscode,open_word,open_powerpoint,verify_image,embed_image,editor::login_startup,editor::office_auto_start,editor::office_reconnect,editor::set_office_reconnect,editor::recording_limit,editor::set_recording_limit,editor::editor_list,editor::editor_create,editor::editor_load,editor::editor_save,editor::editor_version,editor::editor_history,editor::editor_replay_frame,editor::editor_export,external_documents::external_document_read,external_documents::library_states,external_documents::library_set_state,external_documents::library_delete,external_documents::external_documents_list,external_documents::external_document_load,external_documents::external_document_open,external_documents::external_document_locate]).setup(|app|{
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![saved_recording::saved_recording_start,saved_recording::saved_recording_status,saved_recording::saved_recording_pause,saved_recording::saved_recording_finish,connection_notifications::take_pairing_notice,report_download::save_report,report_download::save_certificate,window_action,office_setup,adapter_setup,engine_status,app_info,pending_adapters,decide_adapter,adapter_connections,revoke_adapter,open_verifier,open_verifier_browser,verifier_url,install_vscode,open_word,open_powerpoint,verify_image,embed_image,editor::login_startup,editor::office_auto_start,editor::office_reconnect,editor::set_office_reconnect,editor::recording_limit,editor::set_recording_limit,editor::editor_list,editor::editor_create,editor::editor_load,editor::editor_save,editor::editor_version,editor::editor_history,editor::editor_replay_frame,editor::editor_export,external_documents::external_document_read,external_documents::library_states,external_documents::library_set_state,external_documents::library_delete,external_documents::external_documents_list,external_documents::external_document_load,external_documents::external_document_open,external_documents::external_document_locate]).setup(|app|{
         let open=MenuItem::with_id(app,"open","打开工作台",true,None::<&str>)?;
         let library=MenuItem::with_id(app,"library","我的文档",true,None::<&str>)?;
         let verification=MenuItem::with_id(app,"verification","文件核验",true,None::<&str>)?;

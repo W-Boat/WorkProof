@@ -103,6 +103,7 @@ jobs:
           New-Item -ItemType Directory -Force apps/desktop/src-tauri/resources | Out-Null
           Copy-Item -Recurse apps/verifier/out apps/desktop/src-tauri/resources/verifier
           Copy-Item apps/extension/*.vsix apps/desktop/src-tauri/resources/workproof.vsix
+          python scripts/stage_desktop_adapters.py
           npm run icons -w @workproof/desktop
       - name: Protocol and collector tests
         run: cargo test --locked -p workproof-protocol -p workproof-engine
