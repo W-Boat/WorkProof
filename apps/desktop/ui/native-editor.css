@@ -443,10 +443,14 @@ body:not([data-view=document]) .feedback{bottom:16px}
 @media(max-width:540px){.build-details>div{grid-template-columns:84px minmax(0,1fr);gap:12px}}
 /* Icons become spans when Fluent SVGs load; position them independently of values. */
 .settings-surface>.setting-row>.glyph{grid-column:1;grid-row:1}
-.settings-surface>.setting-row>div:not(.recording-limit-controls){grid-column:2;grid-row:1}
+.settings-surface>.setting-row>div:not(.recording-limit-controls,.setting-switch-list){grid-column:2;grid-row:1}
 .settings-surface>.setting-row>.recording-limit-controls{grid-column:2/-1;grid-row:2;justify-self:start;max-width:100%}
 .settings-surface>.setting-row>.recording-limit-controls label{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.settings-surface>.setting-row>.recording-limit-controls input[type=checkbox]{width:auto;accent-color:var(--accent)}
+.settings-surface>.setting-row>.setting-switch-list{grid-column:3;grid-row:1;display:grid;gap:8px;min-width:0}
+.setting-switch-list>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.setting-switch-list fluent-switch{flex:none}
+@media(max-width:860px){.settings-surface>.setting-row>.setting-switch-list{grid-column:2/-1;grid-row:2}}
+#login-startup-status:empty,#office-auto-start-status:empty{margin:0}
 .settings-surface>.setting-row>select,.settings-surface>.setting-row>fluent-radio-group,.settings-surface>.setting-row>fluent-switch,.settings-surface>.setting-row>span:not(.glyph){grid-column:3;grid-row:1}
 @media(max-width:1150px){.settings-surface>.setting-row>fluent-radio-group{grid-column:2;grid-row:2}}
 @media(max-width:860px){.settings-surface>.setting-row:not(:has(fluent-switch))>select,.settings-surface>.setting-row>span:not(.glyph){grid-column:2;grid-row:2;justify-self:start}}

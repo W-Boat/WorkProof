@@ -720,7 +720,7 @@ for (const [host, field] of autoStartFields) field.addEventListener('change', as
   field.disabled = true;
   try {
     field.checked = await ipc('office_auto_start', {host, enabled});
-    autoStartStatus.textContent = '已保存设置。';
+    autoStartStatus.textContent = '';
   } catch (error) {
     field.checked = !enabled;
     autoStartStatus.textContent = errorText(error);
@@ -738,7 +738,7 @@ async function updateLoginStartup(enabled) {
   loginStartupBusy = loginStartup.disabled = true;
   try {
     loginStartup.checked = await ipc('login_startup', {enabled});
-    loginStartupStatus.textContent = enabled === null ? '' : '已保存设置。';
+    loginStartupStatus.textContent = '';
   } catch (error) {
     if (enabled !== null) loginStartup.checked = !enabled;
     loginStartupStatus.textContent = errorText(error);
