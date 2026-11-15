@@ -722,7 +722,7 @@ window.addEventListener('workproof-view', async event => {
 });
 for (const [host, field] of autoStartFields) field.addEventListener('change', async () => {
   const enabled = field.checked;
-  field.disabled = true;
+  field.setAttribute('disabled', '');
   try {
     field.checked = await ipc('office_auto_start', {host, enabled});
     autoStartStatus.textContent = '';
@@ -730,7 +730,7 @@ for (const [host, field] of autoStartFields) field.addEventListener('change', as
     field.checked = !enabled;
     autoStartStatus.textContent = errorText(error);
   } finally {
-    field.disabled = false;
+    field.removeAttribute('disabled');
   }
 });
 
@@ -740,7 +740,8 @@ const loginStartupStatus = $('login-startup-status');
 let loginStartupBusy = false;
 async function updateLoginStartup(enabled) {
   if (loginStartupBusy) return;
-  loginStartupBusy = loginStartup.disabled = true;
+  loginStartupBusy = true;
+  loginStartup.setAttribute('disabled', '');
   try {
     loginStartup.checked = await ipc('login_startup', {enabled});
     loginStartupStatus.textContent = '';
@@ -748,7 +749,8 @@ async function updateLoginStartup(enabled) {
     if (enabled !== null) loginStartup.checked = !enabled;
     loginStartupStatus.textContent = errorText(error);
   } finally {
-    loginStartupBusy = loginStartup.disabled = false;
+    loginStartupBusy = false;
+    loginStartup.removeAttribute('disabled');
   }
 }
 window.addEventListener('workproof-view', event => {
