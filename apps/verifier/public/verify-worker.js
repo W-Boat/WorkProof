@@ -14,7 +14,8 @@ self.onmessage = async ({data}) => {
     }
     const json=await proof.text();
     const parsed=JSON.parse(json);
-    if(!['workproof/1','workproof/2','workproof/3'].includes(parsed.manifest?.protocol))throw new Error('不支持的证据协议版本');
+    const segmented=parsed.manifest?.protocol==='workproof/segmented/1';
+    if(!segmented&&!['workproof/1','workproof/2','workproof/3'].includes(parsed.manifest?.protocol))throw new Error('不支持的证据协议版本');
     if(data.action==='disclose'){
       const output=create_disclosure_json(json,JSON.stringify(data.indices));
       self.postMessage({type:'disclosure',json:output});return;
@@ -45,7 +46,14 @@ self.onmessage = async ({data}) => {
       const expected=(data.expectedCertificateId||'').trim().toLowerCase();
       const certificateMatch=expected?(/^[a-f0-9]{64}$/.test(expected)&&certificateId===expected):null;
       if(certificateMatch===false){report.valid=false;report.errors.push('证书指纹不一致：这不是发送者指定的证书。');}
-      const display=parsed.format?{...parsed,records:(parsed.disclosed||[]).map(entry=>entry.record)}:parsed;
+      let display=parsed;
+      if(segmented){
+        const {manifest,signature,segments}=parsed;
+        // Send only authenticated records, without cloning the segmented tree again.
+        display={manifest,signature,records:report.chain_valid?segments.flat():[]};
+      }else if(parsed.format){
+        display={...parsed,records:(parsed.disclosed||[]).map(entry=>entry.record)};
+      }
       let behavior=null;
       if(report.valid&&typeof behavior_json==='function'){
         try{behavior=JSON.parse(behavior_json(json));}catch{behavior=null;}
