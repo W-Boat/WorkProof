@@ -1,14 +1,112 @@
-//! Streaming validation for segmented full-record certificates.
-//! The caller must authenticate the expected count, tail and file digest
-//! together in the certificate manifest before trusting the result.
+//! Signed full-record certificates with a chain that crosses segment boundaries.
 
-use crate::{event_hash, genesis, valid_hash, validate_event_payload, Record, MAX_EVENTS};
+use crate::{event_hash, genesis, signing_bytes, valid_hash, validate_event_payload, Manifest, Record, Report, MAX_EVENTS};
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
+use serde::{Deserialize, Serialize};
 
-/// Reject unbounded certificates independently of the per-segment limit.
+pub const VERSION: &str = "workproof/segmented/1";
+/// Bounds both proof verification work and the signed layout.
 pub const MAX_TOTAL_EVENTS: u64 = 1_000_000;
+pub const MAX_SEGMENTS: usize = 10_000;
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SegmentedProof {
+    pub manifest: Manifest,
+    pub segments: Vec<Vec<Record>>,
+    pub signature: String,
+}
+
+impl SegmentedProof {
+    pub fn sign(mut manifest: Manifest, segments: Vec<Vec<Record>>, key: &SigningKey) -> Result<Self, ChainError> {
+        manifest.protocol = VERSION.into();
+        manifest.merkle_root.clear();
+        manifest.public_key = hex::encode(key.verifying_key().to_bytes());
+        let mut proof = Self { manifest, segments, signature: String::new() };
+        if !proof.valid_manifest() {
+            return Err(ChainError::Manifest);
+        }
+        proof.check_chain()?;
+        proof.signature = hex::encode(key.sign(&proof.signing_payload()).to_bytes());
+        Ok(proof)
+    }
+
+    /// The domain tag distinguishes this signature from every flat manifest.
+    fn signing_payload(&self) -> Vec<u8> {
+        let mut bytes = b"WorkProof:segmented-manifest:v1\0".to_vec();
+        bytes.extend_from_slice(&signing_bytes(&self.manifest));
+        bytes.extend_from_slice(&(self.segments.len() as u64).to_le_bytes());
+        for segment in &self.segments {
+            bytes.extend_from_slice(&(segment.len() as u64).to_le_bytes());
+        }
+        bytes
+    }
+
+    fn valid_manifest(&self) -> bool {
+        let m = &self.manifest;
+        m.protocol == VERSION
+            && m.merkle_root.is_empty()
+            && m.identity == "self-signed"
+            && m.time_evidence == "none"
+            && !m.session_id.is_empty()
+            && m.session_id.len() <= 128
+            && m.file_name.len() <= 1024
+            && m.started_at.len() <= 64
+            && m.source.len() <= 128
+            && (2..=MAX_TOTAL_EVENTS).contains(&m.event_count)
+            && valid_hash(&m.chain_head)
+            && valid_hash(&m.artifact_hash)
+            && valid_hash(&m.public_key)
+            && (1..=MAX_SEGMENTS).contains(&self.segments.len())
+    }
+
+    fn check_chain(&self) -> Result<(), ChainError> {
+        let m = &self.manifest;
+        let mut chain = SegmentChain::new(&m.session_id);
+        for segment in &self.segments {
+            chain.push(segment)?;
+        }
+        chain.finish(m.event_count, &m.chain_head, &m.artifact_hash)
+    }
+
+    fn valid_signature(&self) -> bool {
+        (|| {
+            if self.signature.len() != 128 { return None; }
+            let pk: [u8; 32] = hex::decode(&self.manifest.public_key).ok()?.try_into().ok()?;
+            let sig = Signature::from_slice(&hex::decode(&self.signature).ok()?).ok()?;
+            VerifyingKey::from_bytes(&pk).ok()?.verify_strict(&self.signing_payload(), &sig).ok()
+        })().is_some()
+    }
+
+    pub fn verify(&self, artifact_hash: &str, artifact_bytes: u64) -> Report {
+        let m = &self.manifest;
+        let schema = self.valid_manifest();
+        let signature_valid = schema && self.valid_signature();
+        // Avoid scanning unauthenticated or oversized segment collections.
+        let chain_valid = signature_valid && self.check_chain().is_ok();
+        let file_match = artifact_hash == m.artifact_hash && artifact_bytes == m.artifact_bytes;
+        let mut errors = Vec::new();
+        if !schema { errors.push("UNSUPPORTED_MANIFEST".into()); }
+        if !signature_valid { errors.push("SIGNATURE_INVALID".into()); }
+        if signature_valid && !chain_valid { errors.push("CHAIN_INVALID".into()); }
+        if !file_match { errors.push("FILE_MISMATCH".into()); }
+        Report {
+            valid: file_match && chain_valid,
+            file_match,
+            chain_valid,
+            signature_valid,
+            merkle_valid: None,
+            scope: "full".into(),
+            disclosed_events: if chain_valid { m.event_count } else { 0 },
+            total_events: m.event_count,
+            errors,
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ChainError {
+    Manifest,
     SegmentSize,
     EventCount,
     InvalidEvent,
@@ -119,6 +217,39 @@ mod tests {
             head = event_hash(&head, &event);
             Record { event, hash: head.clone() }
         }).collect()
+    }
+
+    #[test]
+    fn signed_layout_rejects_repacking_and_file_changes() {
+        let artifact = digest(b"final");
+        let mut full = records("session", 5, &artifact);
+        let head = full.last().unwrap().hash.clone();
+        let tail = full.split_off(3);
+        let manifest = Manifest {
+            protocol: String::new(),
+            session_id: "session".into(),
+            file_name: "draft.md".into(),
+            started_at: String::new(),
+            source: "workproof-tiptap".into(),
+            event_count: 5,
+            chain_head: head,
+            artifact_hash: artifact.clone(),
+            artifact_bytes: 5,
+            public_key: String::new(),
+            identity: "self-signed".into(),
+            time_evidence: "none".into(),
+            demo: false,
+            merkle_root: String::new(),
+        };
+        let key = SigningKey::from_bytes(&[3; 32]);
+        let mut proof = SegmentedProof::sign(manifest, vec![full, tail], &key).unwrap();
+        assert!(proof.verify(&artifact, 5).valid);
+        assert!(!proof.verify(&artifact, 6).file_match);
+
+        let boundary = proof.segments[0].pop().unwrap();
+        proof.segments[1].insert(0, boundary);
+        assert!(proof.check_chain().is_ok());
+        assert!(!proof.verify(&artifact, 5).signature_valid);
     }
 
     #[test]
