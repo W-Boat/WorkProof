@@ -28,8 +28,9 @@ pub async fn editor_export(window:WebviewWindow,id:String,docx:Option<Vec<u8>>,m
         if !path.is_absolute()||!path.extension().and_then(|e|e.to_str()).is_some_and(|e|e.eq_ignore_ascii_case(extension)){return Err(format!("请使用 .{extension} 文件名保存作品。"));}
         let certificate=path.with_extension(format!("{extension}.wproof"));
         let name=path.file_name().and_then(|s|s.to_str()).ok_or("文件名称无法读取。")?;
-        let out=if let Some(md)=markdown.as_deref(){store::export_markdown(&dir,&id,name,md)?}else{store::export_artifact(&dir,&id,name,docx.as_deref())?};
-        let proof=serde_json::to_vec_pretty(&out.proof).map_err(|_|"证书未能生成。")?;
+        let out=store::desktop_export(&dir,&id,name,docx.as_deref(),markdown.as_deref())?;
+        let proof=serde_json::to_vec(&out.proof).map_err(|_|"证书未能生成。")?;
+        if proof.len()>32*1024*1024{return Err("完整证书超过当前核验端的 32 MiB 限制，正文与动作仍保存在本机。".into());}
         use std::io::Write;
         let mut artifact=std::fs::OpenOptions::new().write(true).create_new(true).open(&path).map_err(|_|"保存位置已有同名作品，或无法写入。请选择新的文件名。")?;
         let result=(||->Result<(),String>{
@@ -39,7 +40,7 @@ pub async fn editor_export(window:WebviewWindow,id:String,docx:Option<Vec<u8>>,m
             drop(cert);if written.is_err(){let _=std::fs::remove_file(&certificate);}written
         })();
         drop(artifact);if result.is_err(){let _=std::fs::remove_file(&path);}result?;
-        Ok(json!({"file_name":name,"html":out.html,"fingerprint":out.proof.manifest.artifact_hash,"event_count":out.proof.manifest.event_count,"report":out.report,"saved":true}))
+        Ok(json!({"file_name":name,"html":out.html,"fingerprint":out.proof.manifest().artifact_hash,"event_count":out.proof.manifest().event_count,"report":out.report,"saved":true}))
     }).await.map_err(|_|"作品与证书未能导出。")?
 }
 

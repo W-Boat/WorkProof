@@ -51,7 +51,7 @@ pub struct Manifest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Proof { pub manifest: Manifest, pub records: Vec<Record>, pub signature: String }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Evidence {
     Full(Proof),

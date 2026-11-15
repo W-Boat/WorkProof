@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, path::Path, sync::Mutex};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use workproof_protocol::{digest, event_hash, genesis, sign, verify, Event, Manifest, Proof, Record, VERSION, MAX_EVENTS};
+use workproof_protocol::{digest, event_hash, genesis, sign, Event, Manifest, Proof, Record, VERSION, MAX_EVENTS};
 
 static WRITER: Mutex<()> = Mutex::new(());
 const MAX_BODY: usize = 2 * 1024 * 1024;
@@ -206,6 +206,11 @@ fn render(v:&Value)->String{
     let align=match v["attrs"]["textAlign"].as_str(){Some("center")=>"center",Some("right")=>"right",Some("justify")=>"justify",_=>"left"};format!("<{tag}{cells} style=\"text-align:{align};{}\">{check}{children}</{tag}>",presentation(&v["attrs"]))
 }
 pub struct Export {pub html:String,pub proof:Proof,pub report:workproof_protocol::Report}
+pub struct DesktopExport {
+    pub html: String,
+    pub proof: workproof_protocol::Evidence,
+    pub report: workproof_protocol::Report,
+}
 /// Desktop file choices follow the persisted document type, including legacy files.
 pub fn desktop_export_extension(root:&Path,id:&str,docx:bool,markdown:bool)->Result<&'static str>{
     if !valid_id(id){return Err("文档标识无效。".into());}
@@ -236,28 +241,101 @@ pub fn export_markdown(root:&Path,id:&str,file_name:&str,markdown:&str)->Result<
     export_bytes(root,id,file_name,Some(markdown.as_bytes()))
 }
 fn export_bytes(root:&Path,id:&str,file_name:&str,artifact:Option<&[u8]>)->Result<Export>{
+    let out=export_evidence(root,id,file_name,artifact,false)?;
+    let workproof_protocol::Evidence::Full(proof)=out.proof else {
+        return Err("该导出入口只支持现有单段证书。".into());
+    };
+    Ok(Export{html:out.html,proof,report:out.report})
+}
+pub fn desktop_export(root:&Path,id:&str,file_name:&str,docx:Option<&[u8]>,markdown:Option<&str>)->Result<DesktopExport>{
+    desktop_export_extension(root,id,docx.is_some(),markdown.is_some())?;
+    if docx.is_some_and(|b|b.len()>8*1024*1024||!b.starts_with(b"PK\x03\x04")){
+        return Err("Word 插件未能生成有效的 DOCX 文件。".into());
+    }
+    if markdown.is_some_and(|source|source.len()>MAX_BODY){
+        return Err("Markdown 文件过大，请拆分文档后继续。".into());
+    }
+    export_evidence(root,id,file_name,docx.or_else(||markdown.map(str::as_bytes)),true)
+}
+fn export_evidence(root:&Path,id:&str,file_name:&str,artifact:Option<&[u8]>,allow_segmented:bool)->Result<DesktopExport>{
+    use workproof_protocol::{Evidence, segmented, verify_evidence};
     if !valid_id(id)||file_name.len()>1024||file_name.contains(['/', '\\']){return Err("文件名称无效。".into());}
     let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
-    if let Some(revision)=proof_overflow(&db,id)? {
-        return Err(format!("正文和动作已保存到本机。第 {revision} 个版本起超出单份证书容量，暂无法为这份文档签发完整证书。"));
+    let overflow=proof_overflow(&db,id)?;
+    if let Some(revision)=overflow.filter(|_|!allow_segmented) {
+        return Err(format!("第 {revision} 个版本起超出单段证书容量，请从桌面导出分段证书。"));
     }
-    let (title,started,content):(String,String,String)=db.query_row("SELECT title,started,content FROM documents WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(storage)?;
+    let (title,started,content,latest_revision):(String,String,String,u64)=db.query_row(
+        "SELECT title,started,content,revision FROM documents WHERE id=?1",[id],
+        |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)),
+    ).map_err(storage)?;
     let body=parse(content)?;content_ok(&body)?;
     let html=format!("<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:\"><title>{}</title><style>body{{font:17px/1.9 'Segoe UI','Microsoft YaHei',sans-serif;max-width:780px;margin:48px auto;padding:0 28px;color:#242424;background:white}}h1,h2,h3{{line-height:1.4}}blockquote{{border-left:3px solid #0f6cbd;margin-left:0;padding-left:20px;color:#616161}}pre{{white-space:pre-wrap}}@media print{{body{{margin:0;max-width:none}}}}</style><body>{}</body></html>",escape(&title),render(&body));
     let mut stmt=db.prepare("SELECT json,hash FROM editor_events WHERE document=?1 ORDER BY seq").map_err(storage)?;
     let rows=stmt.query_map([id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).map_err(storage)?;
     let mut records=vec![];let mut head=genesis(id);let mut elapsed=0;
     for row in rows{let (s,hash)=row.map_err(storage)?;let e:Event=serde_json::from_str(&s).map_err(storage)?;if e.seq!=records.len() as u64||e.elapsed_ms<elapsed||!workproof_protocol::validate_event(&e)||event_hash(&head,&e)!=hash{return Err("本机记录完整性检查未通过，无法签发证书。".into());}head=hash.clone();elapsed=e.elapsed_ms;records.push(Record{event:e,hash});}
-    if !records.last().is_some_and(|r|matches!(r.event.kind.as_str(),"save"|"start")&&r.event.checkpoint==digest(encoded(&body).unwrap_or_default().as_bytes())){return Err("正文与保存记录不一致，请恢复原始文档后再导出。".into());}
+    if let Some(first)=overflow{
+        let prefix: String=db.query_row("SELECT content FROM revisions WHERE document=?1 AND revision=?2",
+            params![id,first.checked_sub(1).ok_or("本机版本记录不完整。")?],|row|row.get(0)).map_err(storage)?;
+        if !records.last().is_some_and(|r|r.event.checkpoint==digest(prefix.as_bytes())){
+            return Err("分段前的正文与原始记录不一致。".into());
+        }
+        let mut revisions=db.prepare("SELECT revision,content,actions FROM revisions WHERE document=?1 AND revision>=?2 ORDER BY revision").map_err(storage)?;
+        let mut batches=revisions.query(params![id,first]).map_err(storage)?;
+        let mut expected=first;
+        while let Some(row)=batches.next().map_err(storage)?{
+            let revision:u64=row.get(0).map_err(storage)?;
+            if revision!=expected{return Err("本机版本记录缺失，无法签发完整证书。".into());}
+            expected+=1;
+            let content:String=row.get(1).map_err(storage)?;
+            let actions:String=row.get(2).map_err(storage)?;
+            let actions:Vec<Action>=serde_json::from_str(&actions).map_err(storage)?;
+            if records.len() as u64 + actions.len() as u64 + 2 > segmented::MAX_TOTAL_EVENTS{
+                return Err("证据已超过分段证书的最大记录数，正文与动作仍保存在本机。".into());
+            }
+            for action in &actions {
+                let sequence=records.len() as u64;
+                let mut event=event(action,sequence % MAX_EVENTS as u64,elapsed)?;
+                event.seq=sequence;
+                elapsed=event.elapsed_ms;
+                head=event_hash(&head,&event);
+                records.push(Record{event,hash:head.clone()});
+            }
+            let body:Value=serde_json::from_str(&content).map_err(storage)?;
+            let event=Event{seq:records.len() as u64,elapsed_ms:elapsed,kind:"save".into(),inserted:0,deleted:0,
+                chars:text_length(&body),checkpoint:digest(content.as_bytes()),metrics:BTreeMap::new()};
+            head=event_hash(&head,&event);
+            records.push(Record{event,hash:head.clone()});
+        }
+        if expected!=latest_revision+1{return Err("缺少最新版本的记录，无法签发完整证书。".into());}
+    }
+    let body_bytes=encoded(&body)?;
+    if !records.last().is_some_and(|r|matches!(r.event.kind.as_str(),"save"|"start")&&r.event.checkpoint==digest(body_bytes.as_bytes())){return Err("正文与保存记录不一致，请恢复原始文档后再导出。".into());}
     let bytes=artifact.unwrap_or(html.as_bytes());let hash=digest(bytes);let e=Event{seq:records.len() as u64,elapsed_ms:elapsed,kind:"save".into(),inserted:0,deleted:0,chars:text_length(&body),checkpoint:hash.clone(),metrics:BTreeMap::new()};head=event_hash(&head,&e);records.push(Record{event:e,hash:head.clone()});
     let seed:[u8;32]=std::fs::read(root.join("signing-key.bin")).map_err(storage)?.try_into().map_err(|_|"本机签名密钥不完整。")?;let key=ed25519_dalek::SigningKey::from_bytes(&seed);
-    let proof=sign(Manifest{protocol:VERSION.into(),session_id:id.into(),file_name:file_name.into(),started_at:started,source:"workproof-tiptap".into(),event_count:records.len() as u64,chain_head:head,artifact_hash:hash.clone(),artifact_bytes:bytes.len() as u64,public_key:hex::encode(key.verifying_key().to_bytes()),identity:"self-signed".into(),time_evidence:"none".into(),demo:false,merkle_root:String::new()},records,&key);
-    let report=verify(&proof,&hash,bytes.len() as u64);if !report.valid{return Err("导出前核验未通过，没有生成证书。".into());}Ok(Export{html,proof,report})
+    let manifest=Manifest{protocol:VERSION.into(),session_id:id.into(),file_name:file_name.into(),started_at:started,source:"workproof-tiptap".into(),event_count:records.len() as u64,chain_head:head,artifact_hash:hash.clone(),artifact_bytes:bytes.len() as u64,public_key:hex::encode(key.verifying_key().to_bytes()),identity:"self-signed".into(),time_evidence:"none".into(),demo:false,merkle_root:String::new()};
+    let proof=if overflow.is_some(){
+        let segment_size=super::recording_settings::load(root)?.unwrap_or(50_000) as usize;
+        let mut records=records.into_iter();
+        let segments=std::iter::from_fn(||{
+            let segment:Vec<_>=records.by_ref().take(segment_size).collect();
+            (!segment.is_empty()).then_some(segment)
+        }).collect();
+        Evidence::Segmented(segmented::SegmentedProof::sign(manifest,segments,&key)
+            .map_err(|_|"分段证书未通过签发前的完整性检查。")?)
+    }else{
+        Evidence::Full(sign(manifest,records,&key))
+    };
+    let report=verify_evidence(&proof,&hash,bytes.len() as u64);
+    if !report.valid{return Err("导出前核验未通过，没有生成证书。".into());}
+    Ok(DesktopExport{html,proof,report})
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use workproof_protocol::verify;
     #[test]
     fn rich_document_export_keeps_formatting_and_rejects_active_sources(){
         let rich=json!({"type":"doc","content":[{"type":"taskList","content":[{"type":"taskItem","attrs":{"checked":true},"content":[{"type":"paragraph","attrs":{"indent":2,"spaceAfter":12},"content":[{"type":"text","text":"完成","marks":[{"type":"textStyle","attrs":{"fontSize":"18pt","color":"#123abc","fontFamily":"Microsoft YaHei"}},{"type":"link","attrs":{"href":"https://example.com/?a=1&b=2"}},{"type":"superscript"}]}]}]}]}]});
@@ -367,6 +445,13 @@ mod tests {
         assert_eq!(loaded["content"]["content"][0]["content"][0]["text"],"触顶后继续写");
         assert_eq!(replay_frame(&root.0,id,2).unwrap()["actions"].as_array().unwrap().len(),1);
         assert!(export(&root.0,id,"draft.html").err().unwrap().contains("第 2 个版本"));
+        let docx=b"PK\x03\x04workproof test data";
+        let out=desktop_export(&root.0,id,"draft.docx",Some(docx),None).unwrap();
+        let workproof_protocol::Evidence::Segmented(proof)=out.proof else {panic!("expected segmented evidence")};
+        assert_eq!(proof.segments.iter().map(Vec::len).collect::<Vec<_>>(),vec![100,3]);
+        assert_eq!(proof.segments[1][0].event.kind,"edit");
+        assert!(proof.verify(&digest(docx),docx.len() as u64).valid);
+        assert!(!proof.verify(&digest(b"changed"),docx.len() as u64).valid);
     }
     #[test]fn export_verifies_and_tampering_fails_without_executable_content(){let root=root();let d=create(&root.0,"论文","2026-11-06T00:00:00Z","word").unwrap();let id=d["id"].as_str().unwrap();save(&root.0,save_input(id)).unwrap();let out=export(&root.0,id,"workproof.html").unwrap();assert!(out.report.valid);assert!(!out.html.contains("<script>"));assert!(out.html.contains("&lt;script&gt;"));assert!(!verify(&out.proof,&digest(b"changed"),7).valid);let mut p=out.proof.clone();p.records[1].event.inserted+=1;assert!(!verify(&p,&p.manifest.artifact_hash,p.manifest.artifact_bytes).valid);}
     #[test]fn rejects_path_ids_unknown_nodes_and_invalid_action_metrics(){let root=root();assert!(load(&root.0,"../key").is_err());let d=create(&root.0,"论文","","word").unwrap();let mut s=save_input(d["id"].as_str().unwrap());s.content=json!({"type":"doc","content":[{"type":"iframe"}]});assert!(save(&root.0,s).is_err());let mut s=save_input(d["id"].as_str().unwrap());s.actions[0].metrics.insert("clipboard_text".into(),1);assert!(save(&root.0,s).is_err());assert_eq!(load(&root.0,d["id"].as_str().unwrap()).unwrap()["revision"],0);}

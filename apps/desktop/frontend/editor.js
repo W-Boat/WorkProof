@@ -151,12 +151,12 @@ async function flush(){
       const result=await ipc('editor_save',{input:inflight});
       if(!Number.isSafeInteger(result?.revision)||result.revision<active.revision)throw new Error('保存结果无法识别，请保留当前窗口并重试。');
       if(result.proof_overflow_revision&&!active.proof_overflow_revision){
-        ui.showMessage('正文与动作已保存。当前证书容量已满，新增动作可在本机回放，暂不能签发完整证书。','warning');
+        ui.showMessage('正文和动作已保存。导出时将使用分段证书，请使用支持分段的核验页。','warning');
       }
       active.proof_overflow_revision=result.proof_overflow_revision??active.proof_overflow_revision;
       active.revision=result.revision;active.title=inflight.title;pending.splice(0,inflight.actions.length);inflight=null;
     }
-    if(!exporting)setEditable(true);state(active.proof_overflow_revision?'已保存 · 证书容量已满':'已保存到本机','saved');
+    if(!exporting)setEditable(true);state(active.proof_overflow_revision?'已保存 · 分段证书':'已保存到本机','saved');
     const id=active.id;
     try{const loaded=await ipc('editor_load',{id});if(active?.id===id){active={...active,...loaded};renderRecent();if(document.querySelector('[data-tab=process]').getAttribute('aria-selected')==='true')renderProcess();}}
     catch(error){ui.showMessage('文档已保存，但过程列表暂未刷新。'+errorText(error),'error');}
@@ -210,7 +210,7 @@ async function openDocument(doc){
     const domEvents={keydown,copy:()=>{commandAction('copy');return false;},paste:()=>{commandAction('paste');return false;},cut:()=>{commandAction('cut');return false;},beforeinput:(_v,event)=>{addAction('beforeinput',{detail:{input_type:event.inputType}});if(event.inputType==='historyUndo')hint('undo');if(event.inputType==='historyRedo')hint('redo');return false;},input:(_v,event)=>{addAction('input',{detail:{input_type:event.inputType}});return false;},focus:()=>{addAction('focus');return false;},blur:()=>{addAction('blur');return false;}};
     for(const type of ['compositionstart','compositionupdate','compositionend','drop','dragstart','dragend'])domEvents[type]=(_v,event)=>{addAction(type,{detail:{data:typeof event.data==='string'?event.data.slice(0,2048):null}});return false;};
     editor=new editorRuntime.Editor({element:$('tiptap-editor'),extensions:editorRuntime.editorExtensions(true),content:doc.content,editorProps:{attributes:{'aria-label':'文档正文',role:'textbox','aria-multiline':'true',spellcheck:'true'},handleDOMEvents:domEvents},onTransaction:transaction,onSelectionUpdate:({editor:e})=>updateToolbar(e)});
-    restorePageLayout();workspace.setDocumentKind(doc.kind);suppressed=false;workspace.changed();state(active.proof_overflow_revision?'已保存 · 证书容量已满':'已保存到本机','saved');$('editor-word-count').textContent=`${editorCharacters().toLocaleString()} 字符`;
+    restorePageLayout();workspace.setDocumentKind(doc.kind);suppressed=false;workspace.changed();state(active.proof_overflow_revision?'已保存 · 分段证书':'已保存到本机','saved');$('editor-word-count').textContent=`${editorCharacters().toLocaleString()} 字符`;
     $('certificate-result').hidden=true;$('certificate-empty').hidden=false;renderRecent();updateToolbar();ui.selectView('document');selectTab('write');
   }catch(error){reportError(error);}finally{suppressed=false;opening=false;}
 }
