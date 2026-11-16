@@ -5,6 +5,7 @@ import {CanvasRenderer} from 'echarts/renderers';
 import {charts,categoryCharts,summarize,chartOption,chartTable} from './verification-chart-data';
 import {buildBehaviorReport,names} from './behavior-report-data';
 import {behaviorAxes} from './behavior-overview-data';
+import {paragraphStatistics} from './paragraph-statistics';
 import type {ReportPackage} from './encrypted-report';
 
 use([BarChart,BoxplotChart,HeatmapChart,LineChart,PieChart,RadarChart,ScatterChart,TreemapChart,GridComponent,LegendComponent,RadarComponent,TooltipComponent,VisualMapComponent,CanvasRenderer]);
@@ -63,6 +64,41 @@ function render(model:ReportPackage,root:HTMLElement){
   const pager=el('div',undefined,'pager'),label=el('span'),content=el('div');let page=0;
   const before=command('上一页',()=>{page--;paint();}),after=command('下一页',()=>{page++;paint();});pager.append(before,label,after);events.append(pager,content);
   function paint(){before.disabled=page===0;after.disabled=(page+1)*200>=records.length;label.textContent=`${page+1} / ${Math.max(1,Math.ceil(records.length/200))}`;content.replaceChildren(table(['序号','经过时间（毫秒）','动作','新增','删除','文档字符','记录哈希'],records.slice(page*200,(page+1)*200).map(({event,hash})=>[event.seq,event.elapsed_ms,event.kind,event.inserted,event.deleted,event.chars,hash])));content.append(details('本页完整事件字段（含指标和检查点）',records.slice(page*200,(page+1)*200)));}paint();
+  const paragraphs=paragraphStatistics(proof);
+  if(paragraphs.length){
+    const paragraphSection=section('paragraphs','段落与记录位置');
+    const controls=el('div',undefined,'pager'),body=el('div'),pageLabel=el('span');
+    let paragraphPage=0;
+    const prev=command('上一页',()=>{paragraphPage--;paintParagraphs();});
+    const next=command('下一页',()=>{paragraphPage++;paintParagraphs();});
+    controls.append(prev,pageLabel,next);paragraphSection.append(controls,body);
+    function paintParagraphs(){
+      const offset=paragraphPage*50;
+      prev.disabled=paragraphPage===0;next.disabled=offset+50>=paragraphs.length;
+      pageLabel.textContent=(paragraphPage+1)+' / '+Math.ceil(paragraphs.length/50);
+      body.replaceChildren(table(['最终段落','新增','删除','观察时长','写入速度','复核结果'],paragraphs.slice(offset,offset+50).map(row=>[
+        '第 '+row.ordinal+' 段',number(row.inserted),number(row.deleted),
+        row.observedMs?number(row.observedMs/1000)+' 秒':'条件不足',
+        row.rate===null?'条件不足':number(row.rate)+' 字符/秒',
+        [row.bulk&&'单次新增至少 500 字符',row.replacement&&'单次增删各至少 300 字符'].filter(Boolean).join('、')||'已归属事件未触发',
+      ])));
+      const visible=body.querySelectorAll('tbody tr');
+      paragraphs.slice(offset,offset+50).forEach((row,index)=>{
+        const cell=el('td');
+        cell.append(command('查看第 '+row.ordinal+' 段的记录',()=>{
+          const seq=row.bulk?.first??row.replacement?.first??row.firstSequence;
+          const index=records.findIndex(record=>record.event.seq===seq);
+          if(index<0)return;
+          page=Math.floor(index/200);paint();
+          const target=content.querySelectorAll<HTMLTableRowElement>('tbody tr')[index%200];
+          if(target){target.tabIndex=-1;target.focus();}
+        }));
+        visible[index]?.append(cell);
+      });
+      body.querySelector('thead tr')?.append(el('th','操作'));
+    }
+    paintParagraphs();
+  }
   if(structure&&structure.first_gap_seq!=null){
     const firstGap=records.findIndex(({event})=>event.seq===structure.first_gap_seq);
     if(firstGap>=0)diagnosis.append(command('查看首个采集缺口',()=>{
