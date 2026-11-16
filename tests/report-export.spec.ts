@@ -67,3 +67,19 @@ test('signed paragraph location is highlighted and only selected excerpts reach 
   await expect(page.locator('#report-paragraphs')).toContainText('让创作过程，有据可查');
   await expect(page.locator('#report-paragraphs')).not.toContainText('证据可以复核，隐私应被尊重。');
 });
+
+test('historical preview renders only a file matching a signed save checkpoint',async({page})=>{
+  await page.goto('/');
+  await page.getByLabel('选择最终作品',{exact:true}).setInputFiles('apps/verifier/public/demo/essay.md');
+  await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles('apps/verifier/public/demo/essay.history.wproof');
+  await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
+  await expect(page.locator('.result-banner.success')).toBeVisible({timeout:20000});
+  const section=page.getByRole('region',{name:'历史保存版本'});
+  const file=section.locator('input[type="file"]');
+  await file.setInputFiles({name:'unrelated.md',mimeType:'text/markdown',buffer:Buffer.from('unrelated')});
+  await expect(section.getByRole('status')).toContainText('不匹配');
+  await expect(section.locator('iframe')).toHaveCount(0);
+  await file.setInputFiles('apps/verifier/public/demo/essay.previous.md');
+  await expect(section.getByRole('status')).toContainText('已核对历史保存记录 17');
+  await expect(section.frameLocator('iframe').getByRole('heading',{name:'Previously saved version'})).toBeVisible();
+});

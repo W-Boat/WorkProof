@@ -26,6 +26,21 @@ fn main(){
         paragraph_manifest,vec![proof.records.clone()],vec![paragraph],&key,
     ).unwrap();
     std::fs::write(format!("{dir}/essay.paragraphs.wproof"),serde_json::to_vec(&paragraph_proof).unwrap()).unwrap();
+    let previous=b"# Previously saved version\n\nOriginal text.\n";
+    let mut historical=proof.records.clone();
+    historical[17].event.checkpoint=digest(previous);
+    let mut head=genesis(id);
+    for record in &mut historical {
+        head=event_hash(&head,&record.event);
+        record.hash=head.clone();
+    }
+    let mut word_manifest=proof.manifest.clone();
+    word_manifest.source="word".into();
+    word_manifest.chain_head=head;
+    let word_proof=sign(word_manifest,historical,&key);
+    assert!(verify(&word_proof,&digest(content.as_bytes()),content.len() as u64).valid);
+    std::fs::write(format!("{dir}/essay.previous.md"),previous).unwrap();
+    std::fs::write(format!("{dir}/essay.history.wproof"),serde_json::to_vec(&word_proof).unwrap()).unwrap();
     generate_evolution_fixture(&dir);
     generate_actions_fixture(&dir);
     generate_behavior_fixtures(&dir);
