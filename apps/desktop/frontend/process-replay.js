@@ -19,6 +19,16 @@ export function openProcessReplay({document:doc,invoke,renderContent,returnFocus
   const layout=node('div','replay-layout'),left=node('section','replay-main'),right=node('aside','replay-inspector');right.setAttribute('aria-label','回放分析');
   const preview=node('div','replay-preview');preview.dataset.selectable='true';preview.setAttribute('aria-label','保存版本只读预览');
   const paper=node('article','replay-paper history-paper');preview.append(paper);
+  const location=node('div','replay-location');
+  const locationText=node('span');locationText.setAttribute('role','status');
+  let markedParagraph=null;
+  const locate=node('button','replay-locate','查看标注');
+  locate.type='button';locate.hidden=true;
+  locate.addEventListener('click',()=>{
+    if(markedParagraph){markedParagraph.focus();markedParagraph.scrollIntoView({block:'center'});}
+    else if(current?.paragraph_change?.status==='deleted')step(-1);
+  });
+  location.append(locationText,locate);
   const transport=node('section','replay-transport'),caption=node('div','replay-caption'),version=node('span','','正在读取版本…'),elapsed=node('span','','0:00');caption.append(version,elapsed);
   const tracks=node('div','replay-tracks'),wave=node('div','replay-wave'),pastes=node('div','replay-pastes');wave.setAttribute('aria-hidden','true');pastes.setAttribute('aria-label','粘贴发生的版本');tracks.append(wave,pastes);
   const seek=node('input','replay-seek');seek.type='range';seek.min='0';seek.max='1';seek.value='0';seek.step='1';seek.setAttribute('aria-label','回放进度');seek.disabled=true;
@@ -28,7 +38,7 @@ export function openProcessReplay({document:doc,invoke,renderContent,returnFocus
   const rate=node('select');rate.setAttribute('aria-label','回放速度');for(const n of [1,2,4,8]){const option=node('option','',`${n}×`);option.value=String(n);rate.append(option);}rate.addEventListener('change',()=>{speed=Number(rate.value);});
   controlsLeft.append(node('span','replay-local','本机记录 · 只读'));controlsCenter.append(back,play,next);controlsRight.append(rate);controls.append(controlsLeft,controlsCenter,controlsRight);
   const notice=node('p','replay-notice','按保存版本回放，版本之间的逐字输入没有重建。');
-  transport.append(caption,tracks,seek,controls,notice);left.append(preview,transport);
+  transport.append(caption,tracks,seek,controls,notice);left.append(location,preview,transport);
   const analysis=node('div','replay-analysis'),summary=node('h3','','记录概览'),totals=node('div','replay-totals'),explanation=node('p','replay-explanation','正在整理保存版本。文件和正文留在本机。');
   const progress=node('fluent-progress-bar');progress.setAttribute('aria-label','正在整理保存版本');analysis.append(summary,totals,explanation,progress);
   const tabs=node('div','replay-tabs');tabs.setAttribute('aria-label','动作查看方式');
@@ -66,6 +76,31 @@ export function openProcessReplay({document:doc,invoke,renderContent,returnFocus
       cards.append(card);
     }
   }
+  function paintParagraph(frame){
+    markedParagraph=null;locate.hidden=true;locationText.textContent='';
+    const change=frame?.paragraph_change;
+    if(!change)return;
+    if(change.status==='deleted'){
+      locationText.textContent=`上一版本的第 ${change.before} 段已删除`;
+      locate.textContent='查看删除前的版本';locate.hidden=false;
+      return;
+    }
+    if(change.status==='unassigned'){
+      locationText.textContent='这个版本的修改无法可靠定位到单个段落';
+      return;
+    }
+    const blocks=paper.querySelectorAll('p,h1,h2,h3,h4,h5,h6,pre');
+    const block=blocks[change.after-1];
+    if(!Number.isSafeInteger(change.after)||!block)return;
+    const edits=frame.actions.filter(action=>action.inserted>0||action.deleted>0);
+    const inserted=edits.reduce((sum,action)=>sum+action.inserted,0);
+    const deleted=edits.reduce((sum,action)=>sum+action.deleted,0);
+    markedParagraph=block;
+    block.classList.add('replay-paragraph-highlight');
+    block.tabIndex=-1;
+    locationText.textContent=`第 ${change.after} 段 · 新增 ${inserted.toLocaleString()} · 删除 ${deleted.toLocaleString()} 字符`;
+    locate.textContent='查看标注';locate.hidden=false;
+  }
   async function move(value,forcedIndex=null){
     if(!alive||!frames.length)return;position=Math.max(0,Math.min(duration,value));seek.value=String(Math.round(position));elapsed.textContent=`${clock(position)} / ${clock(duration)}`;
     tracks.style.setProperty('--replay-progress',`${position/duration*100}%`);
@@ -73,13 +108,13 @@ export function openProcessReplay({document:doc,invoke,renderContent,returnFocus
     const nextIndex=forcedIndex===null?low:forcedIndex;
     if(index===nextIndex)return;index=nextIndex;const frame=frames[index],token=++request;
     back.disabled=index===0;next.disabled=index===frames.length-1;version.textContent=`版本 ${frame.revision+1} · ${index+1} / ${frames.length}`;seek.setAttribute('aria-valuetext',`${clock(position)}，版本 ${frame.revision+1}`);
-    paper.replaceChildren(node('p','replay-explanation','正在读取这个版本…'));preview.setAttribute('aria-busy','true');current=null;paintActions();
+    paper.replaceChildren(node('p','replay-explanation','正在读取这个版本…'));preview.setAttribute('aria-busy','true');current=null;paintParagraph(null);paintActions();
     try{
       const content=cache.get(frame.revision)||await invoke('editor_replay_frame',{id:doc.id,revision:frame.revision});
       if(!alive||token!==request)return;
       if(content.revision!==frame.revision||!Array.isArray(content.actions)||!content.content)throw new Error('这个版本的记录不完整，请重新打开回放。');
       cache.set(frame.revision,content);while(cache.size>3)cache.delete(cache.keys().next().value);
-      current=content;paper.innerHTML=renderContent(content.content);preview.scrollTop=0;paintActions();
+      current=content;paper.innerHTML=renderContent(content.content);preview.scrollTop=0;paintParagraph(current);paintActions();
     }catch(error){if(alive&&token===request){pause();paper.replaceChildren(node('p','replay-error',String(error.message||error)));index=-1;}}
     finally{if(alive&&token===request)preview.setAttribute('aria-busy','false');}
   }

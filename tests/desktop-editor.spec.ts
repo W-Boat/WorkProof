@@ -68,7 +68,7 @@ async function desktop(page:Page){
           return {...frame,count:actions.length,pastes:actions.filter((a:any)=>a.kind==='paste').length,inserted:actions.reduce((n:number,a:any)=>n+(a.inserted||0),0),deleted:actions.reduce((n:number,a:any)=>n+(a.deleted||0),0)};
         });return {frames:frames.slice(0,128),has_more:frames.length>128,next_after:frames.length>128?frames[127].revision:null};
       }
-      if(command==='editor_replay_frame'){(w.editorHarness.frameRequests||=[]).push({...args});return {revision:args.revision,saved:docs[args.id].versions.find((frame:any)=>frame.revision===args.revision).saved,content:docs[args.id].snapshots[args.revision],actions:docs[args.id].actions.filter((item:any)=>item.revision===args.revision).map((item:any)=>item.action).reverse()};}
+      if(command==='editor_replay_frame'){(w.editorHarness.frameRequests||=[]).push({...args});return {revision:args.revision,saved:docs[args.id].versions.find((frame:any)=>frame.revision===args.revision).saved,content:docs[args.id].snapshots[args.revision],paragraph_change:docs[args.id].paragraphChanges?.[args.revision],actions:docs[args.id].actions.filter((item:any)=>item.revision===args.revision).map((item:any)=>item.action).reverse()};}
       if(command==='editor_save'){
         w.editorHarness.saves.push(args.input);
         if(w.editorHarness.failNext){w.editorHarness.failNext=false;throw new Error('磁盘暂时无法写入，请重试。');}
@@ -969,6 +969,7 @@ test('process replay pages the complete history, seeks real snapshots and locate
       doc.actions.unshift({revision,action:{...base,kind:revision===67?'paste':'copy'}});
       if(revision===67)doc.actions.unshift({revision,action:{...base,kind:'edit',elapsed_ms:revision*10000+1,inserted:300,steps:[{slice:{content:[{type:'text',text:unsafe}]}}]}});
     }
+    doc.paragraphChanges={67:{status:"edited",before:1,after:1}};
     doc.content=doc.snapshots[130];localStorage.setItem('test.editor.documents',JSON.stringify(docs));
   });
   await page.reload();await page.getByRole('button',{name:'继续编辑 回放示例',exact:true}).click();
@@ -979,6 +980,7 @@ test('process replay pages the complete history, seeks real snapshots and locate
   expect((await page.evaluate(()=>(window as any).editorHarness.frameRequests)).length).toBe(1);
   await replay.getByRole('button',{name:'版本 68 · 1 次粘贴',exact:true}).click();
   await expect(replay.locator('.replay-paper')).toHaveText('<script>window.replayInjected=true</script>');
+  await expect(replay.locator('.replay-paragraph-highlight')).toHaveText('<script>window.replayInjected=true</script>');
   await replay.getByRole('button',{name:'查看粘贴与修改线索',exact:true}).click();
   await expect(replay.locator('.replay-activity')).toContainText('大段粘贴');
   expect(await page.evaluate(()=>(window as any).replayInjected)).toBeUndefined();
