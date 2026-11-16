@@ -136,3 +136,25 @@ pub async fn external_document_read(window:WebviewWindow,id:String)->Result<Valu
         Ok(serde_json::json!({"name":path.file_name().and_then(|name|name.to_str()).unwrap_or("文档"),"bytes":bytes}))
     }).await.map_err(|_|"读取原文件失败。")?
 }
+
+#[tauri::command]
+pub async fn word_history_read(window:WebviewWindow,hash:String)->Result<Vec<u8>,String>{
+    use std::io::Read;
+    let directory=root(&window)?.join("word-history");
+    if hash.len()!=64||!hash.bytes().all(|b|b.is_ascii_digit()||(b'a'..=b'f').contains(&b)){
+        return Err("历史版本指纹无效。".into());
+    }
+    tauri::async_runtime::spawn_blocking(move||{
+        let canonical=directory.canonicalize().map_err(|_|"此设备没有保存该历史副本。")?;
+        let expected=canonical.join(format!("{hash}.docx"));
+        let actual=expected.canonicalize().map_err(|_|"此设备没有保存该历史副本。")?;
+        if actual!=expected{return Err("历史副本路径无效。".into());}
+        let mut bytes=Vec::new();
+        std::fs::File::open(actual).map_err(|_|"历史副本无法读取。")?
+            .take(8*1024*1024+1).read_to_end(&mut bytes).map_err(|_|"历史副本无法读取。")?;
+        if bytes.len()>8*1024*1024||!bytes.starts_with(b"PK\x03\x04"){
+            return Err("历史副本超出预览范围或已损坏。".into());
+        }
+        Ok(bytes)
+    }).await.map_err(|_|"历史副本无法读取。")?
+}

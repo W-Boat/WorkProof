@@ -132,7 +132,12 @@ function NativeVerifier(){
         {previewMessage&&<p role="status">{previewMessage}</p>}
         {previewHtml&&<iframe ref={previewFrame} title="作品只读预览" sandbox="allow-same-origin" srcDoc={previewHtml} onLoad={focusPreview}/>}
       </section>}
-      <HistoricalDocumentPreview result={result} load={async file=>{
+      <HistoricalDocumentPreview result={result} openLocal={async hash=>{
+        const bridge=(window as unknown as {__TAURI__?:{core:{invoke:(name:string,args:unknown)=>Promise<number[]>}}}).__TAURI__?.core;
+        if(!bridge)throw new Error('本机归档仅在桌面客户端可用。');
+        const bytes=await bridge.invoke('word_history_read',{hash});
+        return new File([Uint8Array.from(bytes)],'WorkProof 历史版本.docx');
+      }} load={async file=>{
         const {previewDocument}=await import('./document-preview.js');
         return previewDocument(file,[]);
       }}/>

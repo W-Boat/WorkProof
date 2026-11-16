@@ -466,6 +466,40 @@ void PauseAfterSampleError(const std::wstring& error) {
     PaintState();
 }
 
+#ifndef WORKPROOF_POWERPOINT
+void ArchiveWordVersion(const std::wstring& source,const std::string& hash,long long bytes){
+    if(bytes<=0||bytes>8*1024*1024||hash.size()!=64||
+       !std::all_of(hash.begin(),hash.end(),[](char c){return (c>='0'&&c<='9')||(c>='a'&&c<='f');}))return;
+    const auto dot=source.rfind(L'.');
+    if(dot==std::wstring::npos||_wcsicmp(source.c_str()+dot,L".docx")!=0)return;
+    wchar_t local[MAX_PATH]{};
+    const auto length=GetEnvironmentVariableW(L"LOCALAPPDATA",local,MAX_PATH);
+    if(!length||length>=MAX_PATH)return;
+    const std::wstring folder=std::wstring(local)+L"\\WorkProof\\word-history";
+    if(!CreateDirectoryW(folder.c_str(),nullptr)&&GetLastError()!=ERROR_ALREADY_EXISTS)return;
+    const auto attributes=GetFileAttributesW(folder.c_str());
+    if(attributes==INVALID_FILE_ATTRIBUTES||!(attributes&FILE_ATTRIBUTE_DIRECTORY)||(attributes&FILE_ATTRIBUTE_REPARSE_POINT))return;
+    const std::wstring path=folder+L"\\"+std::wstring(hash.begin(),hash.end())+L".docx";
+    if(GetFileAttributesW(path.c_str())!=INVALID_FILE_ATTRIBUTES)return;
+    WIN32_FIND_DATAW entry{};
+    HANDLE search=FindFirstFileW((folder+L"\\*.docx").c_str(),&entry);
+    unsigned long long total=0;
+    if(search!=INVALID_HANDLE_VALUE){
+        do{total+=(static_cast<unsigned long long>(entry.nFileSizeHigh)<<32)|entry.nFileSizeLow;}
+        while(FindNextFileW(search,&entry));
+        FindClose(search);
+    }
+    if(total+static_cast<unsigned long long>(bytes)>256ull*1024*1024)return;
+    wchar_t temporary[MAX_PATH]{};
+    if(!GetTempFileNameW(folder.c_str(),L"wph",0,temporary))return;
+    std::string copiedHash;
+    long long copiedBytes=0;
+    if(CopyFileW(source.c_str(),temporary,FALSE)&&Fingerprint(temporary,copiedHash,copiedBytes)&&
+       hash==copiedHash&&bytes==copiedBytes)MoveFileW(temporary,path.c_str());
+    DeleteFileW(temporary);
+}
+#endif
+
 void Sample() {
     if (g.paused || g.session.empty() || g.writing) return;
     DocSnapshot snapshot;
@@ -576,6 +610,7 @@ void Sample() {
             if(!SendEvent("save",snapshot,0,0,hash,error)){
                 PauseAfterSampleError(error);return;
             }
+            ArchiveWordVersion(snapshot.identity,hash,bytes);
             g.lastWordSaveHash=std::move(hash);
         }
     }

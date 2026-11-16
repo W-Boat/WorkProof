@@ -16,7 +16,7 @@ fn main() {
             "install_vscode","open_word","open_powerpoint","verify_image","embed_image",
             "login_startup","adapter_setup","save_excel_manifest","open_wps_publication","office_auto_start","office_reconnect","set_office_reconnect","recording_limit","set_recording_limit","editor_list","editor_create","editor_load","editor_save","editor_version","editor_history","editor_replay_frame","editor_export",
             "external_documents_list","external_document_load","external_document_open",
-            "external_document_locate","external_document_read","library_states","library_set_state","library_delete",
+            "external_document_locate","external_document_read","word_history_read","library_states","library_set_state","library_delete",
         ])
     )).expect("WorkProof build permissions failed");
 }
