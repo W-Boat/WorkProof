@@ -51,9 +51,9 @@ self.onmessage = async ({data}) => {
       if(certificateMatch===false){report.valid=false;report.errors.push('证书指纹不一致：这不是发送者指定的证书。');}
       let display=parsed;
       if(segmented){
-        const {manifest,signature,segments}=parsed;
+        const {manifest,signature,segments,paragraphs}=parsed;
         // Send only authenticated records, without cloning the segmented tree again.
-        display={manifest,signature,records:report.chain_valid?segments.flat():[]};
+        display={manifest,signature,records:report.chain_valid?segments.flat():[],paragraphs:report.chain_valid?paragraphs:undefined};
       }else if(parsed.format){
         display={...parsed,records:(parsed.disclosed||[]).map(entry=>entry.record)};
       }

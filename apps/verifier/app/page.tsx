@@ -10,6 +10,7 @@ import {Upload} from '../components/FileDrop';
 import {Timeline} from '../components/ProcessTimeline';
 import {BehaviorPanel} from '../components/BehaviorPanel';
 import {WordRevisionSummary} from '../components/WordRevisionSummary';
+import {ParagraphReport} from '../components/ParagraphReport';
 import {BehaviorReport} from '../components/BehaviorReport';
 import {EmbeddedVerificationCharts} from '../components/EmbeddedVerificationCharts';
 import {CertificateCard,VerificationChecks,DisclosurePanel,DisclosedEvents} from '../components/ProofPanels';
@@ -152,6 +153,7 @@ export default function Page(){
       <div id="verification-result" ref={resultHeading} tabIndex={-1} role="status" className={`result-banner ${r.valid?'success':'failure'}`}><Notice intent={r.valid?(behaviorReview?'warning':'success'):'error'}><span>{r.valid?<ShieldCheck size={21}/>:<AlertTriangle size={21}/>}<strong>{r.valid?(partial?'部分证据核验通过':'证据核验通过'):'证据核验未通过'}</strong>{m.demo&&<Tag tone="neutral">演示数据</Tag>}</span><span>{r.valid?(behaviorReview?'文件与签名一致 · 编辑过程有待复核提醒':partial?'所选事件属于已签名记录集；完整链未核验':'文件、记录链与签名一致'):'请检查文件配对及证据完整性'}</span></Notice></div>
       <ResultNavigation charts={r.valid} timeline={r.valid&&r.chain_valid}/>
       <div className="result-certificate"><CertificateCard proof={result.proof} report={r} certificateId={result.certificateId} behaviorNote={behaviorNote} behaviorReview={!!behaviorReview}/></div>
+      <ParagraphReport proof={result.proof} onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}/>
       <BehaviorReport assessment={result.behavior} valid={r.valid}
         checks={<><VerificationChecks inline proof={result.proof} report={r} behavior={result.behavior}/>{r.valid&&m.source==='word'&&<WordRevisionSummary records={records} partial={partial}/>}</>}
         onLocate={seq=>{setFocusedEventSeq(seq);document.querySelector('.timeline-panel')?.scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});}}

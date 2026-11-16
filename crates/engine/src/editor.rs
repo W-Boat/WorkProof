@@ -271,6 +271,55 @@ pub fn desktop_export(root:&Path,id:&str,file_name:&str,docx:Option<&[u8]>,markd
     }
     export_evidence(root,id,file_name,docx.or_else(||markdown.map(str::as_bytes)),true)
 }
+fn paragraph_locations(
+    db:&Connection,id:&str,records:&[Record],final_body:&Value,
+)->Result<Vec<workproof_protocol::segmented::ParagraphLocation>>{
+    use super::paragraph_alignment::{fingerprints,single_change,Change};
+    use workproof_protocol::segmented::ParagraphLocation;
+
+    let final_hashes=fingerprints(final_body);
+    let mut final_positions=std::collections::HashMap::new();
+    for (index,hash) in final_hashes.iter().enumerate(){
+        final_positions.entry(hash.as_str()).and_modify(|position|*position=None)
+            .or_insert(Some(index as u32+1));
+    }
+    let mut statement=db.prepare("SELECT content FROM revisions WHERE document=?1 ORDER BY revision").map_err(storage)?;
+    let mut revisions=statement.query([id]).map_err(storage)?;
+    let mut checkpoints=records.iter().filter(|record|matches!(record.event.kind.as_str(),"start"|"save"));
+    let mut prior=Vec::new();
+    let mut first_seq=0;
+    let mut locations=Vec::new();
+    while let Some(row)=revisions.next().map_err(storage)?{
+        let content:String=row.get(0).map_err(storage)?;
+        let checkpoint=checkpoints.next().ok_or("Missing revision checkpoint")?;
+        if checkpoint.event.checkpoint!=digest(content.as_bytes()){
+            return Err("Revision does not match its checkpoint".into());
+        }
+        let current=fingerprints(&parse(content)?);
+        if first_seq>0 && first_seq<checkpoint.event.seq{
+            let mut edits=records[first_seq as usize..checkpoint.event.seq as usize].iter()
+                .filter(|record|record.event.inserted>0||record.event.deleted>0);
+            let edit=edits.next().filter(|_|edits.next().is_none());
+            let position=match single_change(&prior,&current){
+                Change::Edited{after,..}|Change::Inserted{after}=>Some(after),
+                _=>None,
+            };
+            if let (Some(hash),Some(edit))=(position.and_then(|index|current.get(index)),edit){
+                if let Some(Some(ordinal))=final_positions.get(hash.as_str()){
+                    locations.push(ParagraphLocation{
+                        ordinal:*ordinal,fingerprint:hash.clone(),
+                        first_seq:edit.event.seq,last_seq:edit.event.seq,
+                    });
+                }
+            }
+        }
+        prior=current;
+        first_seq=checkpoint.event.seq+1;
+        if locations.len()>=50_000{break;}
+    }
+    Ok(locations)
+}
+
 fn export_evidence(root:&Path,id:&str,file_name:&str,artifact:Option<&[u8]>,allow_segmented:bool)->Result<DesktopExport>{
     use workproof_protocol::{Evidence, segmented, verify_evidence};
     if !valid_id(id)||file_name.len()>1024||file_name.contains(['/', '\\']){return Err("文件名称无效。".into());}
@@ -329,14 +378,17 @@ fn export_evidence(root:&Path,id:&str,file_name:&str,artifact:Option<&[u8]>,allo
     let bytes=artifact.unwrap_or(html.as_bytes());let hash=digest(bytes);let e=Event{seq:records.len() as u64,elapsed_ms:elapsed,kind:"save".into(),inserted:0,deleted:0,chars:text_length(&body),checkpoint:hash.clone(),metrics:BTreeMap::new()};head=event_hash(&head,&e);records.push(Record{event:e,hash:head.clone()});
     let seed:[u8;32]=std::fs::read(root.join("signing-key.bin")).map_err(storage)?.try_into().map_err(|_|"本机签名密钥不完整。")?;let key=ed25519_dalek::SigningKey::from_bytes(&seed);
     let manifest=Manifest{protocol:VERSION.into(),session_id:id.into(),file_name:file_name.into(),started_at:started,source:"workproof-tiptap".into(),event_count:records.len() as u64,chain_head:head,artifact_hash:hash.clone(),artifact_bytes:bytes.len() as u64,public_key:hex::encode(key.verifying_key().to_bytes()),identity:"self-signed".into(),time_evidence:"none".into(),demo:false,merkle_root:String::new()};
-    let proof=if overflow.is_some(){
+    let paragraphs=if allow_segmented{
+        paragraph_locations(&db,id,&records,&body)?
+    }else{Vec::new()};
+    let proof=if overflow.is_some()||!paragraphs.is_empty(){
         let segment_size=super::recording_settings::load(root)?.unwrap_or(50_000) as usize;
         let mut records=records.into_iter();
         let segments=std::iter::from_fn(||{
             let segment:Vec<_>=records.by_ref().take(segment_size).collect();
             (!segment.is_empty()).then_some(segment)
         }).collect();
-        Evidence::Segmented(segmented::SegmentedProof::sign(manifest,segments,&key)
+        Evidence::Segmented(segmented::SegmentedProof::sign_with_paragraphs(manifest,segments,paragraphs,&key)
             .map_err(|_|"分段证书未通过签发前的完整性检查。")?)
     }else{
         Evidence::Full(sign(manifest,records,&key))

@@ -1,5 +1,6 @@
 export type RecordEntry={event:{seq:number;elapsed_ms:number;kind:string;inserted:number;deleted:number;chars:number;checkpoint:string;metrics?:Record<string,number>};hash:string};
-export type Proof={manifest:{protocol:string;session_id:string;file_name:string;started_at:string;source:string;event_count:number;chain_head:string;artifact_hash:string;artifact_bytes:number;public_key:string;identity:string;time_evidence:string;demo:boolean;merkle_root?:string};records:RecordEntry[];signature:string};
+export type ParagraphLocation={ordinal:number;fingerprint:string;first_seq:number;last_seq:number};
+export type Proof={paragraphs?:ParagraphLocation[];manifest:{protocol:string;session_id:string;file_name:string;started_at:string;source:string;event_count:number;chain_head:string;artifact_hash:string;artifact_bytes:number;public_key:string;identity:string;time_evidence:string;demo:boolean;merkle_root?:string};records:RecordEntry[];signature:string};
 export type Report={valid:boolean;file_match:boolean;chain_valid:boolean;signature_valid:boolean;merkle_valid:boolean|null;scope:"full"|"selective";disclosed_events:number;total_events:number;errors:string[]};
 export type BehaviorSignal={code:string;severity:'notice'|'warning';start_ms:number;end_ms:number;first_seq:number;last_seq:number;event_count:number;inserted:number;deleted:number;details:Record<string,number>};
 export type StructureAssessment={profile:string;version:string;saves:number;pauses:number;changes:number;gaps:number;first_gap_seq:number|null};

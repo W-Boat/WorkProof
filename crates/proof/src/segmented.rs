@@ -11,18 +11,36 @@ pub const MAX_SEGMENTS: usize = 10_000;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct ParagraphLocation {
+    pub ordinal: u32,
+    pub fingerprint: String,
+    pub first_seq: u64,
+    pub last_seq: u64,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SegmentedProof {
     pub manifest: Manifest,
     pub segments: Vec<Vec<Record>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paragraphs: Vec<ParagraphLocation>,
     pub signature: String,
 }
 
 impl SegmentedProof {
-    pub fn sign(mut manifest: Manifest, segments: Vec<Vec<Record>>, key: &SigningKey) -> Result<Self, ChainError> {
+    pub fn sign(manifest: Manifest, segments: Vec<Vec<Record>>, key: &SigningKey) -> Result<Self, ChainError> {
+        Self::sign_with_paragraphs(manifest, segments, Vec::new(), key)
+    }
+
+    pub fn sign_with_paragraphs(
+        mut manifest: Manifest, segments: Vec<Vec<Record>>, paragraphs: Vec<ParagraphLocation>, key: &SigningKey,
+    ) -> Result<Self, ChainError> {
         manifest.protocol = VERSION.into();
         manifest.merkle_root.clear();
         manifest.public_key = hex::encode(key.verifying_key().to_bytes());
-        let mut proof = Self { manifest, segments, signature: String::new() };
+        let mut proof = Self { manifest, segments, paragraphs, signature: String::new() };
         if !proof.valid_manifest() {
             return Err(ChainError::Manifest);
         }
@@ -38,6 +56,16 @@ impl SegmentedProof {
         bytes.extend_from_slice(&(self.segments.len() as u64).to_le_bytes());
         for segment in &self.segments {
             bytes.extend_from_slice(&(segment.len() as u64).to_le_bytes());
+        }
+        if !self.paragraphs.is_empty() {
+            bytes.extend_from_slice(b"WorkProof:paragraph-locations:v1\0");
+            bytes.extend_from_slice(&(self.paragraphs.len() as u64).to_le_bytes());
+            for location in &self.paragraphs {
+                bytes.extend_from_slice(&location.ordinal.to_le_bytes());
+                bytes.extend_from_slice(location.fingerprint.as_bytes());
+                bytes.extend_from_slice(&location.first_seq.to_le_bytes());
+                bytes.extend_from_slice(&location.last_seq.to_le_bytes());
+            }
         }
         bytes
     }
@@ -58,6 +86,11 @@ impl SegmentedProof {
             && valid_hash(&m.artifact_hash)
             && valid_hash(&m.public_key)
             && (1..=MAX_SEGMENTS).contains(&self.segments.len())
+            && self.paragraphs.len() <= 50_000
+            && self.paragraphs.iter().enumerate().all(|(i,row)|
+                (i==0 || self.paragraphs[i-1].last_seq<row.first_seq)
+                && row.ordinal>0 && valid_hash(&row.fingerprint)
+                && row.first_seq>0 && row.first_seq<=row.last_seq && row.last_seq<m.event_count)
     }
 
     fn check_chain(&self) -> Result<(), ChainError> {
@@ -242,7 +275,11 @@ mod tests {
             merkle_root: String::new(),
         };
         let key = SigningKey::from_bytes(&[3; 32]);
-        let mut proof = SegmentedProof::sign(manifest, vec![full, tail], &key).unwrap();
+        let location = ParagraphLocation { ordinal: 1, fingerprint: digest(b"paragraph"), first_seq: 1, last_seq: 1 };
+        let mut proof = SegmentedProof::sign_with_paragraphs(manifest, vec![full, tail], vec![location], &key).unwrap();
+        proof.paragraphs[0].ordinal = 2;
+        assert!(!proof.verify(&artifact, 5).signature_valid);
+        proof.paragraphs[0].ordinal = 1;
         assert!(proof.verify(&artifact, 5).valid);
         let encoded = serde_json::to_vec(&proof).unwrap();
         let parsed: crate::Evidence = serde_json::from_slice(&encoded).unwrap();
