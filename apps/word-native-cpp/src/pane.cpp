@@ -555,7 +555,13 @@ void Sample() {
 #ifdef WORKPROOF_POWERPOINT
         if(!snapshot.textSampled||!g.textSampled)inserted=deleted=0;
 #endif
-        if (!SendEvent("edit", snapshot, inserted, deleted, std::string(), error)) {
+        std::string paragraphCheckpoint;
+#ifndef WORKPROOF_POWERPOINT
+        if(snapshot.wordSampleParagraph>0){
+            paragraphCheckpoint=WideToUtf8(snapshot.wordParagraphHashes[snapshot.wordSampleParagraph-1]);
+        }
+#endif
+        if (!SendEvent("edit", snapshot, inserted, deleted, paragraphCheckpoint, error)) {
             PauseAfterSampleError(error);return;
         }
     }

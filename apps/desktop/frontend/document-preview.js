@@ -2,7 +2,7 @@ import {blake3} from '@noble/hashes/blake3.js';
 import {bytesToHex} from '@noble/hashes/utils.js';
 import {wordOperation} from './word-operation.js';
 
-export async function previewDocument(file,locations){
+export async function previewDocument(file,locations,wordLocations=[]){
   if(file.size>8*1024*1024)throw new Error('文件超过 8 MiB 的内嵌预览范围。');
   if(/\.(png|jpe?g|webp)$/i.test(file.name)){
     const bytes=new Uint8Array(await file.arrayBuffer());
@@ -38,13 +38,38 @@ export async function previewDocument(file,locations){
     return Array.from(node.childNodes,textOf).join('');
   }
   const excerpts=[];
-  rendered.content.querySelectorAll('p,h1,h2,h3,h4,h5,h6,pre').forEach((block,index)=>{
+  const blocks=Array.from(rendered.content.querySelectorAll('p,h1,h2,h3,h4,h5,h6,pre'));
+  blocks.forEach((block,index)=>{
     const ordinal=index+1, fingerprint=expected.get(ordinal);
     if(fingerprint&&bytesToHex(blake3(encoder.encode(textOf(block))))===fingerprint){
       excerpts.push({ordinal,text:Array.from(textOf(block)).slice(0,160).join('')});
       block.classList.add('located');block.id='paragraph-'+ordinal;
     }
   });
+  if(wordLocations.length&&blocks.length<=4096){
+    const matches=new Map();
+    const candidateHashes=new Set(wordLocations.map(item=>item.fingerprint));
+    const buffer=new Uint8Array(2*262144);
+    let scanned=0;
+    for(const block of blocks){
+      const text=textOf(block).replaceAll('\n','\v');
+      scanned+=text.length;
+      if(scanned>262144){matches.clear();break;}
+      const bytes=buffer.subarray(0,text.length*2);
+      const units=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+      for(let index=0;index<text.length;index++)units.setUint16(index*2,text.charCodeAt(index),true);
+      const hash=bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)));
+      if(candidateHashes.has(hash))matches.set(hash,matches.has(hash)?null:block);
+    }
+    const seen=new Set();
+    for(const item of wordLocations){
+      const block=matches.get(item.fingerprint);
+      if(!block||seen.has(block))continue;
+      seen.add(block);block.classList.add('located');block.id='word-paragraph-'+item.fingerprint;
+      const ordinal=blocks.indexOf(block)+1;
+      excerpts.push({ordinal,text:Array.from(textOf(block)).slice(0,160).join('')});
+    }
+  }
   return {html:previewHtml(rendered.innerHTML),excerpts};
 }
 

@@ -66,6 +66,11 @@ export function paragraphStatistics(proof:Proof){
   }));
 }
 
+export function wordPreviewLocations(proof:Proof){
+  return wordParagraphSamples(proof).flatMap(({event})=>
+    /^[0-9a-f]{64}$/.test(event.checkpoint)?[{fingerprint:event.checkpoint}]:[]);
+}
+
 export function wordParagraphSamples(proof:Proof){
   if(proof.manifest.source!=='word')return [];
   return proof.records.flatMap(({event},index)=>{

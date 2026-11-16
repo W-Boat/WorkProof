@@ -7,7 +7,7 @@ import {paragraphStatistics,wordParagraphSamples} from '../lib/paragraph-statist
 
 const PAGE_SIZE=50;
 
-export function ParagraphReport({proof,onLocate,onPreview}:{proof:Proof;onLocate?:(seq:number)=>void;onPreview?:(ordinal:number)=>void}){
+export function ParagraphReport({proof,onLocate,onPreview}:{proof:Proof;onLocate?:(seq:number)=>void;onPreview?:(ordinal:number,wordFingerprint?:string)=>void}){
   const rows=useMemo(()=>paragraphStatistics(proof),[proof]);
   const samples=useMemo(()=>wordParagraphSamples(proof),[proof]);
   const [page,setPage]=useState(0);
@@ -20,7 +20,8 @@ export function ParagraphReport({proof,onLocate,onPreview}:{proof:Proof;onLocate
         <tbody>{samples.slice(samplePage*PAGE_SIZE,(samplePage+1)*PAGE_SIZE).map(({event,rate})=><tr key={event.seq}>
           <td>{event.metrics?.word_sample_paragraph}</td><td>{event.inserted}</td><td>{event.deleted}</td><td>{time(event.elapsed_ms)}</td>
           <td>{rate===null?'条件不足':rate.toFixed(1)+' 字符/秒'}</td>
-          <td>{onLocate&&<Button variant="secondary" onClick={()=>onLocate(event.seq)}>查看记录</Button>}</td>
+          <td>{onPreview&&/^[0-9a-f]{64}$/.test(event.checkpoint)&&<Button variant="secondary" onClick={()=>onPreview(event.metrics!.word_sample_paragraph,event.checkpoint)}>在作品中查看</Button>}
+            {onLocate&&<Button variant="secondary" onClick={()=>onLocate(event.seq)}>查看记录</Button>}</td>
         </tr>)}</tbody>
       </table></div>
       <div className="nv-actions">
