@@ -274,21 +274,18 @@ pub fn desktop_export(root:&Path,id:&str,file_name:&str,docx:Option<&[u8]>,markd
 fn paragraph_locations(
     db:&Connection,id:&str,records:&[Record],final_body:&Value,
 )->Result<Vec<workproof_protocol::segmented::ParagraphLocation>>{
-    use super::paragraph_alignment::{fingerprints,single_change,Change};
+    use super::paragraph_alignment::{align_identities,fingerprints,single_change,Change};
     use workproof_protocol::segmented::ParagraphLocation;
 
     let final_hashes=fingerprints(final_body);
-    let mut final_positions=std::collections::HashMap::new();
-    for (index,hash) in final_hashes.iter().enumerate(){
-        final_positions.entry(hash.as_str()).and_modify(|position|*position=None)
-            .or_insert(Some(index as u32+1));
-    }
     let mut statement=db.prepare("SELECT content FROM revisions WHERE document=?1 ORDER BY revision").map_err(storage)?;
     let mut revisions=statement.query([id]).map_err(storage)?;
     let mut checkpoints=records.iter().filter(|record|matches!(record.event.kind.as_str(),"start"|"save"));
     let mut prior=Vec::new();
+    let mut identities=Vec::new();
+    let mut next_identity=0;
     let mut first_seq=0;
-    let mut locations=Vec::new();
+    let mut events=Vec::new();
     while let Some(row)=revisions.next().map_err(storage)?{
         let content:String=row.get(0).map_err(storage)?;
         let checkpoint=checkpoints.next().ok_or("Missing revision checkpoint")?;
@@ -296,28 +293,34 @@ fn paragraph_locations(
             return Err("Revision does not match its checkpoint".into());
         }
         let current=fingerprints(&parse(content)?);
-        if first_seq>0 && first_seq<checkpoint.event.seq{
+        let change=single_change(&prior,&current);
+        let current_ids=align_identities(&prior,&identities,&current,&change,&mut next_identity);
+        if first_seq>0 && first_seq<checkpoint.event.seq && events.len()<50_000 {
             let mut edits=records[first_seq as usize..checkpoint.event.seq as usize].iter()
                 .filter(|record|record.event.inserted>0||record.event.deleted>0);
             let edit=edits.next().filter(|_|edits.next().is_none());
-            let position=match single_change(&prior,&current){
+            let position=match change{
                 Change::Edited{after,..}|Change::Inserted{after}=>Some(after),
                 _=>None,
             };
-            if let (Some(hash),Some(edit))=(position.and_then(|index|current.get(index)),edit){
-                if let Some(Some(ordinal))=final_positions.get(hash.as_str()){
-                    locations.push(ParagraphLocation{
-                        ordinal:*ordinal,fingerprint:hash.clone(),
-                        first_seq:edit.event.seq,last_seq:edit.event.seq,
-                    });
-                }
+            if let (Some(identity),Some(edit))=(position.and_then(|index|current_ids.get(index)),edit){
+                events.push((*identity,edit.event.seq));
             }
         }
         prior=current;
+        identities=current_ids;
         first_seq=checkpoint.event.seq+1;
-        if locations.len()>=50_000{break;}
     }
-    Ok(locations)
+    if prior!=final_hashes{return Err("Final paragraph index does not match the saved document".into());}
+    let mut counts=std::collections::HashMap::new();
+    for hash in &final_hashes{*counts.entry(hash.as_str()).or_insert(0usize)+=1;}
+    let final_positions:std::collections::HashMap<_,_>=identities.into_iter().zip(&final_hashes).enumerate()
+        .filter(|(_,(_,hash))|counts.get(hash.as_str())==Some(&1))
+        .map(|(index,(identity,hash))|(identity,(index as u32+1,hash))).collect();
+    Ok(events.into_iter().filter_map(|(identity,seq)|{
+        let (ordinal,hash)=final_positions.get(&identity)?;
+        Some(ParagraphLocation{ordinal:*ordinal,fingerprint:(*hash).clone(),first_seq:seq,last_seq:seq})
+    }).collect())
 }
 
 fn export_evidence(root:&Path,id:&str,file_name:&str,artifact:Option<&[u8]>,allow_segmented:bool)->Result<DesktopExport>{

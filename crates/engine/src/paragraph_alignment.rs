@@ -80,12 +80,62 @@ pub(crate) fn single_change(before: &[String], after: &[String]) -> Change {
     }
 }
 
+/// Carry an identity across unique unchanged text or one unambiguous edit.
+pub(crate) fn align_identities(
+    before: &[String], old_ids: &[u64], after: &[String], change: &Change, next_id: &mut u64,
+) -> Vec<u64> {
+    if before == after {
+        return old_ids.to_vec();
+    }
+
+    let mut unique = HashMap::new();
+    for (hash, id) in before.iter().zip(old_ids) {
+        unique.entry(hash.as_str()).and_modify(|found| *found = None).or_insert(Some(*id));
+    }
+    let mut counts = HashMap::new();
+    for hash in after {
+        *counts.entry(hash.as_str()).or_insert(0usize) += 1;
+    }
+
+    after.iter().enumerate().map(|(index, hash)| {
+        if let Change::Edited { before, after } = change {
+            if index == *after {
+                return old_ids[*before];
+            }
+        }
+        let previous = unique.get(hash.as_str()).copied().flatten();
+        if counts.get(hash.as_str()) == Some(&1) {
+            if let Some(id) = previous {
+                return id;
+            }
+        }
+        *next_id += 1;
+        *next_id
+    }).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn sample(values: &[&str]) -> Vec<String> {
         values.iter().map(|text| workproof_protocol::digest(text.as_bytes())).collect()
+    }
+
+    #[test]
+    fn keeps_identity_after_rewriting_and_moving_a_unique_paragraph() {
+        let mut next=2;
+        let before=sample(&["heading","draft"]);
+        let rewritten=sample(&["heading","revised"]);
+        let moved=sample(&["revised","heading"]);
+        let ids=align_identities(&before,&[1,2],&rewritten,&single_change(&before,&rewritten),&mut next);
+        assert_eq!(ids,[1,2]);
+        let ids=align_identities(&rewritten,&ids,&moved,&single_change(&rewritten,&moved),&mut next);
+        assert_eq!(ids,[2,1]);
+
+        let repeated=sample(&["revised","revised","heading"]);
+        let ids=align_identities(&moved,&ids,&repeated,&single_change(&moved,&repeated),&mut next);
+        assert!(!ids[..2].contains(&2));
     }
 
     #[test]
