@@ -8,13 +8,14 @@ import {createEncryptedReport} from '../lib/encrypted-report';
 
 type Saved={file_name:string;md5:string;sha256:string;bytes:number;native:boolean;source_certificate_id:string};
 const bridge=()=> (window as unknown as {__TAURI__?:{core:{invoke:(name:string,args?:unknown)=>Promise<any>}}}).__TAURI__?.core;
-export function ReportExport({result,artifact,proof,metadata,native=false,auxiliaryText,expectedCertificateId}:{result:Result;artifact:File|null;proof:File|null;metadata?:MetadataReport|null;native?:boolean;auxiliaryText?:()=>string;expectedCertificateId?:string}){
+export function ReportExport({result,artifact,proof,metadata,native=false,auxiliaryText,expectedCertificateId,excerpts=[]}:{result:Result;artifact:File|null;proof:File|null;metadata?:MetadataReport|null;native?:boolean;auxiliaryText?:()=>string;expectedCertificateId?:string;excerpts?:{ordinal:number;text:string}[]}){
   const embedded=useEmbeddedFluent(),[open,setOpen]=useState(false),[password,setPassword]=useState(''),[confirmation,setConfirmation]=useState('');
   const [busy,setBusy]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState<Saved|null>(null);
   const [copyNote,setCopyNote]=useState('');
+  const [selected,setSelected]=useState<number[]>([]);
   const dialog=useRef<HTMLDialogElement>(null),task=useRef<AbortController|null>(null),alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;task.current?.abort();};},[]);
-  useEffect(()=>{if(open){setSaved(null);setError('');setCopyNote('');dialog.current?.showModal();}else{task.current?.abort();setPassword('');setConfirmation('');}},[open]);
+  useEffect(()=>{if(open){setSelected([]);setSaved(null);setError('');setCopyNote('');dialog.current?.showModal();}else{task.current?.abort();setPassword('');setConfirmation('');}},[open]);
   async function close(){
     if(saving)return;task.current?.abort();
     const element=dialog.current,closeDialog=(window as unknown as {workproofCloseDialog?:(element:HTMLDialogElement)=>Promise<void>}).workproofCloseDialog;
@@ -30,7 +31,7 @@ export function ReportExport({result,artifact,proof,metadata,native=false,auxili
     try{
       const application=native?await bridge()?.invoke('app_info'):null;
       const snapshot=metadata?.file===artifact?{...metadata,file:undefined}:{status:'not_run'};
-      const bundle=await createEncryptedReport({result,artifact,proof,metadata:snapshot,application,auxiliaryText:auxiliaryText?.()||'',expectedCertificateId},password,controller.signal);
+      const bundle=await createEncryptedReport({result,artifact,proof,metadata:snapshot,application,auxiliaryText:auxiliaryText?.()||'',expectedCertificateId,excerpts:excerpts.filter(item=>selected.includes(item.ordinal))},password,controller.signal);
       if(!alive.current||controller.signal.aborted)return;
       let fileName=`WorkProof-report-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.html`;
       if(native){
@@ -54,6 +55,13 @@ export function ReportExport({result,artifact,proof,metadata,native=false,auxili
       {!saved?<>
         <label className="report-password-label">设置报告密码（至少 8 个字符）<input aria-label="设置报告密码" type="password" autoComplete="new-password" maxLength={1024} value={password} disabled={busy} onChange={event=>setPassword(event.target.value)}/></label>
         <label className="report-password-label">再次输入密码<input aria-label="再次输入报告密码" type="password" autoComplete="new-password" maxLength={1024} value={confirmation} disabled={busy} onChange={event=>setConfirmation(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();void generate();}}}/></label>
+        {excerpts.length>0&&<details><summary>选择要附上的段落摘录</summary>
+          {excerpts.slice(0,100).map(item=><label className="report-include-file" key={item.ordinal}>
+            <input type="checkbox" disabled={busy} checked={selected.includes(item.ordinal)}
+              onChange={event=>setSelected(value=>event.target.checked?[...value,item.ordinal]:value.filter(ordinal=>ordinal!==item.ordinal))}/>
+            <span>第 {item.ordinal} 段 · {item.text}</span>
+          </label>)}
+        </details>}
         <p className="report-export-note">原作品另附，不封装原文件。密码不会保存在报告里，请单独告知接收者。未执行的检查会标明状态；部分披露的证书不会补出隐藏记录。</p>
         {busy&&<div role="status"><p>{saving?'请选择报告保存位置…':'正在整理完整数据并加密…'}</p>{embedded?<FluentElement tag="fluent-progress-bar" aria-label="正在生成加密报告"/>:<progress aria-label="正在生成加密报告"/>}</div>}
       </>:<div className="report-export-saved" role="status">

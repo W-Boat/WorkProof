@@ -15,6 +15,7 @@ const Charts=lazy(()=>import('../../verifier/components/VerificationCharts'));
 
 function NativeVerifier(){
   const [artifact,setArtifact]=useState<File|null>(null),[proof,setProof]=useState<File|null>(null);
+  const [previewExcerpts,setPreviewExcerpts]=useState<{ordinal:number;text:string}[]>([]);
   const [previewHtml,setPreviewHtml]=useState(''),[previewMessage,setPreviewMessage]=useState('');
   const [stage,setStage]=useState<Stage>('idle'),[result,setResult]=useState<Result|null>(null),[error,setError]=useState('');
   const [showMetadata,setShowMetadata]=useState(false);
@@ -34,7 +35,7 @@ function NativeVerifier(){
     loadEmbeddedFluent(document.documentElement.dataset.theme==='dark').then(()=>{if(active)setReady(true);},()=>{if(active)setError('核验组件未能加载，请重新打开客户端。');});
     return()=>{active=false;generation.current++;worker.current?.terminate();};
   },[]);
-  function cancel(){setPreviewHtml('');setPreviewMessage('');generation.current++;worker.current?.terminate();worker.current=null;setStage('idle');setResult(null);setError('');setShareMessage('');}
+  function cancel(){setPreviewExcerpts([]);setPreviewHtml('');setPreviewMessage('');generation.current++;worker.current?.terminate();worker.current=null;setStage('idle');setResult(null);setError('');setShareMessage('');}
   function choose(file:File|null,kind:'artifact'|'proof'){
     cancel();setEventPage(0);setFocusedEventSeq(null);setTab('report');
     if(kind==='proof'&&file&&file.size>32*1024*1024){setProof(null);setError('证书超过 32 MB，请选择完整安装包支持范围内的证书。');return;}
@@ -64,8 +65,8 @@ function NativeVerifier(){
     setPreviewMessage('正在准备文档预览…');
     try{
       const {previewDocument}=await import('./document-preview.js');
-      const html=await previewDocument(artifact,result.proof.paragraphs||[]);
-      if(request===generation.current){setPreviewHtml(html);setPreviewMessage('');}
+      const {html,excerpts}=await previewDocument(artifact,result.proof.paragraphs||[]);
+      if(request===generation.current){setPreviewHtml(html);setPreviewExcerpts(excerpts);setPreviewMessage('');}
     }catch(error){
       if(request===generation.current)setPreviewMessage(error instanceof Error?error.message:'文档预览失败。');
     }
@@ -110,7 +111,7 @@ function NativeVerifier(){
     {stage==='working'&&<div className="nv-working"><VerificationProgress {...progress}/><FluentElement tag="fluent-button" appearance="subtle" onClick={cancel}>取消核验</FluentElement></div>}
     {error&&<p className="nv-error" role="alert">{error}</p>}
     {result&&<><section className="nv-verdict" data-valid={valid} role="status"><h3>{valid?'文件与证书一致':'核验未通过'}</h3>{valid&&result.proof.manifest.demo&&<FluentElement tag="fluent-badge" appearance="tint">演示证书 · 仅用于体验</FluentElement>}<p>{valid?'文件指纹、已披露记录与签名核对通过。签名有效不等于官方背书，也不能单独证明全部内容由人类创作。':'请检查作品是否是导出证书时的最终文件，以及证书是否完整。'}</p>{valid&&result.certificateMatch===true&&<p>指定证书指纹一致。</p>}<ul>{result.report.errors.map((item,i)=><li key={i}>{item}</li>)}</ul></section>
-      <div className="nv-actions"><ReportExport result={result} expectedCertificateId={expectedId} artifact={artifact} proof={proof} metadata={metadata} native auxiliaryText={()=>document.querySelector('.nv-result')?.textContent||''}/></div>
+      <div className="nv-actions"><ReportExport result={result} expectedCertificateId={expectedId} artifact={artifact} proof={proof} metadata={metadata} excerpts={previewExcerpts} native auxiliaryText={()=>document.querySelector('.nv-result')?.textContent||''}/></div>
       {valid&&<div className="nv-actions" aria-label="分享已核验证书"><FluentElement tag="fluent-button" appearance="secondary" onClick={copyFingerprint}>复制证书指纹</FluentElement><FluentElement tag="fluent-button" appearance="subtle" disabled={certificateSaving} aria-busy={certificateSaving} onClick={()=>void saveOriginalCertificate()}>保存原始证书</FluentElement><span>{result.report.scope==='selective'?'仅含已披露记录':'含完整记录，请先确认分享范围'}</span></div>}
       {valid&&artifact&&/\.(docx|md|markdown|txt)$/i.test(artifact.name)&&<section className="nv-document-preview">
         <FluentElement tag="fluent-button" appearance="secondary" onClick={()=>void openDocumentPreview()}>预览匹配作品</FluentElement>

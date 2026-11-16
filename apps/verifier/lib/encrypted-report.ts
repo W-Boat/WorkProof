@@ -7,17 +7,19 @@ export type ReportPackage={
   application:unknown;metadata:unknown;auxiliary_text:string;
   certificate:{name:string;type:string;base64:string};
   artifact:{name:string;type:string;bytes:number};
+  excerpts?:{ordinal:number;text:string}[];
 };
 const hex=(bytes:Uint8Array)=>Array.from(bytes,value=>value.toString(16).padStart(2,'0')).join('');
 export function base64(bytes:Uint8Array){const parts:string[]=[];for(let offset=0;offset<bytes.length;offset+=49152)parts.push(btoa(String.fromCharCode(...bytes.subarray(offset,offset+49152))));return parts.join('');}
 const check=(signal?:AbortSignal)=>{if(signal?.aborted)throw new Error('已取消生成报告。');};
 
-export async function createEncryptedReport(input:{result:Result;artifact:File;proof:File;metadata?:unknown;application?:unknown;auxiliaryText?:string;expectedCertificateId?:string},password:string,signal?:AbortSignal){
+export async function createEncryptedReport(input:{result:Result;artifact:File;proof:File;metadata?:unknown;application?:unknown;auxiliaryText?:string;expectedCertificateId?:string;excerpts?:ReportPackage['excerpts']},password:string,signal?:AbortSignal){
   if(Array.from(password).length<8||password.length>1024)throw new Error('请设置至少 8 个字符的密码。');
   if(!crypto.subtle)throw new Error('当前环境不支持本机加密，请使用完整客户端或 HTTPS 页面。');
   if(input.proof.size>32*1024*1024)throw new Error('证书超过本次报告封装范围（最多 32 MB）。');
   check(signal);
   const model:ReportPackage={schema:'workproof-report/1',exported_at:new Date().toISOString(),result:input.result,expected_certificate_id:input.expectedCertificateId??'',application:input.application??null,metadata:input.metadata??{status:'not_run'},auxiliary_text:input.auxiliaryText??'',certificate:{name:input.proof.name,type:input.proof.type||'application/json',base64:base64(new Uint8Array(await input.proof.arrayBuffer()))},artifact:{name:input.artifact.name,type:input.artifact.type||'application/octet-stream',bytes:input.artifact.size}};
+  if(input.excerpts?.length)model.excerpts=input.excerpts;
   check(signal);const plain=new TextEncoder().encode(JSON.stringify(model));
   if(plain.byteLength>80*1024*1024)throw new Error('完整报告超过 80 MB，本次无法生成；不会截断记录。');
   let mode='auto';

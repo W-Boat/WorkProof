@@ -14,8 +14,9 @@ export async function previewDocument(file,locations){
   }else{
     throw new Error('该格式没有内嵌渲染器。可在记录页查看已采集的操作。');
   }
-  const rendered=new DOMParser().parseFromString(runtime.generateHTML(content,runtime.editorExtensions()),'text/html');
-  rendered.body.querySelectorAll('a[href]').forEach(link=>link.removeAttribute('href'));
+  const rendered=document.createElement('template');
+  rendered.innerHTML=runtime.generateHTML(content,runtime.editorExtensions());
+  rendered.content.querySelectorAll('a[href]').forEach(link=>link.removeAttribute('href'));
   const expected=new Map(locations.map(location=>[location.ordinal,location.fingerprint]));
   const encoder=new TextEncoder();
   function textOf(node){
@@ -23,14 +24,17 @@ export async function previewDocument(file,locations){
     if(node.nodeName==='BR')return '\n';
     return Array.from(node.childNodes,textOf).join('');
   }
-  rendered.body.querySelectorAll('p,h1,h2,h3,h4,h5,h6,pre').forEach((block,index)=>{
+  const excerpts=[];
+  rendered.content.querySelectorAll('p,h1,h2,h3,h4,h5,h6,pre').forEach((block,index)=>{
     const ordinal=index+1, fingerprint=expected.get(ordinal);
     if(fingerprint&&bytesToHex(blake3(encoder.encode(textOf(block))))===fingerprint){
+      excerpts.push({ordinal,text:Array.from(textOf(block)).slice(0,160).join('')});
       block.classList.add('located');block.id='paragraph-'+ordinal;
     }
   });
-  return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'+
+  const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'+
     '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; form-action \'none\'">'+
     '<style>body{max-width:48rem;margin:24px auto;padding:0 24px;font:16px/1.7 system-ui;color:#242424;background:#fff}img{max-width:100%}table{border-collapse:collapse}td,th{border:1px solid #aaa;padding:.3rem}pre{white-space:pre-wrap}.located{background:#e5f4ff;outline:1px solid #1672b2;outline-offset:3px}</style></head><body>'+
-    rendered.body.innerHTML+'</body></html>';
+    rendered.innerHTML+'</body></html>';
+  return {html,excerpts};
 }

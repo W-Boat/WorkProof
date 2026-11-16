@@ -98,6 +98,7 @@ function render(model:ReportPackage,root:HTMLElement){
       body.querySelector('thead tr')?.append(el('th','操作'));
     }
     paintParagraphs();
+    if(model.excerpts?.length)paragraphSection.append(table(['最终段落','分享者选中的摘录'],model.excerpts.map(item=>['第 '+item.ordinal+' 段',item.text])));
   }
   if(structure&&structure.first_gap_seq!=null){
     const firstGap=records.findIndex(({event})=>event.seq===structure.first_gap_seq);
