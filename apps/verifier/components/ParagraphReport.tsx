@@ -2,7 +2,7 @@
 import {useMemo,useState} from 'react';
 import {Panel} from './institution-ui';
 import {Button} from './button';
-import type {Proof} from '../lib/evidence';
+import {type Proof,time} from '../lib/evidence';
 import {paragraphStatistics,wordParagraphSamples} from '../lib/paragraph-statistics';
 
 const PAGE_SIZE=50;

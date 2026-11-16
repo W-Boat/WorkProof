@@ -44,8 +44,9 @@ test('signed paragraph location is highlighted and only selected excerpts reach 
   await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles('apps/verifier/public/demo/essay.paragraphs.wproof');
   await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
   await expect(page.locator('.result-banner.success')).toBeVisible({timeout:20000});
-  await page.getByRole('button',{name:'预览匹配作品',exact:true}).click();
+  await page.getByRole('button',{name:'在作品中查看',exact:true}).click();
   await expect(page.frameLocator('iframe[title="作品只读预览"]').locator('#paragraph-1.located')).toHaveText('让创作过程，有据可查');
+  await expect(page.frameLocator('iframe[title="作品只读预览"]').locator('#paragraph-1')).toBeFocused();
   await page.getByRole('button',{name:'下载加密 HTML 报告',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'保存完整核验报告'});
   await dialog.getByText('选择要附上的段落摘录',{exact:true}).click();
