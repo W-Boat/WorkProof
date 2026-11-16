@@ -5,7 +5,7 @@ import {CanvasRenderer} from 'echarts/renderers';
 import {charts,categoryCharts,summarize,chartOption,chartTable} from './verification-chart-data';
 import {buildBehaviorReport,names} from './behavior-report-data';
 import {behaviorAxes} from './behavior-overview-data';
-import {paragraphStatistics,wordParagraphSamples} from './paragraph-statistics';
+import {paragraphRecordsVerified,paragraphStatistics,wordParagraphSamples} from './paragraph-statistics';
 import type {ReportPackage} from './encrypted-report';
 
 use([BarChart,BoxplotChart,HeatmapChart,LineChart,PieChart,RadarChart,ScatterChart,TreemapChart,GridComponent,LegendComponent,RadarComponent,TooltipComponent,VisualMapComponent,CanvasRenderer]);
@@ -64,7 +64,7 @@ function render(model:ReportPackage,root:HTMLElement){
   const pager=el('div',undefined,'pager'),label=el('span'),content=el('div');let page=0;
   const before=command('上一页',()=>{page--;paint();}),after=command('下一页',()=>{page++;paint();});pager.append(before,label,after);events.append(pager,content);
   function paint(){before.disabled=page===0;after.disabled=(page+1)*200>=records.length;label.textContent=`${page+1} / ${Math.max(1,Math.ceil(records.length/200))}`;content.replaceChildren(table(['序号','经过时间（毫秒）','动作','新增','删除','文档字符','记录哈希'],records.slice(page*200,(page+1)*200).map(({event,hash})=>[event.seq,event.elapsed_ms,event.kind,event.inserted,event.deleted,event.chars,hash])));content.append(details('本页完整事件字段（含指标和检查点）',records.slice(page*200,(page+1)*200)));}paint();
-  const trustedParagraphs=report.signature_valid&&report.chain_valid&&report.merkle_valid!==false;
+  const trustedParagraphs=paragraphRecordsVerified(report);
   const paragraphs=trustedParagraphs?paragraphStatistics(proof):[];
   if(paragraphs.length){
     const paragraphSection=section('paragraphs','段落与记录位置');
@@ -105,6 +105,7 @@ function render(model:ReportPackage,root:HTMLElement){
   if(wordSamples.length){
     const word=section('word-paragraphs','Word 段落采样');
     word.append(el('p','段号对应采样时的文档。数量按两次采样的净变化计算。完整事件位于原始记录。'));
+    if(report.scope==='selective')word.append(el('p','此处仅显示已披露且通过归属核验的采样。'));
     word.append(table(['段号','净新增','净删除','采样时刻','采样写入速率'],
       wordSamples.slice(0,50).map(({event,rate})=>[
         number(event.metrics?.word_sample_paragraph),number(event.inserted),number(event.deleted),

@@ -47,7 +47,7 @@ export function VerifiedDocumentReport({onLocate,...props}:ComponentProps<typeof
   }
 
   return <>
-    <ParagraphReport proof={result.proof} report={result.report} onLocate={onLocate} onPreview={result.report.valid&&artifact&&/\.(docx|md|markdown|txt)$/i.test(artifact.name)?(ordinal,fingerprint)=>void open(ordinal,fingerprint):undefined}/>
+    <ParagraphReport proof={result.proof} report={result.report} onLocate={result.report.chain_valid?onLocate:undefined} onPreview={result.report.valid&&artifact&&/\.(docx|md|markdown|txt)$/i.test(artifact.name)?(ordinal,fingerprint)=>void open(ordinal,fingerprint):undefined}/>
     {result.report.valid&&artifact&&/\.(docx|md|markdown|txt|png|jpe?g|webp)$/i.test(artifact.name)&&
       <section aria-label="作品只读预览">
         <Button disabled={busy} variant="secondary" onClick={()=>void open()}>预览匹配作品</Button>

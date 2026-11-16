@@ -3,12 +3,12 @@ import {useMemo,useState} from 'react';
 import {Panel} from './institution-ui';
 import {Button} from './button';
 import {type Proof,type Report,time} from '../lib/evidence';
-import {paragraphStatistics,wordParagraphSamples} from '../lib/paragraph-statistics';
+import {paragraphRecordsVerified,paragraphStatistics,wordParagraphSamples} from '../lib/paragraph-statistics';
 
 const PAGE_SIZE=50;
 
 export function ParagraphReport({proof,report,onLocate,onPreview}:{proof:Proof;report:Report;onLocate?:(seq:number)=>void;onPreview?:(ordinal:number,wordFingerprint?:string)=>void}){
-  const trusted=report.signature_valid&&report.chain_valid&&report.merkle_valid!==false;
+  const trusted=paragraphRecordsVerified(report);
   const rows=useMemo(()=>trusted?paragraphStatistics(proof):[],[proof,trusted]);
   const samples=useMemo(()=>trusted?wordParagraphSamples(proof):[],[proof,trusted]);
   const [page,setPage]=useState(0);
@@ -17,6 +17,7 @@ export function ParagraphReport({proof,report,onLocate,onPreview}:{proof:Proof;r
     const samplePage=Math.min(page,Math.ceil(samples.length/PAGE_SIZE)-1);
     return <Panel title="Word 段落采样">
       <p>段号对应采样时的文档。段落移动后，请结合原文件和记录时间复核。</p>
+      {report.scope==='selective'&&<p>此处仅显示已披露且通过归属核验的采样。</p>}
       <div className="behavior-table-scroll"><table>
         <thead><tr><th>采样时段号</th><th>净新增</th><th>净删除</th><th>采样时间</th><th>采样写入速率</th><th>操作</th></tr></thead>
         <tbody>{samples.slice(samplePage*PAGE_SIZE,(samplePage+1)*PAGE_SIZE).map(({event,rate})=><tr key={event.seq}>

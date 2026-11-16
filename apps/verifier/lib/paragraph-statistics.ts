@@ -1,4 +1,10 @@
-import type {Proof} from './evidence';
+import type {Proof,Report} from './evidence';
+
+export function paragraphRecordsVerified(report:Report){
+  return report.signature_valid&&(report.scope==='selective'
+    ?report.merkle_valid===true
+    :report.chain_valid&&report.merkle_valid!==false);
+}
 
 type Interval = {first:number;last:number};
 type ParagraphStats = {
