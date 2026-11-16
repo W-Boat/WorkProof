@@ -2,22 +2,35 @@
 import {useEffect,useRef,useState,type ComponentProps} from 'react';
 import {Button} from './button';
 import {ReportExport} from './ReportExport';
+import {ParagraphReport} from './ParagraphReport';
 
 type Preview={html:string;excerpts:{ordinal:number;text:string}[]};
 
-export function VerifiedDocumentReport(props:ComponentProps<typeof ReportExport>){
+export function VerifiedDocumentReport({onLocate,...props}:ComponentProps<typeof ReportExport>&{onLocate?:(seq:number)=>void}){
   const {artifact,result}=props;
+  const frame=useRef<HTMLIFrameElement>(null),target=useRef<number|null>(null);
   const [preview,setPreview]=useState<Preview|null>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const request=useRef(0);
   useEffect(()=>{
-    setPreview(null);setError('');setBusy(false);
+    target.current=null;setPreview(null);setError('');setBusy(false);
     return()=>{request.current++;};
   },[artifact,result]);
 
-  async function open(){
-    if(!artifact||!result.report.valid||busy)return;
+  function focusPreview(){
+    if(target.current===null||!frame.current?.contentDocument)return;
+    const paragraph=frame.current.contentDocument.getElementById('paragraph-'+target.current);
+    if(!paragraph){setError('无法在预览中确认该段位置，可查看对应记录。');return;}
+    setError('');frame.current.scrollIntoView({block:'nearest'});
+    paragraph.tabIndex=-1;paragraph.focus();paragraph.scrollIntoView({block:'center'});
+  }
+
+  async function open(ordinal:number|null=null){
+    if(!artifact||!result.report.valid)return;
+    target.current=ordinal;
+    if(preview&&ordinal!==null){focusPreview();return;}
+    if(busy)return;
     const generation=++request.current;
     setBusy(true);setError('');
     try{
@@ -33,12 +46,13 @@ export function VerifiedDocumentReport(props:ComponentProps<typeof ReportExport>
   }
 
   return <>
+    <ParagraphReport proof={result.proof} onLocate={onLocate} onPreview={result.report.valid&&artifact&&/\.(docx|md|markdown|txt)$/i.test(artifact.name)?ordinal=>void open(ordinal):undefined}/>
     {result.report.valid&&artifact&&/\.(docx|md|markdown|txt|png|jpe?g|webp)$/i.test(artifact.name)&&
       <section aria-label="作品只读预览">
         <Button disabled={busy} variant="secondary" onClick={()=>void open()}>预览匹配作品</Button>
         {busy&&<p role="status">正在准备文档预览…</p>}
         {error&&<p role="alert">{error}</p>}
-        {preview&&<iframe title="作品只读预览" sandbox="" srcDoc={preview.html}
+        {preview&&<iframe ref={frame} title="作品只读预览" sandbox="allow-same-origin" srcDoc={preview.html} onLoad={focusPreview}
           style={{display:'block',width:'100%',minHeight:400,height:'min(60vh, 720px)',marginBlock:12,borderRadius:8}}/>}
       </section>}
     <ReportExport {...props} excerpts={preview?.excerpts}/>

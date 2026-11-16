@@ -7,7 +7,7 @@ import {paragraphStatistics,wordParagraphSamples} from '../lib/paragraph-statist
 
 const PAGE_SIZE=50;
 
-export function ParagraphReport({proof,onLocate}:{proof:Proof;onLocate?:(seq:number)=>void}){
+export function ParagraphReport({proof,onLocate,onPreview}:{proof:Proof;onLocate?:(seq:number)=>void;onPreview?:(ordinal:number)=>void}){
   const rows=useMemo(()=>paragraphStatistics(proof),[proof]);
   const samples=useMemo(()=>wordParagraphSamples(proof),[proof]);
   const [page,setPage]=useState(0);
@@ -41,7 +41,8 @@ export function ParagraphReport({proof,onLocate}:{proof:Proof;onLocate?:(seq:num
           <td>{row.observedMs?row.observedMs/1000+' 秒':'条件不足'}</td>
           <td>{row.rate===null?'条件不足':row.rate.toFixed(1)+' 字符/秒'}</td>
           <td>{[row.bulk&&'单次新增至少 500 字符',row.replacement&&'单次增删各至少 300 字符'].filter(Boolean).join('、')||'已归属事件未触发'}</td>
-          <td>{onLocate&&<Button variant="secondary" onClick={()=>onLocate(row.bulk?.first??row.replacement?.first??row.firstSequence)}>查看记录</Button>}</td>
+          <td>{onPreview&&!row.historical&&<Button variant="secondary" onClick={()=>onPreview(row.ordinal)}>在作品中查看</Button>}
+            {onLocate&&<Button variant="secondary" onClick={()=>onLocate(row.bulk?.first??row.replacement?.first??row.firstSequence)}>查看记录</Button>}</td>
         </tr>)}</tbody>
       </table></div>
       <div className="nv-actions">

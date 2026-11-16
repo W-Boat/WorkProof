@@ -15,6 +15,7 @@ const Charts=lazy(()=>import('../../verifier/components/VerificationCharts'));
 
 function NativeVerifier(){
   const [artifact,setArtifact]=useState<File|null>(null),[proof,setProof]=useState<File|null>(null);
+  const previewFrame=useRef<HTMLIFrameElement>(null),previewTarget=useRef<number|null>(null);
   const [previewExcerpts,setPreviewExcerpts]=useState<{ordinal:number;text:string}[]>([]);
   const [previewHtml,setPreviewHtml]=useState(''),[previewMessage,setPreviewMessage]=useState('');
   const [stage,setStage]=useState<Stage>('idle'),[result,setResult]=useState<Result|null>(null),[error,setError]=useState('');
@@ -35,7 +36,7 @@ function NativeVerifier(){
     loadEmbeddedFluent(document.documentElement.dataset.theme==='dark').then(()=>{if(active)setReady(true);},()=>{if(active)setError('核验组件未能加载，请重新打开客户端。');});
     return()=>{active=false;generation.current++;worker.current?.terminate();};
   },[]);
-  function cancel(){setPreviewExcerpts([]);setPreviewHtml('');setPreviewMessage('');generation.current++;worker.current?.terminate();worker.current=null;setStage('idle');setResult(null);setError('');setShareMessage('');}
+  function cancel(){previewTarget.current=null;setPreviewExcerpts([]);setPreviewHtml('');setPreviewMessage('');generation.current++;worker.current?.terminate();worker.current=null;setStage('idle');setResult(null);setError('');setShareMessage('');}
   function choose(file:File|null,kind:'artifact'|'proof'){
     cancel();setEventPage(0);setFocusedEventSeq(null);setTab('report');
     if(kind==='proof'&&file&&file.size>32*1024*1024){setProof(null);setError('证书超过 32 MB，请选择完整安装包支持范围内的证书。');return;}
@@ -59,7 +60,18 @@ function NativeVerifier(){
       task.postMessage({artifact,proof,expectedCertificateId:expectedId});
     }catch{setError('无法启动本机核验引擎，请重启客户端后重试。');setStage('error');}
   }
-  async function openDocumentPreview(){
+  function focusPreview(){
+    const ordinal=previewTarget.current;
+    const frame=previewFrame.current;
+    if(ordinal===null||!frame?.contentDocument)return;
+    const block=frame.contentDocument.getElementById('paragraph-'+ordinal);
+    if(!block){setPreviewMessage('无法在预览中确认该段位置，可查看对应记录。');return;}
+    setPreviewMessage('');frame.scrollIntoView({block:'nearest'});
+    block.tabIndex=-1;block.focus();block.scrollIntoView({block:'center'});
+  }
+  async function openDocumentPreview(ordinal:number|null=null){
+    previewTarget.current=ordinal;
+    if(previewHtml&&ordinal!==null){focusPreview();return;}
     if(!artifact||!result?.report.valid)return;
     const request=generation.current;
     setPreviewMessage('正在准备文档预览…');
@@ -116,12 +128,12 @@ function NativeVerifier(){
       {valid&&artifact&&/\.(docx|md|markdown|txt|png|jpe?g|webp)$/i.test(artifact.name)&&<section className="nv-document-preview">
         <FluentElement tag="fluent-button" appearance="secondary" onClick={()=>void openDocumentPreview()}>预览匹配作品</FluentElement>
         {previewMessage&&<p role="status">{previewMessage}</p>}
-        {previewHtml&&<iframe title="作品只读预览" sandbox="" srcDoc={previewHtml}/>}
+        {previewHtml&&<iframe ref={previewFrame} title="作品只读预览" sandbox="allow-same-origin" srcDoc={previewHtml} onLoad={focusPreview}/>}
       </section>}
       {shareMessage&&<p role="status">{shareMessage}</p>}
       <nav className="nv-tabs" aria-label="核验结果视图">{tabs.map(([id,label])=><FluentElement key={id} tag="fluent-button" appearance={tab===id?'primary':'subtle'} aria-pressed={tab===id} onClick={()=>setTab(id)}>{label}</FluentElement>)}</nav>
       <div className="nv-result" key={tab}>
-        {tab==='report'&&<><div className="nv-checks">{[['作品指纹',result.report.file_match],['记录链',result.report.chain_valid],['数字签名',result.report.signature_valid]].map(([name,ok])=><div key={String(name)}><span>{name}</span><strong data-ok={!!ok}>{ok?'通过':'未通过'}</strong></div>)}</div><ParagraphReport proof={result.proof} onLocate={seq=>{const index=records.findIndex(({event})=>event.seq===seq);if(index>=0){setEventPage(Math.floor(index/50));setFocusedEventSeq(seq);setTab('events');}}}/><BehaviorReport assessment={result.behavior} valid={valid} onLocate={seq=>{const index=records.findIndex(({event})=>event.seq===seq);if(index>=0){setEventPage(Math.floor(index/50));setFocusedEventSeq(seq);setTab('events');}}}/>{valid&&result.proof.manifest.source==='word'&&<WordRevisionSummary records={records} partial={result.report.scope==='selective'}/>}</>}
+        {tab==='report'&&<><div className="nv-checks">{[['作品指纹',result.report.file_match],['记录链',result.report.chain_valid],['数字签名',result.report.signature_valid]].map(([name,ok])=><div key={String(name)}><span>{name}</span><strong data-ok={!!ok}>{ok?'通过':'未通过'}</strong></div>)}</div><ParagraphReport proof={result.proof} onPreview={valid&&artifact&&/\.(docx|md|markdown|txt)$/i.test(artifact.name)?ordinal=>void openDocumentPreview(ordinal):undefined} onLocate={seq=>{const index=records.findIndex(({event})=>event.seq===seq);if(index>=0){setEventPage(Math.floor(index/50));setFocusedEventSeq(seq);setTab('events');}}}/><BehaviorReport assessment={result.behavior} valid={valid} onLocate={seq=>{const index=records.findIndex(({event})=>event.seq===seq);if(index>=0){setEventPage(Math.floor(index/50));setFocusedEventSeq(seq);setTab('events');}}}/>{valid&&result.proof.manifest.source==='word'&&<WordRevisionSummary records={records} partial={result.report.scope==='selective'}/>}</>}
         {tab==='charts'&&(valid?<Suspense fallback={<p role="status">正在加载统计图…</p>}><Charts records={records} partial={result.report.scope==='selective'} reduced={document.documentElement.dataset.reduceMotion==='true'||matchMedia('(prefers-reduced-motion: reduce)').matches}/></Suspense>:<p>核验通过后才能展示可信的过程统计。</p>)}
         {tab==='replay'&&(valid?<ProcessReplay records={records} partial={result.report.scope==='selective'} renderIcon={name=><span className="wp-icon" aria-hidden="true" dangerouslySetInnerHTML={{__html:nativeIcons[name]}}/>}/>:<p>核验通过后才能回放可信的过程记录。</p>)}
         {tab==='events'&&(valid?<section><h3>已核验操作记录</h3><p>共 {records.length.toLocaleString()} 条；每页显示 50 条，原始证据保持完整。</p><div className="nv-table"><table><thead><tr><th>序号</th><th>经过时间</th><th>动作</th><th>新增</th><th>删除</th><th>文档字符</th></tr></thead><tbody>{records.slice(eventPage*50,(eventPage+1)*50).map(({event})=><tr key={event.seq} ref={event.seq===focusedEventSeq?focusedEvent:undefined} tabIndex={event.seq===focusedEventSeq?-1:undefined}><td>{event.seq}</td><td>{time(event.elapsed_ms)}</td><td>{labels[event.kind]||event.kind}</td><td>{event.inserted}</td><td>{event.deleted}</td><td>{event.chars}</td></tr>)}</tbody></table></div><div className="nv-actions"><FluentElement tag="fluent-button" disabled={eventPage===0} onClick={()=>setEventPage(n=>n-1)}>上一页</FluentElement><span>{eventPage+1} / {Math.max(1,Math.ceil(records.length/50))}</span><FluentElement tag="fluent-button" disabled={(eventPage+1)*50>=records.length} onClick={()=>setEventPage(n=>n+1)}>下一页</FluentElement></div></section>:<p>核验通过后才能展示可信的操作记录。</p>)}
