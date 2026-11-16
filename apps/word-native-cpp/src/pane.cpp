@@ -8,6 +8,7 @@
 #include <chrono>
 #include <thread>
 #include <atomic>
+#include <algorithm>
 
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
@@ -87,6 +88,7 @@ struct State {
     long long sequence = 0;
     long long lastSampleMs = 0;
     long long lastCharacters = -1;
+    std::vector<std::wstring> lastWordParagraphHashes;
     long lastParagraphs = -1;
     long lastSlides=-1;long long lastShapes=-1;
     bool paused = true;
@@ -237,6 +239,7 @@ std::string EventJson(const char* kind, const DocSnapshot& snapshot, long long i
         append("word_revision_delete",r.deleted);
         append("word_revision_format",r.formatted);
         append("word_revision_other",r.other);
+        if(snapshot.wordSampleParagraph>0)append("word_sample_paragraph",snapshot.wordSampleParagraph);
     }
 #endif
     if(!actions.empty())json.insert(json.size()-2,","+actions);
@@ -411,6 +414,7 @@ void FinishPairing(PairResult* result) {
     g.identity = snapshot.identity;
     g.documentName = snapshot.name;
     g.lastCharacters = snapshot.characters;
+    g.lastWordParagraphHashes=snapshot.wordParagraphHashes;
     g.actions.Clear();g.editorWindow=snapshot.editorWindow;
     g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;g.structureSignature=snapshot.structureSignature;g.textSignature=snapshot.textSignature;g.textSampled=snapshot.textSampled;
     g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
@@ -524,6 +528,27 @@ void Sample() {
 #endif
     const bool textChanged=snapshot.textSampled&&g.textSampled&&snapshot.textSignature!=g.textSignature;
     bool changed = textChanged || structureChanged || snapshot.characters != g.lastCharacters || snapshot.paragraphs != g.lastParagraphs || snapshot.slides!=g.lastSlides || snapshot.shapes!=g.lastShapes;
+#ifndef WORKPROOF_POWERPOINT
+    const auto& before=g.lastWordParagraphHashes;
+    const auto& after=snapshot.wordParagraphHashes;
+    if(!before.empty()&&before.size()==after.size()){
+        size_t difference=before.size();
+        bool uniqueChange=true;
+        for(size_t index=0;index<before.size();++index){
+            if(before[index]==after[index])continue;
+            if(difference!=before.size()){uniqueChange=false;break;}
+            difference=index;
+        }
+        if(uniqueChange&&difference<before.size()&&
+            std::count(before.begin(),before.end(),before[difference])==1&&
+            std::count(after.begin(),after.end(),after[difference])==1&&
+            std::count(before.begin(),before.end(),after[difference])==0&&
+            std::count(after.begin(),after.end(),before[difference])==0){
+            snapshot.wordSampleParagraph=static_cast<long>(difference+1);
+            changed=true;
+        }
+    }
+#endif
     if (changed && g.lastCharacters >= 0) {
         long long inserted = snapshot.characters > g.lastCharacters ? snapshot.characters - g.lastCharacters : 0;
         long long deleted = g.lastCharacters > snapshot.characters ? g.lastCharacters - snapshot.characters : 0;
@@ -547,6 +572,7 @@ void Sample() {
 #endif
     if(!snapshot.structureSignature.empty())g.structureSignature=snapshot.structureSignature;g.textSignature=snapshot.textSignature;g.textSampled=snapshot.textSampled;
     g.lastCharacters = snapshot.characters;
+    g.lastWordParagraphHashes=snapshot.wordParagraphHashes;
     g.lastParagraphs = snapshot.paragraphs;
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
 #ifdef WORKPROOF_POWERPOINT
@@ -586,6 +612,7 @@ void TogglePause() {
 #endif
     if (!SendEvent("resume", snapshot, 0, 0, std::string(), error)) { SetStatus(error); return; }
     g.lastCharacters = snapshot.characters;
+    g.lastWordParagraphHashes=snapshot.wordParagraphHashes;
     g.lastParagraphs = snapshot.paragraphs;
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
     g.paused = false;

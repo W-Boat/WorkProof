@@ -464,6 +464,29 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
         error = L"暂时读不到文档字符数量，已停止本次采样。请关闭 Word 中的对话框后重试。";
         return false;
     }
+    snapshot.wordParagraphHashes.clear();
+    if(snapshot.characters<=262144){
+        Variant text;
+        if(SUCCEEDED(GetProperty(content.pdispVal,L"Text",text.get()))&&text.value.vt==VT_BSTR){
+            const std::wstring body(text.value.bstrVal,SysStringLen(text.value.bstrVal));
+            if(body.size()<=262144&&body.find(L'\a')==std::wstring::npos){
+                size_t start=0;
+                while(start<body.size()&&snapshot.wordParagraphHashes.size()<4096){
+                    const size_t end=body.find(L'\r',start);
+                    const size_t length=(end==std::wstring::npos?body.size():end)-start;
+                    unsigned char digest[32]{};
+                    if(BCryptHash(BCRYPT_SHA256_ALG_HANDLE,nullptr,0,
+                        reinterpret_cast<PUCHAR>(const_cast<wchar_t*>(body.data()+start)),
+                        static_cast<ULONG>(length*sizeof(wchar_t)),digest,sizeof(digest))<0)break;
+                    std::wstring hash;
+                    for(auto byte:digest){hash+=L"0123456789abcdef"[byte>>4];hash+=L"0123456789abcdef"[byte&15];}
+                    snapshot.wordParagraphHashes.push_back(std::move(hash));
+                    start=end==std::wstring::npos?body.size():end+1;
+                }
+                if(start<body.size())snapshot.wordParagraphHashes.clear();
+            }
+        }
+    }
     VariantClear(&endValue);
     VariantClear(&content);
 
@@ -479,6 +502,7 @@ bool ReadDocument(IDispatch* application, DocSnapshot& snapshot, std::wstring& e
     }
     VariantClear(&countValue);
     VariantClear(&paragraphs);
+    if(snapshot.wordParagraphHashes.size()!=static_cast<size_t>(snapshot.paragraphs))snapshot.wordParagraphHashes.clear();
 
     if(snapshot.characters < 0 || snapshot.paragraphs < 0) {
         error = L"Word 返回的文档数量无效，已停止本次采样。请重新打开文档后重试。";

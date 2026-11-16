@@ -6,6 +6,7 @@
 #include <objbase.h>
 #include <oleauto.h>
 #include <string>
+#include <vector>
 
 namespace workproof {
 
@@ -34,6 +35,8 @@ struct DocSnapshot {
     bool textSampled=false;
     std::wstring textSignature; // Bounded PPT text digest, no plaintext serialization.
     WordRevisions revisions;
+    std::vector<std::wstring> wordParagraphHashes;
+    long wordSampleParagraph=0;
 };
 
 // Late-bound access to the running Word instance. Everything stays on the caller's (Word UI) thread.
