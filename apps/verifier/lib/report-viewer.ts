@@ -64,7 +64,8 @@ function render(model:ReportPackage,root:HTMLElement){
   const pager=el('div',undefined,'pager'),label=el('span'),content=el('div');let page=0;
   const before=command('上一页',()=>{page--;paint();}),after=command('下一页',()=>{page++;paint();});pager.append(before,label,after);events.append(pager,content);
   function paint(){before.disabled=page===0;after.disabled=(page+1)*200>=records.length;label.textContent=`${page+1} / ${Math.max(1,Math.ceil(records.length/200))}`;content.replaceChildren(table(['序号','经过时间（毫秒）','动作','新增','删除','文档字符','记录哈希'],records.slice(page*200,(page+1)*200).map(({event,hash})=>[event.seq,event.elapsed_ms,event.kind,event.inserted,event.deleted,event.chars,hash])));content.append(details('本页完整事件字段（含指标和检查点）',records.slice(page*200,(page+1)*200)));}paint();
-  const paragraphs=paragraphStatistics(proof);
+  const trustedParagraphs=report.signature_valid&&report.chain_valid&&report.merkle_valid!==false;
+  const paragraphs=trustedParagraphs?paragraphStatistics(proof):[];
   if(paragraphs.length){
     const paragraphSection=section('paragraphs','段落与记录位置');
     const controls=el('div',undefined,'pager'),body=el('div'),pageLabel=el('span');
@@ -100,7 +101,7 @@ function render(model:ReportPackage,root:HTMLElement){
     paintParagraphs();
     if(model.excerpts?.length)paragraphSection.append(table(['最终段落','分享者选中的摘录'],model.excerpts.map(item=>['第 '+item.ordinal+' 段',item.text])));
   }
-  const wordSamples=report.valid?wordParagraphSamples(proof):[];
+  const wordSamples=trustedParagraphs?wordParagraphSamples(proof):[];
   if(wordSamples.length){
     const word=section('word-paragraphs','Word 段落采样');
     word.append(el('p','段号对应采样时的文档。数量按两次采样的净变化计算。完整事件位于原始记录。'));

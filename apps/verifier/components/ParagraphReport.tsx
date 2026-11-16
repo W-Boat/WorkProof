@@ -2,15 +2,17 @@
 import {useMemo,useState} from 'react';
 import {Panel} from './institution-ui';
 import {Button} from './button';
-import {type Proof,time} from '../lib/evidence';
+import {type Proof,type Report,time} from '../lib/evidence';
 import {paragraphStatistics,wordParagraphSamples} from '../lib/paragraph-statistics';
 
 const PAGE_SIZE=50;
 
-export function ParagraphReport({proof,onLocate,onPreview}:{proof:Proof;onLocate?:(seq:number)=>void;onPreview?:(ordinal:number,wordFingerprint?:string)=>void}){
-  const rows=useMemo(()=>paragraphStatistics(proof),[proof]);
-  const samples=useMemo(()=>wordParagraphSamples(proof),[proof]);
+export function ParagraphReport({proof,report,onLocate,onPreview}:{proof:Proof;report:Report;onLocate?:(seq:number)=>void;onPreview?:(ordinal:number,wordFingerprint?:string)=>void}){
+  const trusted=report.signature_valid&&report.chain_valid&&report.merkle_valid!==false;
+  const rows=useMemo(()=>trusted?paragraphStatistics(proof):[],[proof,trusted]);
+  const samples=useMemo(()=>trusted?wordParagraphSamples(proof):[],[proof,trusted]);
   const [page,setPage]=useState(0);
+  if(!trusted)return null;
   if(samples.length){
     const samplePage=Math.min(page,Math.ceil(samples.length/PAGE_SIZE)-1);
     return <Panel title="Word 段落采样">
