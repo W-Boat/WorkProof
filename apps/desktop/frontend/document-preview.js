@@ -30,7 +30,7 @@ export async function previewDocument(file,locations){
   const rendered=document.createElement('template');
   rendered.innerHTML=runtime.generateHTML(content,runtime.editorExtensions());
   rendered.content.querySelectorAll('a[href]').forEach(link=>link.removeAttribute('href'));
-  const expected=new Map(locations.map(location=>[location.ordinal,location.fingerprint]));
+  const expected=new Map(locations.filter(location=>location.historical_id===undefined).map(location=>[location.ordinal,location.fingerprint]));
   const encoder=new TextEncoder();
   function textOf(node){
     if(node.nodeType===Node.TEXT_NODE)return node.nodeValue||'';

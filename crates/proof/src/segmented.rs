@@ -14,6 +14,8 @@ pub const MAX_SEGMENTS: usize = 10_000;
 pub struct ParagraphLocation {
     pub ordinal: u32,
     pub fingerprint: String,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub historical_id: Option<u64>,
     pub first_seq: u64,
     pub last_seq: u64,
 }
@@ -67,6 +69,12 @@ impl SegmentedProof {
                 bytes.extend_from_slice(&location.last_seq.to_le_bytes());
             }
         }
+        if self.paragraphs.iter().any(|row|row.historical_id.is_some()) {
+            bytes.extend_from_slice(b"WorkProof:historical-paragraphs:v1\0");
+            for row in &self.paragraphs {
+                bytes.extend_from_slice(&row.historical_id.unwrap_or(0).to_le_bytes());
+            }
+        }
         bytes
     }
 
@@ -89,7 +97,7 @@ impl SegmentedProof {
             && self.paragraphs.len() <= 50_000
             && self.paragraphs.iter().enumerate().all(|(i,row)|
                 (i==0 || self.paragraphs[i-1].last_seq<row.first_seq)
-                && row.ordinal>0 && valid_hash(&row.fingerprint)
+                && row.ordinal>0 && row.historical_id!=Some(0) && valid_hash(&row.fingerprint)
                 && row.first_seq>0 && row.first_seq<=row.last_seq && row.last_seq<m.event_count)
     }
 
@@ -275,11 +283,14 @@ mod tests {
             merkle_root: String::new(),
         };
         let key = SigningKey::from_bytes(&[3; 32]);
-        let location = ParagraphLocation { ordinal: 1, fingerprint: digest(b"paragraph"), first_seq: 1, last_seq: 1 };
+        let location = ParagraphLocation { ordinal: 1, fingerprint: digest(b"paragraph"), historical_id: Some(3), first_seq: 1, last_seq: 1 };
         let mut proof = SegmentedProof::sign_with_paragraphs(manifest, vec![full, tail], vec![location], &key).unwrap();
         proof.paragraphs[0].ordinal = 2;
         assert!(!proof.verify(&artifact, 5).signature_valid);
         proof.paragraphs[0].ordinal = 1;
+        proof.paragraphs[0].historical_id=None;
+        assert!(!proof.verify(&artifact, 5).signature_valid);
+        proof.paragraphs[0].historical_id=Some(3);
         assert!(proof.verify(&artifact, 5).valid);
         let encoded = serde_json::to_vec(&proof).unwrap();
         let parsed: crate::Evidence = serde_json::from_slice(&encoded).unwrap();

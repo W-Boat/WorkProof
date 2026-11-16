@@ -77,7 +77,7 @@ function render(model:ReportPackage,root:HTMLElement){
       prev.disabled=paragraphPage===0;next.disabled=offset+50>=paragraphs.length;
       pageLabel.textContent=(paragraphPage+1)+' / '+Math.ceil(paragraphs.length/50);
       body.replaceChildren(table(['最终段落','新增','删除','观察时长','写入速度','复核结果'],paragraphs.slice(offset,offset+50).map(row=>[
-        '第 '+row.ordinal+' 段',number(row.inserted),number(row.deleted),
+        (row.historical?'仅历史可见 · 删除前第 ':'第 ')+row.ordinal+' 段',number(row.inserted),number(row.deleted),
         row.observedMs?number(row.observedMs/1000)+' 秒':'条件不足',
         row.rate===null?'条件不足':number(row.rate)+' 字符/秒',
         [row.bulk&&'单次新增至少 500 字符',row.replacement&&'单次增删各至少 300 字符'].filter(Boolean).join('、')||'已归属事件未触发',

@@ -36,8 +36,8 @@ export function ParagraphReport({proof,onLocate}:{proof:Proof;onLocate?:(seq:num
     {rows.length===0?<p>这份证书没有可核验的段落位置，可在时间轴查看操作记录。</p>:<>
       <div className="behavior-table-scroll"><table>
         <thead><tr><th>最终段落</th><th>新增</th><th>删除</th><th>观察时长</th><th>写入速度</th><th>复核结果</th><th>操作</th></tr></thead>
-        <tbody>{rows.slice(current*PAGE_SIZE,(current+1)*PAGE_SIZE).map(row=><tr key={row.ordinal}>
-          <td>第 {row.ordinal} 段</td><td>{row.inserted.toLocaleString()}</td><td>{row.deleted.toLocaleString()}</td>
+        <tbody>{rows.slice(current*PAGE_SIZE,(current+1)*PAGE_SIZE).map(row=><tr key={row.key}>
+          <td>{row.historical?'仅历史可见 · 删除前第 '+row.ordinal+' 段':'第 '+row.ordinal+' 段'}</td><td>{row.inserted.toLocaleString()}</td><td>{row.deleted.toLocaleString()}</td>
           <td>{row.observedMs?row.observedMs/1000+' 秒':'条件不足'}</td>
           <td>{row.rate===null?'条件不足':row.rate.toFixed(1)+' 字符/秒'}</td>
           <td>{[row.bulk&&'单次新增至少 500 字符',row.replacement&&'单次增删各至少 300 字符'].filter(Boolean).join('、')||'已归属事件未触发'}</td>

@@ -286,6 +286,7 @@ fn paragraph_locations(
     let mut next_identity=0;
     let mut first_seq=0;
     let mut events=Vec::new();
+    let mut deleted=std::collections::HashMap::new();
     while let Some(row)=revisions.next().map_err(storage)?{
         let content:String=row.get(0).map_err(storage)?;
         let checkpoint=checkpoints.next().ok_or("Missing revision checkpoint")?;
@@ -295,15 +296,21 @@ fn paragraph_locations(
         let current=fingerprints(&parse(content)?);
         let change=single_change(&prior,&current);
         let current_ids=align_identities(&prior,&identities,&current,&change,&mut next_identity);
+        if let Change::Deleted{before}=&change {
+            if let Some(identity)=identities.get(*before){
+                deleted.insert(*identity,(*before as u32+1,prior[*before].clone()));
+            }
+        }
         if first_seq>0 && first_seq<checkpoint.event.seq && events.len()<50_000 {
             let mut edits=records[first_seq as usize..checkpoint.event.seq as usize].iter()
                 .filter(|record|record.event.inserted>0||record.event.deleted>0);
             let edit=edits.next().filter(|_|edits.next().is_none());
-            let position=match change{
-                Change::Edited{after,..}|Change::Inserted{after}=>Some(after),
+            let identity=match change{
+                Change::Edited{after,..}|Change::Inserted{after}=>current_ids.get(after),
+                Change::Deleted{before}=>identities.get(before),
                 _=>None,
             };
-            if let (Some(identity),Some(edit))=(position.and_then(|index|current_ids.get(index)),edit){
+            if let (Some(identity),Some(edit))=(identity,edit){
                 events.push((*identity,edit.event.seq));
             }
         }
@@ -318,8 +325,11 @@ fn paragraph_locations(
         .filter(|(_,(_,hash))|counts.get(hash.as_str())==Some(&1))
         .map(|(index,(identity,hash))|(identity,(index as u32+1,hash))).collect();
     Ok(events.into_iter().filter_map(|(identity,seq)|{
-        let (ordinal,hash)=final_positions.get(&identity)?;
-        Some(ParagraphLocation{ordinal:*ordinal,fingerprint:(*hash).clone(),first_seq:seq,last_seq:seq})
+        if let Some((ordinal,hash))=final_positions.get(&identity){
+            return Some(ParagraphLocation{ordinal:*ordinal,fingerprint:(*hash).clone(),historical_id:None,first_seq:seq,last_seq:seq});
+        }
+        let (ordinal,hash)=deleted.get(&identity)?;
+        Some(ParagraphLocation{ordinal:*ordinal,fingerprint:hash.clone(),historical_id:Some(identity),first_seq:seq,last_seq:seq})
     }).collect())
 }
 

@@ -3,6 +3,8 @@ import type {Proof} from './evidence';
 type Interval = {first:number;last:number};
 type ParagraphStats = {
   ordinal:number;
+  key:string;
+  historical:boolean;
   inserted:number;
   deleted:number;
   observedMs:number;
@@ -13,19 +15,21 @@ type ParagraphStats = {
 };
 
 export function paragraphStatistics(proof:Proof){
-  const result=new Map<number,ParagraphStats>();
-  let previousOrdinal=0,previousSequence=0,previousTime=0;
+  const result=new Map<string,ParagraphStats>();
+  let previousKey='',previousSequence=0,previousTime=0;
   for(const location of proof.paragraphs??[]){
-    let row=result.get(location.ordinal);
+    const historical=location.historical_id!==undefined;
+    const key=historical?'history-'+location.historical_id:'final-'+location.ordinal;
+    let row=result.get(key);
     if(!row){
-      row={ordinal:location.ordinal,inserted:0,deleted:0,observedMs:0,measuredInserted:0,
+      row={ordinal:location.ordinal,key,historical,inserted:0,deleted:0,observedMs:0,measuredInserted:0,
         bulk:null,replacement:null,firstSequence:location.first_seq};
-      result.set(location.ordinal,row);
+      result.set(key,row);
     }
     for(let seq=location.first_seq;seq<=location.last_seq;seq++){
       const event=proof.records[seq]?.event;
       if(!event||event.seq!==seq||!['edit','interaction','undo','redo'].includes(event.kind)){
-        previousOrdinal=0;
+        previousKey='';
         continue;
       }
       if(!event.inserted&&!event.deleted)continue;
@@ -37,7 +41,7 @@ export function paragraphStatistics(proof:Proof){
 
       // Use only successive edits with the same known location. Interleaved
       // non-edit checkpoints are harmless. Unassigned edits and gaps break it.
-      if(previousOrdinal===location.ordinal){
+      if(previousKey===key){
         let continuous=true;
         for(let between=previousSequence+1;between<seq;between++){
           const middle=proof.records[between]?.event;
@@ -52,7 +56,7 @@ export function paragraphStatistics(proof:Proof){
           row.measuredInserted+=event.inserted;
         }
       }
-      previousOrdinal=location.ordinal;
+      previousKey=key;
       previousSequence=seq;
       previousTime=event.elapsed_ms;
     }
