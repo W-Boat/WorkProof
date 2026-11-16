@@ -36,3 +36,33 @@ test('browser verifies a gzip certificate and rejects a truncated gzip member',a
   const broken=await verify(certificate.subarray(0,-1));
   expect(broken.type).toBe('error');
 });
+
+test('signed paragraph location is highlighted and only selected excerpts reach the report',async({page})=>{
+  test.setTimeout(60000);
+  await page.goto('/');
+  await page.getByLabel('选择最终作品',{exact:true}).setInputFiles('apps/verifier/public/demo/essay.md');
+  await page.getByLabel('选择 .wproof 证书',{exact:true}).setInputFiles('apps/verifier/public/demo/essay.paragraphs.wproof');
+  await page.getByRole('button',{name:'开始本地核验',exact:true}).click();
+  await expect(page.locator('.result-banner.success')).toBeVisible({timeout:20000});
+  await page.getByRole('button',{name:'预览匹配作品',exact:true}).click();
+  await expect(page.frameLocator('iframe[title="作品只读预览"]').locator('#paragraph-1.located')).toHaveText('让创作过程，有据可查');
+  await page.getByRole('button',{name:'下载加密 HTML 报告',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'保存完整核验报告'});
+  await dialog.getByText('选择要附上的段落摘录',{exact:true}).click();
+  const checkbox=dialog.getByRole('checkbox',{name:/第 1 段/});
+  await expect(checkbox).not.toBeChecked();
+  await checkbox.check();
+  const password='paragraph-report-password';
+  await dialog.getByLabel('设置报告密码',{exact:true}).fill(password);
+  await dialog.getByLabel('再次输入报告密码',{exact:true}).fill(password);
+  const download=page.waitForEvent('download');
+  await dialog.getByRole('button',{name:'生成并保存',exact:true}).click();
+  const report=await download;
+  const html=fs.readFileSync((await report.path())!);
+  await page.route('**/paragraph-report.html',route=>route.fulfill({contentType:'text/html',body:html}));
+  await page.goto('/paragraph-report.html');
+  await page.getByLabel('报告密码',{exact:true}).fill(password);
+  await page.getByRole('button',{name:'打开报告',exact:true}).click();
+  await expect(page.locator('#report-paragraphs')).toContainText('让创作过程，有据可查');
+  await expect(page.locator('#report-paragraphs')).not.toContainText('证据可以复核，隐私应被尊重。');
+});

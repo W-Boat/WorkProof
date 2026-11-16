@@ -16,6 +16,16 @@ fn main(){
     std::fs::write(format!("{dir}/essay.md"),content).unwrap();std::fs::write(format!("{dir}/essay.md.wproof"),serde_json::to_string_pretty(&proof).unwrap()).unwrap();
     let selected=workproof_protocol::create_disclosure(&proof,&[5,20,40]).unwrap();
     std::fs::write(format!("{dir}/essay.md.selected.wproof"),serde_json::to_string_pretty(&selected).unwrap()).unwrap();
+    let mut paragraph_manifest=proof.manifest.clone();
+    paragraph_manifest.source="workproof-tiptap".into();
+    let paragraph=segmented::ParagraphLocation{
+        ordinal:1,fingerprint:digest("让创作过程，有据可查".as_bytes()),historical_id:None,
+        first_seq:1,last_seq:1,
+    };
+    let paragraph_proof=segmented::SegmentedProof::sign_with_paragraphs(
+        paragraph_manifest,vec![proof.records.clone()],vec![paragraph],&key,
+    ).unwrap();
+    std::fs::write(format!("{dir}/essay.paragraphs.wproof"),serde_json::to_vec(&paragraph_proof).unwrap()).unwrap();
     generate_evolution_fixture(&dir);
     generate_actions_fixture(&dir);
     generate_behavior_fixtures(&dir);
