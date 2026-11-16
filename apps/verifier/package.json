@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
-    "build": "node ../../scripts/build_report_viewer.cjs && python ../../scripts/verifier_graph_notices.py && next build",
+    "build": "node ../../scripts/build_report_viewer.cjs && node ../../scripts/build_web_preview.cjs && python ../../scripts/verifier_graph_notices.py && next build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

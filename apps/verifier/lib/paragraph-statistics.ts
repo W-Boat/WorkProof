@@ -14,7 +14,7 @@ type ParagraphStats = {
 
 export function paragraphStatistics(proof:Proof){
   const result=new Map<number,ParagraphStats>();
-  let previous:{ordinal:number;sequence:number;elapsedMs:number}|null=null;
+  let previousOrdinal=0,previousSequence=0,previousTime=0;
   for(const location of proof.paragraphs??[]){
     let row=result.get(location.ordinal);
     if(!row){
@@ -25,7 +25,7 @@ export function paragraphStatistics(proof:Proof){
     for(let seq=location.first_seq;seq<=location.last_seq;seq++){
       const event=proof.records[seq]?.event;
       if(!event||event.seq!==seq||!['edit','interaction','undo','redo'].includes(event.kind)){
-        previous=null;
+        previousOrdinal=0;
         continue;
       }
       if(!event.inserted&&!event.deleted)continue;
@@ -37,22 +37,24 @@ export function paragraphStatistics(proof:Proof){
 
       // Use only successive edits with the same known location. Interleaved
       // non-edit checkpoints are harmless. Unassigned edits and gaps break it.
-      if(previous?.ordinal===location.ordinal){
+      if(previousOrdinal===location.ordinal){
         let continuous=true;
-        for(let between=previous.sequence+1;between<seq;between++){
+        for(let between=previousSequence+1;between<seq;between++){
           const middle=proof.records[between]?.event;
           if(!middle||middle.inserted||middle.deleted||['gap','pause','resume','stop'].includes(middle.kind)){
             continuous=false;
             break;
           }
         }
-        const duration=event.elapsed_ms-previous.elapsedMs;
+        const duration=event.elapsed_ms-previousTime;
         if(continuous&&duration>0&&duration<=2000){
           row.observedMs+=duration;
           row.measuredInserted+=event.inserted;
         }
       }
-      previous={ordinal:location.ordinal,sequence:seq,elapsedMs:event.elapsed_ms};
+      previousOrdinal=location.ordinal;
+      previousSequence=seq;
+      previousTime=event.elapsed_ms;
     }
   }
   return [...result.values()].sort((a,b)=>a.ordinal-b.ordinal).map(row=>({

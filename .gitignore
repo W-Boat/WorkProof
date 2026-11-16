@@ -40,6 +40,8 @@ apps/desktop/ui/notices/
 apps/verifier/public/c2pa/
 apps/verifier/public/notices/graph/
 apps/verifier/public/report-viewer.js
+apps/verifier/public/document-preview.js
+apps/verifier/public/word-worker.js
 apps/desktop/ui/report-viewer.js
 apps/desktop/ui/report-export.css
 
