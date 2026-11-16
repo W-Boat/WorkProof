@@ -8,6 +8,7 @@ use workproof_protocol::*;
 pub mod pairing;
 pub mod location;
 pub mod editor;
+mod paragraph_alignment;
 pub use workproof_protocol::transport as proof_transport;
 pub mod catalog;
 pub mod library_state;

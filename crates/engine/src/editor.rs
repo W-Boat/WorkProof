@@ -119,7 +119,21 @@ pub fn replay_frame(root:&Path,id:&str,revision:u64)->Result<Value>{
     let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
     let (saved,content,actions):(u64,String,String)=db.query_row("SELECT saved,content,actions FROM revisions WHERE document=?1 AND revision=?2",params![id,revision],|row|Ok((row.get(0)?,row.get(1)?,row.get(2)?))).map_err(storage)?;
     let actions:Vec<Action>=serde_json::from_str(&actions).map_err(storage)?;
-    Ok(json!({"revision":revision,"saved":saved,"content":parse(content)?,"actions":actions}))
+    let content=parse(content)?;
+    let location=if revision>0&&actions.iter().any(|action|action.inserted>0||action.deleted>0){
+        use super::paragraph_alignment::{fingerprints,single_change,Change};
+        let before:String=db.query_row("SELECT content FROM revisions WHERE document=?1 AND revision=?2",
+            params![id,revision-1],|row|row.get(0)).map_err(storage)?;
+        let before=fingerprints(&parse(before)?);
+        let after=fingerprints(&content);
+        match single_change(&before,&after){
+            Change::Edited{before,after}=>json!({"status":"edited","before":before+1,"after":after+1}),
+            Change::Inserted{after}=>json!({"status":"inserted","after":after+1}),
+            Change::Deleted{before}=>json!({"status":"deleted","before":before+1}),
+            Change::Unchanged|Change::Unassigned=>json!({"status":"unassigned"}),
+        }
+    }else{Value::Null};
+    Ok(json!({"revision":revision,"saved":saved,"content":content,"actions":actions,"paragraph_change":location}))
 }
 pub fn version(root:&Path,id:&str,revision:u64)->Result<Value>{
     if !valid_id(id){return Err("文档编号无效。".into());}let _lock=WRITER.lock().map_err(storage)?;let db=db(root)?;
