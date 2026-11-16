@@ -3,24 +3,23 @@ import {useMemo,useState} from 'react';
 import {Panel} from './institution-ui';
 import {Button} from './button';
 import type {Proof} from '../lib/evidence';
-import {paragraphStatistics} from '../lib/paragraph-statistics';
+import {paragraphStatistics,wordParagraphSamples} from '../lib/paragraph-statistics';
 
 const PAGE_SIZE=50;
 
 export function ParagraphReport({proof,onLocate}:{proof:Proof;onLocate?:(seq:number)=>void}){
   const rows=useMemo(()=>paragraphStatistics(proof),[proof]);
-  const samples=useMemo(()=>proof.manifest.source==='word'
-    ?proof.records.filter(({event})=>Number.isSafeInteger(event.metrics?.word_sample_paragraph)&&event.metrics!.word_sample_paragraph>0)
-    :[],[proof]);
+  const samples=useMemo(()=>wordParagraphSamples(proof),[proof]);
   const [page,setPage]=useState(0);
   if(samples.length){
     const samplePage=Math.min(page,Math.ceil(samples.length/PAGE_SIZE)-1);
     return <Panel title="Word 段落采样">
       <p>段号对应采样时的文档。段落移动后，请结合原文件和记录时间复核。</p>
       <div className="behavior-table-scroll"><table>
-        <thead><tr><th>采样时段号</th><th>新增</th><th>删除</th><th>时间</th><th>操作</th></tr></thead>
-        <tbody>{samples.slice(samplePage*PAGE_SIZE,(samplePage+1)*PAGE_SIZE).map(({event})=><tr key={event.seq}>
+        <thead><tr><th>采样时段号</th><th>净新增</th><th>净删除</th><th>采样时间</th><th>采样写入速率</th><th>操作</th></tr></thead>
+        <tbody>{samples.slice(samplePage*PAGE_SIZE,(samplePage+1)*PAGE_SIZE).map(({event,rate})=><tr key={event.seq}>
           <td>{event.metrics?.word_sample_paragraph}</td><td>{event.inserted}</td><td>{event.deleted}</td><td>{time(event.elapsed_ms)}</td>
+          <td>{rate===null?'条件不足':rate.toFixed(1)+' 字符/秒'}</td>
           <td>{onLocate&&<Button variant="secondary" onClick={()=>onLocate(event.seq)}>查看记录</Button>}</td>
         </tr>)}</tbody>
       </table></div>

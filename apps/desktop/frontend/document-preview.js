@@ -4,6 +4,19 @@ import {wordOperation} from './word-operation.js';
 
 export async function previewDocument(file,locations){
   if(file.size>8*1024*1024)throw new Error('文件超过 8 MiB 的内嵌预览范围。');
+  if(/\.(png|jpe?g|webp)$/i.test(file.name)){
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    const png=[137,80,78,71,13,10,26,10].every((byte,index)=>bytes[index]===byte);
+    const jpeg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;
+    const header=new TextDecoder().decode(bytes.subarray(0,12));
+    const webp=header.startsWith('RIFF')&&header.endsWith('WEBP');
+    const type=png?'image/png':jpeg?'image/jpeg':webp?'image/webp':'';
+    if(!type)throw new Error('图片文件头不符合受支持的预览格式。');
+    const parts=[];
+    for(let offset=0;offset<bytes.length;offset+=16384)parts.push(String.fromCharCode(...bytes.subarray(offset,offset+16384)));
+    const image='<img alt="已核验的作品" src="data:'+type+';base64,'+btoa(parts.join(''))+'">';
+    return {html:previewHtml(image),excerpts:[]};
+  }
   const runtime=await import('./editor-runtime.js');
   let content;
   if(/\.docx$/i.test(file.name)){
@@ -32,9 +45,12 @@ export async function previewDocument(file,locations){
       block.classList.add('located');block.id='paragraph-'+ordinal;
     }
   });
-  const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'+
+  return {html:previewHtml(rendered.innerHTML),excerpts};
+}
+
+function previewHtml(body){
+  return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'+
     '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; form-action \'none\'">'+
     '<style>body{max-width:48rem;margin:24px auto;padding:0 24px;font:16px/1.7 system-ui;color:#242424;background:#fff}img{max-width:100%}table{border-collapse:collapse}td,th{border:1px solid #aaa;padding:.3rem}pre{white-space:pre-wrap}.located{background:#e5f4ff;outline:1px solid #1672b2;outline-offset:3px}</style></head><body>'+
-    rendered.innerHTML+'</body></html>';
-  return {html,excerpts};
+    body+'</body></html>';
 }

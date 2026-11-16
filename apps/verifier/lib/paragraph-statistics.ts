@@ -61,3 +61,16 @@ export function paragraphStatistics(proof:Proof){
     ...row,rate:row.observedMs>0?row.measuredInserted*1000/row.observedMs:null,
   }));
 }
+
+export function wordParagraphSamples(proof:Proof){
+  if(proof.manifest.source!=='word')return [];
+  return proof.records.flatMap(({event},index)=>{
+    const ordinal=event.metrics?.word_sample_paragraph??0;
+    if(!Number.isSafeInteger(ordinal)||ordinal<1||event.kind!=='edit')return [];
+    const previous=proof.records[index-1]?.event;
+    const duration=previous?event.elapsed_ms-previous.elapsed_ms:0;
+    const continuous=previous?.seq===event.seq-1&&previous.kind==='edit'&&
+      previous.metrics?.word_sample_paragraph===ordinal&&duration>0&&duration<=5000;
+    return [{event,rate:continuous?event.inserted*1000/duration:null}];
+  });
+}

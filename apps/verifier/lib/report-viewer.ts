@@ -5,7 +5,7 @@ import {CanvasRenderer} from 'echarts/renderers';
 import {charts,categoryCharts,summarize,chartOption,chartTable} from './verification-chart-data';
 import {buildBehaviorReport,names} from './behavior-report-data';
 import {behaviorAxes} from './behavior-overview-data';
-import {paragraphStatistics} from './paragraph-statistics';
+import {paragraphStatistics,wordParagraphSamples} from './paragraph-statistics';
 import type {ReportPackage} from './encrypted-report';
 
 use([BarChart,BoxplotChart,HeatmapChart,LineChart,PieChart,RadarChart,ScatterChart,TreemapChart,GridComponent,LegendComponent,RadarComponent,TooltipComponent,VisualMapComponent,CanvasRenderer]);
@@ -99,6 +99,17 @@ function render(model:ReportPackage,root:HTMLElement){
     }
     paintParagraphs();
     if(model.excerpts?.length)paragraphSection.append(table(['最终段落','分享者选中的摘录'],model.excerpts.map(item=>['第 '+item.ordinal+' 段',item.text])));
+  }
+  const wordSamples=report.valid?wordParagraphSamples(proof):[];
+  if(wordSamples.length){
+    const word=section('word-paragraphs','Word 段落采样');
+    word.append(el('p','段号对应采样时的文档。数量按两次采样的净变化计算。完整事件位于原始记录。'));
+    word.append(table(['段号','净新增','净删除','采样时刻','采样写入速率'],
+      wordSamples.slice(0,50).map(({event,rate})=>[
+        number(event.metrics?.word_sample_paragraph),number(event.inserted),number(event.deleted),
+        number(event.elapsed_ms/1000)+' 秒',rate===null?'条件不足':number(rate)+' 字符/秒',
+      ])));
+    if(wordSamples.length>50)word.append(el('p','前 50 条采样在此展示，全部采样可在原始记录中查看。'));
   }
   if(structure&&structure.first_gap_seq!=null){
     const firstGap=records.findIndex(({event})=>event.seq===structure.first_gap_seq);

@@ -113,7 +113,7 @@ function NativeVerifier(){
     {result&&<><section className="nv-verdict" data-valid={valid} role="status"><h3>{valid?'文件与证书一致':'核验未通过'}</h3>{valid&&result.proof.manifest.demo&&<FluentElement tag="fluent-badge" appearance="tint">演示证书 · 仅用于体验</FluentElement>}<p>{valid?'文件指纹、已披露记录与签名核对通过。签名有效不等于官方背书，也不能单独证明全部内容由人类创作。':'请检查作品是否是导出证书时的最终文件，以及证书是否完整。'}</p>{valid&&result.certificateMatch===true&&<p>指定证书指纹一致。</p>}<ul>{result.report.errors.map((item,i)=><li key={i}>{item}</li>)}</ul></section>
       <div className="nv-actions"><ReportExport result={result} expectedCertificateId={expectedId} artifact={artifact} proof={proof} metadata={metadata} excerpts={previewExcerpts} native auxiliaryText={()=>document.querySelector('.nv-result')?.textContent||''}/></div>
       {valid&&<div className="nv-actions" aria-label="分享已核验证书"><FluentElement tag="fluent-button" appearance="secondary" onClick={copyFingerprint}>复制证书指纹</FluentElement><FluentElement tag="fluent-button" appearance="subtle" disabled={certificateSaving} aria-busy={certificateSaving} onClick={()=>void saveOriginalCertificate()}>保存原始证书</FluentElement><span>{result.report.scope==='selective'?'仅含已披露记录':'含完整记录，请先确认分享范围'}</span></div>}
-      {valid&&artifact&&/\.(docx|md|markdown|txt)$/i.test(artifact.name)&&<section className="nv-document-preview">
+      {valid&&artifact&&/\.(docx|md|markdown|txt|png|jpe?g|webp)$/i.test(artifact.name)&&<section className="nv-document-preview">
         <FluentElement tag="fluent-button" appearance="secondary" onClick={()=>void openDocumentPreview()}>预览匹配作品</FluentElement>
         {previewMessage&&<p role="status">{previewMessage}</p>}
         {previewHtml&&<iframe title="作品只读预览" sandbox="" srcDoc={previewHtml}/>}

@@ -33,7 +33,7 @@ export function VerifiedDocumentReport(props:ComponentProps<typeof ReportExport>
   }
 
   return <>
-    {result.report.valid&&artifact&&/\.(docx|md|markdown|txt)$/i.test(artifact.name)&&
+    {result.report.valid&&artifact&&/\.(docx|md|markdown|txt|png|jpe?g|webp)$/i.test(artifact.name)&&
       <section aria-label="作品只读预览">
         <Button disabled={busy} variant="secondary" onClick={()=>void open()}>预览匹配作品</Button>
         {busy&&<p role="status">正在准备文档预览…</p>}
