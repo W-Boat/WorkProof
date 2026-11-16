@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState,lazy,Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
 import {EmbeddedFluent,FluentElement,loadEmbeddedFluent} from '../../verifier/components/fluent-embedded';
 import {wordPreviewLocations} from '../../verifier/lib/paragraph-statistics';
+import {HistoricalDocumentPreview} from '../../verifier/components/HistoricalDocumentPreview';
 import {ParagraphReport} from '../../verifier/components/ParagraphReport';
 import {BehaviorReport} from '../../verifier/components/BehaviorReport';
 import {WordRevisionSummary} from '../../verifier/components/WordRevisionSummary';
@@ -131,6 +132,10 @@ function NativeVerifier(){
         {previewMessage&&<p role="status">{previewMessage}</p>}
         {previewHtml&&<iframe ref={previewFrame} title="作品只读预览" sandbox="allow-same-origin" srcDoc={previewHtml} onLoad={focusPreview}/>}
       </section>}
+      <HistoricalDocumentPreview result={result} load={async file=>{
+        const {previewDocument}=await import('./document-preview.js');
+        return previewDocument(file,[]);
+      }}/>
       {shareMessage&&<p role="status">{shareMessage}</p>}
       <nav className="nv-tabs" aria-label="核验结果视图">{tabs.map(([id,label])=><FluentElement key={id} tag="fluent-button" appearance={tab===id?'primary':'subtle'} aria-pressed={tab===id} onClick={()=>setTab(id)}>{label}</FluentElement>)}</nav>
       <div className="nv-result" key={tab}>

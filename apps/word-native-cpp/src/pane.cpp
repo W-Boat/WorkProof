@@ -89,6 +89,8 @@ struct State {
     long long lastSampleMs = 0;
     long long lastCharacters = -1;
     std::vector<std::wstring> lastWordParagraphHashes;
+    bool lastWordSaved=true;
+    std::string lastWordSaveHash;
     long lastParagraphs = -1;
     long lastSlides=-1;long long lastShapes=-1;
     bool paused = true;
@@ -415,6 +417,7 @@ void FinishPairing(PairResult* result) {
     g.documentName = snapshot.name;
     g.lastCharacters = snapshot.characters;
     g.lastWordParagraphHashes=snapshot.wordParagraphHashes;
+    g.lastWordSaved=snapshot.saved;
     g.actions.Clear();g.editorWindow=snapshot.editorWindow;
     g.layoutSignature=snapshot.layoutSignature;g.formatSignature=snapshot.formatSignature;g.structureSignature=snapshot.structureSignature;g.textSignature=snapshot.textSignature;g.textSampled=snapshot.textSampled;
     g.selectionStart=snapshot.selectionStart;g.selectionEnd=snapshot.selectionEnd;
@@ -566,6 +569,16 @@ void Sample() {
         }
     }
 #ifndef WORKPROOF_POWERPOINT
+    if(snapshot.saved&&(!g.lastWordSaved||changed)){
+        std::string hash;
+        long long bytes=0;
+        if(Fingerprint(snapshot.identity,hash,bytes)&&hash!=g.lastWordSaveHash){
+            if(!SendEvent("save",snapshot,0,0,hash,error)){
+                PauseAfterSampleError(error);return;
+            }
+            g.lastWordSaveHash=std::move(hash);
+        }
+    }
     if(!(snapshot.revisions==g.lastRevisions)){
         if(!changed&&(snapshot.revisions.tracking>=0||snapshot.revisions.total>=0)&&
            !SendEvent("interaction",snapshot,0,0,std::string(),error)){
@@ -579,6 +592,7 @@ void Sample() {
     if(!snapshot.structureSignature.empty())g.structureSignature=snapshot.structureSignature;g.textSignature=snapshot.textSignature;g.textSampled=snapshot.textSampled;
     g.lastCharacters = snapshot.characters;
     g.lastWordParagraphHashes=snapshot.wordParagraphHashes;
+    g.lastWordSaved=snapshot.saved;
     g.lastParagraphs = snapshot.paragraphs;
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
 #ifdef WORKPROOF_POWERPOINT
@@ -619,6 +633,7 @@ void TogglePause() {
     if (!SendEvent("resume", snapshot, 0, 0, std::string(), error)) { SetStatus(error); return; }
     g.lastCharacters = snapshot.characters;
     g.lastWordParagraphHashes=snapshot.wordParagraphHashes;
+    g.lastWordSaved=snapshot.saved;
     g.lastParagraphs = snapshot.paragraphs;
     g.lastSlides=snapshot.slides;g.lastShapes=snapshot.shapes;
     g.paused = false;
@@ -657,6 +672,7 @@ bool ResetPausedRecording(){
     KillTimer(g.window,kSampleTimer);KillTimer(g.window,kReconnectTimer);g.reconnectRemaining=0;
     g.token.clear();g.session.clear();g.pendingEvent.clear();g.identity.clear();g.documentName.clear();
     g.actions.Clear();g.editorWindow=nullptr;g.layoutSignature.clear();g.formatSignature.clear();g.structureSignature.clear();
+    g.lastWordSaveHash.clear();
     g.sequence=0;g.lastSampleMs=0;g.lastCharacters=-1;g.lastParagraphs=-1;g.lastSlides=-1;g.lastShapes=-1;
     g.started={};g.launchFeedback=false;g.cancelPairing=false;++g.pairingGeneration;
     SetStatus(L"已结束本地记录。旧记录仍保留在 WorkProof 中。");PaintState();return true;

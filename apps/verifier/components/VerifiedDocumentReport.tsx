@@ -3,6 +3,7 @@ import {useEffect,useRef,useState,type ComponentProps} from 'react';
 import {Button} from './button';
 import {ReportExport} from './ReportExport';
 import {ParagraphReport} from './ParagraphReport';
+import {HistoricalDocumentPreview} from './HistoricalDocumentPreview';
 import {wordPreviewLocations} from '../lib/paragraph-statistics';
 
 type Preview={html:string;excerpts:{ordinal:number;text:string}[]};
@@ -56,6 +57,11 @@ export function VerifiedDocumentReport({onLocate,...props}:ComponentProps<typeof
         {preview&&<iframe ref={frame} title="作品只读预览" sandbox="allow-same-origin" srcDoc={preview.html} onLoad={focusPreview}
           style={{display:'block',width:'100%',minHeight:400,height:'min(60vh, 720px)',marginBlock:12,borderRadius:8}}/>}
       </section>}
+    <HistoricalDocumentPreview result={result} load={async file=>{
+      const url=new URL('/document-preview.js',window.location.origin).href;
+      const runtime=await import(/* webpackIgnore: true */ /* turbopackIgnore: true */ url);
+      return runtime.previewDocument(file,[]);
+    }}/>
     <ReportExport {...props} excerpts={preview?.excerpts}/>
   </>;
 }
