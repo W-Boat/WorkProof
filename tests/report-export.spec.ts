@@ -75,7 +75,7 @@ test('Word preview locates the final paragraph with tracked replacements and mov
   const deleted='旧版文字不应出现在最终视图。';
   const moved='已移动到这里的文字。';
   const fingerprint=(value:string)=>createHash('sha256').update(value,'utf16le').digest('hex');
-  const document=zipSync({
+  const archive=zipSync({
     '[Content_Types].xml':strToU8('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'),
     '_rels/.rels':strToU8('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'),
     'word/document.xml':strToU8(`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
@@ -96,7 +96,7 @@ test('Word preview locates the final paragraph with tracked replacements and mov
     frame.srcdoc=preview.html;
     document.body.append(frame);
     return preview.excerpts;
-  },{bytes:[...document],hashes:[finalHash,movedHash]});
+  },{bytes:[...archive],hashes:[finalHash,movedHash]});
   expect(excerpts).toEqual([{ordinal:1,text:finalText},{ordinal:3,text:moved}]);
   const frame=page.frameLocator('iframe[title="Word revision preview"]');
   await expect(frame.locator('#word-paragraph-'+finalHash+'.located')).toHaveText(finalText);
