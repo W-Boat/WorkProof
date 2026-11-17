@@ -1,6 +1,7 @@
 import {blake3} from '@noble/hashes/blake3.js';
 import {bytesToHex} from '@noble/hashes/utils.js';
 import {wordOperation} from './word-operation.js';
+import {wordFinalView} from './word-final-view.js';
 
 export async function previewDocument(file,locations,wordLocations=[]){
   if(file.size>8*1024*1024)throw new Error('文件超过 8 MiB 的内嵌预览范围。');
@@ -20,7 +21,8 @@ export async function previewDocument(file,locations,wordLocations=[]){
   const runtime=await import('./editor-runtime.js');
   let content;
   if(/\.docx$/i.test(file.name)){
-    content=await wordOperation('import',{bytes:await file.arrayBuffer()});
+    const bytes=await wordFinalView(await file.arrayBuffer());
+    content=await wordOperation('import',{bytes});
   }else if(/\.(md|markdown|txt)$/i.test(file.name)){
     const editor=new runtime.Editor({element:document.createElement('div'),extensions:runtime.editorExtensions()});
     try{content=editor.markdown.parse(await file.text());}finally{editor.destroy();}

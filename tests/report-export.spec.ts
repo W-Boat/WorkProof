@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 import {createHash} from 'node:crypto';
 import {gzipSync} from 'node:zlib';
+import {strToU8,zipSync} from 'fflate';
 
 test('standalone website downloads encrypted HTML and a matching MD5 association without desktop IPC',async({page})=>{
   test.setTimeout(60000);await page.goto('/');
@@ -66,6 +67,41 @@ test('signed paragraph location is highlighted and only selected excerpts reach 
   await page.getByRole('button',{name:'打开报告',exact:true}).click();
   await expect(page.locator('#report-paragraphs')).toContainText('让创作过程，有据可查');
   await expect(page.locator('#report-paragraphs')).not.toContainText('证据可以复核，隐私应被尊重。');
+});
+
+test('Word preview locates the final paragraph with tracked replacements and moves',async({page})=>{
+  await page.goto('/');
+  const finalText='这是核验时应显示的段落。';
+  const deleted='旧版文字不应出现在最终视图。';
+  const moved='已移动到这里的文字。';
+  const fingerprint=(value:string)=>createHash('sha256').update(value,'utf16le').digest('hex');
+  const document=zipSync({
+    '[Content_Types].xml':strToU8('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'),
+    '_rels/.rels':strToU8('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'),
+    'word/document.xml':strToU8(`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+      <w:p><w:ins w:id="1"><w:r><w:t>${finalText}</w:t></w:r></w:ins><w:del w:id="2"><w:r><w:delText>${deleted}</w:delText></w:r></w:del></w:p>
+      <w:p><w:r><w:t>原位置。</w:t></w:r><w:moveFrom w:id="3"><w:r><w:t>${moved}</w:t></w:r></w:moveFrom></w:p>
+      <w:p><w:moveTo w:id="4"><w:r><w:t>${moved}</w:t></w:r></w:moveTo></w:p>
+    </w:body></w:document>`),
+  });
+  const finalHash=fingerprint(finalText);
+  const movedHash=fingerprint(moved);
+  const excerpts=await page.evaluate(async({bytes,hashes})=>{
+    const url=new URL('/document-preview.js',location.origin).href;
+    const {previewDocument}=await import(url);
+    const file=new File([Uint8Array.from(bytes)],'tracked.docx');
+    const preview=await previewDocument(file,[],hashes.map(fingerprint=>({fingerprint})));
+    const frame=document.createElement('iframe');
+    frame.title='Word revision preview';
+    frame.srcdoc=preview.html;
+    document.body.append(frame);
+    return preview.excerpts;
+  },{bytes:[...document],hashes:[finalHash,movedHash]});
+  expect(excerpts).toEqual([{ordinal:1,text:finalText},{ordinal:3,text:moved}]);
+  const frame=page.frameLocator('iframe[title="Word revision preview"]');
+  await expect(frame.locator('#word-paragraph-'+finalHash+'.located')).toHaveText(finalText);
+  await expect(frame.locator('#word-paragraph-'+movedHash+'.located')).toHaveText(moved);
+  await expect(frame.locator('body')).not.toContainText(deleted);
 });
 
 test('historical preview renders only a file matching a signed save checkpoint',async({page})=>{
