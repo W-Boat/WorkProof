@@ -8,6 +8,13 @@ import {observeDocumentActions} from './document-actions.js';
 
 configureEditors({assetsBaseUrl: new URL('./mroffice/assets/', document.baseURI).href});
 const MAX_FILE = 32 * 1024 * 1024;
+const embedded = window.parent !== window && new URLSearchParams(location.search).has('embedded');
+if(embedded)window.addEventListener('keydown',event=>{
+  if(window.parent.workproofEditorFullscreenKey?.(event.key)){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+},true);
 const interactions = {
   copy: '复制', cut: '剪切', paste: '粘贴', drop: '拖放',
   compositionstart: '开始输入法合成', compositionend: '完成输入法合成',
@@ -52,6 +59,7 @@ function Workspace() {
   const saving = useRef(null);
   const opening = useRef(false);
   const openWord = useRef(null);
+  const commands = useRef(null);
   const timer = useRef(null);
   const earliest = earlierEvents.at(-1) || events.at(-1);
   const selected = editors[kind];
@@ -126,13 +134,22 @@ function Workspace() {
     const bridge = {flush: async () => {
       if (opening.current) throw new Error('正在打开文件，请稍候。');
       await flush();
-    }, openWord: document => openWord.current(document)};
+    }, openWord: document => openWord.current(document),
+    save: download => commands.current.save(download),
+    returnToWorkProof: () => commands.current.returnToWorkProof(),
+    create: type => commands.current.create(type),
+    openFile: (type, file) => commands.current.openFile(type, file),
+    reopen: file => commands.current.reopen(file)};
     window.workproofMROffice = bridge;
     return () => {
       clearTimeout(timer.current);
       delete window.workproofMROffice;
     };
   }, []);
+
+  useEffect(() => {
+    if (embedded && active) window.parent.workproofOfficeActivity?.(active.file.id, events);
+  }, [active, events]);
 
   useEffect(() => {
     if (kind !== 'code') return;
@@ -215,6 +232,7 @@ function Workspace() {
       setEarlierEvents([]);
       setStatus(file.kind === 'pdf' ? '已打开。批注记录保存在本机。' : '已打开，自动保存到本机。');
       queue(records.length ? '重新打开文件' : '打开文件');
+      return fileSummary(file);
     } catch (cause) {
       error(cause);
       if (propagateError) throw cause;
@@ -244,7 +262,18 @@ function Workspace() {
       }
       await window.parent.workproofReturnFromMROffice(file.workproof, editor.getJSON(), editor.schema,
         await eventCount(file.id));
-    } catch (cause) { error(cause); }
+    } catch (cause) {
+      error(cause);
+      if (embedded) throw cause;
+    }
+  }
+
+  function openLocal(type, picked, propagate = false) {
+    return open(type, async () => {
+      if (picked.size > MAX_FILE) throw new Error('请选择不超过 32 MiB 的文件。');
+      return {id: crypto.randomUUID(), kind: type, name: picked.name,
+        bytes: new Uint8Array(await picked.arrayBuffer()), savedAt: Date.now()};
+    }, propagate);
   }
 
   function selectFile(event) {
@@ -255,17 +284,15 @@ function Workspace() {
       setStatus('请选择不超过 32 MiB 的受支持文件。');
       return;
     }
-    void open(kind, async () => ({
-      id: crypto.randomUUID(), kind, name: picked.name, bytes: new Uint8Array(await picked.arrayBuffer()), savedAt: Date.now(),
-    }));
+    void openLocal(kind, picked);
   }
 
-  function create() {
-    void open(kind, async editor => {
+  function create(type = kind, propagate = false) {
+    return open(type, async editor => {
       const fresh = editor.newFile?.();
       if (!fresh) throw new Error('请使用“打开文件”。');
-      return {...fresh, id: crypto.randomUUID(), kind, savedAt: Date.now()};
-    });
+      return {...fresh, id: crypto.randomUUID(), kind: type, savedAt: Date.now()};
+    }, propagate);
   }
 
   async function save(download = false) {
@@ -275,8 +302,15 @@ function Workspace() {
       const file = current.current;
       if (!download || !file || !editors[file.kind].save) return;
       downloadFile({name: file.name, data: new Blob([file.bytes], {type: file.mime})});
-    } catch (cause) { error(cause); }
+    } catch (cause) {
+      error(cause);
+      if (embedded) throw cause;
+    }
   }
+
+  commands.current = {save, returnToWorkProof, create: type => create(type, true),
+    openFile: (type, file) => openLocal(type, file, true),
+    reopen: file => open(file.kind, () => readFile(file.id), true)};
 
   async function loadEarlier() {
     try {
@@ -315,13 +349,13 @@ function Workspace() {
     notify: message => setStatus(message.description || message.title || ''),
   };
 
-  return <main className="office-shell">
-    <header className="office-toolbar">
+  return <main className={'office-shell' + (embedded ? ' is-embedded' : '')}>
+    {!embedded && <header className="office-toolbar">
       <a href="https://mroffice.ai" target="_blank" rel="noreferrer">MR Office</a>
       <label>编辑器<select aria-label="编辑器" value={kind} disabled={busy} onChange={event => setKind(event.target.value)}>
         {Object.entries(editors).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}
       </select></label>
-      <button disabled={busy || kind === 'pdf'} onClick={create}>新建</button>
+      <button disabled={busy || kind === 'pdf'} onClick={() => void create()}>新建</button>
       <button disabled={busy} onClick={() => fileInput.current.click()}>打开文件</button>
       <input ref={fileInput} type="file" accept={openFormats} hidden onChange={selectFile}/>
       <label>本机文档<select aria-label="本机文档" disabled={busy} value={active?.file.id || ''} onChange={event => {
@@ -335,8 +369,8 @@ function Workspace() {
       {active?.file.workproof && <button disabled={busy} onClick={() => void returnToWorkProof()}>保存并切回 WorkProof</button>}
       <button type="button" aria-pressed={showEvents} onClick={() => setShowEvents(!showEvents)}>操作记录</button>
       {active && <details><summary>支持的格式</summary><span>{openFormats.split(',').join('、')}</span></details>}
-    </header>
-    <p className="office-status" role="status">{busy ? '正在打开编辑器…' : status}</p>
+    </header>}
+    <p className="office-status" role="status" hidden={embedded && !busy}>{busy ? '正在打开编辑器…' : status}</p>
     <div className="office-layout">
       <div ref={surface} className="office-surface" inert={busy}>
         {active ? <EditorErrorBoundary key={active.file.id + ':' + active.mount}>
@@ -364,7 +398,7 @@ function Workspace() {
             {' · '}<a href="mroffice/notices/docs/LICENSE" target="_blank" rel="noreferrer">AGPL-3.0</a></p>
         </div>}
       </div>
-      {showEvents && <aside className="office-log" aria-label="操作记录">
+      {!embedded && showEvents && <aside className="office-log" aria-label="操作记录">
         <h2>操作记录</h2>
         <ol>{[...events, ...earlierEvents].map(event => <li key={event.recordId}>
           {event.action}{event.count > 1 && ' × ' + event.count}

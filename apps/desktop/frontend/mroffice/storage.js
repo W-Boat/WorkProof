@@ -18,8 +18,31 @@ function database() {
   return opened;
 }
 
-export function fileSummary({id, kind, name, savedAt, workproof}) {
-  return {id, kind, name, savedAt, workproof};
+export function fileSummary({id, kind, name, savedAt, workproof, archived}) {
+  return {id, kind, name, savedAt, workproof, archived};
+}
+
+export async function manageFile(id, action) {
+  const db = await database();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['files', 'events'], 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error || new Error('本机文件未能更新。'));
+    const files = tx.objectStore('files');
+    if (action === 'delete') {
+      files.delete(id);
+      const request = tx.objectStore('events').index('file').openCursor(IDBKeyRange.only(id));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (cursor) { cursor.delete(); cursor.continue(); }
+      };
+    } else {
+      const request = files.get(id);
+      request.onsuccess = () => {
+        if (request.result) files.put({...request.result, archived:action === 'archived'});
+      };
+    }
+  });
 }
 
 export async function listFiles() {

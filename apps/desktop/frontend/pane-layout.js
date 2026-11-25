@@ -49,6 +49,7 @@ export function initializePaneLayout() {
     if (!width) return;
     const compact = width < 820;
     const markdown = workspace.dataset.editMode === 'markdown';
+    const office = workspace.dataset.engine === 'office';
     // Keep seven tenths of the workspace for writing. Explicitly opened panes
     // become overlays when side-by-side layout would consume that space.
     const totalWidth=document.getElementById('document-workspace').clientWidth;
@@ -68,7 +69,9 @@ export function initializePaneLayout() {
     if(width-inspectorWidth>=minimumWidth)automatic.inspector=true;
     const visible = {};
     for (const name of Object.keys(panes)) {
-      visible[name] = !focused && (preferences[name] === 'open' || (preferences[name] === 'auto' && automatic[name]));
+      visible[name] = !focused && !document.body.classList.contains('editor-fullscreen') &&
+        (!office || name==='inspector') &&
+        (preferences[name] === 'open' || (!office && preferences[name] === 'auto' && automatic[name]));
     }
     const sidebarWidth=(visible.outline?outlineWidth:0)+(visible.inspector?inspectorWidth:0);
     const overlay=compact||width-sidebarWidth<minimumWidth;
@@ -120,6 +123,7 @@ export function initializePaneLayout() {
   exitButton?.addEventListener('click',()=>setFocused(false));
   window.addEventListener('workproof-view',event=>{if(focused&&event.detail!=='document')setFocused(false);});
   document.addEventListener('workproof-editor-tab',event=>{if(focused&&event.detail!=='write')setFocused(false);});
+  document.addEventListener('workproof:fullscreen',render);
   function dismissOverlay() {
     if (!workspace.classList.contains('pane-overlay-open')) return;
     overlayDismissed = true;

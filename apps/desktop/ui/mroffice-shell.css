@@ -19,3 +19,6 @@ html, body, #office-root { margin: 0; height: 100%; }
 .office-format-details { margin-block: 16px; }
 .office-format-details table { width: 100%; border-collapse: collapse; }
 .office-format-details th, .office-format-details td { border: 1px solid #d1d1d1; padding: 8px; vertical-align: top; }
+.office-shell.is-embedded { grid-template-rows: auto minmax(0, 1fr); }
+.is-embedded .office-status[hidden] { display:none; }
+.is-embedded .office-empty:not([role="alert"]) { display:none; }

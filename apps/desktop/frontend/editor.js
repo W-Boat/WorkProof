@@ -7,6 +7,8 @@ import {icon} from './icons.js';
 import {draftTemplates} from './draft-templates.js';
 import {initializeWorkspaceTools} from './workspace-tools.js';
 import {projectDocument,removeOfficePagination} from './mroffice/transfer.js';
+import {formats as officeTypes,officeOpenType} from './mroffice/formats.js';
+import {listFiles as listOfficeFiles,manageFile as manageOfficeFile,recentEvents as readOfficeActions} from './mroffice/storage.js';
 
 const $=id=>document.getElementById(id);
 const ipc=(command,args)=>window.__TAURI__.core.invoke(command,args);
@@ -20,7 +22,7 @@ async function loadEditorRuntime(){
 }
 const labels={edit:'修改文字',format:'调整格式或结构',undo:'撤销修改',redo:'重做修改',copy:'复制命令',paste:'粘贴命令',cut:'剪切命令',backspace:'退格命令',delete_forward:'向后删除命令',space:'空格键',enter:'回车键',cursor:'移动光标',selection:'调整选区',focus:'回到编辑',blur:'离开编辑',transaction:'编辑器事务',keyboard:'键盘操作',input:'完成输入',beforeinput:'准备输入',compositionstart:'开始输入法合成',compositionupdate:'输入法合成',compositionend:'完成输入法合成',drop:'放入内容',dragstart:'开始拖动',dragend:'结束拖动',import:'导入内容',layout:'切换页面布局'};
 let editor=null,active=null,documents=[],pending=[],inflight=null,dirty=false,saving=null,saveTimer,maxSaveTimer,refreshTimer;
-let externalDocuments=[],libraryLoadError='',libraryStates={};
+let externalDocuments=[],officeFiles=[],libraryLoadError='',libraryStates={};
 $('library-state-filter').addEventListener('change',renderLibrary);
 let suppressed=false,opening=false,exporting=false,intent=null,lastSelection='',selectionAt=0,historyToken=0,selectedVersion=null;
 let recentFrame=null;
@@ -152,12 +154,145 @@ function loadMROffice(){
     const timeout=setTimeout(()=>{
       clearInterval(check);reject(new Error('MR Office 未能启动，原文档已保留。'));
     },15000);
-    if(!frame.hasAttribute('src'))frame.src='mroffice.html';
+    if(!frame.hasAttribute('src'))frame.src='mroffice.html?embedded';
   });
 }
 
 let switchingOffice=false;
+let officeMode=false;
+let officeFile=null;
+const officeBridge=()=>$('mroffice-frame').contentWindow?.workproofMROffice;
+const officeDock=element('span','office-editor-controls');
+$('save-document').before(officeDock);
+const fullscreenButton=element('fluent-button');
+fullscreenButton.id='editor-fullscreen';
+fullscreenButton.dataset.icon='full_screen_maximize';
+fullscreenButton.setAttribute('appearance','subtle');
+fullscreenButton.setAttribute('aria-label','全屏编辑');
+fullscreenButton.setAttribute('aria-pressed','false');
+fullscreenButton.title='全屏编辑 · F11';
+$('save-document').before(fullscreenButton);
+let fullscreenChange=false;
+async function changeFullscreen(enabled){
+  if(fullscreenChange||document.body.dataset.view!=='document')return;
+  fullscreenChange=true;
+  try{
+    await ipc('window_action',{action:enabled?'editor-fullscreen':'editor-windowed'});
+    document.body.classList.toggle('editor-fullscreen',enabled);
+    fullscreenButton.setAttribute('aria-pressed',String(enabled));
+    fullscreenButton.setAttribute('aria-label',enabled?'退出全屏':'全屏编辑');
+    fullscreenButton.title=enabled?'退出全屏 · F11':'全屏编辑 · F11';
+    document.dispatchEvent(new Event('workproof:fullscreen'));
+  }catch(error){ui.showMessage(errorText(error),'error');}
+  finally{fullscreenChange=false;}
+}
+function fullscreenKey(key){
+  const full=document.body.classList.contains('editor-fullscreen');
+  if(document.body.dataset.view!=='document'||(key!=='F11'&&!(full&&key==='Escape')))return false;
+  void changeFullscreen(!full);
+  return true;
+}
+window.workproofEditorFullscreenKey=fullscreenKey;
+fullscreenButton.addEventListener('click',()=>void changeFullscreen(!document.body.classList.contains('editor-fullscreen')));
+document.addEventListener('keydown',event=>{
+  if(fullscreenKey(event.key)){event.preventDefault();event.stopPropagation();}
+},true);
+const sharedControls=['focus-writing','toggle-inspector'].map(id=>{
+  const control=$(id),slot=document.createComment(id);
+  control.before(slot);
+  return {control,slot};
+});
+
+function showOfficeEngine(enabled){
+  officeMode=enabled;
+  $('write-panel').dataset.engine=enabled?'office':'default';
+  $('mroffice-frame').hidden=!enabled;
+  for(const {control,slot} of sharedControls){
+    if(enabled)officeDock.append(control);else slot.after(control);
+  }
+  $('recent-actions').hidden=enabled;
+  $('office-recent-actions').hidden=!enabled;
+  $('document-title').readOnly=enabled||Boolean(officeFile);
+  document.dispatchEvent(new Event('workproof:editor-mode'));
+}
+
+function listOfficeActions(list,events){
+  list.replaceChildren(...events.map(item=>{
+    const row=element('li','event-item',item.action+(item.count>1?' × '+item.count:''));
+    row.append(element('small','',time(item.at)));
+    return row;
+  }));
+}
+window.workproofOfficeActivity=(_id,events)=>{
+  listOfficeActions($('office-recent-actions'),events.slice(0,12));
+  if(officeMode){
+    $('action-count').textContent=events.length+' 条';
+    $('no-actions').hidden=events.length>0;
+  }
+};
+let officeProcessPage=1,officeProcessRequest=0;
+async function renderOfficeProcess(){
+  const request=++officeProcessRequest;
+  if(officeMode)await officeBridge()?.flush();
+  const files=officeFile?[officeFile]:(await listOfficeFiles()).filter(file=>file.workproof?.id===active?.id);
+  const limit=officeProcessPage*100;
+  const groups=await Promise.all(files.map(file=>readOfficeActions(file.id,limit+1)));
+  if(request!==officeProcessRequest||$('process-panel').hidden)return;
+  const events=groups.flat().sort((a,b)=>b.at-a.at||b.recordId-a.recordId);
+  listOfficeActions($('office-process-actions'),events.slice(0,limit));
+  $('office-process-heading').hidden=!events.length;
+  $('office-process-more').hidden=events.length<=limit;
+}
+$('office-process-more').addEventListener('click',()=>{
+  officeProcessPage++;
+  renderOfficeProcess().catch(reportError);
+});
+async function saveCurrentDocument(){
+  if(!officeMode)return flush();
+  await officeBridge()?.save(false);
+  state('已保存到本机','saved');
+}
+
+async function openOfficeFile(open){
+  if(switchingOffice||opening||exporting||closing)return;
+  switchingOffice=true;
+  try{
+    await flush();
+    const previous=officeFile;
+    const wasOffice=officeMode;
+    ui.selectView('document');
+    showOfficeEngine(true);
+    selectTab('office');
+    try{
+      const office=await loadMROffice();
+      officeFile=await open(office);
+    }catch(error){
+      officeFile=previous;
+      showOfficeEngine(wasOffice);
+      ui.selectView('library');
+      throw error;
+    }
+    setOfficeFileHeader();
+  }catch(error){ui.showMessage(errorText(error),'error');}
+  finally{switchingOffice=false;}
+}
+
+function setOfficeFileHeader(){
+  if(!officeFile)return;
+  $('document-title').value=officeFile.name;
+  $('document-title').readOnly=true;
+  $('document-kind').textContent=officeTypes[officeFile.kind].label;
+  $('tab-write').hidden=true;
+  $('edit-in-mroffice').hidden=false;
+  $('tab-certificate').hidden=true;
+  $('export-document').hidden=officeFile.kind==='pdf';
+  $('export-document').textContent='导出作品';
+  $('document-workspace').dataset.officeFile='true';
+  state('已保存到本机','saved');
+}
+
 $('edit-in-mroffice').addEventListener('click',async()=>{
+  if(officeMode){selectTab('office');return;}
   if(switchingOffice)return;
   if(opening||exporting||closing||!active||$('write-panel').dataset.editMode!=='word'){
     ui.showMessage('请在 Word 文档打开后切换编辑器。','warning');
@@ -170,13 +305,15 @@ $('edit-in-mroffice').addEventListener('click',async()=>{
     editor.view.domObserver.flush();
     if(editor.view.composing)throw new Error('请先完成当前输入，再切换编辑器。');
     setEditable(false);
-    ui.selectView('mroffice');
     await flush();
     setEditable(false);
+    showOfficeEngine(true);
+    selectTab('office');
     const office=await loadMROffice();
     await office.openWord({id:active.id,revision:active.revision,title:active.title,content:editor.getJSON()});
   }catch(error){
-    ui.selectView('document');
+    showOfficeEngine(false);
+    selectTab('write');
     ui.showMessage(errorText(error),'error');
     console.error('MR Office handoff:',error);
   }
@@ -200,7 +337,7 @@ window.workproofReturnFromMROffice=async(reference,content,schema,observations)=
     }
     addAction('transaction',{detail:{source:'mroffice-editor',observed_groups:observations}});
     await flush();
-    ui.selectView('document');
+    showOfficeEngine(false);
     selectTab('write');
   }finally{switchingOffice=false;}
 };
@@ -234,14 +371,13 @@ async function flush(){
 }
 let openingLibraryEntry=false;
 ui.beforeNavigate=async()=>{
-  if(document.body.dataset.view==='mroffice'){
-    await $('mroffice-frame').contentWindow?.workproofMROffice?.flush();
-  }
+  if(officeMode)await officeBridge()?.flush();
   if(opening||creating||importing||exporting||openingLibraryEntry||switchingOffice){
     ui.showMessage('正在处理文档，请稍候再切换页面。');
     return false;
   }
-  if(document.body.dataset.view!=='document')return true;
+  if(document.body.classList.contains('editor-fullscreen'))await changeFullscreen(false);
+  if(document.body.dataset.view!=='document'||officeFile)return true;
   editor?.view.domObserver.flush();
   if(editor?.view.composing){
     ui.showMessage('请先完成当前输入，再切换页面。');
@@ -276,7 +412,18 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)flush().cat
 async function openDocument(doc){
   if(opening||exporting)return;opening=true;
   try{
+    await officeBridge()?.flush();
     await flush();await loadEditorRuntime();workspace.closeFind();workspace.closeSource();workspace.rememberPagination();suppressed=true;characterSnapshot=null;editor?.destroy();active=doc;pending=[];inflight=null;dirty=false;intent=null;lastSelection='';
+    officeFile=null;
+    showOfficeEngine(false);
+    $('office-recent-actions').replaceChildren();
+    $('office-process-actions').replaceChildren();
+    delete $('document-workspace').dataset.officeFile;
+    $('document-title').readOnly=false;
+    $('tab-write').hidden=false;
+    $('tab-certificate').hidden=false;
+    $('export-document').hidden=false;
+    $('export-document').textContent='导出作品与证书';
     selectedVersion=null;expandedFlows.clear();$('flow-detail').replaceChildren();$('flow-detail').hidden=true;$('history-preview').replaceChildren();
     $('document-title').value=doc.title;
     $('edit-in-mroffice').hidden=doc.kind==='markdown';
@@ -308,9 +455,34 @@ function chooseDocumentKind(templateId='blank'){
   dialog.addEventListener('close',()=>{
     const kind=dialog.returnValue;
     if(kind==='word'||kind==='markdown')createDocument(kind,templateId);
+    else if(kind.startsWith('office:'))void openOfficeFile(office=>office.create(kind.slice(7)));
   },{once:true});
   dialog.showModal();
 }
+for(const [type,{label}] of Object.entries(officeTypes)){
+  if(type==='pdf')continue;
+  const choice=element('button','document-kind-choice',type==='docs'?'排版文档':label);
+  choice.type='submit';
+  choice.value='office:'+type;
+  $('office-new-types').append(choice);
+}
+$('import-office-local').addEventListener('click',()=>$('office-local-file').click());
+$('office-local-file').addEventListener('change',async event=>{
+  const file=event.target.files?.[0];
+  event.target.value='';
+  if(!file)return;
+  if(/\.(docx|md|markdown|txt)$/i.test(file.name)){
+    const input=/\.docx$/i.test(file.name)?$('word-file'):$('markdown-file');
+    const selection=new DataTransfer();
+    selection.items.add(file);
+    input.files=selection.files;
+    input.dispatchEvent(new Event('change'));
+    return;
+  }
+  const type=await officeOpenType(file.name).catch(()=>null);
+  if(!type){ui.showMessage('此文件格式暂未支持。','warning');return;}
+  await openOfficeFile(office=>office.openFile(type,file));
+});
 function element(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
 const librarySort=element('select');librarySort.id='library-sort';librarySort.setAttribute('aria-label','文档排序');
 for(const [value,label] of [['recent','最近修改'],['title','按名称排序']]){const option=element('option','',label);option.value=value;librarySort.append(option);}
@@ -350,10 +522,13 @@ function renderLibrary(){
   const rows=document.createDocumentFragment();
   let restoreFocus;
   const selectedSource=$('library-source-filter')?.value||'all';
-  const entries=documents.map(doc=>({type:'editor',doc,source:'editor',time:Number(doc.modified)})).concat(groupExternalDocuments(externalDocuments));
+  const entries=documents.map(doc=>({type:'editor',doc,source:'editor',time:Number(doc.modified)}))
+    .concat(officeFiles.filter(file=>!file.workproof).map(file=>({
+      type:'office',doc:{...file,title:file.name},source:'editor',time:file.savedAt,
+    })),groupExternalDocuments(externalDocuments));
   entries.sort((a,b)=>librarySort.value==='title'?titleOrder.compare(a.doc.title,b.doc.title):((b.time??0)-(a.time??0))||titleOrder.compare(a.doc.title,b.doc.title));
   const selectedState=$('library-state-filter').value;
-  const stateEntries=entries.filter(entry=>(libraryStates[entry.type+':'+entry.doc.id]||'active')===selectedState);
+  const stateEntries=entries.filter(entry=>(entry.type==='office'?(entry.doc.archived?'archived':'active'):libraryStates[entry.type+':'+entry.doc.id]||'active')===selectedState);
   const filtered=stateEntries.filter(entry=>(selectedSource==='all'||selectedSource===entry.source)&&`${entry.doc.title} ${sourceLabel(entry.source)} ${entry.source}`.toLocaleLowerCase().includes(query));
   // Engine readiness and catalog refreshes can deliver identical data between
   // pointer-down and pointer-up. Keep existing controls alive in that case;
@@ -366,16 +541,17 @@ function renderLibrary(){
   if(rowsChanged){
   for(const entry of filtered){
     const {doc}=entry,row=element('div','document-row');row.setAttribute('role','listitem');row.dataset.documentKey=`${entry.type}:${doc.id}`;row.dataset.source=entry.source;
-    const label=element('div'),description=entry.type==='editor'?`${doc.revision+1} 个保存版本`:`${entry.sessions.length} 次记录 · ${entry.sessions.reduce((sum,session)=>sum+Number(session.event_count),0).toLocaleString()} 条记录${doc.demo?' · 演示记录':''}`;
+    const label=element('div'),description=entry.type==='office'?officeTypes[doc.kind].label:entry.type==='editor'?`${doc.revision+1} 个保存版本`:`${entry.sessions.length} 次记录 · ${entry.sessions.reduce((sum,session)=>sum+Number(session.event_count),0).toLocaleString()} 条记录${doc.demo?' · 演示记录':''}`;
     label.append(element('strong','',doc.title),element('p','',`${sourceLabel(entry.source)} · ${displayTime(entry.time)} · ${description}`));
-    const action=entry.type==='editor'?'继续编辑':'打开文件',open=element('fluent-button','',action);open.setAttribute('aria-label',`${action} ${doc.title}`);open.dataset.icon='document_text';
+    const action=entry.type==='external'?'打开文件':'继续编辑',open=element('fluent-button','',action);open.setAttribute('aria-label',`${action} ${doc.title}`);open.dataset.icon='document_text';
     open.addEventListener('click',async()=>{if(closing||openingLibraryEntry||creating||importing||opening||exporting)return;openingLibraryEntry=true;open.disabled=true;try{
       if(entry.type==='external'){
         const preference=externalOpening.value;
         if(preference==='records'||!doc.can_open)await externalLibrary.open(doc,entry.sessions);
         else if(preference==='internal'&&/\.(docx|md|markdown|txt)$/i.test(doc.local_path||doc.title))await importExternalCopy(doc);
         else await ipc('external_document_open',{id:doc.id});
-      }else{await flush();await openDocument(await ipc('editor_load',{id:doc.id}));}
+      }else if(entry.type==='office')await openOfficeFile(office=>office.reopen(doc));
+      else{await flush();await openDocument(await ipc('editor_load',{id:doc.id}));}
     }catch(error){ui.showMessage(errorText(error),'error');}finally{openingLibraryEntry=false;open.disabled=false;}});
     if(row.dataset.documentKey===focusKey)restoreFocus=open;
     const actions=element('div','library-row-actions');actions.append(open);
@@ -400,6 +576,12 @@ function renderLibrary(){
         manage.disabled=true;
         try{
           if(state==='delete'&&!await confirmLibraryDeletion(doc,entry.type))return;
+          if(entry.type==='office'){
+            await officeBridge()?.flush();
+            await manageOfficeFile(doc.id,state);
+            await loadLibrary();
+            return;
+          }
           await flush();
           const ids=entry.type==='external'?entry.sessions.map(session=>session.id):[doc.id];
           if(state==='delete'){
@@ -427,10 +609,11 @@ function renderLibrary(){
 let listing=false,libraryRefreshPending=false,lastLibraryRefresh=0,catalogRefreshTimer=null,lastCatalogStamp='',lastSessionCount=null;
 async function loadLibrary(){
   if(listing){libraryRefreshPending=true;return;}listing=true;
-  const results=await Promise.allSettled([ipc('editor_list'),ipc('external_documents_list'),ipc('library_states')]);
+  const results=await Promise.allSettled([ipc('editor_list'),ipc('external_documents_list'),ipc('library_states'),listOfficeFiles()]);
   try{
     libraryLoadError='';
     for(const [index,result] of results.entries()){
+      if(index===3){if(result.status==='fulfilled')officeFiles=result.value;else libraryLoadError+='本机排版文件暂未读取。';continue;}
       if(index===2){if(result.status==='fulfilled'&&result.value&&typeof result.value==='object'&&!Array.isArray(result.value))libraryStates=Object.fromEntries(Object.entries(result.value).map(([id,state])=>[id,state==='trash'?'active':state]));else libraryLoadError+='归档与回收站状态暂未读取，请点击刷新重试。';continue;}
       if(result.status==='fulfilled'&&Array.isArray(result.value)){if(index===0)documents=result.value;else externalDocuments=result.value;}
       else libraryLoadError+=(index===0?'内置文档':'外部应用文档')+'暂未读取，请点击刷新重试。';
@@ -454,7 +637,7 @@ $('new-document').addEventListener('click',()=>chooseDocumentKind());$('first-do
 $('library-source-filter')?.addEventListener('change',renderLibrary);
 $('document-title').addEventListener('input',()=>{if(active){dirty=true;state('待保存');scheduleSave();$('certificate-result').hidden=true;$('certificate-empty').hidden=false;}});
 $('back-library').addEventListener('click',()=>void ui.requestView('library'));
-$('save-document').addEventListener('click',()=>flush().catch(reportError));
+$('save-document').addEventListener('click',()=>saveCurrentDocument().catch(reportError));
 document.addEventListener('keydown',event=>{
   if(event.defaultPrevented||!active||closing||document.body.dataset.view!=='document')return;
   if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();flush().catch(reportError);}
@@ -474,13 +657,40 @@ function renderRecent(){
   if(!active)return;const actions=allActions(),groups=groupActions(actions);$('recent-actions').replaceChildren(...groups.slice(0,12).map(flowItem));$('no-actions').hidden=actions.length>0;$('action-count').textContent=`${groups.length} 段流程`;
 }
 function selectTab(tab){
-  document.dispatchEvent(new CustomEvent('workproof-editor-tab',{detail:tab}));
-  for(const button of document.querySelectorAll('[data-tab]')){const selected=button.dataset.tab===tab;button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;$(button.dataset.tab+'-panel').hidden=!selected;}
-  if(tab==='process')flush().then(renderProcess).catch(reportError);
+  document.dispatchEvent(new CustomEvent('workproof-editor-tab',{detail:tab==='office'?'write':tab}));
+  for(const button of document.querySelectorAll('[data-tab],[data-engine-tab]')){
+    const selected=(button.dataset.tab||button.dataset.engineTab)===tab;
+    button.setAttribute('aria-selected',String(selected));
+    button.tabIndex=selected?0:-1;
+  }
+  $('write-panel').hidden=tab!=='write'&&tab!=='office';
+  $('write-panel').setAttribute('aria-labelledby',tab==='office'?'edit-in-mroffice':'tab-write');
+  $('process-panel').hidden=tab!=='process';
+  $('certificate-panel').hidden=tab!=='certificate';
+  if(tab==='process'){
+    officeProcessPage=1;
+    renderOfficeProcess().catch(reportError);
+    if(!officeFile)flush().then(renderProcess).catch(reportError);
+  }
 }
-const tabs=[...document.querySelectorAll('[data-tab]')];tabs.forEach((b,i)=>{b.addEventListener('click',()=>selectTab(b.dataset.tab));b.addEventListener('keydown',e=>{let n;if(e.key==='ArrowRight')n=(i+1)%tabs.length;else if(e.key==='ArrowLeft')n=(i+tabs.length-1)%tabs.length;else if(e.key==='Home')n=0;else if(e.key==='End')n=tabs.length-1;else return;e.preventDefault();selectTab(tabs[n].dataset.tab);tabs[n].focus();});});
+async function requestDocumentTab(tab){
+  if(switchingOffice)return;
+  try{
+    if(officeMode&&!officeFile&&tab!=='process'&&tab!=='office')await officeBridge().returnToWorkProof();
+    selectTab(tab);
+  }catch(error){ui.showMessage(errorText(error),'error');}
+}
+const tabs=[...document.querySelectorAll('[data-tab],[data-engine-tab]')];
+for(const button of tabs){
+  if(button.dataset.tab)button.addEventListener('click',()=>void requestDocumentTab(button.dataset.tab));
+  button.addEventListener('keydown',event=>{
+    const visible=tabs.filter(tab=>!tab.hidden),index=visible.indexOf(button);
+    const next={ArrowRight:visible[(index+1)%visible.length],ArrowLeft:visible[(index+visible.length-1)%visible.length],Home:visible[0],End:visible.at(-1)}[event.key];
+    if(next){event.preventDefault();next.focus();next.click();}
+  });
+}
 $('view-process').addEventListener('click',()=>{selectTab('process');$('tab-process').focus();});
-$('back-write').addEventListener('click',()=>{selectTab('write');$('tab-write').focus();});
+$('back-write').addEventListener('click',()=>{selectTab(officeMode?'office':'write');$(officeMode?'edit-in-mroffice':'tab-write').focus();});
 $('open-process-replay').addEventListener('click',async()=>{
   if(!active||opening||exporting||closing||document.querySelector('#process-replay'))return;
   const button=$('open-process-replay'),id=active.id;button.disabled=true;
@@ -629,6 +839,12 @@ for(const id of ['page-size','page-orientation','page-margin'])$(id).addEventLis
 $('paragraph-style').addEventListener('change',event=>{if(!editor)return;hint('format');const value=event.target.value,chain=editor.chain().focus();if(value==='paragraph')chain.setParagraph().run();else chain.setHeading({level:Number(value.slice(1))}).run();});
 $('text-align').addEventListener('change',event=>{if(editor){hint('format');editor.chain().focus().setTextAlign(event.target.value).run();}});
 async function exportDocument(){
+  if(officeMode){
+    try{
+      if(officeFile){await officeBridge().save(true);return;}
+      await officeBridge().returnToWorkProof();
+    }catch(error){ui.showMessage(errorText(error),'error');return;}
+  }
   if(!active||exporting||closing)return;
   const buttons=[$('export-document'),$('export-from-certificate')];buttons.forEach(b=>b.disabled=true);
   const format=active.kind==='markdown'?'markdown':'docx';

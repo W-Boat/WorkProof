@@ -260,7 +260,16 @@ test('a Word draft keeps its identity and its new text when switching through MR
   await body.press('End');
   await page.keyboard.insertText('在 MR Office 续写。');
   await expect(body).toContainText('在 MR Office 续写。');
-  await office.getByRole('button',{name:'保存并切回 WorkProof'}).click();
+  await expect(page.locator('body')).toHaveAttribute('data-view','document');
+  await expect(page.getByRole('tab',{name:'排版编辑',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(office.locator('.office-toolbar')).toHaveCount(0);
+  await page.getByRole('button',{name:'全屏编辑',exact:true}).press('Enter');
+  await expect(page.locator('body')).toHaveClass(/editor-fullscreen/);
+  await expect(page.locator('#action-inspector')).toBeHidden();
+  await page.getByRole('tab',{name:'过程',exact:true}).press('Enter');
+  await expect(page.locator('#office-process-actions')).toContainText('内容已更改');
+  await page.getByRole('tab',{name:'排版编辑',exact:true}).press('Enter');
+  await page.getByRole('tab',{name:'撰写',exact:true}).press('Enter');
   try {
     await expect(workproofBody).toHaveText('从 WorkProof 开始写作。在 MR Office 续写。');
   } catch (error) {
@@ -270,6 +279,27 @@ test('a Word draft keeps its identity and its new text when switching through MR
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('test.editor.documents')!));
   expect(Object.keys(saved)).toEqual([documentId]);
   expect(saved[documentId].actions.some((entry:any)=>entry.action.detail?.source==='mroffice-editor')).toBe(true);
+  await expect(page.locator('body')).toHaveClass(/editor-fullscreen/);
+  await page.keyboard.press('F11');
+  await expect(page.locator('body')).not.toHaveClass(/editor-fullscreen/);
+  expect(await page.evaluate(()=>(window as any).editorHarness.windowActions))
+    .toEqual(expect.arrayContaining(['editor-fullscreen','editor-windowed']));
+});
+
+test('MR Office files use the shared document library and process tab',async({page})=>{
+  await desktop(page);
+  await page.locator('#office-local-file').setInputFiles({
+    name:'采访整理.csv',mimeType:'text/csv',buffer:Buffer.from('主题,文字\n采访,记录'),
+  });
+  await expect(page.locator('body')).toHaveAttribute('data-view','document');
+  await expect(page.getByLabel('文档名称',{exact:true})).toHaveValue('采访整理.csv');
+  await expect(page.locator('#mroffice-frame')).toBeVisible();
+  await expect(page.frameLocator('#mroffice-frame').locator('.office-toolbar')).toHaveCount(0);
+  await page.getByRole('tab',{name:'过程',exact:true}).press('Enter');
+  await expect(page.locator('#office-process-actions')).toContainText('打开文件');
+  await page.locator('#back-library').press('Enter');
+  await page.getByRole('button',{name:'继续编辑 采访整理.csv',exact:true}).press('Enter');
+  await expect(page.getByLabel('文档名称',{exact:true})).toHaveValue('采访整理.csv');
 });
 
 test('failed save keeps the same request and all pending edits before retry',async({page})=>{

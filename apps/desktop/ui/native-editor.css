@@ -555,10 +555,19 @@ body dialog[data-dialog-closing=true]::backdrop{background:#0000}
 .replay-paragraph-highlight{background:color-mix(in srgb,var(--accent) 14%,transparent);outline:2px solid var(--accent);outline-offset:3px}
 .replay-preview{grid-row:2}
 .replay-transport{grid-row:3}
-.mroffice-workspace{display:none;width:100%;height:100%;min-height:0}
-body[data-view=mroffice] .mroffice-workspace{display:block}
-body[data-view=mroffice] .global-heading{display:none}
-#mroffice-frame{display:block;border:0;width:100%;height:100%;min-height:400px}
-#edit-in-mroffice{border:0;border-radius:4px;padding:6px;color:var(--text);background:transparent}
-#edit-in-mroffice:hover{background:var(--hover)}
-#edit-in-mroffice:disabled{opacity:.55}
+#mroffice-frame{grid-column:2;grid-row:1;display:block;border:0;width:100%;height:100%;min-width:0;min-height:0}
+#mroffice-frame[hidden],#edit-in-mroffice[hidden]{display:none}
+#write-panel[data-engine=office] .editor-main,#write-panel[data-engine=office] .writing-outline{display:none}
+body:has(#write-panel[data-engine=office]) #toggle-ribbon{display:none}
+.office-editor-controls{display:inline-flex;gap:4px}
+.office-editor-controls:empty{display:none}
+#office-process-actions{padding-left:16px;max-width:60rem}
+#document-workspace[data-office-file] #process-panel>:not(#office-process-actions):not(.office-process):not(.process-overview){display:none}
+#document-workspace[data-office-file] #open-process-replay,#document-workspace[data-office-file] #process-summary{display:none}
+.editor-format-options{margin-block:8px}
+#office-new-types{display:flex;flex-wrap:wrap;gap:6px;margin-block:6px}
+body.editor-fullscreen{grid-template:0 minmax(0,1fr) 26px/0 minmax(0,1fr)}
+body.editor-fullscreen .app-header,body.editor-fullscreen .workspace-nav{visibility:hidden;overflow:hidden}
+body.editor-fullscreen main{border:0;border-radius:0}
+body.editor-fullscreen #write-panel{--outline-track:0px;--inspector-track:0px}
+body.editor-fullscreen #action-inspector{display:none}

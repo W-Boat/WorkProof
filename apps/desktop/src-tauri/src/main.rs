@@ -90,6 +90,8 @@ fn window_action(window:tauri::WebviewWindow,action:String)->Result<(),String>{
         },
         "minimize"=>window.minimize(),
         "maximize"=>if window.is_maximized().map_err(|_|"无法读取窗口状态。")?{window.unmaximize()}else{window.maximize()},
+        "editor-fullscreen"=>window.set_fullscreen(true),
+        "editor-windowed"=>window.set_fullscreen(false),
         "close"=>{
             ALLOW_CLOSE.store(true,std::sync::atomic::Ordering::Release);
             let result=window.close();
