@@ -4,6 +4,7 @@ import {configureEditors, EditorHostProvider} from 'mroffice-core';
 import 'mroffice-docs/style.self-hosted.css';
 import {editors, fullEngineFormats} from './catalog.js';
 import {eventCount, fileSummary, listFiles, persist, readFile, recentEvents} from './storage.js';
+import {observeDocumentActions} from './document-actions.js';
 
 configureEditors({assetsBaseUrl: new URL('./mroffice/assets/', document.baseURI).href});
 const MAX_FILE = 32 * 1024 * 1024;
@@ -123,7 +124,6 @@ function Workspace() {
       await flush();
     }, openWord: document => openWord.current(document)};
     window.workproofMROffice = bridge;
-    window.dispatchEvent(new Event('workproof-mroffice-ready'));
     return () => {
       clearTimeout(timer.current);
       delete window.workproofMROffice;
@@ -169,7 +169,11 @@ function Workspace() {
     }
     const types = ['input','change','click','keydown','pointerup',...Object.keys(interactions)];
     for (const type of types) root.addEventListener(type, observe, true);
-    return () => { for (const type of types) root.removeEventListener(type, observe, true); };
+    const unsubscribe = active?.file.kind === 'docs' ? observeDocumentActions(root, queue) : null;
+    return () => {
+      for (const type of types) root.removeEventListener(type, observe, true);
+      unsubscribe?.();
+    };
   }, [active]);
 
   const registerSave = useRef(save => {
@@ -306,13 +310,13 @@ function Workspace() {
   return <main className="office-shell">
     <header className="office-toolbar">
       <a href="https://mroffice.ai" target="_blank" rel="noreferrer">MR Office</a>
-      <label>编辑器<select value={kind} disabled={busy} onChange={event => setKind(event.target.value)}>
+      <label>编辑器<select aria-label="编辑器" value={kind} disabled={busy} onChange={event => setKind(event.target.value)}>
         {Object.entries(editors).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}
       </select></label>
       <button disabled={busy || kind === 'pdf'} onClick={create}>新建</button>
       <button disabled={busy} onClick={() => fileInput.current.click()}>打开文件</button>
       <input ref={fileInput} type="file" accept={openFormats} hidden onChange={selectFile}/>
-      <label>本机文档<select disabled={busy} value={active?.file.id || ''} onChange={event => {
+      <label>本机文档<select aria-label="本机文档" disabled={busy} value={active?.file.id || ''} onChange={event => {
         const file = files.find(item => item.id === event.target.value);
         if (file) void open(file.kind, () => current.current?.id === file.id ? current.current : readFile(file.id));
       }}>

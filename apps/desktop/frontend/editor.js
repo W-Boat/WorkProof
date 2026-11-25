@@ -168,10 +168,14 @@ $('edit-in-mroffice').addEventListener('click',async()=>{
     setEditable(false);
     await flush();
     setEditable(false);
+    ui.selectView('mroffice');
     const office=await loadMROffice();
     await office.openWord({id:active.id,revision:active.revision,title:active.title,content:editor.getJSON()});
-    ui.selectView('mroffice');
-  }catch(error){ui.showMessage(errorText(error),'error');}
+  }catch(error){
+    ui.selectView('document');
+    ui.showMessage(errorText(error),'error');
+    console.error('MR Office handoff:',error);
+  }
   finally{setEditable(true);button.disabled=false;switchingOffice=false;}
 });
 

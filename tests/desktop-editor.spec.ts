@@ -230,6 +230,7 @@ test('a Word draft keeps its identity and its new text when switching through MR
   const startup:string[]=[];
   page.on('pageerror',error=>startup.push(error.message));
   page.on('console',msg=>{if(msg.type()==='error')startup.push(msg.text());});
+  page.on('requestfailed',req=>{if(req.url().includes('mroffice'))startup.push(req.url()+' '+req.failure()?.errorText);});
   await desktop(page);
   const workproofBody=await create(page);
   await workproofBody.fill('从 WorkProof 开始写作。');
@@ -243,8 +244,9 @@ test('a Word draft keeps its identity and its new text when switching through MR
   }catch(error){
     const version=await page.locator('body').getAttribute('data-view');
     const note=await page.locator('#message').textContent();
-    const frameNote=await office.locator('body').innerText({timeout:1000}).catch(()=> '');
-    throw new Error(`Word handoff: ${startup.join(' | ')}. View: ${version}. Message: ${note}. MR Office: ${frameNote.slice(0,320)}\n${error}`);
+    const frameNote=await office.locator('body').textContent({timeout:1000}).catch(()=> '');
+    const src=await page.locator('#mroffice-frame').getAttribute('src');
+    throw new Error(`Word handoff: ${startup.join(' | ')}. View: ${version}. Frame: ${src}. Message: ${note}. MR Office: ${frameNote?.trim().slice(0,320)}\n${error}`);
   }
   await body.press('End');
   await page.keyboard.insertText('在 MR Office 续写。');
