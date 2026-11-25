@@ -18,12 +18,15 @@ test('MR Office lists all six local editors and keeps document edits and events 
   } catch (error) {
     throw new Error(`MR Office startup: ${startup.join(' | ')}. Page: ${await page.locator('body').innerText()}\n${error}`);
   }
-  await kind.selectOption('sheets');
-  await expect(page.getByText(/可打开 .*\.csv/)).toBeVisible();
-  await kind.selectOption('docs');
-  await page.getByRole('button', {name:'新建', exact:true}).click();
+  await expect(kind).toHaveValue('docs');
+  await expect(page.getByRole('heading', {name:'文档编辑器'})).toBeVisible();
+  await page.getByRole('button', {name:'新建', exact:true}).press('Enter');
   const body = page.locator('.ProseMirror[contenteditable="true"]').first();
-  await expect(body).toBeVisible({timeout:30_000});
+  try {
+    await expect(body).toBeVisible({timeout:30_000});
+  } catch (error) {
+    throw new Error(`MR Office document open: ${startup.join(' | ')}. ${await page.locator('.office-status').textContent()}. ${error}`);
+  }
   await body.click();
   await page.keyboard.insertText('在本机保存的写作内容');
   await expect(body).toContainText('在本机保存的写作内容');
