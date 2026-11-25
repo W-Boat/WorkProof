@@ -158,7 +158,11 @@ function loadMROffice(){
 
 let switchingOffice=false;
 $('edit-in-mroffice').addEventListener('click',async()=>{
-  if(switchingOffice||opening||exporting||closing||active?.kind!=='word')return;
+  if(switchingOffice)return;
+  if(opening||exporting||closing||!active||$('write-panel').dataset.editMode!=='word'){
+    ui.showMessage('请在 Word 文档打开后切换编辑器。','warning');
+    return;
+  }
   switchingOffice=true;
   const button=$('edit-in-mroffice');
   button.disabled=true;
@@ -275,7 +279,7 @@ async function openDocument(doc){
     await flush();await loadEditorRuntime();workspace.closeFind();workspace.closeSource();workspace.rememberPagination();suppressed=true;characterSnapshot=null;editor?.destroy();active=doc;pending=[];inflight=null;dirty=false;intent=null;lastSelection='';
     selectedVersion=null;expandedFlows.clear();$('flow-detail').replaceChildren();$('flow-detail').hidden=true;$('history-preview').replaceChildren();
     $('document-title').value=doc.title;
-    $('edit-in-mroffice').hidden=doc.kind!=='word';
+    $('edit-in-mroffice').hidden=doc.kind==='markdown';
     const domEvents={keydown,copy:()=>{commandAction('copy');return false;},paste:()=>{commandAction('paste');return false;},cut:()=>{commandAction('cut');return false;},beforeinput:(_v,event)=>{addAction('beforeinput',{detail:{input_type:event.inputType}});if(event.inputType==='historyUndo')hint('undo');if(event.inputType==='historyRedo')hint('redo');return false;},input:(_v,event)=>{addAction('input',{detail:{input_type:event.inputType}});return false;},focus:()=>{addAction('focus');return false;},blur:()=>{addAction('blur');return false;}};
     for(const type of ['compositionstart','compositionupdate','compositionend','drop','dragstart','dragend'])domEvents[type]=(_v,event)=>{addAction(type,{detail:{data:typeof event.data==='string'?event.data.slice(0,2048):null}});return false;};
     editor=new editorRuntime.Editor({element:$('tiptap-editor'),extensions:editorRuntime.editorExtensions(true),content:doc.content,editorProps:{attributes:{'aria-label':'文档正文',role:'textbox','aria-multiline':'true',spellcheck:'true'},handleDOMEvents:domEvents},onTransaction:transaction,onSelectionUpdate:({editor:e})=>updateToolbar(e)});
