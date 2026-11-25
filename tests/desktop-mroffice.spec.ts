@@ -40,3 +40,21 @@ test('MR Office lists all six local editors and keeps document edits and events 
   await expect(page.getByRole('complementary', {name:'操作记录'})).toContainText('内容已更改');
   expect(remote).toEqual([]);
 });
+
+for (const kind of ['sheets', 'slides', 'ink', 'code']) {
+  test('MR Office opens and saves a new ' + kind + ' file locally', async ({page}) => {
+    await page.goto('/mroffice.html');
+    await page.getByLabel('编辑器', {exact:true}).selectOption(kind);
+    await page.getByRole('button', {name:'新建', exact:true}).click();
+    const file = page.getByLabel('本机文档', {exact:true});
+    await expect(file).not.toHaveValue('');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    const exportButton = page.getByRole('button', {name:'导出文件', exact:true});
+    await expect(exportButton).toBeEnabled({timeout:15000});
+    const downloaded = page.waitForEvent('download');
+    await exportButton.click();
+    const result = await downloaded;
+    const extensions = {sheets:'.mrsheet', slides:'.mrslides', ink:'.mrink', code:'.py'};
+    expect(result.suggestedFilename().endsWith(extensions[kind as keyof typeof extensions])).toBe(true);
+  });
+}
