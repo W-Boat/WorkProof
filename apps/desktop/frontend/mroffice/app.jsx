@@ -3,7 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {configureEditors, EditorHostProvider} from 'mroffice-core';
 import 'mroffice-docs/style.self-hosted.css';
 import {editors, fullEngineFormats} from './catalog.js';
-import {eventCount, listFiles, persist, recentEvents} from './storage.js';
+import {eventCount, fileSummary, listFiles, persist, readFile, recentEvents} from './storage.js';
 
 configureEditors({assetsBaseUrl: new URL('./mroffice/assets/', document.baseURI).href});
 const MAX_FILE = 32 * 1024 * 1024;
@@ -108,7 +108,7 @@ function Workspace() {
         throw cause;
       }
       current.current = next;
-      if (next !== file) setFiles(items => [next, ...items.filter(item => item.id !== file.id)]);
+      if (next !== file) setFiles(items => [fileSummary(next), ...items.filter(item => item.id !== file.id)]);
       if (recorded.length) setEvents(items => [...recorded.reverse(), ...items].slice(0, 100));
       if (forced || next !== file) setStatus('已保存到本机。');
     })();
@@ -199,7 +199,7 @@ function Workspace() {
       saver.current = null;
       setCanSave(false);
       current.current = file;
-      setFiles(items => [file, ...items.filter(item => item.id !== file.id)]);
+      setFiles(items => [fileSummary(file), ...items.filter(item => item.id !== file.id)]);
       setActive({file, Component: editor.Component, mount: crypto.randomUUID()});
       setKind(targetKind);
       setEvents(records);
@@ -218,7 +218,7 @@ function Workspace() {
   openWord.current = async ({id, revision, title, content}) => {
     const {mrdocBytes} = await editors.docs.load();
     const existing = files.find(file => file.workproof?.id === id && file.workproof.revision === revision);
-    await open('docs', () => existing || ({
+    await open('docs', () => existing ? readFile(existing.id) : ({
       id: crypto.randomUUID(), kind: 'docs', name: title + '.mrdoc',
       bytes: mrdocBytes(title, content), workproof: {id, revision}, savedAt: Date.now(),
     }), true);
@@ -314,7 +314,7 @@ function Workspace() {
       <input ref={fileInput} type="file" accept={openFormats} hidden onChange={selectFile}/>
       <label>本机文档<select disabled={busy} value={active?.file.id || ''} onChange={event => {
         const file = files.find(item => item.id === event.target.value);
-        if (file) void open(file.kind, () => current.current?.id === file.id ? current.current : file);
+        if (file) void open(file.kind, () => current.current?.id === file.id ? current.current : readFile(file.id));
       }}>
         <option value="">选择文档</option>
         {files.map(file => <option key={file.id} value={file.id}>{file.name}</option>)}

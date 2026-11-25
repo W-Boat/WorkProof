@@ -18,12 +18,34 @@ function database() {
   return opened;
 }
 
+export function fileSummary({id, kind, name, savedAt, workproof}) {
+  return {id, kind, name, savedAt, workproof};
+}
+
 export async function listFiles() {
   const db = await database();
   return new Promise((resolve, reject) => {
-    const request = db.transaction('files').objectStore('files').getAll();
+    const files = [];
+    const request = db.transaction('files').objectStore('files').openCursor();
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result.sort((a, b) => b.savedAt - a.savedAt));
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) { resolve(files.sort((a, b) => b.savedAt - a.savedAt)); return; }
+      files.push(fileSummary(cursor.value));
+      cursor.continue();
+    };
+  });
+}
+
+export async function readFile(id) {
+  const db = await database();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction('files').objectStore('files').get(id);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      if (request.result) resolve(request.result);
+      else reject(new Error('本机找不到这份文件。'));
+    };
   });
 }
 

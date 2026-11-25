@@ -36,7 +36,7 @@ jobs:
       - name: Offline authoring and linked Word round trip
         env:
           WORKPROOF_BROWSER_CHANNEL: msedge
-        run: npx playwright test --config playwright.desktop.config.ts --project chromium --grep "MR Office"
+        run: npx playwright test --config playwright.desktop.config.ts --project chromium --grep "MR Office" --reporter=list,github
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
