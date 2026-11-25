@@ -84,6 +84,8 @@ function Workspace() {
     if (!(bytes instanceof Uint8Array) || bytes.byteLength > MAX_FILE) {
       throw new Error('无法保存此版本，文件超过 32 MiB 或没有返回有效数据。');
     }
+    if (out.name === file.name && bytes.length === file.bytes.length &&
+        bytes.every((byte, index) => byte === file.bytes[index])) return file;
     return {...file, name: out.name, bytes, mime: out.type, savedAt: Date.now()};
   }
 
@@ -234,6 +236,9 @@ function Workspace() {
       const file = current.current;
       const editor = surface.current.querySelector('.ProseMirror.note-editor-content')?.editor;
       if (!file?.workproof || !editor) throw new Error('请等待 Word 文档加载完成。');
+      if (typeof window.parent.workproofReturnFromMROffice !== 'function') {
+        throw new Error('请从 WorkProof 工作台打开这份草稿。');
+      }
       await window.parent.workproofReturnFromMROffice(file.workproof, editor.getJSON(), editor.schema,
         await eventCount(file.id));
     } catch (cause) { error(cause); }

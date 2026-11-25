@@ -5,7 +5,7 @@ export const editors = {
     load: () => import('mroffice-docs'),
   },
   sheets: {
-    label: '表格', open: '.mrsheet,.mrsheet.json,.csv,.tsv', save: '.mrsheet',
+    label: '表格', open: '.mrsheet,.mrsheet.json,.csv,.tsv', save: '.mrsheet、.csv、.tsv（后两种只保存首个工作表的值）',
     load: () => import('mroffice-sheets'),
   },
   slides: {

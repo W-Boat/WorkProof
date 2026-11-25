@@ -6,7 +6,7 @@ import {externalRecords,sourceLabel,groupExternalDocuments,displayTime} from './
 import {icon} from './icons.js';
 import {draftTemplates} from './draft-templates.js';
 import {initializeWorkspaceTools} from './workspace-tools.js';
-import {projectDocument} from './mroffice/transfer.js';
+import {projectDocument,removeOfficePagination} from './mroffice/transfer.js';
 
 const $=id=>document.getElementById(id);
 const ipc=(command,args)=>window.__TAURI__.core.invoke(command,args);
@@ -190,8 +190,8 @@ window.workproofReturnFromMROffice=async(reference,content,schema,observations)=
   }
   switchingOffice=true;
   try{
-    projectDocument(editor.getJSON(),schema,editor.schema);
-    const projected=projectDocument(content,editor.schema,schema);
+    projectDocument(editor.getJSON(),schema,editor.schema,{checkStructure:false});
+    const projected=projectDocument(removeOfficePagination(content,schema),editor.schema,schema);
     const next=editor.schema.nodeFromJSON(projected);
     if(!next.content.eq(editor.state.doc.content)){
       const exchange=editor.state.tr.replaceWith(0,editor.state.doc.content.size,next.content);
