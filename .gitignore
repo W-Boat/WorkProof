@@ -44,4 +44,5 @@ apps/verifier/public/document-preview.js
 apps/verifier/public/word-worker.js
 apps/desktop/ui/report-viewer.js
 apps/desktop/ui/report-export.css
+apps/desktop/ui/mroffice/
 

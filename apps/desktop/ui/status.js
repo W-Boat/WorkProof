@@ -113,8 +113,11 @@ function showMessage(text,state='info'){
 }
 const errorText=error=>error instanceof Error?error.message:String(error);
 updateLaunchButtons();
-const views={'external-document':['外部文档',''],library:['我的文档','开始写作，也能回到之前的编辑过程。'],document:['文档',''],verification:['文件核验','核对作品与证书，文件留在本机。'],connections:['应用连接','在熟悉的软件中创作，由 WorkProof 保存过程。'],settings:['设置','调整外观与记录方式。']};
+const views={mroffice:['MR Office',''],'external-document':['外部文档',''],library:['我的文档','开始写作，也能回到之前的编辑过程。'],document:['文档',''],verification:['文件核验','核对作品与证书，文件留在本机。'],connections:['应用连接','在熟悉的软件中创作，由 WorkProof 保存过程。'],settings:['设置','调整外观与记录方式。']};
 function selectView(view,focus=false){
+  if(view==='mroffice'&&!document.getElementById('mroffice-frame').hasAttribute('src')){
+    document.getElementById('mroffice-frame').src='mroffice.html';
+  }
   if(!Object.hasOwn(views,view))view='library';
   document.body.dataset.view=view;
   for(const button of document.querySelectorAll('.workspace-nav [data-view]')){

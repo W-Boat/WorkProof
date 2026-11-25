@@ -167,6 +167,9 @@ async function flush(){
 }
 let openingLibraryEntry=false;
 ui.beforeNavigate=async()=>{
+  if(document.body.dataset.view==='mroffice'){
+    await $('mroffice-frame').contentWindow?.workproofMROffice?.flush();
+  }
   if(opening||creating||importing||exporting||openingLibraryEntry){
     ui.showMessage('正在处理文档，请稍候再切换页面。');
     return false;
@@ -187,6 +190,7 @@ window.workproofCancelClose=()=>{
   setEditable(editableBeforeClose||(!dirty&&!pending.length&&!inflight));
 };
 window.workproofBeforeClose=async()=>{
+  await $('mroffice-frame').contentWindow?.workproofMROffice?.flush();
   // Let the editor observe the final browser input before freezing its DOM.
   await new Promise(resolve=>setTimeout(resolve,0));
   editor?.view.domObserver.flush();

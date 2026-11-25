@@ -1,6 +1,7 @@
 // Stage the canonical web design tokens and the original ImageGen brand asset.
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..');
+require('./stage_mroffice.cjs');
 require('./build_report_viewer.cjs');
 fs.copyFileSync(path.join(root,'apps/verifier/public/report-viewer.js'),path.join(root,'apps/desktop/ui/report-viewer.js'));
 fs.copyFileSync(path.join(root,'apps/verifier/components/report-export.css'),path.join(root,'apps/desktop/ui/report-export.css'));

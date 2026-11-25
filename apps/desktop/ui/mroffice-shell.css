@@ -1,0 +1,17 @@
+html, body, #office-root { margin: 0; height: 100%; }
+.office-shell { color: #242424; background: #f5f5f5; height: 100%; display: grid; grid-template-rows: auto auto minmax(0, 1fr); font: 14px/1.5 "Segoe UI", system-ui, sans-serif; }
+.office-toolbar { padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #ddd; background: #fff; }
+.office-toolbar > a:first-child { font-weight: 600; }
+.office-toolbar a { color: #155e96; }
+.office-toolbar button, .office-toolbar select { padding: 4px 10px; font: inherit; border: 1px solid #bcbcbc; border-radius: 4px; background: #fff; }
+.office-toolbar button:disabled { opacity: .55; }
+.office-toolbar label { display: flex; gap: 8px; align-items: center; }
+.office-status { padding: 4px 16px; min-height: 30px; margin: 0; }
+.office-layout { display: flex; min-height: 0; overflow: hidden; }
+.office-surface { flex: 1; min-width: 0; height: 100%; }
+.office-log { flex: 0 0 244px; padding: 12px; overflow: auto; background: #fff; border-left: 1px solid #ddd; }
+.office-log h2 { font-size: 15px; margin: 0; }
+.office-log ol { margin: 12px 0; padding-left: 20px; }
+.office-log li { margin: 8px 0; overflow-wrap: anywhere; }
+.office-log time { display: block; color: #666; font-size: .86em; }
+.office-empty { max-width: 38rem; padding: 32px; margin: auto; }
