@@ -58,6 +58,7 @@ function Workspace() {
   const pending = useRef([]);
   const saving = useRef(null);
   const opening = useRef(false);
+  const transferring = useRef(false);
   const openWord = useRef(null);
   const commands = useRef(null);
   const timer = useRef(null);
@@ -132,7 +133,7 @@ function Workspace() {
   useEffect(() => {
     listFiles().then(setFiles).catch(error);
     const bridge = {flush: async () => {
-      if (opening.current) throw new Error('正在打开文件，请稍候。');
+      if (opening.current || transferring.current) throw new Error('正在处理文档，请稍候。');
       await flush();
     }, openWord: document => openWord.current(document),
     save: download => commands.current.save(download),
@@ -251,7 +252,10 @@ function Workspace() {
     }), true);
   };
 
-  async function returnToWorkProof() {
+  async function returnToWorkProof(switchEngine = true) {
+    if(transferring.current) throw new Error('正在保存，请稍候。');
+    transferring.current = true;
+    setBusy(true);
     try {
       await flush(true);
       const file = current.current;
@@ -260,12 +264,17 @@ function Workspace() {
       if (typeof window.parent.workproofReturnFromMROffice !== 'function') {
         throw new Error('请从 WorkProof 工作台打开这份草稿。');
       }
-      await window.parent.workproofReturnFromMROffice(file.workproof, editor.getJSON(), editor.schema,
-        await eventCount(file.id));
+      const observations = await eventCount(file.id);
+      const revision = await window.parent.workproofReturnFromMROffice(
+        file.workproof, editor.getJSON(), editor.schema, observations, switchEngine);
+      const saved = {...current.current, workproof:{...file.workproof, revision, observations}};
+      current.current = saved;
+      await persist(saved, []);
+      setFiles(items=>items.map(item=>item.id===saved.id?fileSummary(saved):item));
     } catch (cause) {
       error(cause);
       if (embedded) throw cause;
-    }
+    } finally { transferring.current = false; setBusy(false); }
   }
 
   function openLocal(type, picked, propagate = false) {
@@ -298,6 +307,10 @@ function Workspace() {
   async function save(download = false) {
     try {
       queue(download ? '导出文件' : '保存版本');
+      if(embedded && current.current?.workproof && !download){
+        await returnToWorkProof(false);
+        return;
+      }
       await flush(true);
       const file = current.current;
       if (!download || !file || !editors[file.kind].save) return;
@@ -376,7 +389,7 @@ function Workspace() {
         {active ? <EditorErrorBoundary key={active.file.id + ':' + active.mount}>
           <active.Host locale="zh" host={host}>
             <active.Component file={active.file} registerSave={registerSave}
-              onSaveRequest={() => void save()} onDirty={() => queue('内容已更改', true)}/>
+              onSaveRequest={() => void save().catch(error)} onDirty={() => queue('内容已更改', true)}/>
           </active.Host>
         </EditorErrorBoundary> : <div className="office-empty">
           <h1>{selected.label}编辑器</h1>

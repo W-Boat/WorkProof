@@ -262,6 +262,10 @@ test('a Word draft keeps its identity and its new text when switching through MR
   await expect(body).toContainText('在 MR Office 续写。');
   await expect(page.locator('body')).toHaveAttribute('data-view','document');
   await expect(page.getByRole('tab',{name:'排版编辑',exact:true})).toHaveAttribute('aria-selected','true');
+  await page.locator('#save-document').press('Enter');
+  await expect.poll(async()=>page.evaluate(id=>JSON.stringify(JSON.parse(localStorage.getItem('test.editor.documents')!)[id].content),documentId))
+    .toContain('在 MR Office 续写。');
+  await expect(page.getByRole('tab',{name:'排版编辑',exact:true})).toHaveAttribute('aria-selected','true');
   await expect(office.locator('.office-toolbar')).toHaveCount(0);
   await page.getByRole('button',{name:'全屏编辑',exact:true}).press('Enter');
   await expect(page.locator('body')).toHaveClass(/editor-fullscreen/);

@@ -320,7 +320,7 @@ $('edit-in-mroffice').addEventListener('click',async()=>{
   finally{setEditable(true);button.disabled=false;switchingOffice=false;}
 });
 
-window.workproofReturnFromMROffice=async(reference,content,schema,observations)=>{
+window.workproofReturnFromMROffice=async(reference,content,schema,observations,switchEngine=true)=>{
   if(switchingOffice||opening||exporting||closing)throw new Error('WorkProof 正在处理文档，请稍后重试。');
   if(!active||active.id!==reference.id||active.revision!==reference.revision){
     throw new Error('原文档版本已变化。MR Office 草稿已保存在本机文档中。');
@@ -335,10 +335,14 @@ window.workproofReturnFromMROffice=async(reference,content,schema,observations)=
       exchange.setMeta('mrofficeTransfer',true);
       editor.view.dispatch(exchange);
     }
-    addAction('transaction',{detail:{source:'mroffice-editor',observed_groups:observations}});
+    const newGroups=Math.max(0,observations-(reference.observations||0));
+    if(newGroups||switchEngine)addAction('transaction',{detail:{source:'mroffice-editor',observed_groups:newGroups}});
     await flush();
-    showOfficeEngine(false);
-    selectTab('write');
+    if(switchEngine){
+      showOfficeEngine(false);
+      selectTab('write');
+    }
+    return active.revision;
   }finally{switchingOffice=false;}
 };
 async function flush(){
