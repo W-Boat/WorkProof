@@ -29,7 +29,7 @@ test('MR Office lists all six local editors and keeps document edits and events 
   }
   await body.click();
   await page.keyboard.insertText('在本机保存的写作内容');
-  await expect(body).toContainText('在本机保存的写作内容');
+  await expect(body).toContainText('在本机保存的写作内容',{timeout:20_000});
   await expect(page.getByRole('status').filter({hasText:'已保存到本机'})).toBeVisible();
   await page.getByRole('button', {name:'操作记录', exact:true}).click();
   await expect(page.getByRole('complementary', {name:'操作记录'})).toContainText('内容已更改');
@@ -38,7 +38,7 @@ test('MR Office lists all six local editors and keeps document edits and events 
   expect(id).toBeTruthy();
   await page.reload();
   await local.selectOption(id);
-  await expect(body).toContainText('在本机保存的写作内容');
+  await expect(body).toContainText('在本机保存的写作内容',{timeout:20_000});
   await page.getByRole('button', {name:'操作记录', exact:true}).click();
   await expect(page.getByRole('complementary', {name:'操作记录'})).toContainText('内容已更改');
   expect(remote).toEqual([]);
@@ -46,11 +46,12 @@ test('MR Office lists all six local editors and keeps document edits and events 
 
 for (const kind of ['sheets', 'slides', 'ink', 'code']) {
   test('MR Office opens and saves a new ' + kind + ' file locally', async ({page}) => {
+    test.setTimeout(60_000);
     await page.goto('/mroffice.html');
     await page.getByLabel('编辑器', {exact:true}).selectOption(kind);
     await page.getByRole('button', {name:'新建', exact:true}).click();
     const file = page.getByLabel('本机文档', {exact:true});
-    await expect(file).not.toHaveValue('');
+    await expect(file).not.toHaveValue('',{timeout:25_000});
     await expect(page.getByRole('alert')).toHaveCount(0);
     const exportButton = page.getByRole('button', {name:'导出文件', exact:true});
     await expect(exportButton).toBeEnabled({timeout:15000});

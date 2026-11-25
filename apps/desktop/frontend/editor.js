@@ -479,7 +479,7 @@ $('office-local-file').addEventListener('change',async event=>{
     input.dispatchEvent(new Event('change'));
     return;
   }
-  const type=await officeOpenType(file.name).catch(()=>null);
+  const type=officeOpenType(file.name);
   if(!type){ui.showMessage('此文件格式暂未支持。','warning');return;}
   await openOfficeFile(office=>office.openFile(type,file));
 });
@@ -640,7 +640,7 @@ $('back-library').addEventListener('click',()=>void ui.requestView('library'));
 $('save-document').addEventListener('click',()=>saveCurrentDocument().catch(reportError));
 document.addEventListener('keydown',event=>{
   if(event.defaultPrevented||!active||closing||document.body.dataset.view!=='document')return;
-  if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();flush().catch(reportError);}
+  if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();saveCurrentDocument().catch(reportError);}
 });
 
 function allActions(){return [...pending].reverse().map(action=>({action,revision:active.revision+1})).concat(active?.actions||[]).slice(0,300);}

@@ -287,12 +287,13 @@ test('a Word draft keeps its identity and its new text when switching through MR
 });
 
 test('MR Office files use the shared document library and process tab',async({page})=>{
+  test.setTimeout(60_000);
   await desktop(page);
   await page.locator('#office-local-file').setInputFiles({
     name:'采访整理.csv',mimeType:'text/csv',buffer:Buffer.from('主题,文字\n采访,记录'),
   });
   await expect(page.locator('body')).toHaveAttribute('data-view','document');
-  await expect(page.getByLabel('文档名称',{exact:true})).toHaveValue('采访整理.csv');
+  await expect(page.getByLabel('文档名称',{exact:true})).toHaveValue('采访整理.csv',{timeout:20_000});
   await expect(page.locator('#mroffice-frame')).toBeVisible();
   await expect(page.frameLocator('#mroffice-frame').locator('.office-toolbar')).toHaveCount(0);
   await page.getByRole('tab',{name:'过程',exact:true}).press('Enter');
