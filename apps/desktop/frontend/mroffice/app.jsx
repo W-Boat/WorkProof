@@ -326,7 +326,7 @@ function Workspace() {
     </header>
     <p className="office-status" role="status">{busy ? '正在打开编辑器…' : status}</p>
     <div className="office-layout">
-      <div ref={surface} className="office-surface">
+      <div ref={surface} className="office-surface" inert={busy}>
         {active ? <EditorErrorBoundary key={active.file.id + ':' + active.mount}>
           <EditorHostProvider locale="zh" host={host}>
             <active.Component file={active.file} registerSave={registerSave}
