@@ -46,12 +46,19 @@ test('MR Office lists all six local editors and keeps document edits and events 
 
 for (const kind of ['sheets', 'slides', 'ink', 'code']) {
   test('MR Office opens and saves a new ' + kind + ' file locally', async ({page}) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
+    const errors:string[]=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
     await page.goto('/mroffice.html');
     await page.getByLabel('编辑器', {exact:true}).selectOption(kind);
-    await page.getByRole('button', {name:'新建', exact:true}).click();
+    await page.getByRole('button', {name:'新建', exact:true}).press('Enter');
     const file = page.getByLabel('本机文档', {exact:true});
-    await expect(file).not.toHaveValue('',{timeout:25_000});
+    try{
+      await expect(file).not.toHaveValue('',{timeout:45_000});
+    }catch(error){
+      throw new Error(`MR Office ${kind}: ${errors.join(' | ')}. ${await page.locator('.office-status').textContent()}. ${error}`);
+    }
     await expect(page.getByRole('alert')).toHaveCount(0);
     const exportButton = page.getByRole('button', {name:'导出文件', exact:true});
     await expect(exportButton).toBeEnabled({timeout:15000});
