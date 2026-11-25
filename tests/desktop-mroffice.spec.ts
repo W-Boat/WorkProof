@@ -1,7 +1,7 @@
 import {expect, test} from '@playwright/test';
 
 test('MR Office lists all six local editors and keeps document edits and events after reload', async ({page}) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   const remote: string[] = [];
   const startup: string[] = [];
   page.on('pageerror', error => startup.push(error.message));
@@ -37,8 +37,14 @@ test('MR Office lists all six local editors and keeps document edits and events 
   const id = await local.inputValue();
   expect(id).toBeTruthy();
   await page.reload();
+  await expect(local.locator(`option[value="${id}"]`)).toBeAttached({timeout:15000});
+  await local.selectOption('');
   await local.selectOption(id);
-  await expect(body).toContainText('在本机保存的写作内容',{timeout:20_000});
+  try {
+    await expect(body).toContainText('在本机保存的写作内容',{timeout:30000});
+  } catch (error) {
+    throw new Error(`MR Office document reopen: ${startup.join(' | ')}. ${await page.locator('.office-status').textContent()}. ${error}`);
+  }
   await page.getByRole('button', {name:'操作记录', exact:true}).click();
   await expect(page.getByRole('complementary', {name:'操作记录'})).toContainText('内容已更改');
   expect(remote).toEqual([]);

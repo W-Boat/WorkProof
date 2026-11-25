@@ -371,7 +371,7 @@ function Workspace() {
       <button disabled={busy || kind === 'pdf'} onClick={() => void create()}>新建</button>
       <button disabled={busy} onClick={() => fileInput.current.click()}>打开文件</button>
       <input ref={fileInput} type="file" accept={openFormats} hidden onChange={selectFile}/>
-      <label>本机文档<select aria-label="本机文档" disabled={busy} value={active?.file.id || ''} onChange={event => {
+      <label>本机文档<select aria-label="本机文档" autoComplete="off" disabled={busy} value={active?.file.id || ''} onChange={event => {
         const file = files.find(item => item.id === event.target.value);
         if (file) void open(file.kind, () => current.current?.id === file.id ? current.current : readFile(file.id));
       }}>
