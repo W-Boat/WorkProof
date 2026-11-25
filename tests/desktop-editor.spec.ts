@@ -236,7 +236,14 @@ test('a Word draft keeps its identity and its new text when switching through MR
   await workproofBody.fill('从 WorkProof 开始写作。');
   await expect(page.locator('#save-state')).toHaveText('已保存到本机');
   const documentId=await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('test.editor.documents')!))[0]);
-  await page.locator('#edit-in-mroffice').click();
+  await page.evaluate(()=>{
+    document.addEventListener('click',event=>{
+      const button=event.target instanceof Element?event.target.closest('button,fluent-button'):null;
+      if(button?.id)document.body.dataset.lastOfficeTestClick=button.id;
+    },true);
+  });
+  const switchOffice=page.locator('#edit-in-mroffice');
+  await switchOffice.press('Enter');
   const office=page.frameLocator('#mroffice-frame');
   const body=office.locator('.ProseMirror[contenteditable="true"]').first();
   try{
@@ -246,7 +253,9 @@ test('a Word draft keeps its identity and its new text when switching through MR
     const note=await page.locator('#message').textContent();
     const frameNote=await office.locator('body').textContent({timeout:1000}).catch(()=> '');
     const src=await page.locator('#mroffice-frame').getAttribute('src');
-    throw new Error(`Word handoff: ${startup.join(' | ')}. View: ${version}. Frame: ${src}. Message: ${note}. MR Office: ${frameNote?.trim().slice(0,320)}\n${error}`);
+    const click=await page.locator('body').getAttribute('data-last-office-test-click');
+    const disabled=await switchOffice.isDisabled();
+    throw new Error(`Word handoff: ${startup.join(' | ')}. View: ${version}. Frame: ${src}. Click: ${click}. Disabled: ${disabled}. Message: ${note}. MR Office: ${frameNote?.trim().slice(0,320)}\n${error}`);
   }
   await body.press('End');
   await page.keyboard.insertText('在 MR Office 续写。');

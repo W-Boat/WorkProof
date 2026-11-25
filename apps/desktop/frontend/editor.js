@@ -170,9 +170,9 @@ $('edit-in-mroffice').addEventListener('click',async()=>{
     editor.view.domObserver.flush();
     if(editor.view.composing)throw new Error('请先完成当前输入，再切换编辑器。');
     setEditable(false);
+    ui.selectView('mroffice');
     await flush();
     setEditable(false);
-    ui.selectView('mroffice');
     const office=await loadMROffice();
     await office.openWord({id:active.id,revision:active.revision,title:active.title,content:editor.getJSON()});
   }catch(error){
