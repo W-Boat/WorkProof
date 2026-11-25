@@ -7,6 +7,10 @@ const output = path.join(root, 'apps/desktop/ui/mroffice');
 const assets = path.dirname(require.resolve('mroffice-assets/package.json', {
   paths: [path.join(root, 'apps/desktop')],
 }));
+const inkPackage = path.dirname(require.resolve('mroffice-ink/package.json', {
+  paths: [path.join(root, 'apps/desktop')],
+}));
+const inkCore = require.resolve('mroffice-core/package.json', {paths: [inkPackage]});
 
 buildSync({
   entryPoints: {app: path.join(root, 'apps/desktop/frontend/mroffice/app.jsx')},
@@ -20,6 +24,7 @@ buildSync({
   platform: 'browser',
   target: ['es2022'],
   legalComments: 'eof',
+  alias: {'workproof-mroffice-ink-core': path.join(path.dirname(inkCore), 'dist/index.js')},
   loader: {'.png': 'file', '.svg': 'file', '.woff': 'file', '.woff2': 'file', '.ttf': 'file', '.wasm': 'file'},
 });
 

@@ -191,7 +191,7 @@ window.workproofReturnFromMROffice=async(reference,content,schema,observations)=
   switchingOffice=true;
   try{
     projectDocument(editor.getJSON(),schema,editor.schema,{checkStructure:false});
-    const projected=projectDocument(removeOfficePagination(content,schema),editor.schema,schema);
+    const projected=projectDocument(removeOfficePagination(content,schema),editor.schema,schema,{fromOffice:true});
     const next=editor.schema.nodeFromJSON(projected);
     if(!next.content.eq(editor.state.doc.content)){
       const exchange=editor.state.tr.replaceWith(0,editor.state.doc.content.size,next.content);

@@ -25,6 +25,8 @@ class EditorErrorBoundary extends React.Component {
 
   static getDerivedStateFromError() { return {failed: true}; }
 
+  componentDidCatch(error) { console.error('MR Office editor:', error); }
+
   render() {
     if (this.state.failed) return <p className="office-empty" role="alert">文件未能打开。请选择其他文件或重新打开当前文档。</p>;
     return this.props.children;
@@ -197,7 +199,8 @@ function Workspace() {
     opening.current = true;
     setBusy(true);
     try {
-      const {default: editor} = await editors[targetKind].load();
+      const entry = editors[targetKind];
+      const [{default: editor}, editorHost] = await Promise.all([entry.load(), entry.loadHost?.()]);
       await flush();
       const file = await loadFile(editor);
       const records = await recentEvents(file.id);
@@ -206,7 +209,7 @@ function Workspace() {
       setCanSave(false);
       current.current = file;
       setFiles(items => [fileSummary(file), ...items.filter(item => item.id !== file.id)]);
-      setActive({file, Component: editor.Component, mount: crypto.randomUUID()});
+      setActive({file, Component: editor.Component, Host: editorHost?.EditorHostProvider || EditorHostProvider, mount: crypto.randomUUID()});
       setKind(targetKind);
       setEvents(records);
       setEarlierEvents([]);
@@ -337,10 +340,10 @@ function Workspace() {
     <div className="office-layout">
       <div ref={surface} className="office-surface" inert={busy}>
         {active ? <EditorErrorBoundary key={active.file.id + ':' + active.mount}>
-          <EditorHostProvider locale="zh" host={host}>
+          <active.Host locale="zh" host={host}>
             <active.Component file={active.file} registerSave={registerSave}
               onSaveRequest={() => void save()} onDirty={() => queue('内容已更改', true)}/>
-          </EditorHostProvider>
+          </active.Host>
         </EditorErrorBoundary> : <div className="office-empty">
           <h1>{selected.label}编辑器</h1>
           <p>可打开 {openFormats.split(',').join('、')}</p>

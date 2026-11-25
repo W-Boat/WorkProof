@@ -19,6 +19,7 @@ export const editors = {
   ink: {
     label: '手写', open: '.mrink,.mrink.json', save: '.mrink',
     load: () => import('mroffice-ink'),
+    loadHost: () => import('workproof-mroffice-ink-core'),
   },
   code: {
     label: '代码', open: '.txt,.js,.jsx,.ts,.tsx,.py,.lua,.sql,.sh,.json,.yaml,.yml,.html,.css,.xml,.md,.rs,.c,.h,.cpp,.cs,.java,.go,.rb,.php',
