@@ -261,7 +261,12 @@ test('a Word draft keeps its identity and its new text when switching through MR
   await page.keyboard.insertText('在 MR Office 续写。');
   await expect(body).toContainText('在 MR Office 续写。');
   await office.getByRole('button',{name:'保存并切回 WorkProof'}).click();
-  await expect(workproofBody).toHaveText('从 WorkProof 开始写作。在 MR Office 续写。');
+  try {
+    await expect(workproofBody).toHaveText('从 WorkProof 开始写作。在 MR Office 续写。');
+  } catch (error) {
+    const status=await office.locator('.office-status').textContent().catch(()=> '');
+    throw new Error(`MR Office return status: ${status}. ${error}`);
+  }
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('test.editor.documents')!));
   expect(Object.keys(saved)).toEqual([documentId]);
   expect(saved[documentId].actions.some((entry:any)=>entry.action.detail?.source==='mroffice-editor')).toBe(true);
