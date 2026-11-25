@@ -55,7 +55,7 @@ function Workspace() {
   const selected = editors[kind];
 
   function error(cause) {
-    setStatus(cause instanceof Error ? cause.message : '操作失败，请重试。');
+    setStatus(typeof cause?.message === 'string' ? cause.message : '操作失败，请重试。');
   }
 
   function queue(action, change = false) {
