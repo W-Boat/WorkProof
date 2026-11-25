@@ -43,6 +43,15 @@ export async function recentEvents(fileId, maximum = 100) {
   });
 }
 
+export async function eventCount(fileId) {
+  const db = await database();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction('events').objectStore('events').index('file').count(fileId);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
 export async function persist(file, events) {
   const db = await database();
   return new Promise((resolve, reject) => {

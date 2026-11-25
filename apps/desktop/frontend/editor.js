@@ -6,6 +6,7 @@ import {externalRecords,sourceLabel,groupExternalDocuments,displayTime} from './
 import {icon} from './icons.js';
 import {draftTemplates} from './draft-templates.js';
 import {initializeWorkspaceTools} from './workspace-tools.js';
+import {projectDocument} from './mroffice/transfer.js';
 
 const $=id=>document.getElementById(id);
 const ipc=(command,args)=>window.__TAURI__.core.invoke(command,args);
@@ -80,6 +81,7 @@ function transaction({transaction:tr,editor:instance}){
   if(suppressed)return;
   const detail={doc_changed:tr.docChanged,selection_set:tr.selectionSet,stored_marks_set:tr.storedMarksSet,meta_keys:Object.keys(tr.meta||{}).slice(0,64)};
   if(tr.getMeta('workproofTemplate'))Object.assign(detail,{source:'builtin-template',template_id:tr.getMeta('workproofTemplate')});
+  if(tr.getMeta('mrofficeTransfer'))detail.source='mroffice-editor';
   if(!tr.docChanged){addAction(tr.selectionSet?'selection':'transaction',{detail,selection:{from:tr.selection.from,to:tr.selection.to}});if(tr.storedMarksSet)updateToolbar(instance);return;}
   const delta=changedText(fullText(tr.before),fullText(tr.doc));
   let kind=intent&&performance.now()-intent.at<600?intent.kind:delta.inserted||delta.deleted?'edit':'format';intent=null;
@@ -137,6 +139,63 @@ function scheduleSave(){
   if(!maxSaveTimer)maxSaveTimer=setTimeout(()=>{maxSaveTimer=null;flush().catch(reportError);},2000);
 }
 function reportError(error){state('未保存 · 请重试','error');ui.showMessage(errorText(error),'error');}
+
+function loadMROffice(){
+  const frame=$('mroffice-frame');
+  if(frame.contentWindow?.workproofMROffice)return Promise.resolve(frame.contentWindow.workproofMROffice);
+  return new Promise((resolve,reject)=>{
+    const check=setInterval(()=>{
+      if(frame.contentWindow?.workproofMROffice){
+        clearInterval(check);clearTimeout(timeout);resolve(frame.contentWindow.workproofMROffice);
+      }
+    },100);
+    const timeout=setTimeout(()=>{
+      clearInterval(check);reject(new Error('MR Office 未能启动，原文档已保留。'));
+    },15000);
+    if(!frame.hasAttribute('src'))frame.src='mroffice.html';
+  });
+}
+
+let switchingOffice=false;
+$('edit-in-mroffice').addEventListener('click',async()=>{
+  if(switchingOffice||opening||exporting||closing||active?.kind!=='word')return;
+  switchingOffice=true;
+  const button=$('edit-in-mroffice');
+  button.disabled=true;
+  try{
+    editor.view.domObserver.flush();
+    if(editor.view.composing)throw new Error('请先完成当前输入，再切换编辑器。');
+    setEditable(false);
+    await flush();
+    setEditable(false);
+    const office=await loadMROffice();
+    await office.openWord({id:active.id,revision:active.revision,title:active.title,content:editor.getJSON()});
+    ui.selectView('mroffice');
+  }catch(error){ui.showMessage(errorText(error),'error');}
+  finally{setEditable(true);button.disabled=false;switchingOffice=false;}
+});
+
+window.workproofReturnFromMROffice=async(reference,content,schema,observations)=>{
+  if(switchingOffice||opening||exporting||closing)throw new Error('WorkProof 正在处理文档，请稍后重试。');
+  if(!active||active.id!==reference.id||active.revision!==reference.revision){
+    throw new Error('原文档版本已变化。MR Office 草稿已保存在本机文档中。');
+  }
+  switchingOffice=true;
+  try{
+    projectDocument(editor.getJSON(),schema,editor.schema);
+    const projected=projectDocument(content,editor.schema,schema);
+    const next=editor.schema.nodeFromJSON(projected);
+    if(!next.content.eq(editor.state.doc.content)){
+      const exchange=editor.state.tr.replaceWith(0,editor.state.doc.content.size,next.content);
+      exchange.setMeta('mrofficeTransfer',true);
+      editor.view.dispatch(exchange);
+    }
+    addAction('transaction',{detail:{source:'mroffice-editor',observed_groups:observations}});
+    await flush();
+    ui.selectView('document');
+    selectTab('write');
+  }finally{switchingOffice=false;}
+};
 async function flush(){
   workspace.validate();
   clearTimeout(saveTimer);clearTimeout(maxSaveTimer);maxSaveTimer=null;
@@ -170,7 +229,7 @@ ui.beforeNavigate=async()=>{
   if(document.body.dataset.view==='mroffice'){
     await $('mroffice-frame').contentWindow?.workproofMROffice?.flush();
   }
-  if(opening||creating||importing||exporting||openingLibraryEntry){
+  if(opening||creating||importing||exporting||openingLibraryEntry||switchingOffice){
     ui.showMessage('正在处理文档，请稍候再切换页面。');
     return false;
   }
@@ -194,7 +253,7 @@ window.workproofBeforeClose=async()=>{
   // Let the editor observe the final browser input before freezing its DOM.
   await new Promise(resolve=>setTimeout(resolve,0));
   editor?.view.domObserver.flush();
-  if(opening||creating||importing||exporting||openingLibraryEntry)throw new Error('文档正在打开、导入或导出，请完成后再关闭或退出。');
+  if(opening||creating||importing||exporting||openingLibraryEntry||switchingOffice)throw new Error('文档正在打开、导入或导出，请完成后再关闭或退出。');
   if(editor?.view.composing)throw new Error('请先完成当前输入，再关闭或退出。');
   if(closing)return;
   editableBeforeClose=editor?.isEditable??true;closing=true;
@@ -212,6 +271,7 @@ async function openDocument(doc){
     await flush();await loadEditorRuntime();workspace.closeFind();workspace.closeSource();workspace.rememberPagination();suppressed=true;characterSnapshot=null;editor?.destroy();active=doc;pending=[];inflight=null;dirty=false;intent=null;lastSelection='';
     selectedVersion=null;expandedFlows.clear();$('flow-detail').replaceChildren();$('flow-detail').hidden=true;$('history-preview').replaceChildren();
     $('document-title').value=doc.title;
+    $('edit-in-mroffice').hidden=doc.kind!=='word';
     const domEvents={keydown,copy:()=>{commandAction('copy');return false;},paste:()=>{commandAction('paste');return false;},cut:()=>{commandAction('cut');return false;},beforeinput:(_v,event)=>{addAction('beforeinput',{detail:{input_type:event.inputType}});if(event.inputType==='historyUndo')hint('undo');if(event.inputType==='historyRedo')hint('redo');return false;},input:(_v,event)=>{addAction('input',{detail:{input_type:event.inputType}});return false;},focus:()=>{addAction('focus');return false;},blur:()=>{addAction('blur');return false;}};
     for(const type of ['compositionstart','compositionupdate','compositionend','drop','dragstart','dragend'])domEvents[type]=(_v,event)=>{addAction(type,{detail:{data:typeof event.data==='string'?event.data.slice(0,2048):null}});return false;};
     editor=new editorRuntime.Editor({element:$('tiptap-editor'),extensions:editorRuntime.editorExtensions(true),content:doc.content,editorProps:{attributes:{'aria-label':'文档正文',role:'textbox','aria-multiline':'true',spellcheck:'true'},handleDOMEvents:domEvents},onTransaction:transaction,onSelectionUpdate:({editor:e})=>updateToolbar(e)});

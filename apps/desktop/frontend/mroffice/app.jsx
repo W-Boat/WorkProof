@@ -3,7 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {configureEditors, EditorHostProvider} from 'mroffice-core';
 import 'mroffice-docs/style.self-hosted.css';
 import {editors} from './catalog.js';
-import {listFiles, persist, recentEvents} from './storage.js';
+import {eventCount, listFiles, persist, recentEvents} from './storage.js';
 
 configureEditors({assetsBaseUrl: new URL('./mroffice/assets/', document.baseURI).href});
 const MAX_FILE = 32 * 1024 * 1024;
@@ -35,6 +35,7 @@ function Workspace() {
   const pending = useRef([]);
   const saving = useRef(null);
   const opening = useRef(false);
+  const openWord = useRef(null);
   const timer = useRef(null);
   const selected = editors[kind];
 
@@ -105,8 +106,9 @@ function Workspace() {
     const bridge = {flush: async () => {
       if (opening.current) throw new Error('正在打开文件，请稍候。');
       await flush();
-    }};
+    }, openWord: document => openWord.current(document)};
     window.workproofMROffice = bridge;
+    window.dispatchEvent(new Event('workproof-mroffice-ready'));
     return () => {
       clearTimeout(timer.current);
       delete window.workproofMROffice;
@@ -162,8 +164,11 @@ function Workspace() {
     };
   }).current;
 
-  async function open(targetKind, loadFile) {
-    if (opening.current) return;
+  async function open(targetKind, loadFile, propagateError = false) {
+    if (opening.current) {
+      if (propagateError) throw new Error('正在打开文件，请稍候。');
+      return;
+    }
     opening.current = true;
     setBusy(true);
     try {
@@ -179,11 +184,33 @@ function Workspace() {
       setEvents(records);
       setStatus(file.kind === 'pdf' ? '已打开。批注记录保存在本机。' : '已打开，自动保存到本机。');
       queue(records.length ? '重新打开文件' : '打开文件');
-    } catch (cause) { error(cause); }
+    } catch (cause) {
+      error(cause);
+      if (propagateError) throw cause;
+    }
     finally { opening.current = false; setBusy(false); }
   }
 
   const openFormats = kind === 'code' && supportedFormats ? supportedFormats : selected.open;
+
+  openWord.current = async ({id, revision, title, content}) => {
+    const {mrdocBytes} = await editors.docs.load();
+    await open('docs', () => ({
+      id: crypto.randomUUID(), kind: 'docs', name: title + '.mrdoc',
+      bytes: mrdocBytes(title, content), workproof: {id, revision}, savedAt: Date.now(),
+    }), true);
+  };
+
+  async function returnToWorkProof() {
+    try {
+      await flush(true);
+      const file = current.current;
+      const editor = surface.current.querySelector('.ProseMirror.note-editor-content')?.editor;
+      if (!file?.workproof || !editor) throw new Error('请等待 Word 文档加载完成。');
+      await window.parent.workproofReturnFromMROffice(file.workproof, editor.getJSON(), editor.schema,
+        await eventCount(file.id));
+    } catch (cause) { error(cause); }
+  }
 
   function selectFile(event) {
     const picked = event.target.files?.[0];
@@ -252,6 +279,7 @@ function Workspace() {
         {files.map(file => <option key={file.id} value={file.id}>{file.name}</option>)}
       </select></label>
       <button disabled={!canSave || busy || !editors[active?.file.kind]?.save} onClick={() => void save(true)}>导出文件</button>
+      {active?.file.workproof && <button disabled={busy} onClick={() => void returnToWorkProof()}>保存并切回 WorkProof</button>}
       <button type="button" aria-pressed={showEvents} onClick={() => setShowEvents(!showEvents)}>操作记录</button>
       {active && <details><summary>支持的格式</summary><span>{openFormats.split(',').join('、')}</span></details>}
     </header>
