@@ -10,6 +10,11 @@ async function desktop(page:Page){
   await page.route('**/desktop-status/**',route=>{
     const asset=new URL(route.request().url()).pathname.slice('/desktop-status/'.length);
     const name=asset.split('/').at(-1)!;
+    if (/^mroffice\/(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/.test(asset) ||
+        ['mroffice.html','mroffice-shell.css'].includes(asset)) {
+      if (asset.split('/').some(part => part === '..' || part === '.')) return route.abort();
+      return route.fulfill({path:'apps/desktop/ui/'+asset});
+    }
     const type:Record<string,string>={'index.html':'text/html','word-worker.js':'application/javascript','components.js':'application/javascript','markdown-source-runtime.js':'application/javascript','theme.css':'text/css','native-editor.css':'text/css','report-export.css':'text/css','report-viewer.js':'application/javascript','native-verifier.css':'text/css','verify-worker.js':'application/javascript','brand.png':'image/png'};
     const headers=name==='index.html'?{'Content-Security-Policy':JSON.parse(fs.readFileSync('apps/desktop/src-tauri/tauri.conf.json','utf8')).app.security.csp}:{};
     const hostIcon=/^adapter-icons\/([a-z0-9-]+)\.webp$/.test(asset)&&fs.existsSync('apps/desktop/ui/'+asset);
@@ -218,6 +223,27 @@ test('real Tiptap edits and formats persist and reopen with independent navigati
   await page.reload();await page.getByRole('button',{name:'继续编辑 学术写作记录'}).click();
   await expect(body).toContainText('这是一份写作笔记。');await expect(body.locator('strong')).not.toHaveCount(0);
   await page.screenshot({path:info.outputPath('fluent-editor-write.png')});
+});
+
+test('a Word draft keeps its identity and its new text when switching through MR Office',async({page})=>{
+  test.setTimeout(60000);
+  await desktop(page);
+  const workproofBody=await create(page);
+  await workproofBody.fill('从 WorkProof 开始写作。');
+  await expect(page.locator('#save-state')).toHaveText('已保存到本机');
+  const documentId=await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('test.editor.documents')!))[0]);
+  await page.locator('#edit-in-mroffice').click();
+  const office=page.frameLocator('#mroffice-frame');
+  const body=office.locator('.ProseMirror[contenteditable="true"]').first();
+  await expect(body).toContainText('从 WorkProof 开始写作。',{timeout:30000});
+  await body.press('End');
+  await page.keyboard.insertText('在 MR Office 续写。');
+  await expect(body).toContainText('在 MR Office 续写。');
+  await office.getByRole('button',{name:'保存并切回 WorkProof'}).click();
+  await expect(workproofBody).toHaveText('从 WorkProof 开始写作。在 MR Office 续写。');
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('test.editor.documents')!));
+  expect(Object.keys(saved)).toEqual([documentId]);
+  expect(saved[documentId].actions.some((entry:any)=>entry.action.detail?.source==='mroffice-editor')).toBe(true);
 });
 
 test('failed save keeps the same request and all pending edits before retry',async({page})=>{

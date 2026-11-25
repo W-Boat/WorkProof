@@ -2,7 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {configureEditors, EditorHostProvider} from 'mroffice-core';
 import 'mroffice-docs/style.self-hosted.css';
-import {editors} from './catalog.js';
+import {editors, fullEngineFormats} from './catalog.js';
 import {eventCount, listFiles, persist, recentEvents} from './storage.js';
 
 configureEditors({assetsBaseUrl: new URL('./mroffice/assets/', document.baseURI).href});
@@ -10,6 +10,7 @@ const MAX_FILE = 32 * 1024 * 1024;
 const interactions = {
   copy: '复制', cut: '剪切', paste: '粘贴', drop: '拖放',
   compositionstart: '开始输入法合成', compositionend: '完成输入法合成',
+  dragstart: '开始拖动', dragend: '结束拖动',
 };
 const inputs = {
   insertText: '输入文字', insertParagraph: '换段', insertLineBreak: '换行',
@@ -18,12 +19,24 @@ const inputs = {
   formatItalic: '斜体', formatUnderline: '下划线',
 };
 
+class EditorErrorBoundary extends React.Component {
+  state = {failed: false};
+
+  static getDerivedStateFromError() { return {failed: true}; }
+
+  render() {
+    if (this.state.failed) return <p className="office-empty" role="alert">文件未能打开。请选择其他文件或重新打开当前文档。</p>;
+    return this.props.children;
+  }
+}
+
 function Workspace() {
   const [kind, setKind] = useState('docs');
   const [active, setActive] = useState(null);
   const [files, setFiles] = useState([]);
   const [events, setEvents] = useState([]);
   const [showEvents, setShowEvents] = useState(false);
+  const [earlierEvents, setEarlierEvents] = useState([]);
   const [status, setStatus] = useState('选择编辑器，新建或打开本机文件。');
   const [busy, setBusy] = useState(false);
   const [canSave, setCanSave] = useState(false);
@@ -37,6 +50,7 @@ function Workspace() {
   const opening = useRef(false);
   const openWord = useRef(null);
   const timer = useRef(null);
+  const earliest = earlierEvents.at(-1) || events.at(-1);
   const selected = editors[kind];
 
   function error(cause) {
@@ -85,16 +99,17 @@ function Workspace() {
     pending.current = [];
     saving.current = (async () => {
       let next = file;
+      let recorded;
       try {
         if (forced || batch.some(event => event.change)) next = await snapshot(file, saver.current);
-        await persist(next === file ? null : next, batch);
+        recorded = await persist(next === file ? null : next, batch);
       } catch (cause) {
         pending.current = [...batch, ...pending.current];
         throw cause;
       }
       current.current = next;
       if (next !== file) setFiles(items => [next, ...items.filter(item => item.id !== file.id)]);
-      if (batch.length) setEvents(items => [...batch.slice().reverse(), ...items].slice(0, 100));
+      if (recorded.length) setEvents(items => [...recorded.reverse(), ...items].slice(0, 100));
       if (forced || next !== file) setStatus('已保存到本机。');
     })();
     try { await saving.current; }
@@ -131,6 +146,8 @@ function Workspace() {
       if (!event.isTrusted) return;
       if (event.type === 'input') {
         queue(inputs[event.inputType] || '输入或调整内容', true);
+      } else if (event.type === 'change') {
+        queue('调整编辑器选项', true);
       } else if (event.type === 'click') {
         const button = event.target.closest?.('button,[role="button"],[role="menuitem"],[role="tab"]');
         if (!button) return;
@@ -144,11 +161,13 @@ function Workspace() {
         } else if (['Backspace', 'Delete', 'Enter', ' ', 'Tab'].includes(event.key) && !event.isComposing) {
           queue({Backspace:'退格键',Delete:'删除键',Enter:'回车键',' ':'空格键',Tab:'制表键'}[event.key]);
         }
-      } else if (event.type === 'pointerup' && event.target.closest?.('canvas,svg,.ProseMirror')) {
-        if (current.current?.kind === 'ink') queue('手写或调整笔画', true);
+      } else if (event.type === 'pointerup' && event.target.closest?.('canvas,.ProseMirror,svg')) {
+        const kind = current.current?.kind;
+        if (kind === 'ink') queue('手写画布操作', true);
+        if (kind === 'pdf' && !event.target.closest('button,[role="button"]')) queue('PDF 页面操作');
       } else if (interactions[event.type]) queue(interactions[event.type], ['cut','paste','drop'].includes(event.type));
     }
-    const types = ['input','click','keydown','pointerup',...Object.keys(interactions)];
+    const types = ['input','change','click','keydown','pointerup',...Object.keys(interactions)];
     for (const type of types) root.addEventListener(type, observe, true);
     return () => { for (const type of types) root.removeEventListener(type, observe, true); };
   }, [active]);
@@ -177,11 +196,14 @@ function Workspace() {
       const file = await loadFile(editor);
       const records = await recentEvents(file.id);
       await persist(file, []);
+      saver.current = null;
+      setCanSave(false);
       current.current = file;
       setFiles(items => [file, ...items.filter(item => item.id !== file.id)]);
-      setActive({file, Component: editor.Component});
+      setActive({file, Component: editor.Component, mount: crypto.randomUUID()});
       setKind(targetKind);
       setEvents(records);
+      setEarlierEvents([]);
       setStatus(file.kind === 'pdf' ? '已打开。批注记录保存在本机。' : '已打开，自动保存到本机。');
       queue(records.length ? '重新打开文件' : '打开文件');
     } catch (cause) {
@@ -195,7 +217,8 @@ function Workspace() {
 
   openWord.current = async ({id, revision, title, content}) => {
     const {mrdocBytes} = await editors.docs.load();
-    await open('docs', () => ({
+    const existing = files.find(file => file.workproof?.id === id && file.workproof.revision === revision);
+    await open('docs', () => existing || ({
       id: crypto.randomUUID(), kind: 'docs', name: title + '.mrdoc',
       bytes: mrdocBytes(title, content), workproof: {id, revision}, savedAt: Date.now(),
     }), true);
@@ -243,6 +266,20 @@ function Workspace() {
     } catch (cause) { error(cause); }
   }
 
+  async function loadEarlier() {
+    try {
+      const file = current.current;
+      if (!file || !earliest) return;
+      const records = await recentEvents(file.id, 100, earliest.recordId);
+      if (current.current?.id !== file.id) return;
+      if (!records.length) setStatus('已到最早的操作。');
+      setEarlierEvents(items => {
+        const existing = new Set(items.map(item => item.recordId));
+        return [...items, ...records.filter(item => !existing.has(item.recordId))];
+      });
+    } catch (cause) { error(cause); }
+  }
+
   function downloadFile(file) {
     const url = URL.createObjectURL(file.data);
     const link = document.createElement('a');
@@ -256,6 +293,10 @@ function Workspace() {
 
   const host = {
     saveFile: file => {
+      if (current.current?.workproof) {
+        setStatus('请保存并切回 WorkProof，再导出 Word 文件和证书。');
+        return;
+      }
       queue('编辑器导出');
       downloadFile(file);
     },
@@ -278,7 +319,7 @@ function Workspace() {
         <option value="">选择文档</option>
         {files.map(file => <option key={file.id} value={file.id}>{file.name}</option>)}
       </select></label>
-      <button disabled={!canSave || busy || !editors[active?.file.kind]?.save} onClick={() => void save(true)}>导出文件</button>
+      {!active?.file.workproof && <button disabled={!canSave || busy || !editors[active?.file.kind]?.save} onClick={() => void save(true)}>导出文件</button>}
       {active?.file.workproof && <button disabled={busy} onClick={() => void returnToWorkProof()}>保存并切回 WorkProof</button>}
       <button type="button" aria-pressed={showEvents} onClick={() => setShowEvents(!showEvents)}>操作记录</button>
       {active && <details><summary>支持的格式</summary><span>{openFormats.split(',').join('、')}</span></details>}
@@ -286,24 +327,38 @@ function Workspace() {
     <p className="office-status" role="status">{busy ? '正在打开编辑器…' : status}</p>
     <div className="office-layout">
       <div ref={surface} className="office-surface">
-        {active ? <EditorHostProvider locale="zh" host={host}>
-          <active.Component key={active.file.id} file={active.file} registerSave={registerSave}
-            onSaveRequest={() => void save()} onDirty={() => queue('内容已更改', true)}/>
-        </EditorHostProvider> : <div className="office-empty">
+        {active ? <EditorErrorBoundary key={active.file.id + ':' + active.mount}>
+          <EditorHostProvider locale="zh" host={host}>
+            <active.Component file={active.file} registerSave={registerSave}
+              onSaveRequest={() => void save()} onDirty={() => queue('内容已更改', true)}/>
+          </EditorHostProvider>
+        </EditorErrorBoundary> : <div className="office-empty">
           <h1>{selected.label}编辑器</h1>
           <p>可打开 {openFormats.split(',').join('、')}</p>
           <p>{selected.save ? '可保存 ' + selected.save : '批注仅在当前编辑器中查看。'}</p>
+          <details className="office-format-details">
+            <summary>MR Office 完整引擎的格式</summary>
+            <p>以下为上游格式清单。当前离线组件可打开的格式以本页上方为准。</p>
+            <table>
+              <thead><tr><th scope="col">类型</th><th scope="col">可编辑并原格式保存</th><th scope="col">可预览</th></tr></thead>
+              <tbody>{fullEngineFormats.map(([label, editable, preview]) => <tr key={label}>
+                <th scope="row">{label}</th><td>{editable}</td><td>{preview}</td>
+              </tr>)}</tbody>
+            </table>
+            <p>部分预览格式取决于上游部署的转换组件。<a href="https://mroffice.ai/en/developers/embed/formats" target="_blank" rel="noreferrer">官方格式说明</a></p>
+          </details>
           <p><a href="https://github.com/XinaTian/MROffice/tree/2e69eb18f2676ef689dc994f84af1c429dea2d2f" target="_blank" rel="noreferrer">编辑器源码</a>
             {' · '}<a href="https://github.com/XinaTian/MROffice/tree/f0a2168e1a0a3f877e96158bf1e0f347cf6d6c28" target="_blank" rel="noreferrer">手写组件源码</a>
             {' · '}<a href="mroffice/notices/docs/LICENSE" target="_blank" rel="noreferrer">AGPL-3.0</a></p>
         </div>}
       </div>
       {showEvents && <aside className="office-log" aria-label="操作记录">
-        <h2>最近操作</h2>
-        <ol>{events.map((event, index) => <li key={event.at + ':' + index}>
+        <h2>操作记录</h2>
+        <ol>{[...events, ...earlierEvents].map(event => <li key={event.recordId}>
           {event.action}{event.count > 1 && ' × ' + event.count}
           <time>{new Date(event.at).toLocaleTimeString('zh-CN')}</time>
         </li>)}</ol>
+        {events.length === 100 && <button onClick={() => void loadEarlier()}>查看更早记录</button>}
       </aside>}
     </div>
   </main>;

@@ -27,7 +27,7 @@ export async function listFiles() {
   });
 }
 
-export async function recentEvents(fileId, maximum = 100) {
+export async function recentEvents(fileId, maximum = 100, before = Infinity) {
   const db = await database();
   return new Promise((resolve, reject) => {
     const found = [];
@@ -37,7 +37,7 @@ export async function recentEvents(fileId, maximum = 100) {
     request.onsuccess = () => {
       const cursor = request.result;
       if (!cursor || found.length === maximum) { resolve(found); return; }
-      found.push(cursor.value);
+      if (cursor.primaryKey < before) found.push({...cursor.value, recordId: cursor.primaryKey});
       cursor.continue();
     };
   });
@@ -57,10 +57,14 @@ export async function persist(file, events) {
   return new Promise((resolve, reject) => {
     // Keep the saved state and the events reflected by it in the same commit.
     const tx = db.transaction(['files', 'events'], 'readwrite');
-    tx.oncomplete = () => resolve();
+    const recorded = [];
+    tx.oncomplete = () => resolve(recorded);
     tx.onabort = () => reject(tx.error || new Error('本机存储写入失败。'));
     if (file) tx.objectStore('files').put(file);
     const entries = tx.objectStore('events');
-    for (const event of events) entries.add(event);
+    for (const event of events) {
+      const request = entries.add(event);
+      request.onsuccess = () => recorded.push({...event, recordId: request.result});
+    }
   });
 }
