@@ -11,7 +11,7 @@ async function desktop(page:Page){
     const asset=new URL(route.request().url()).pathname.slice('/desktop-status/'.length);
     const name=asset.split('/').at(-1)!;
     if (/^mroffice\/(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/.test(asset) ||
-        ['mroffice.html','mroffice-shell.css'].includes(asset)) {
+        ['mroffice.html','mroffice-shell.css','mroffice-bootstrap.js'].includes(asset)) {
       if (asset.split('/').some(part => part === '..' || part === '.')) return route.abort();
       return route.fulfill({path:'apps/desktop/ui/'+asset});
     }
@@ -227,6 +227,9 @@ test('real Tiptap edits and formats persist and reopen with independent navigati
 
 test('a Word draft keeps its identity and its new text when switching through MR Office',async({page})=>{
   test.setTimeout(60000);
+  const startup:string[]=[];
+  page.on('pageerror',error=>startup.push(error.message));
+  page.on('console',msg=>{if(msg.type()==='error')startup.push(msg.text());});
   await desktop(page);
   const workproofBody=await create(page);
   await workproofBody.fill('从 WorkProof 开始写作。');
@@ -235,7 +238,14 @@ test('a Word draft keeps its identity and its new text when switching through MR
   await page.locator('#edit-in-mroffice').click();
   const office=page.frameLocator('#mroffice-frame');
   const body=office.locator('.ProseMirror[contenteditable="true"]').first();
-  await expect(body).toContainText('从 WorkProof 开始写作。',{timeout:30000});
+  try{
+    await expect(body).toContainText('从 WorkProof 开始写作。',{timeout:20000});
+  }catch(error){
+    const version=await page.locator('body').getAttribute('data-view');
+    const note=await page.locator('#message').textContent();
+    const frameNote=await office.locator('body').innerText({timeout:1000}).catch(()=> '');
+    throw new Error(`Word handoff: ${startup.join(' | ')}. View: ${version}. Message: ${note}. MR Office: ${frameNote.slice(0,320)}\n${error}`);
+  }
   await body.press('End');
   await page.keyboard.insertText('在 MR Office 续写。');
   await expect(body).toContainText('在 MR Office 续写。');

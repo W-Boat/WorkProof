@@ -3,13 +3,21 @@ import {expect, test} from '@playwright/test';
 test('MR Office lists all six local editors and keeps document edits and events after reload', async ({page}) => {
   test.setTimeout(60_000);
   const remote: string[] = [];
+  const startup: string[] = [];
+  page.on('pageerror', error => startup.push(error.message));
+  page.on('console', message => {if(message.type()==='error')startup.push(message.text());});
+  page.on('requestfailed', request=>startup.push(request.url()+' '+request.failure()?.errorText));
   page.on('request', request => {
     const url = new URL(request.url());
     if (['http:', 'https:'].includes(url.protocol) && url.hostname !== '127.0.0.1') remote.push(request.url());
   });
   await page.goto('/mroffice.html');
-  const kind = page.getByLabel('编辑器', {exact: true});
-  await expect(kind.locator('option')).toHaveText(['文档', '表格', '演示', 'PDF', '手写', '代码']);
+  const kind = page.locator('.office-toolbar select').first();
+  try {
+    await expect(kind.locator('option')).toHaveText(['文档', '表格', '演示', 'PDF', '手写', '代码']);
+  } catch (error) {
+    throw new Error(`MR Office startup: ${startup.join(' | ')}. Page: ${await page.locator('body').innerText()}\n${error}`);
+  }
   await kind.selectOption('sheets');
   await expect(page.getByText(/可打开 .*\.csv/)).toBeVisible();
   await kind.selectOption('docs');
